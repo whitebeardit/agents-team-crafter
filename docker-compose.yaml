@@ -1,0 +1,98 @@
+# Stack: Redis (Chat SDK), BFF Fastify, Next.js — MongoDB via MongoDB Atlas (MONGODB_URI no .env da raiz).
+#
+# 1. Copie .env.example para .env e preencha MONGODB_URI (connection string do Atlas).
+#
+# Subir:  docker compose up --build
+#
+# Seed (dados demo + login admin@whitebeard.dev / Admin123!) — aponta para o mesmo Atlas:
+#        docker compose --profile seed run --rm seed
+#
+# URLs: app http://localhost:3000  |  API http://localhost:3001/api/v1  |  health http://localhost:3001/health
+#
+# JWT_SECRET: opcional no .env; senão usa o default de desenvolvimento abaixo.
+
+name: agents-team-crafter
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      MONGODB_URI: ${MONGODB_URI:?Defina MONGODB_URI no ficheiro .env na raiz (MongoDB Atlas)}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars-long-for-docker!!}
+      JWT_EXPIRES_IN: 7d
+      JWT_REFRESH_EXPIRES_IN: 30d
+      CORS_ORIGIN: http://localhost:3000
+      PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  frontend:
+    build:
+      context: ./v0-team-ai-crafter
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # Popula o Atlas (login demo). Requer MONGODB_URI no .env da raiz.
+  seed:
+    profiles: ["seed"]
+    image: node:20-bookworm-slim
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MONGODB_URI: ${MONGODB_URI:?Defina MONGODB_URI no ficheiro .env na raiz (MongoDB Atlas)}
+    command: sh -c "npm ci && npx tsx scripts/seed.ts"
+
+volumes:
+  redis_data:

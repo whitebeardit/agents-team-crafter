@@ -1,20 +1,26 @@
 import type { IUserRecord, IUserRepository } from '../domain/ports/user-repository.port.js';
 import { UserModel } from './user.model.js';
 
-function toRecord(doc: InstanceType<typeof UserModel>): IUserRecord {
-  return {
-    id: doc._id.toString(),
-    email: doc.email,
-    name: doc.name,
-    avatar: doc.avatar,
-    preferences: (doc.preferences as Record<string, unknown> | undefined) ?? {},
-    passwordHash: doc.passwordHash,
-    workspaceIds: (doc.workspaceIds ?? []).map((x: { toString: () => string }) => x.toString()),
-    refreshTokenHash: doc.refreshTokenHash,
-  };
-}
-
 export class UserRepository implements IUserRepository {
+  constructor(private readonly platformAdminEmails: ReadonlySet<string> = new Set()) {}
+
+  private toRecord(doc: InstanceType<typeof UserModel>): IUserRecord {
+    const d = doc as typeof doc & { isPlatformAdmin?: boolean };
+    const emailLower = String(doc.email).toLowerCase();
+    const fromDb = d.isPlatformAdmin === true;
+    return {
+      id: doc._id.toString(),
+      email: doc.email,
+      name: doc.name,
+      avatar: doc.avatar,
+      preferences: (doc.preferences as Record<string, unknown> | undefined) ?? {},
+      passwordHash: doc.passwordHash,
+      workspaceIds: (doc.workspaceIds ?? []).map((x: { toString: () => string }) => x.toString()),
+      isPlatformAdmin: fromDb || this.platformAdminEmails.has(emailLower),
+      refreshTokenHash: doc.refreshTokenHash,
+    };
+  }
+
   async create(input: {
     email: string;
     passwordHash: string;
@@ -25,23 +31,24 @@ export class UserRepository implements IUserRepository {
       passwordHash: input.passwordHash,
       name: input.name.trim(),
       workspaceIds: [],
+      isPlatformAdmin: false,
     });
-    return toRecord(doc);
+    return this.toRecord(doc);
   }
 
   async findByEmail(email: string): Promise<IUserRecord | null> {
     const doc = await UserModel.findOne({ email: email.toLowerCase() });
-    return doc ? toRecord(doc) : null;
+    return doc ? this.toRecord(doc) : null;
   }
 
   async findById(id: string): Promise<IUserRecord | null> {
     const doc = await UserModel.findById(id);
-    return doc ? toRecord(doc) : null;
+    return doc ? this.toRecord(doc) : null;
   }
 
   async findByRefreshTokenHash(hash: string): Promise<IUserRecord | null> {
     const doc = await UserModel.findOne({ refreshTokenHash: hash });
-    return doc ? toRecord(doc) : null;
+    return doc ? this.toRecord(doc) : null;
   }
 
   async updateRefreshToken(id: string, hash: string | null): Promise<void> {
@@ -57,5 +64,12 @@ export class UserRepository implements IUserRepository {
     patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string },
   ): Promise<void> {
     await UserModel.findByIdAndUpdate(id, { $set: patch });
+  }
+
+  async addWorkspaceId(userId: string, workspaceId: string): Promise<void> {
+    const { Types } = await import('mongoose');
+    await UserModel.findByIdAndUpdate(userId, {
+      $addToSet: { workspaceIds: new Types.ObjectId(workspaceId) },
+    });
   }
 }

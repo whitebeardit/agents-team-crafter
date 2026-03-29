@@ -35,7 +35,12 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
       passwordHash,
       name: body.name,
     });
-    const access = d.jwt.signAccess({ id: user.id, email: user.email, name: user.name });
+    const access = d.jwt.signAccess({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isPlatformAdmin: user.isPlatformAdmin,
+    });
     const refresh = generateRefreshToken();
     await d.userRepo.updateRefreshToken(user.id, hashToken(refresh));
     const decoded = jwt.decode(access) as { exp: number };
@@ -50,6 +55,7 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
           email: user.email,
           avatar: user.avatar,
           workspaceIds: user.workspaceIds,
+          isPlatformAdmin: user.isPlatformAdmin,
         },
       }),
     );
@@ -61,7 +67,12 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
     if (!user || !(await bcrypt.compare(body.password, user.passwordHash))) {
       throw new AppError('INVALID_CREDENTIALS', 'Email ou senha invalidos', 401);
     }
-    const access = d.jwt.signAccess({ id: user.id, email: user.email, name: user.name });
+    const access = d.jwt.signAccess({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isPlatformAdmin: user.isPlatformAdmin,
+    });
     const refresh = generateRefreshToken();
     await d.userRepo.updateRefreshToken(user.id, hashToken(refresh));
     const decoded = jwt.decode(access) as { exp: number };
@@ -76,6 +87,7 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
           email: user.email,
           avatar: user.avatar,
           workspaceIds: user.workspaceIds,
+          isPlatformAdmin: user.isPlatformAdmin,
         },
       }),
     );
@@ -96,6 +108,7 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
         email: user.email,
         avatar: user.avatar,
         workspaceIds: user.workspaceIds,
+        isPlatformAdmin: user.isPlatformAdmin,
       }),
     );
   });
@@ -104,7 +117,12 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
     const body = refreshSchema.parse(req.body);
     const user = await d.userRepo.findByRefreshTokenHash(hashToken(body.refreshToken));
     if (!user) throw new AppError('UNAUTHORIZED', 'Refresh token invalido', 401);
-    const access = d.jwt.signAccess({ id: user.id, email: user.email, name: user.name });
+    const access = d.jwt.signAccess({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isPlatformAdmin: user.isPlatformAdmin,
+    });
     const refresh = generateRefreshToken();
     await d.userRepo.updateRefreshToken(user.id, hashToken(refresh));
     const decoded = jwt.decode(access) as { exp: number };

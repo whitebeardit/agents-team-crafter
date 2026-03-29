@@ -32,6 +32,26 @@ export class WorkspaceRepository implements IWorkspaceRepository {
     return docs.map((d) => toRec(d as WorkspaceDoc));
   }
 
+  async listAll(): Promise<IWorkspaceRecord[]> {
+    const docs = await WorkspaceModel.find({}).sort({ name: 1 });
+    return docs.map((d) => toRec(d as WorkspaceDoc));
+  }
+
+  async createWorkspace(input: {
+    name: string;
+    logo?: string;
+    plan?: IWorkspaceRecord['plan'];
+  }): Promise<IWorkspaceRecord> {
+    const doc = await WorkspaceModel.create({
+      name: input.name.trim(),
+      logo: input.logo,
+      plan: input.plan ?? 'free',
+      settings: {},
+      limits: {},
+    });
+    return toRec(doc as WorkspaceDoc);
+  }
+
   async findByIdForUser(workspaceId: string, userId: string): Promise<IWorkspaceRecord | null> {
     const m = await WorkspaceMemberModel.findOne({
       workspaceId: new Types.ObjectId(workspaceId),

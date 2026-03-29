@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
-import { createApiClient } from "@/lib/api/client"
+import { WORKSPACE_DEFAULT_LOGO } from "@/lib/constants/workspace"
+import { ApiError, createApiClient } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -38,7 +39,6 @@ import {
   Bell,
   Shield,
   CreditCard,
-  Users,
   Key,
   Globe,
   Palette,
@@ -52,6 +52,19 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { WorkspaceTeamSection } from "@/components/workspace/workspace-team-section"
+
+const LOGO_MAX_BYTES = 2 * 1024 * 1024
+const LOGO_ACCEPT_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/svg+xml"])
+
+type SettingsWorkspaceState = {
+  id: string
+  name: string
+  logo?: string
+  plan?: string
+  settings?: Record<string, unknown>
+  limits?: unknown
+}
 
 type IntegrationsApiData = {
   secretsMasked: {
@@ -76,8 +89,10 @@ type IntegrationsApiData = {
 
 export default function SettingsPage() {
   const searchParams = useSearchParams()
-  const { token, refreshToken, currentWorkspace, workspaces } = useWorkspaceStore()
-  const [workspace, setWorkspace] = useState<any | null>(null)
+  const { token, refreshToken, currentWorkspace, bootstrap } = useWorkspaceStore()
+  const logoFileInputRef = useRef<HTMLInputElement>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [workspace, setWorkspace] = useState<SettingsWorkspaceState | null>(null)
   const [profile, setProfile] = useState<any | null>(null)
 
   const [copied, setCopied] = useState(false)
@@ -126,7 +141,7 @@ export default function SettingsPage() {
     })
     void (async () => {
       const [ws, me, keys, int] = await Promise.all([
-        api.get<{ id: string; name: string }>("/settings/workspace"),
+        api.get<SettingsWorkspaceState>("/settings/workspace"),
         api.get<{ name: string; email: string }>("/settings/profile", { tenant: false }),
         api.get<Array<{ id: string; name: string; prefix: string; createdAt?: string }>>("/settings/api-keys"),
         api.get<IntegrationsApiData>("/settings/workspace/integrations").catch((): { data: IntegrationsApiData } => ({
@@ -154,6 +169,56 @@ export default function SettingsPage() {
       setUserEmail(me.data.email ?? "")
     })()
   }, [token, refreshToken, currentWorkspace])
+
+  const handleWorkspaceLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    const file = input.files?.[0]
+    input.value = ""
+    if (!file || !token || !currentWorkspace) return
+
+    if (!LOGO_ACCEPT_TYPES.has(file.type)) {
+      toast.error("Use PNG, JPG ou SVG.")
+      return
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      toast.error("Arquivo muito grande. Maximo 2MB.")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result
+      if (typeof dataUrl !== "string") return
+      void (async () => {
+        setLogoUploading(true)
+        try {
+          const api = createApiClient({
+            getAuth: () => ({ token, refreshToken }),
+            setAuth: () => {},
+            clearAuth: () => {},
+            getWorkspaceId: () => currentWorkspace.id,
+          })
+          const res = await api.put<{ id: string; name: string; logo?: string }>(
+            `/workspaces/${currentWorkspace.id}`,
+            { logo: dataUrl },
+            { tenant: false },
+          )
+          setWorkspace((prev) => (prev ? { ...prev, logo: res.data.logo ?? dataUrl } : prev))
+          await bootstrap()
+          toast.success("Logo atualizado")
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 403) {
+            toast.error("Apenas owner ou admin podem alterar o logo.")
+          } else {
+            toast.error("Falha ao atualizar o logo")
+          }
+        } finally {
+          setLogoUploading(false)
+        }
+      })()
+    }
+    reader.readAsDataURL(file)
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -461,6 +526,8 @@ export default function SettingsPage() {
 
         {/* Workspace Settings */}
         <TabsContent value="workspace" className="space-y-6">
+          <WorkspaceTeamSection />
+
           <Card>
             <CardHeader>
               <CardTitle>Informacoes do Workspace</CardTitle>
@@ -469,20 +536,40 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {!workspace ? (
+              {!currentWorkspace ? (
+                <p className="text-sm text-muted-foreground">
+                  Crie ou selecione um workspace para editar os detalhes.
+                </p>
+              ) : !workspace ? (
                 <p className="text-sm text-muted-foreground">Carregando...</p>
               ) : null}
               <div className="flex items-center gap-6">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src={workspace?.logo} />
+                  <AvatarImage
+                    src={workspace?.logo?.trim() || WORKSPACE_DEFAULT_LOGO}
+                  />
                   <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                     {(workspace?.name ?? "WS").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm">
+                  <input
+                    ref={logoFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                    className="sr-only"
+                    onChange={handleWorkspaceLogoFile}
+                    aria-hidden
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!currentWorkspace || !workspace || logoUploading}
+                    onClick={() => logoFileInputRef.current?.click()}
+                  >
                     <Upload className="h-4 w-4 mr-2" />
-                    Alterar Logo
+                    {logoUploading ? "Enviando..." : "Alterar Logo"}
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     PNG, JPG ou SVG. Maximo 2MB.
@@ -522,36 +609,6 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Membros do Workspace</CardTitle>
-              <CardDescription>
-                Gerencie os membros e suas permissoes.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={profile?.avatar} />
-                    <AvatarFallback>
-                      {(profile?.name ?? "U").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{profile?.name ?? userName}</p>
-                    <p className="text-sm text-muted-foreground">{profile?.email ?? userEmail}</p>
-                  </div>
-                </div>
-                <Badge>Admin</Badge>
-              </div>
-              <Button variant="outline" className="w-full">
-                <Users className="h-4 w-4 mr-2" />
-                Convidar Membro
-              </Button>
             </CardContent>
           </Card>
 

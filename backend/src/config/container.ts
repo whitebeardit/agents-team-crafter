@@ -19,7 +19,7 @@ import { AuditLogRepository } from '../modules/audit/infra/audit-log.repository.
 import { OpenAIAgentsRuntimeProvider } from '../modules/runtime/infra/openai-agents-runtime.provider.js';
 import { ChannelSecretsService } from '../modules/channels/application/channel-secrets.service.js';
 import { WorkspaceIntegrationsService } from '../modules/settings/application/workspace-integrations.service.js';
-import { buildAuthenticate, buildRequireTenant } from '../app/plugins/hooks.js';
+import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
 import type { FastifyRequest } from 'fastify';
 import type { preHandlerHookHandler } from 'fastify';
 
@@ -27,6 +27,7 @@ export interface IAppDeps {
   env: IEnv;
   jwt: ReturnType<typeof createJwtService>;
   authenticate: preHandlerHookHandler;
+  requirePlatformAdmin: preHandlerHookHandler;
   requireTenant: preHandlerHookHandler;
   userRepo: UserRepository;
   workspaceRepo: WorkspaceRepository;
@@ -51,7 +52,8 @@ export interface IAppDeps {
 
 export function createDeps(env: IEnv): IAppDeps {
   const jwt = createJwtService(env.JWT_SECRET, env.JWT_EXPIRES_IN);
-  const userRepo = new UserRepository();
+  const platformAdminEmails = env.platformAdminEmails ?? new Set<string>();
+  const userRepo = new UserRepository(platformAdminEmails);
   const workspaceRepo = new WorkspaceRepository();
   const memberRepo = new MemberRepository();
   const inviteRepo = new InviteRepository();
@@ -70,12 +72,14 @@ export function createDeps(env: IEnv): IAppDeps {
   const workspaceIntegrationsService = new WorkspaceIntegrationsService(env, workspaceRepo);
   const auditLogRepo = new AuditLogRepository();
   const agentRuntime = new OpenAIAgentsRuntimeProvider();
-  const authenticate = buildAuthenticate(env.JWT_SECRET);
+  const authenticate = buildAuthenticate(env.JWT_SECRET, { platformAdminEmails });
+  const requirePlatformAdmin = buildRequirePlatformAdmin();
   const requireTenant = buildRequireTenant(memberRepo);
   return {
     env,
     jwt,
     authenticate,
+    requirePlatformAdmin,
     requireTenant,
     userRepo,
     workspaceRepo,

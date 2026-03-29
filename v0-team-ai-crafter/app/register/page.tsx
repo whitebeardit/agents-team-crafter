@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,8 +11,9 @@ import { FieldGroup, Field, FieldLabel } from "@/components/ui/field"
 import { ArrowRight, Loader2 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { register } = useWorkspaceStore()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -28,7 +29,8 @@ export default function RegisterPage() {
     const result = await register(name, email, password)
 
     if (result.ok) {
-      router.push("/dashboard")
+      const next = searchParams.get("redirect")
+      router.push(next && next.startsWith("/") ? next : "/dashboard")
     } else {
       setError(result.error)
       setIsLoading(false)
@@ -129,5 +131,19 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   )
 }

@@ -141,6 +141,8 @@ export function createApiClient(deps: {
       request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined, tenant: opts?.tenant }),
     put: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean }) =>
       request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined, tenant: opts?.tenant }),
+    patch: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean }) =>
+      request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined, tenant: opts?.tenant }),
     del: async <T>(path: string, opts?: { tenant?: boolean }) =>
       request<T>(path, { method: "DELETE", tenant: opts?.tenant }),
   }

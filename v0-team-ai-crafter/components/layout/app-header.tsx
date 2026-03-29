@@ -1,6 +1,7 @@
 "use client"
 
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
+import { WorkspaceAvatar } from "@/components/workspace/workspace-avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,14 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import {
-  Building2,
-  ChevronDown,
-  LogOut,
-  User,
-  Bell,
-  Search,
-} from "lucide-react"
+import { ChevronDown, LogOut, User, Bell, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 
@@ -79,12 +73,16 @@ export function AppHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2 bg-secondary border-border">
-              <Building2 className="w-4 h-4" />
+              <WorkspaceAvatar
+                name={currentWorkspace?.name ?? "WS"}
+                logo={currentWorkspace?.logo}
+                className="h-7 w-7 shrink-0"
+              />
               <span className="max-w-32 truncate">
                 {currentWorkspace?.name || "Selecionar"}
               </span>
               {currentWorkspace && getPlanBadge(currentWorkspace.plan)}
-              <ChevronDown className="w-4 h-4 opacity-50" />
+              <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
@@ -94,9 +92,10 @@ export function AppHeader() {
               <DropdownMenuItem
                 key={workspace.id}
                 onClick={() => setCurrentWorkspace(workspace)}
-                className="flex items-center justify-between cursor-pointer"
+                className="flex items-center gap-2 cursor-pointer"
               >
-                <span>{workspace.name}</span>
+                <WorkspaceAvatar name={workspace.name} logo={workspace.logo} className="h-6 w-6 shrink-0" />
+                <span className="flex-1 min-w-0 truncate">{workspace.name}</span>
                 {getPlanBadge(workspace.plan)}
               </DropdownMenuItem>
             ))}

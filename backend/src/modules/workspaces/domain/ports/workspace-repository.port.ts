@@ -11,8 +11,15 @@ export interface IWorkspaceRecord {
 
 export interface IWorkspaceRepository {
   listByUserId(userId: string): Promise<IWorkspaceRecord[]>;
+  /** Todos os workspaces (admin global) */
+  listAll(): Promise<IWorkspaceRecord[]>;
   findById(workspaceId: string): Promise<IWorkspaceRecord | null>;
   findByIdForUser(workspaceId: string, userId: string): Promise<IWorkspaceRecord | null>;
+  createWorkspace(input: {
+    name: string;
+    logo?: string;
+    plan?: IWorkspaceRecord['plan'];
+  }): Promise<IWorkspaceRecord>;
   updateWorkspace(
     workspaceId: string,
     patch: Partial<Pick<IWorkspaceRecord, 'name' | 'logo' | 'settings'>>,

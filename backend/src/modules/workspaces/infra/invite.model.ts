@@ -6,6 +6,8 @@ const InviteSchema = new Schema(
     email: { type: String, required: true },
     role: { type: String, enum: ['admin', 'member'], default: 'member' },
     expiresAt: { type: Date, required: true },
+    consumedAt: { type: Date, required: false },
+    revokedAt: { type: Date, required: false },
   },
   { timestamps: true },
 );

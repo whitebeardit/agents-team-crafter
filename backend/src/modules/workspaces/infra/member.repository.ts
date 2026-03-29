@@ -36,4 +36,25 @@ export class MemberRepository implements IMemberRepository {
       };
     });
   }
+
+  async addMember(workspaceId: string, userId: string, role: EMemberRole): Promise<void> {
+    await WorkspaceMemberModel.create({
+      workspaceId: new Types.ObjectId(workspaceId),
+      userId: new Types.ObjectId(userId),
+      role,
+      joinedAt: new Date(),
+    });
+  }
+
+  async updateMemberRole(workspaceId: string, userId: string, role: EMemberRole): Promise<boolean> {
+    const res = await WorkspaceMemberModel.findOneAndUpdate(
+      {
+        workspaceId: new Types.ObjectId(workspaceId),
+        userId: new Types.ObjectId(userId),
+      },
+      { $set: { role } },
+      { new: true },
+    );
+    return !!res;
+  }
 }

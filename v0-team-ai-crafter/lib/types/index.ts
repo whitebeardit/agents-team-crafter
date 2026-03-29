@@ -223,6 +223,8 @@ export interface User {
   email: string
   avatar?: string
   workspaceIds: string[]
+  /** Admin global: cria workspaces e convida em qualquer tenant */
+  isPlatformAdmin?: boolean
 }
 
 // Graph Node types for React Flow

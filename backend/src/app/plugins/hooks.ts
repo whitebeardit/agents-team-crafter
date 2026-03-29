@@ -5,7 +5,11 @@ import type { IUserPayload } from '../../modules/auth/domain/auth-types.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { MemberRepository } from '../../modules/workspaces/infra/member.repository.js';
 
-export function buildAuthenticate(secret: string): preHandlerHookHandler {
+export function buildAuthenticate(
+  secret: string,
+  opts?: { platformAdminEmails?: ReadonlySet<string> },
+): preHandlerHookHandler {
+  const platformAdminEmails = opts?.platformAdminEmails ?? new Set<string>();
   return async (req: FastifyRequest) => {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) {
@@ -14,9 +18,21 @@ export function buildAuthenticate(secret: string): preHandlerHookHandler {
     const token = header.slice(7);
     try {
       const payload = jwt.verify(token, secret) as IUserPayload;
-      req.user = payload;
+      const emailLower = payload.email?.toLowerCase() ?? '';
+      const isPlatformAdmin =
+        payload.isPlatformAdmin === true ||
+        (emailLower.length > 0 && platformAdminEmails.has(emailLower));
+      req.user = { ...payload, isPlatformAdmin };
     } catch {
       throw new AppError('UNAUTHORIZED', 'Token invalido ou expirado', 401);
+    }
+  };
+}
+
+export function buildRequirePlatformAdmin(): preHandlerHookHandler {
+  return async (req: FastifyRequest) => {
+    if (!req.user?.isPlatformAdmin) {
+      throw new AppError('FORBIDDEN', 'Apenas admin global', 403);
     }
   };
 }

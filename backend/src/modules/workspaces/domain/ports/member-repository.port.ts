@@ -12,4 +12,6 @@ export interface IMemberRepository {
   listMembers(workspaceId: string): Promise<
     Array<{ userId: string; role: EMemberRole; joinedAt: Date; name: string; email: string; avatar?: string }>
   >;
+  addMember(workspaceId: string, userId: string, role: EMemberRole): Promise<void>;
+  updateMemberRole(workspaceId: string, userId: string, role: EMemberRole): Promise<boolean>;
 }

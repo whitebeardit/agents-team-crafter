@@ -11,6 +11,7 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch --runInBand",
     "seed": "tsx scripts/seed.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "migrate:graph-channel-edges": "tsx scripts/normalize-team-graph-channel-edges.ts",
     "migrate:graph-channel-edges:dry": "tsx scripts/normalize-team-graph-channel-edges.ts --dry-run",
     "verify:team-channels": "tsx scripts/verify-team-channels.ts",

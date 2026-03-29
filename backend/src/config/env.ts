@@ -26,9 +26,29 @@ const envSchema = z.object({
    * Evita loops longos na orquestracao; padrao 4.
    */
   RUNTIME_MAX_HANDOFF_DEPTH: z.coerce.number().int().min(0).max(32).default(4),
+  /**
+   * Emails (separados por virgula) tratados como admin global mesmo sem isPlatformAdmin no Mongo.
+   * Normalizados em minusculas; util para contas antigas ou JWT emitido antes do flag.
+   */
+  PLATFORM_ADMIN_EMAILS: z.string().optional(),
 });
 
-export type IEnv = z.infer<typeof envSchema>;
+type IEnvParsed = z.infer<typeof envSchema>;
+
+export type IEnv = IEnvParsed & {
+  /** Definido por loadEnv; em testes pode omitir (createDeps usa conjunto vazio). */
+  platformAdminEmails?: ReadonlySet<string>;
+};
+
+export function parsePlatformAdminEmails(raw: string | undefined): ReadonlySet<string> {
+  if (!raw?.trim()) return new Set();
+  return new Set(
+    raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
 
 export function loadEnv(): IEnv {
   const parsed = envSchema.safeParse(process.env);
@@ -36,5 +56,9 @@ export function loadEnv(): IEnv {
     const msg = parsed.error.flatten().fieldErrors;
     throw new Error(`Invalid env: ${JSON.stringify(msg)}`);
   }
-  return parsed.data;
+  const data = parsed.data;
+  return {
+    ...data,
+    platformAdminEmails: parsePlatformAdminEmails(data.PLATFORM_ADMIN_EMAILS),
+  };
 }

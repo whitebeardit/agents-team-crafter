@@ -8,6 +8,7 @@ export interface IUserRecord {
   preferences?: Record<string, unknown>;
   passwordHash: string;
   workspaceIds: string[];
+  isPlatformAdmin: boolean;
   refreshTokenHash?: string | null;
 }
 
@@ -22,4 +23,5 @@ export interface IUserRepository {
     id: string,
     patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string },
   ): Promise<void>;
+  addWorkspaceId(userId: string, workspaceId: string): Promise<void>;
 }

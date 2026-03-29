@@ -8,6 +8,8 @@ const UserSchema = new Schema(
     avatar: { type: String },
     preferences: { type: Schema.Types.Mixed, default: {} },
     workspaceIds: [{ type: Schema.Types.ObjectId, ref: 'Workspace' }],
+    /** Admin da plataforma: cria workspaces e convida em qualquer tenant */
+    isPlatformAdmin: { type: Boolean, default: false, index: true },
     refreshTokenHash: { type: String, index: true, sparse: true },
   },
   { timestamps: true },
