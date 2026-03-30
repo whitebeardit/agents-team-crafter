@@ -59,14 +59,14 @@ Em [`workspace-chats.ts`](../../backend/src/modules/chat-sdk/infra/workspace-cha
 1. Provedor externo chama o webhook.
 2. O BFF valida assinatura / parâmetros conforme plataforma (detalhes no doc de triggers).
 3. Carrega segredos do canal (cifrados ou fallback env em demo) e constrói `Chat` + adapter.
-4. Em menções / threads subscritas, o handler inbound chama **`executeAgentRun`** (mesmo serviço usado por `POST /agents/:id/run`) com `channel` preenchido (ex.: `slack`), para formatação da mensagem do utilizador em [`format-agent-user-message`](../../backend/src/modules/runtime/application/format-agent-user-message.ts).
+4. Em menções / threads subscritas, o handler inbound chama **`invokeTeam`** (mesmo motor que `POST /teams/:id/run`) com `TeamInvocation` (`trigger: chat`), após resolver canal → time → coordenador; metadados de canal entram só no contexto do coordenador ([`format-coordinator-user-message`](../../backend/src/modules/team-runtime/application/format-coordinator-user-message.ts)).
 
 ```mermaid
 flowchart LR
   Ext[Plataforma externa]
   Hook[chat-webhook.routes]
   ChatMod[workspace-chats Chat]
-  Run[executeAgentRun]
+  Run[invokeTeam]
 
   Ext --> Hook
   Hook --> ChatMod
@@ -78,6 +78,6 @@ flowchart LR
 ## Ver também
 
 - [AGENTS.md](./AGENTS.md) — diagrama global.
-- [agents-and-handoff.md](./agents-and-handoff.md) — o que acontece dentro de `executeAgentRun`.
+- [agents-and-handoff.md](./agents-and-handoff.md) — team runtime e coordenador.
 - [data-layer.md](./data-layer.md) — modelo `Channel` e segredos.
 - [CHAT_SDK_TEAM_TRIGGER.md](../../docs/CHAT_SDK_TEAM_TRIGGER.md) — referência operacional completa.

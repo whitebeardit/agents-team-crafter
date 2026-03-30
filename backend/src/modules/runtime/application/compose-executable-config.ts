@@ -1,6 +1,6 @@
 import type { IExecutableAgentConfig } from '../ports/agent-runtime.provider.js';
 
-/** Monta o DTO de runtime a partir de partes ja carregadas (agente + knowledge + bindings + handoff). */
+/** Monta o DTO de runtime a partir de partes ja carregadas (agente + knowledge + bindings). */
 export function composeExecutableAgentConfig(parts: {
   agentId: string;
   workspaceId: string;
@@ -8,7 +8,6 @@ export function composeExecutableAgentConfig(parts: {
   tools: string[];
   mcpBindingIds: string[];
   knowledgeSourceIds: string[];
-  handoffTargets: string[];
 }): IExecutableAgentConfig {
   return { ...parts };
 }

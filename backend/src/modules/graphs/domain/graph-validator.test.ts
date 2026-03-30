@@ -6,10 +6,6 @@ describe('graph-validator channel edges', () => {
   const channelIds = new Set(['ch1']);
   const enrich = {
     team: { coordinatorId: 'coord1', agentIds: ['spec1'], channelIds: ['ch1'] },
-    agents: [
-      { id: 'coord1', handoff: { targets: [] } },
-      { id: 'spec1', handoff: { targets: [] } },
-    ],
   };
 
   const baseNodes: IGraphNode[] = [
@@ -46,7 +42,6 @@ describe('graph-validator channel edges', () => {
     ];
     const enrich2 = {
       team: { coordinatorId: 'coord1', agentIds: ['spec1'], channelIds: ['ch1', 'ch2'] },
-      agents: enrich.agents,
     };
     const edges: IGraphEdge[] = [{ id: 'e-bad', source: 'n-ch', target: 'n-ch2' }];
     const r = validateTeamGraph(

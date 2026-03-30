@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { availableTools, handoffRulePresets } from "@/lib/types"
+import { availableTools } from "@/lib/types"
 import type {
   Agent,
   AgentMCPBinding,
-  HandoffDslJsonRule,
   KnowledgeSource,
   MCPConnection,
   Team,
@@ -52,7 +51,6 @@ import {
   Plug,
   Radio,
   Shield,
-  ArrowRightLeft,
   Users,
   Settings2,
   Plus,
@@ -104,7 +102,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [bindings, setBindings] = useState<AgentMCPBinding[]>([])
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([])
   const [teams, setTeams] = useState<Team[]>([])
-  const [allAgents, setAllAgents] = useState<Agent[]>([])
   const [saving, setSaving] = useState(false)
   const [missionGoal, setMissionGoal] = useState("")
   const [responsibilities, setResponsibilities] = useState<string[]>([])
@@ -114,14 +111,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [usePersistentMemory, setUsePersistentMemory] = useState(false)
   const [fixedContext, setFixedContext] = useState("")
   const [enabledTools, setEnabledTools] = useState<string[]>([])
-  const [canDelegate, setCanDelegate] = useState(false)
-  const [canReceiveHandoff, setCanReceiveHandoff] = useState(true)
   const [enabledChannels, setEnabledChannels] = useState<Array<"whatsapp" | "slack" | "email" | "api">>([])
   const [canReplyDirectly, setCanReplyDirectly] = useState(true)
   const [securityAccessLevel, setSecurityAccessLevel] = useState<"read" | "write" | "restricted">("read")
   const [requiresApproval, setRequiresApproval] = useState(false)
-  const [handoffTargets, setHandoffTargets] = useState<string[]>([])
-  const [handoffRules, setHandoffRules] = useState<(string | HandoffDslJsonRule)[]>([])
   const [workspaceOpenAiConfigured, setWorkspaceOpenAiConfigured] = useState<boolean | null>(null)
 
   const applyAgentPayload = useCallback((a: Agent) => {
@@ -134,14 +127,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     setUsePersistentMemory(a.knowledge?.usePersistentMemory ?? false)
     setFixedContext(a.knowledge?.fixedContext ?? "")
     setEnabledTools(a.capabilities?.tools ?? [])
-    setCanDelegate(a.capabilities?.canDelegate ?? false)
-    setCanReceiveHandoff(a.capabilities?.canReceiveHandoff ?? true)
     setEnabledChannels((a.channelConfig?.enabled ?? a.channels) as Array<"whatsapp" | "slack" | "email" | "api">)
     setCanReplyDirectly(a.channelConfig?.canReplyDirectly ?? true)
     setSecurityAccessLevel((a.security?.accessLevel ?? "read") as "read" | "write" | "restricted")
     setRequiresApproval(a.security?.requiresApproval ?? false)
-    setHandoffTargets(a.handoff?.targets ?? [])
-    setHandoffRules(a.handoff?.rules ?? [])
   }, [])
 
   useEffect(() => {
@@ -154,20 +143,18 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     })
     void (async () => {
       try {
-        const [a, m, b, ks, t, all] = await Promise.all([
+        const [a, m, b, ks, t] = await Promise.all([
           api.get<Agent>(`/agents/${id}`),
           api.get<MCPConnection[]>("/mcps"),
           api.get<AgentMCPBinding[]>(`/agents/${id}/mcp-bindings`),
           api.get<KnowledgeSource[]>("/knowledge-sources"),
           api.get<Team[]>(`/teams?page=1&perPage=100`),
-          api.get<Agent[]>("/agents?page=1&perPage=100"),
         ])
         applyAgentPayload(a.data)
         setMcps(m.data)
         setBindings(b.data)
         setKnowledgeSources(ks.data)
         setTeams(t.data)
-        setAllAgents(all.data)
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Falha ao carregar agente"
         toast.error(msg)
@@ -276,8 +263,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           run: () =>
             api.put(`/agents/${agent.id}/tools`, {
               tools: enabledTools,
-              canDelegate,
-              canReceiveHandoff,
             }),
         },
         ...(agent.role === "coordinator"
@@ -298,14 +283,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             api.put(`/agents/${agent.id}/security`, {
               requiresApproval,
               accessLevel: securityAccessLevel,
-            }),
-        },
-        {
-          label: "Handoff",
-          run: () =>
-            api.put(`/agents/${agent.id}/handoff`, {
-              targets: handoffTargets,
-              rules: handoffRules,
             }),
         },
         {
@@ -483,7 +460,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <AgentWhitebeardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Visao Geral</span>
@@ -511,10 +488,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
             <span className="hidden sm:inline">Seguranca</span>
-          </TabsTrigger>
-          <TabsTrigger value="handoff" className="flex items-center gap-2">
-            <ArrowRightLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Handoff</span>
           </TabsTrigger>
         </TabsList>
 
@@ -824,29 +797,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                   </div>
                 )
               })}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Capacidades de Delegacao</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Pode delegar tarefas</p>
-                  <p className="text-sm text-muted-foreground">Permitir que este agente envie tarefas para outros</p>
-                </div>
-                <Switch checked={canDelegate} onCheckedChange={setCanDelegate} />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Pode receber handoff</p>
-                  <p className="text-sm text-muted-foreground">Permitir que outros agentes deleguem tarefas para este</p>
-                </div>
-                <Switch checked={canReceiveHandoff} onCheckedChange={setCanReceiveHandoff} />
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1219,118 +1169,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        {/* Handoff Tab */}
-        <TabsContent value="handoff" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Agentes de Destino</CardTitle>
-              <CardDescription>Selecione para quais agentes este pode delegar tarefas</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {allAgents
-                .filter((a) => a.id !== agent.id && a.capabilities?.canReceiveHandoff !== false)
-                .map((targetAgent) => {
-                  const isTarget = handoffTargets.includes(targetAgent.id)
-                  return (
-                    <div
-                      key={targetAgent.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border ${
-                        isTarget ? "border-primary bg-primary/5" : "border-border"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-10 h-10 rounded-lg">
-                          <AvatarFallback
-                            className={
-                              targetAgent.role === "coordinator"
-                                ? "bg-primary/20 text-primary"
-                                : "bg-accent/20 text-accent"
-                            }
-                          >
-                            {targetAgent.origin === "whitebeard" ? (
-                              <AgentWhitebeardIcon className="size-8 shrink-0" aria-hidden />
-                            ) : (
-                              getInitials(targetAgent.name)
-                            )}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{targetAgent.name}</p>
-                            {targetAgent.role === "coordinator" && (
-                              <Crown className="w-4 h-4 text-warning" />
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">{targetAgent.category}</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={isTarget}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setHandoffTargets((prev) => [...prev, targetAgent.id])
-                            return
-                          }
-                          setHandoffTargets((prev) => prev.filter((id) => id !== targetAgent.id))
-                        }}
-                      />
-                    </div>
-                  )
-                })}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Regras de Handoff</CardTitle>
-              <CardDescription>Defina quando o agente deve delegar para outro</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {handoffRulePresets.map((rule) => {
-                const presetStrings = handoffRules.filter(
-                  (r): r is string => typeof r === "string"
-                )
-                const isActive = presetStrings.includes(rule.value)
-                return (
-                  <div key={rule.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={rule.id}
-                      checked={isActive}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setHandoffRules((prev) => [...prev, rule.value])
-                          return
-                        }
-                        setHandoffRules((prev) =>
-                          prev.filter(
-                            (value) =>
-                              !(typeof value === "string" && value === rule.value)
-                          )
-                        )
-                      }}
-                    />
-                    <label htmlFor={rule.id} className="text-sm cursor-pointer">
-                      {rule.label}
-                    </label>
-                  </div>
-                )
-              })}
-              {isAdvancedMode && (
-                <>
-                  <Separator />
-                  <div className="space-y-2">
-                    <Label>Regras customizadas</Label>
-                    <Textarea
-                      placeholder="Defina regras adicionais em linguagem natural..."
-                      rows={3}
-                    />
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         </fieldset>

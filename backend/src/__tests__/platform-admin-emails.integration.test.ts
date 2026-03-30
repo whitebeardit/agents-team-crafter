@@ -20,7 +20,6 @@ describe('PLATFORM_ADMIN_EMAILS fallback', () => {
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: 'test-key',
-    RUNTIME_MAX_HANDOFF_DEPTH: 4,
     platformAdminEmails: new Set(['listed@test.com']),
   };
 

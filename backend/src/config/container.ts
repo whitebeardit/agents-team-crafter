@@ -17,6 +17,8 @@ import { ApiKeyRepository } from '../modules/settings/infra/api-key.repository.j
 import { SettingsRepository } from '../modules/settings/infra/settings.repository.js';
 import { AuditLogRepository } from '../modules/audit/infra/audit-log.repository.js';
 import { OpenAIAgentsRuntimeProvider } from '../modules/runtime/infra/openai-agents-runtime.provider.js';
+import { SpecialistRegistry } from '../modules/team-runtime/infra/registries/specialist-registry.js';
+import { CoordinatorOrchestratorService } from '../modules/team-runtime/application/coordinator-orchestrator.service.js';
 import { ChannelSecretsService } from '../modules/channels/application/channel-secrets.service.js';
 import { WorkspaceIntegrationsService } from '../modules/settings/application/workspace-integrations.service.js';
 import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
@@ -48,6 +50,8 @@ export interface IAppDeps {
   workspaceIntegrationsService: WorkspaceIntegrationsService;
   auditLogRepo: AuditLogRepository;
   agentRuntime: OpenAIAgentsRuntimeProvider;
+  specialistRegistry: SpecialistRegistry;
+  coordinatorOrchestrator: CoordinatorOrchestratorService;
 }
 
 export function createDeps(env: IEnv): IAppDeps {
@@ -72,6 +76,14 @@ export function createDeps(env: IEnv): IAppDeps {
   const workspaceIntegrationsService = new WorkspaceIntegrationsService(env, workspaceRepo);
   const auditLogRepo = new AuditLogRepository();
   const agentRuntime = new OpenAIAgentsRuntimeProvider();
+  const specialistRegistry = new SpecialistRegistry();
+  const coordinatorOrchestrator = new CoordinatorOrchestratorService(
+    agentRepo,
+    teamRepo,
+    agentRuntime,
+    specialistRegistry,
+    workspaceIntegrationsService,
+  );
   const authenticate = buildAuthenticate(env.JWT_SECRET, { platformAdminEmails });
   const requirePlatformAdmin = buildRequirePlatformAdmin();
   const requireTenant = buildRequireTenant(memberRepo);
@@ -100,6 +112,8 @@ export function createDeps(env: IEnv): IAppDeps {
     workspaceIntegrationsService,
     auditLogRepo,
     agentRuntime,
+    specialistRegistry,
+    coordinatorOrchestrator,
   };
 }
 

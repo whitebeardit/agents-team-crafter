@@ -8,16 +8,14 @@ import { UserModel } from '../modules/users/infra/user.model.js';
 import { WorkspaceModel } from '../modules/workspaces/infra/workspace.model.js';
 import { WorkspaceMemberModel } from '../modules/workspaces/infra/workspace-member.model.js';
 import { AgentModel } from '../modules/agents/infra/agent.model.js';
+import { TeamModel } from '../modules/teams/infra/team.model.js';
 
-const CHAIN_TASK = 'chain_test';
-
-describe('runtime orquestracao multi-hop e RUNTIME_MAX_HANDOFF_DEPTH', () => {
+describe('team runtime with multiple specialists (tools, not handoff chain)', () => {
   let mongo: MongoMemoryServer;
   let app: Awaited<ReturnType<typeof buildApp>>;
   let workspaceId = '';
+  let teamId = '';
   let coordId = '';
-  let bId = '';
-  let cId = '';
 
   const env: IEnv = {
     NODE_ENV: 'test',
@@ -28,7 +26,6 @@ describe('runtime orquestracao multi-hop e RUNTIME_MAX_HANDOFF_DEPTH', () => {
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: undefined,
-    RUNTIME_MAX_HANDOFF_DEPTH: 4,
   };
 
   beforeAll(async () => {
@@ -65,9 +62,8 @@ describe('runtime orquestracao multi-hop e RUNTIME_MAX_HANDOFF_DEPTH', () => {
       channels: [],
       status: 'active',
       systemInstruction: 'Agente C',
-      capabilities: { canReceiveHandoff: true },
+      capabilities: {},
     });
-    cId = agentC._id.toString();
 
     const agentB = await AgentModel.create({
       workspaceId: ws._id,
@@ -80,13 +76,8 @@ describe('runtime orquestracao multi-hop e RUNTIME_MAX_HANDOFF_DEPTH', () => {
       channels: [],
       status: 'active',
       systemInstruction: 'Agente B',
-      capabilities: { canDelegate: true, canReceiveHandoff: true },
-      handoff: {
-        targets: [cId],
-        rules: [`route:taskType:${CHAIN_TASK}->agent:${cId}`],
-      },
+      capabilities: {},
     });
-    bId = agentB._id.toString();
 
     const agentA = await AgentModel.create({
       workspaceId: ws._id,
@@ -99,13 +90,20 @@ describe('runtime orquestracao multi-hop e RUNTIME_MAX_HANDOFF_DEPTH', () => {
       channels: [],
       status: 'active',
       systemInstruction: 'Agente A',
-      capabilities: { canDelegate: true },
-      handoff: {
-        targets: [bId],
-        rules: [`route:taskType:${CHAIN_TASK}->agent:${bId}`],
-      },
+      capabilities: {},
     });
     coordId = agentA._id.toString();
+
+    const team = await TeamModel.create({
+      workspaceId: ws._id,
+      name: 'ChainTeam',
+      description: '',
+      status: 'active',
+      coordinatorId: agentA._id,
+      agentIds: [agentB._id, agentC._id],
+      channelIds: [],
+    });
+    teamId = team._id.toString();
 
     process.env.OPENAI_API_KEY = '';
     app = await buildApp(env);
@@ -130,22 +128,20 @@ describe('runtime orquestracao multi-hop e RUNTIME_MAX_HANDOFF_DEPTH', () => {
     };
   }
 
-  it('encadeia dois handoffs A->B->C e executa no agente final', async () => {
+  it('keeps coordinator as API-level executor; specialists are tools only', async () => {
     const headers = await loginAndHeaders();
     const res = await app.inject({
       method: 'POST',
-      url: `/api/v1/agents/${coordId}/run`,
+      url: `/api/v1/teams/${teamId}/run`,
       headers,
-      payload: { message: 'fluxo cadeia', taskType: CHAIN_TASK },
+      payload: { message: 'fluxo cadeia', taskType: 'chain_test' },
     });
 
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body) as { success: boolean; data: Record<string, unknown> };
     expect(body.success).toBe(true);
-    const d = body.data;
-    expect(d.selectedAgentId).toBe(cId);
-    expect(d.orchestrationDepth).toBe(2);
-    expect(Array.isArray(d.handoffs)).toBe(true);
-    expect((d.handoffs as unknown[]).length).toBe(2);
+    expect(body.data.coordinatorAgentId).toBe(coordId);
+    expect(body.data).not.toHaveProperty('orchestrationDepth');
+    expect(body.data).not.toHaveProperty('handoffs');
   });
 });

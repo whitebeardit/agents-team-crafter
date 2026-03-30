@@ -22,7 +22,7 @@ O produto é uma **plataforma SaaS multi-tenant**: cada **empresa** corresponde 
 Dois caminhos principais alimentam o **runtime de agentes**:
 
 1. **Aplicação web (Next.js)** — utilizador autenticado com JWT; pedidos REST incluem o workspace ativo via header `X-Workspace-Id`.
-2. **Canais externos (Slack, Telegram, …)** — webhooks públicos roteados por `workspaceId` e documento de canal; o Chat SDK encaminha mensagens para a mesma função de execução (`executeAgentRun`) usada pela API.
+2. **Canais externos (Slack, Telegram, …)** — webhooks públicos roteados por `workspaceId` e documento de canal; o Chat SDK encaminha mensagens para **`invokeTeam`** (mesmo motor que `POST /teams/:id/run`).
 
 ---
 
@@ -58,7 +58,7 @@ flowchart TB
   WebhookIngress[Webhooks Chat /webhooks/chat/...]
 
   ChatSDK[Chat SDK instancia por canal]
-  PolicyHandoff[PolicyEngine handoff deterministico]
+  TeamRuntime[Team runtime invokeTeam]
   OpenAIAgentsSDK[OpenAI Agents SDK Runner]
 
   FrontendA -->|"JWT + X-Workspace-Id A"| Api
@@ -72,16 +72,16 @@ flowchart TB
   Other --> WebhookIngress
 
   WebhookIngress --> ChatSDK
-  ChatSDK --> PolicyHandoff
-  PolicyHandoff --> OpenAIAgentsSDK
+  ChatSDK --> TeamRuntime
+  TeamRuntime --> OpenAIAgentsSDK
 
-  Api --> PolicyHandoff
+  Api --> TeamRuntime
 
-  PolicyHandoff -.->|le e valida apenas docs do workspace| MongoA
-  PolicyHandoff -.->|le e valida apenas docs do workspace| MongoB
+  TeamRuntime -.->|le e valida apenas docs do workspace| MongoA
+  TeamRuntime -.->|le e valida apenas docs do workspace| MongoB
 ```
 
-**Leitura:** cada empresa **individualiza** o produto através dos seus documentos no MongoDB (e segredos cifrados) para aquele `workspaceId`. O backend **nunca** mistura dados entre workspaces nas rotas tenant-scoped; o motor de handoff avalia regras no contexto do workspace corrente. Detalhes de isolamento e segredos: [MULTI_TENANT.md](../../docs/MULTI_TENANT.md).
+**Leitura:** cada empresa **individualiza** o produto através dos seus documentos no MongoDB (e segredos cifrados) para aquele `workspaceId`. O backend **nunca** mistura dados entre workspaces nas rotas tenant-scoped; o **team runtime** resolve time/coordenador e orquestra especialistas como tools no contexto do workspace corrente. Detalhes de isolamento e segredos: [MULTI_TENANT.md](../../docs/MULTI_TENANT.md).
 
 ---
 
@@ -93,8 +93,8 @@ flowchart TB
 | **Membro** | Utilizador associado a um workspace com papel (`owner`, `admin`, `member`). Sem membership válida → `403` nas rotas de negócio. |
 | **Canal (Chat SDK)** | Registo persistido que liga uma plataforma externa (Slack, Telegram, …) ao workspace; inclui `config` e segredos cifrados por canal. |
 | **Agente** | Definição versionada (instruções, capacidades, handoff) pertencente a um workspace. |
-| **Handoff** | Delegação entre agentes. **Decisão determinística no backend** (targets, regras, guardrails); o OpenAI Agents SDK executa o passo do agente selecionado. |
-| **Runtime** | `executeAgentRun`: carrega agente, aplica política de handoff, compila config executável e chama o provider (`OpenAIAgentsRuntimeProvider`). |
+| **Handoff (legado)** | Regras DSL / grafo podem informar UI ou evoluções; **não** é o motor principal da API (especialistas = tools do coordenador). |
+| **Team runtime** | `invokeTeam`: carrega time, valida coordenador, expõe especialistas como tools ao coordenador, chama `OpenAIAgentsRuntimeProvider`. |
 
 ---
 
@@ -106,7 +106,7 @@ flowchart TB
 | [backend-api.md](./backend-api.md) | Fastify, módulos e rotas sob `/api/v1`, autenticação e tenant. |
 | [data-layer.md](./data-layer.md) | MongoDB como fonte de verdade, `workspaceId`, cifra de segredos. |
 | [chat-sdk.md](./chat-sdk.md) | Webhooks, adapters, estado Redis/memory, ligação ao runtime. |
-| [agents-and-handoff.md](./agents-and-handoff.md) | `executeAgentRun`, PolicyEngine, OpenAI Agents SDK e limitações atuais do provider. |
+| [agents-and-handoff.md](./agents-and-handoff.md) | Team runtime, coordenador, tools de especialistas, OpenAI Agents SDK. |
 
 ---
 

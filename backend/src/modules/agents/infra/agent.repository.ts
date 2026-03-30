@@ -23,7 +23,6 @@ function toPublic(doc: AgentDoc) {
     knowledge: doc.knowledge,
     channelConfig: doc.channelConfig,
     security: doc.security,
-    handoff: doc.handoff,
     documentation: doc.documentation,
     changelog: doc.changelog,
     createdAt: doc.createdAt?.toISOString(),

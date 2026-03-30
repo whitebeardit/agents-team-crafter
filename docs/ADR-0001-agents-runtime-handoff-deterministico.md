@@ -2,7 +2,11 @@
 
 ## Status
 
-Aceito.
+Aceito, com **atualização de runtime** (ver secção seguinte).
+
+## Atualização (2026): team runtime e tools
+
+O caminho de produção de execução foi substituído por **`POST /api/v1/teams/:id/run`** e o módulo [`backend/src/modules/team-runtime/`](../backend/src/modules/team-runtime/). O **coordenador** é o único agente LLM de topo; **especialistas** são **function tools** do OpenAI Agents SDK (`runCoordinatorTurn`), não uma cadeia de handoff como orquestração principal. A decisão deste ADR (determinismo e guardrails no BFF) permanece relevante para **evoluções** (ex. filtrar quais tools o coordenador vê com base na DSL), mas o handoff encadeado deixou de ser o motor da API.
 
 ## Contexto
 
@@ -50,8 +54,9 @@ No backend, já existe a base de configuração e persistência de handoff (`han
 
 ## Referências no código
 
-- Config de handoff/capacidades: `backend/src/modules/agents/application/agent-config.schemas.ts`
-- CRUD/validação de handoff: `backend/src/modules/agents/interfaces/agent.routes.ts`
+- Team runtime: `backend/src/modules/team-runtime/`
+- Config de handoff/capacidades (legado/UI): `backend/src/modules/agents/application/agent-config.schemas.ts`
 - Porta de runtime: `backend/src/modules/runtime/ports/agent-runtime.provider.ts`
-- Provider stub atual: `backend/src/modules/runtime/infra/openai-agents-runtime.provider.ts`
+- Provider OpenAI: `backend/src/modules/runtime/infra/openai-agents-runtime.provider.ts`
+- PolicyEngine (legado): `backend/src/modules/runtime/application/policy-engine.ts`
 

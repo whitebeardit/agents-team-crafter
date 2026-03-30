@@ -13,7 +13,6 @@ import { registerKnowledgeRoutes } from '../modules/knowledge/interfaces/knowled
 import { registerDashboardRoutes } from '../modules/dashboard/interfaces/dashboard.routes.js';
 import { registerSettingsRoutes } from '../modules/settings/interfaces/settings.routes.js';
 import { registerAuditRoutes } from '../modules/audit/interfaces/audit.routes.js';
-import { registerRuntimeRoutes } from '../modules/runtime/interfaces/runtime.routes.js';
 import { registerChatWebhookRoutes } from '../modules/chat-sdk/interfaces/chat-webhook.routes.js';
 
 export async function registerRoutes(app: FastifyInstance, env: IEnv, deps?: IAppDeps) {
@@ -32,7 +31,6 @@ export async function registerRoutes(app: FastifyInstance, env: IEnv, deps?: IAp
       await registerDashboardRoutes(r, d);
       await registerSettingsRoutes(r, d);
       await registerAuditRoutes(r, d);
-      await registerRuntimeRoutes(r, d);
       await registerChatWebhookRoutes(r, env, d);
     },
     { prefix: '/api/v1' },

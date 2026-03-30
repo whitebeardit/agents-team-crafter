@@ -1,12 +1,11 @@
 import type { IGraphEdge, IGraphNode, IGraphValidationResult, IValidationIssue } from './graph-types.js';
 import { computeAllDerivedEdges, isDerivedGraphEdge } from './graph-enrichment.js';
-import type { IGraphEnrichAgent, ITeamGraphEnrichTeam } from './graph-enrichment.js';
+import type { ITeamGraphEnrichTeam } from './graph-enrichment.js';
 
 export type { IGraphEdge, IGraphNode, IGraphValidationResult, IValidationIssue } from './graph-types.js';
 
 export interface IValidateTeamGraphEnrich {
   team: ITeamGraphEnrichTeam;
-  agents: IGraphEnrichAgent[];
 }
 
 function resolveAgentIdFromGraphNode(
@@ -116,7 +115,7 @@ export function validateTeamGraph(
     }
   }
 
-  const derived = enrich ? computeAllDerivedEdges(nodes, enrich.team, enrich.agents) : [];
+  const derived = enrich ? computeAllDerivedEdges(nodes, enrich.team) : [];
   const connectivityEdges: IGraphEdge[] = [...userEdges, ...derived];
 
   const adj = new Map<string, Set<string>>();

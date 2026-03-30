@@ -26,7 +26,6 @@ describe('workspace invites list revoke accept', () => {
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: 'test-key',
-    RUNTIME_MAX_HANDOFF_DEPTH: 4,
   };
 
   beforeAll(async () => {

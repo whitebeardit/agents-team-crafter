@@ -1,5 +1,4 @@
 import {
-  buildHandoffDerivedEdges,
   buildStructuralDerivedEdges,
   mergePersistedAndDerivedEdges,
   normalizePersistedChannelEdgesToCoordinator,
@@ -39,15 +38,6 @@ describe('graph-enrichment', () => {
     expect(edges.some((e) => e.source === 'node-ch' && e.target === 'node-coord')).toBe(true);
     expect(edges.some((e) => e.source === 'node-coord' && e.target === 'node-ch')).toBe(false);
     expect(edges.some((e) => e.source === 'node-spec' && e.target === 'node-ch')).toBe(false);
-  });
-
-  it('buildHandoffDerivedEdges maps agent ids to node ids', () => {
-    const agents = [{ id: 'ag1', handoff: { targets: ['ag2'] } }];
-    const edges = buildHandoffDerivedEdges(opaqueNodes, agents);
-    expect(edges).toHaveLength(1);
-    expect(edges[0].source).toBe('node-coord');
-    expect(edges[0].target).toBe('node-spec');
-    expect(edges[0].data?.edgeKind).toBe('handoff');
   });
 
   it('mergePersistedAndDerivedEdges dedupes by directed pair', () => {
@@ -160,7 +150,7 @@ describe('graph-enrichment', () => {
 });
 
 describe('validateTeamGraph with enrich', () => {
-  it('does not report ORPHAN_NODE when connectivity exists only via derived handoff', () => {
+  it('does not report ORPHAN_NODE when connectivity exists via derived structural edges', () => {
     const nodes: IGraphNode[] = [
       { id: 'nc', type: 'coordinator', data: { agentId: 'ag1' } },
       { id: 'ns', type: 'specialist', data: { agentId: 'ag2' } },
@@ -169,10 +159,6 @@ describe('validateTeamGraph with enrich', () => {
     const channelIds = new Set<string>();
     const enrich = {
       team: { coordinatorId: 'ag1', agentIds: ['ag2'], channelIds: [] },
-      agents: [
-        { id: 'ag1', handoff: { targets: ['ag2'] } },
-        { id: 'ag2', handoff: { targets: [] } },
-      ],
     };
     const r = validateTeamGraph(nodes, [], { agentIds, channelIds }, enrich);
     expect(r.errors.filter((e) => e.code === 'ORPHAN_NODE')).toHaveLength(0);

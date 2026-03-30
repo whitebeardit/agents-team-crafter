@@ -14,6 +14,8 @@
     "seed:demo": "tsx scripts/seed-demo.ts",
     "migrate:graph-channel-edges": "tsx scripts/normalize-team-graph-channel-edges.ts",
     "migrate:graph-channel-edges:dry": "tsx scripts/normalize-team-graph-channel-edges.ts --dry-run",
+    "migrate:strip-handoff": "tsx scripts/strip-handoff-legacy.ts",
+    "migrate:strip-handoff:dry": "tsx scripts/strip-handoff-legacy.ts --dry-run",
     "verify:team-channels": "tsx scripts/verify-team-channels.ts",
     "telegram:set-webhook": "tsx scripts/telegram-set-webhook.ts"
   },

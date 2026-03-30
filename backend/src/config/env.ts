@@ -22,11 +22,6 @@ const envSchema = z.object({
    */
   ENCRYPTION_MASTER_KEY: z.string().min(64).optional(),
   /**
-   * Limite de handoffs encadeados numa unica mensagem (executeAgentRun).
-   * Evita loops longos na orquestracao; padrao 4.
-   */
-  RUNTIME_MAX_HANDOFF_DEPTH: z.coerce.number().int().min(0).max(32).default(4),
-  /**
    * Emails (separados por virgula) tratados como admin global mesmo sem isPlatformAdmin no Mongo.
    * Normalizados em minusculas; util para contas antigas ou JWT emitido antes do flag.
    */

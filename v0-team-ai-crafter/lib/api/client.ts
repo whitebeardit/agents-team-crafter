@@ -29,7 +29,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * No browser, usa o mesmo hostname da página e porta 3001 (BFF local), para funcionar
+ * tanto em `localhost` quanto em IP da rede (ex.: `10.0.0.148`) sem trocar `.env`.
+ * No servidor (SSR), mantém `NEXT_PUBLIC_API_URL`.
+ */
 function getBaseUrl() {
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol === "https:" ? "https:" : "http:"
+    const host = window.location.hostname
+    return `${protocol}//${host}:3001/api/v1`.replace(/\/+$/, "")
+  }
   const v = process.env.NEXT_PUBLIC_API_URL
   if (!v) throw new Error("NEXT_PUBLIC_API_URL is not set")
   return v.replace(/\/+$/, "")

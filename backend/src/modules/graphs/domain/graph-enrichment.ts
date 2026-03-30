@@ -6,12 +6,6 @@ export interface ITeamGraphEnrichTeam {
   channelIds: string[];
 }
 
-/** Minimal agent shape for handoff derivation */
-export interface IGraphEnrichAgent {
-  id: string;
-  handoff?: { targets?: string[] };
-}
-
 const DERIVED_HANDOFF_PREFIX = 'derived-handoff-';
 const DERIVED_STRUCTURAL_PREFIX = 'derived-structural-';
 
@@ -92,26 +86,6 @@ export function buildStructuralDerivedEdges(
     });
   }
 
-  return out;
-}
-
-export function buildHandoffDerivedEdges(nodes: IGraphNode[], agents: IGraphEnrichAgent[]): IGraphEdge[] {
-  const out: IGraphEdge[] = [];
-  for (const a of agents) {
-    const src = resolveAgentNodeId(nodes, a.id);
-    if (!src) continue;
-    for (const t of a.handoff?.targets ?? []) {
-      if (t === a.id) continue;
-      const tgt = resolveAgentNodeId(nodes, t);
-      if (!tgt) continue;
-      out.push({
-        id: `${DERIVED_HANDOFF_PREFIX}${src}-${tgt}`,
-        source: src,
-        target: tgt,
-        data: { edgeKind: 'handoff' as const },
-      });
-    }
-  }
   return out;
 }
 
@@ -234,25 +208,19 @@ export function mergePersistedAndDerivedEdges(
   return out;
 }
 
-export function computeAllDerivedEdges(
-  nodes: IGraphNode[],
-  team: ITeamGraphEnrichTeam,
-  agents: IGraphEnrichAgent[],
-): IGraphEdge[] {
+export function computeAllDerivedEdges(nodes: IGraphNode[], team: ITeamGraphEnrichTeam): IGraphEdge[] {
   const structural = buildStructuralDerivedEdges(nodes, team);
-  const handoff = buildHandoffDerivedEdges(nodes, agents);
-  return mergePersistedAndDerivedEdges([], [...structural, ...handoff]);
+  return mergePersistedAndDerivedEdges([], structural);
 }
 
 export function enrichTeamGraphPayload(
   nodes: unknown[],
   edges: unknown[],
   team: ITeamGraphEnrichTeam,
-  agents: IGraphEnrichAgent[],
 ): { nodes: unknown[]; edges: IGraphEdge[] } {
   const n = nodes as IGraphNode[];
   const e = edges as IGraphEdge[];
-  const derived = computeAllDerivedEdges(n, team, agents);
+  const derived = computeAllDerivedEdges(n, team);
   const merged = mergePersistedAndDerivedEdges(e, derived);
   return { nodes, edges: merged };
 }

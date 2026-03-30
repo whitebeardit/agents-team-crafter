@@ -2177,9 +2177,9 @@ Atualiza configuracao de handoff do agente.
 }
 ```
 
-#### POST /agents/:id/run
+#### POST /teams/:id/run
 
-Executa uma etapa de runtime para o agente: decisao de handoff **deterministica** (PolicyEngine) e depois execucao da etapa de linguagem (OpenAI Agents SDK) para o agente selecionado.
+Executa o **time**: o **coordenador** e o unico agente LLM de topo; **especialistas** do time (`agentIds`) sao expostos como **tools** (OpenAI Agents SDK), nao via cadeia de handoff na API.
 
 **Headers:** padrao (`Authorization`, `X-Workspace-Id`).
 
@@ -2194,8 +2194,8 @@ Executa uma etapa de runtime para o agente: decisao de handoff **deterministica*
 }
 ```
 
-- `message` (obrigatorio): entrada para o modelo.
-- `taskType` (opcional): sinal estruturado para roteamento por preset `route:taskType:...` antes da execucao.
+- `message` (obrigatorio): entrada para o coordenador.
+- `taskType` / `channel` / `locale` (opcionais): metadados **apenas** no contexto do coordenador (formatados na mensagem); nao sao enviados aos especialistas como roteamento externo.
 
 **Response 200:**
 ```json
@@ -2203,25 +2203,13 @@ Executa uma etapa de runtime para o agente: decisao de handoff **deterministica*
   "success": true,
   "data": {
     "runId": "uuid",
-    "agentId": "id-do-agente-da-rota",
-    "selectedAgentId": "id-efetivo-apos-handoff",
-    "decision": { "kind": "continue" }
+    "teamId": "id-do-time",
+    "coordinatorAgentId": "id-do-coordenador",
+    "externalResponse": { "text": "...", "format": "plain" },
+    "specialistResults": [],
+    "events": []
   },
   "meta": {}
-}
-```
-
-Ou, quando ha handoff:
-
-```json
-{
-  "decision": {
-    "kind": "handoff",
-    "nextAgentId": "agent-destino",
-    "reason": "route:taskType:invoice_validation"
-  },
-  "output": "...",
-  "events": []
 }
 ```
 
@@ -2229,8 +2217,8 @@ Ou, quando ha handoff:
 
 | HTTP | `error.code` | Quando |
 |------|----------------|--------|
-| 400 | `HANDOFF_BLOCKED` | Target invalido, agente nao pode receber handoff, ou guard de profundidade |
-| 404 | `NOT_FOUND` | Agente nao existe no workspace |
+| 404 | `NOT_FOUND` | Time nao existe no workspace |
+| 400 | `TEAM_RUNTIME_GUARD` / `TEAM_RUNTIME_INVARIANT` | Invariantes de runtime |
 
 #### POST /agents/:id/archive
 
@@ -2648,7 +2636,7 @@ export interface AgentHandoff {
   rules: (string | HandoffDslJsonRule)[]
 }
 
-export interface AgentRunRequest {
+export interface TeamRunRequest {
   message: string
   channel?: string
   locale?: string
@@ -2656,16 +2644,12 @@ export interface AgentRunRequest {
   taskType?: string
 }
 
-export type AgentRunDecision =
-  | { kind: "continue" }
-  | { kind: "handoff"; nextAgentId: string; reason: string }
-
-export interface AgentRunResponse {
+export interface TeamRunResponse {
   runId: string
-  agentId: string
-  selectedAgentId: string
-  decision: AgentRunDecision
-  output: unknown
+  teamId: string
+  coordinatorAgentId: string
+  externalResponse: { text: string; format?: "plain" | "markdown" }
+  specialistResults: { specialistAgentId: string; summary: string }[]
   events: unknown[]
 }
 

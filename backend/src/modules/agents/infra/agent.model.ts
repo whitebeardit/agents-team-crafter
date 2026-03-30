@@ -20,7 +20,6 @@ const AgentSchema = new Schema(
     knowledge: { type: Schema.Types.Mixed },
     channelConfig: { type: Schema.Types.Mixed },
     security: { type: Schema.Types.Mixed },
-    handoff: { type: Schema.Types.Mixed },
     documentation: { type: String },
     changelog: { type: Schema.Types.Mixed },
     deletedAt: { type: Date },

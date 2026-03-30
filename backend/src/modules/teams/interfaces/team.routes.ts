@@ -12,8 +12,12 @@ import {
   normalizePersistedChannelEdgesToCoordinator,
   stripDerivedGraphEdges,
 } from '../../graphs/domain/graph-enrichment.js';
-import type { IGraphEnrichAgent } from '../../graphs/domain/graph-enrichment.js';
 import { assertActiveChannelBindingUnique } from '../application/assert-active-channel-binding.js';
+import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
+import {
+  buildManualTeamInvocation,
+  teamRunBodySchema,
+} from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 
 const listTeamsQuery = paginationQuerySchema.merge(
   z.object({
@@ -63,25 +67,6 @@ async function assertCoordinatorRole(d: IAppDeps, workspaceId: string, agentId: 
       400,
     );
   }
-}
-
-async function loadAgentsForTeamGraph(
-  d: IAppDeps,
-  workspaceId: string,
-  team: { coordinatorId: string; agentIds: string[] },
-): Promise<IGraphEnrichAgent[]> {
-  const ids = [...new Set([team.coordinatorId, ...team.agentIds])];
-  const agents: IGraphEnrichAgent[] = [];
-  for (const aid of ids) {
-    const row = await d.agentRepo.findById(workspaceId, aid);
-    if (!row) continue;
-    const r = row as Record<string, unknown>;
-    agents.push({
-      id: String(r.id),
-      handoff: r.handoff as { targets?: string[] } | undefined,
-    });
-  }
-  return agents;
 }
 
 /** Campos de agente para cards no detalhe do time (versão, skills, canais declarativos, etc.). */
@@ -160,8 +145,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     if (changed) {
       await d.teamGraphRepo.upsert(ws, teamId, normalizedNodes, persistedFixed);
     }
-    const agents = await loadAgentsForTeamGraph(d, ws, team);
-    const payload = enrichTeamGraphPayload(normalizedNodes, persistedFixed, enrichTeam, agents);
+    const payload = enrichTeamGraphPayload(normalizedNodes, persistedFixed, enrichTeam);
     return reply.send(successEnvelope({ nodes: payload.nodes, edges: payload.edges }));
   });
 
@@ -186,8 +170,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
       enrichTeam,
       { agentIds },
     );
-    const agentsForGraph = await loadAgentsForTeamGraph(d, ws, team);
-    const enrich = { team: enrichTeam, agents: agentsForGraph };
+    const enrich = { team: enrichTeam };
     const graphValidation = validateTeamGraph(
       normalizedNodes as IGraphNode[],
       edgesToPersist,
@@ -231,11 +214,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
       enrichTeam,
       { agentIds },
     );
-    const agents = await loadAgentsForTeamGraph(d, ws, team);
-    const enrich = {
-      team: enrichTeam,
-      agents,
-    };
+    const enrich = { team: enrichTeam };
     const result = validateTeamGraph(normalizedNodes, edgesToValidate, { agentIds, channelIds }, enrich);
     return reply.send(successEnvelope(result));
   });
@@ -353,5 +332,26 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     const dup = await d.teamRepo.duplicate(ws, id, body.name);
     if (!dup) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     return reply.code(201).send(successEnvelope(dup));
+  });
+
+  app.post('/teams/:id/run', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await d.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const body = teamRunBodySchema.parse(req.body);
+    const t = team as Record<string, unknown>;
+    const invocation = buildManualTeamInvocation(ws, String(t['id']), String(t['coordinatorId']), body);
+    const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
+    return reply.send(
+      successEnvelope({
+        runId: result.runId,
+        teamId: result.teamId,
+        coordinatorAgentId: result.coordinatorAgentId,
+        externalResponse: result.externalResponse,
+        specialistResults: result.specialistResults,
+        events: result.events,
+      }),
+    );
   });
 }

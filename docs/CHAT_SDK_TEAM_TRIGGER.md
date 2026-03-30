@@ -80,7 +80,7 @@ POST https://<host>/api/v1/webhooks/chat/<workspaceId>/slack
 1. Slack envia `event_callback` para a URL acima.
 2. O backend resolve o canal com `config.slackTeamId === team_id`.
 3. Carrega segredos (cifrados ou fallback env), instancia `Chat` + `@chat-adapter/slack`.
-4. Em menção / thread inscrita → `executeAgentRun` com `channel: 'slack'` (ver `formatAgentUserMessage`).
+4. Em menção / thread inscrita → `invokeTeam` com `TeamInvocation` (`trigger: chat`); metadados de canal só no contexto do coordenador.
 
 ---
 
@@ -229,7 +229,7 @@ O runtime envia `channel` como prefixo na mensagem do usuário (`[channel=slack]
 
 ## Testes
 
-- Runtime / handoff em cadeia e `RUNTIME_MAX_HANDOFF_DEPTH`: `backend/src/__tests__/runtime-orchestration.integration.test.ts`, `backend/src/__tests__/runtime-orchestration-depth.integration.test.ts`
+- Team runtime (coordenador + tools, sem cadeia de handoff): `backend/src/__tests__/runtime-orchestration.integration.test.ts`, `backend/src/__tests__/runtime-run.integration.test.ts`
 - Binding 1:1: `backend/src/__tests__/team-active-channel-binding.integration.test.ts`
 - Resolução 0/1/N: `backend/src/modules/chat-sdk/application/resolve-inbound-coordinator.test.ts`
 - Texto com canal: `backend/src/modules/runtime/application/format-agent-user-message.test.ts`

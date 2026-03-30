@@ -23,7 +23,6 @@ describe('cross-tenant isolation', () => {
     OPENAI_API_KEY: undefined,
     ENCRYPTION_MASTER_KEY:
       '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-    RUNTIME_MAX_HANDOFF_DEPTH: 4,
   };
 
   let wsAId = '';

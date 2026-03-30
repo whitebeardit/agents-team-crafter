@@ -149,19 +149,6 @@ export default function GraphEditorPage({
 
       if (node.type === "specialist") {
         const agentId = String((node.data as { agentId?: string }).agentId ?? node.id)
-        const rosterIds = new Set([team.coordinatorId, ...team.agentIds])
-        const delegators: string[] = []
-        for (const a of agents) {
-          if (!rosterIds.has(a.id)) continue
-          if (a.handoff?.targets?.includes(agentId)) {
-            delegators.push(a.name)
-          }
-        }
-        if (delegators.length > 0) {
-          const msg = `Outros agentes do time ainda delegam handoff para este agente (${delegators.join(", ")}). Remova esses handoffs nas fichas dos agentes antes de retirar do time.`
-          toast.error(msg)
-          return { ok: false, message: msg }
-        }
 
         const label = String((node.data as { label?: string }).label ?? agentId)
         const ok = await askRemoveConfirm(
@@ -222,7 +209,7 @@ export default function GraphEditorPage({
 
       return { ok: false, message: "Tipo de no nao suportado" }
     },
-    [api, agents, askRemoveConfirm, id, loadGraphData, team],
+    [api, askRemoveConfirm, id, loadGraphData, team],
   )
 
   if (!team) {
@@ -275,8 +262,8 @@ export default function GraphEditorPage({
               Editor de Grafo: {team.name}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Coordenador liga-se aos especialistas e aos canais do time; handoff entre fichas define delegação
-              interna. Especialistas não são porta de entrada ou saída externa.
+              Coordenador liga-se aos especialistas e aos canais do time. Especialistas não são porta de entrada ou
+              saída externa.
             </p>
           </div>
         </div>
@@ -340,10 +327,6 @@ export default function GraphEditorPage({
             Coordenador ↔ canal (desenho bidirecional; passe o rato na linha para o texto)
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-0 border-t-2 border-dashed border-muted-foreground" />
-          <span className="text-muted-foreground">Handoff (delegação)</span>
-        </div>
       </div>
 
       {team.channelIds.length === 0 && (
@@ -379,16 +362,6 @@ export default function GraphEditorPage({
           empilha <strong>canais acima</strong>, coordenador no meio e especialistas abaixo. Ao gravar o grafo,
           arestas persistidas entre canal e agente devem ligar ao nó do coordenador. O backend rejeita layout
           inválido ao salvar.
-        </AlertDescription>
-      </Alert>
-
-      <Alert className="mb-4">
-        <Info className="h-4 w-4" />
-        <AlertTitle>Handoff vs. ligações no canvas</AlertTitle>
-        <AlertDescription>
-          As arestas tracejadas de handoff refletem os alvos configurados na ficha de cada agente (PUT de
-          handoff). Ligações que você desenha manualmente no grafo gravam só o layout do time (PUT do grafo) e
-          não atualizam automaticamente o handoff persistido no agente.
         </AlertDescription>
       </Alert>
 

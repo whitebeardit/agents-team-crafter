@@ -1,6 +1,6 @@
 /**
  * Configuracao executavel agregada para o runtime de agentes (Fase 15).
- * Composicao a partir de Agent + config + bindings + knowledge + handoff.
+ * Composicao a partir de Agent + config + bindings + knowledge.
  */
 export interface IExecutableAgentConfig {
   agentId: string;
@@ -9,13 +9,11 @@ export interface IExecutableAgentConfig {
   tools: string[];
   mcpBindingIds: string[];
   knowledgeSourceIds: string[];
-  handoffTargets: string[];
 }
 
 export type TRuntimeEvent =
   | { type: 'taskType'; value: string }
-  | { type: 'toolResult'; tool: string; status: 'success' | 'error'; errorCode?: string }
-  | { type: 'handoff'; fromAgentId: string; toAgentId: string; reason: string };
+  | { type: 'toolResult'; tool: string; status: 'success' | 'error'; errorCode?: string };
 
 export interface IAgentRunInput {
   message: string;
@@ -35,10 +33,28 @@ export interface IAgentRunResult {
   events: TRuntimeEvent[];
 }
 
+/** Opaque SDK tool references (e.g. OpenAI Agents function tools for specialists). */
+export type TCoordinatorSdkTool = unknown;
+
+export interface ICoordinatorRunParams {
+  coordinatorAgentId: string;
+  workspaceId: string;
+  systemInstruction?: string;
+  userMessage: string;
+  openaiApiKey?: string;
+  sdkTools: readonly TCoordinatorSdkTool[];
+}
+
 export interface IAgentRuntimeProvider {
   /** Prepara ou valida a configuracao para execucao (stub pode retornar eco). */
   compile(config: IExecutableAgentConfig): Promise<{ ok: boolean; detail?: string }>;
 
-  /** Executa uma etapa de linguagem+tools para um agente especifico (sem handoff automatico). */
+  /** Executa uma etapa de linguagem+tools para um agente especifico. */
   runStep(config: IExecutableAgentConfig, input: IAgentRunInput): Promise<IAgentRunResult>;
+
+  /**
+   * Single coordinator agent with specialist tools only (no handoff chain).
+   * Specialists are invoked via sdkTools, not as separate top-level agents.
+   */
+  runCoordinatorTurn(params: ICoordinatorRunParams): Promise<IAgentRunResult>;
 }

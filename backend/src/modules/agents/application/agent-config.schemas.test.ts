@@ -1,40 +1,18 @@
-import { describe, expect, it } from '@jest/globals';
-import { ZodError } from 'zod';
-import { handoffSchema } from './agent-config.schemas.js';
+import { toolsSchema } from './agent-config.schemas.js';
 
-describe('handoffSchema', () => {
-  const validJsonRule = {
-    id: 'rule-1',
-    version: 0,
-    when: { all: [{ path: 'taskType', op: 'eq', value: 'x' }] },
-    then: [{ kind: 'route', targetAgentId: '507f1f77bcf86cd799439011' }],
-  };
-
-  it('aceita rules mistos: presets string e regra JSON', () => {
-    const parsed = handoffSchema.parse({
-      targets: ['a1', 'a2'],
-      rules: ['route:taskType:invoice->agent:b1', validJsonRule],
+describe('toolsSchema', () => {
+  it('aceita lista de tools validas', () => {
+    const parsed = toolsSchema.parse({
+      tools: ['web_search'],
     });
-    expect(parsed.rules).toHaveLength(2);
-    expect(parsed.rules[0]).toBe('route:taskType:invoice->agent:b1');
-    expect(parsed.rules[1]).toEqual(validJsonRule);
+    expect(parsed.tools).toEqual(['web_search']);
   });
 
-  it('rejeita objeto JSON que nao satisfaz dslJsonRuleSchema', () => {
+  it('rejeita tool nao permitida', () => {
     expect(() =>
-      handoffSchema.parse({
-        targets: ['a1'],
-        rules: [{ id: '', version: -1, when: {}, then: [] }],
+      toolsSchema.parse({
+        tools: ['invalid_tool_xyz'],
       }),
-    ).toThrow(ZodError);
-  });
-
-  it('rejeita regra JSON sem campos obrigatorios', () => {
-    expect(() =>
-      handoffSchema.parse({
-        targets: ['a1'],
-        rules: [{ when: { all: [] } }],
-      }),
-    ).toThrow(ZodError);
+    ).toThrow();
   });
 });

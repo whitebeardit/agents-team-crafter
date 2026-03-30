@@ -53,8 +53,9 @@ Ordem lógica de registo (todas com prefixo `/api/v1`):
 9. `registerDashboardRoutes`
 10. `registerSettingsRoutes`
 11. `registerAuditRoutes`
-12. `registerRuntimeRoutes` — execução de agentes (`executeAgentRun` exposto por HTTP)
-13. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
+12. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
+
+Execução por time: **`POST /teams/:id/run`** em `registerTeamRoutes` (`invokeTeam` / `team-runtime`).
 
 ---
 
@@ -80,7 +81,7 @@ Padrão por funcionalidade em `backend/src/modules/<nome>/`:
 | `domain/` | Tipos, regras puras, ports |
 | `infra/` | Mongoose models e repositórios |
 
-O **runtime** (`modules/runtime`) concentra `executeAgentRun`, PolicyEngine de handoff e o provider OpenAI Agents SDK. O **chat-sdk** (`modules/chat-sdk`) instancia `Chat` + adapters e liga eventos ao runtime.
+O **team-runtime** (`modules/team-runtime`) concentra `invokeTeam`, o orquestrador do coordenador e registries de tools. O **runtime** (`modules/runtime`) expõe a porta `IAgentRuntimeProvider` (OpenAI Agents SDK). O **chat-sdk** liga eventos ao mesmo `invokeTeam`.
 
 ---
 
@@ -89,5 +90,5 @@ O **runtime** (`modules/runtime`) concentra `executeAgentRun`, PolicyEngine de h
 - [AGENTS.md](./AGENTS.md) — diagrama com BFF, webhooks e runtime.
 - [data-layer.md](./data-layer.md) — persistência e `workspaceId`.
 - [chat-sdk.md](./chat-sdk.md) — webhooks e `Chat`.
-- [agents-and-handoff.md](./agents-and-handoff.md) — `executeAgentRun` e política de handoff.
+- [agents-and-handoff.md](./agents-and-handoff.md) — team runtime e coordenador.
 - [MULTI_TENANT.md](../../docs/MULTI_TENANT.md) — princípios de isolamento e APIs de integrações.

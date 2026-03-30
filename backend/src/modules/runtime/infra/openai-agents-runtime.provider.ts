@@ -1,14 +1,29 @@
 import { Agent, Runner } from '@openai/agents';
 import { OpenAIProvider } from '@openai/agents-openai';
+import type { Tool } from '@openai/agents';
 import type {
   IAgentRuntimeProvider,
   IAgentRunInput,
   IAgentRunResult,
+  ICoordinatorRunParams,
   IExecutableAgentConfig,
 } from '../ports/agent-runtime.provider.js';
 import { formatAgentUserMessage } from '../application/format-agent-user-message.js';
 
-/** Runtime provider usando OpenAI Agents SDK como motor de linguagem. */
+function mapNewItemsToEvents(result: { newItems?: unknown[] }): IAgentRunResult['events'] {
+  const items = result.newItems ?? [];
+  const events: IAgentRunResult['events'] = [];
+  for (const item of items) {
+    const t = item as { type?: string; rawItem?: { type?: string; name?: string; callId?: string } };
+    if (t.type === 'tool_call_item' || t.rawItem?.type === 'function_call') {
+      const name = t.rawItem?.name ?? 'tool';
+      events.push({ type: 'toolResult', tool: name, status: 'success' });
+    }
+  }
+  return events;
+}
+
+/** Runtime provider using OpenAI Agents SDK; coordinator uses specialist tools, specialists use plain LLM step. */
 export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   constructor() {}
 
@@ -33,6 +48,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       name: `Agent:${config.agentId}`,
       instructions: config.systemInstruction ?? 'Voce e um agente de IA.',
       tools: [],
+      handoffs: [],
     });
 
     const userMessage = formatAgentUserMessage(input);
@@ -44,7 +60,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       const result = await runner.run(agent, userMessage, { stream: false });
       const finalOutput = String((result as { finalOutput?: unknown }).finalOutput ?? '');
 
-      const events: IAgentRunResult['events'] = [];
+      const events: IAgentRunResult['events'] = [...mapNewItemsToEvents(result as { newItems?: unknown[] })];
       if (input.taskType) events.push({ type: 'taskType', value: input.taskType });
 
       return { finalOutput, events };
@@ -55,6 +71,42 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       return {
         finalOutput: `Erro ao executar modelo: ${msg}`,
         events,
+      };
+    }
+  }
+
+  async runCoordinatorTurn(params: ICoordinatorRunParams): Promise<IAgentRunResult> {
+    const apiKey = params.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
+      return {
+        finalOutput:
+          'Chave OpenAI nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY no ambiente (apenas demo).',
+        events: [],
+      };
+    }
+
+    const tools = (params.sdkTools ?? []) as Tool[];
+    const agent = new Agent({
+      name: `Coordinator:${params.coordinatorAgentId}`,
+      instructions: params.systemInstruction ?? 'Voce e o coordenador do time de agentes.',
+      tools,
+      handoffs: [],
+    });
+
+    const runner = new Runner({
+      modelProvider: new OpenAIProvider({ apiKey }),
+    });
+
+    try {
+      const result = await runner.run(agent, params.userMessage, { stream: false });
+      const finalOutput = String((result as { finalOutput?: unknown }).finalOutput ?? '');
+      const events = mapNewItemsToEvents(result as { newItems?: unknown[] });
+      return { finalOutput, events };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return {
+        finalOutput: `Erro ao executar coordenador: ${msg}`,
+        events: [],
       };
     }
   }

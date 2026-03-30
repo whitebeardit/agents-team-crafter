@@ -27,7 +27,6 @@ describe('binding 1:1 channelId em times ativos', () => {
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: 'test-key',
     SLACK_SIGNING_SECRET: 'test-secret',
-    RUNTIME_MAX_HANDOFF_DEPTH: 4,
   };
 
   beforeAll(async () => {

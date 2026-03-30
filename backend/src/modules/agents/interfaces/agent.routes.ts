@@ -10,7 +10,6 @@ import {
   toolsSchema,
   channelsCfgSchema,
   securitySchema,
-  handoffSchema,
 } from '../application/agent-config.schemas.js';
 
 const listQuerySchema = paginationQuerySchema.merge(
@@ -211,7 +210,6 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
         knowledge: a['knowledge'],
         channelConfig: a['channelConfig'],
         security: a['security'],
-        handoff: a['handoff'],
       }),
     );
   });
@@ -222,13 +220,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
     const cur = await loadAgent(d, ws, id);
     assertCompany(cur);
     const body = z.record(z.string(), z.unknown()).parse(req.body);
-    const rawHandoff = body['handoff'];
-    if (rawHandoff !== undefined && rawHandoff !== null) {
-      const handoff = handoffSchema.parse(rawHandoff);
-      const ok = await d.agentRepo.existsAll(ws, handoff.targets);
-      if (!ok) throw new AppError('VALIDATION_ERROR', 'Handoff targets invalidos', 400);
-      body['handoff'] = handoff;
-    }
+    delete body['handoff'];
     await d.agentRepo.update(ws, id, body);
     return reply.send(
       successEnvelope({
@@ -264,21 +256,16 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
     const cur = await loadAgent(d, ws, id);
     assertCompany(cur);
     const body = toolsSchema.parse(req.body);
+    const cap = { ...(asRec(cur)['capabilities'] as Record<string, unknown> | undefined) };
+    delete cap['canDelegate'];
+    delete cap['canReceiveHandoff'];
     await d.agentRepo.update(ws, id, {
       capabilities: {
-        ...(asRec(cur)['capabilities'] as object | undefined),
+        ...cap,
         tools: body.tools,
-        canDelegate: body.canDelegate,
-        canReceiveHandoff: body.canReceiveHandoff,
       },
     });
-    return reply.send(
-      successEnvelope({
-        tools: body.tools,
-        canDelegate: body.canDelegate,
-        canReceiveHandoff: body.canReceiveHandoff,
-      }),
-    );
+    return reply.send(successEnvelope({ tools: body.tools }));
   });
 
   app.put('/agents/:id/channels', { preHandler: tenant }, async (req, reply) => {
@@ -302,15 +289,4 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
     return reply.send(successEnvelope(body));
   });
 
-  app.put('/agents/:id/handoff', { preHandler: tenant }, async (req, reply) => {
-    const ws = req.workspaceId!;
-    const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
-    assertCompany(cur);
-    const body = handoffSchema.parse(req.body);
-    const ok = await d.agentRepo.existsAll(ws, body.targets);
-    if (!ok) throw new AppError('VALIDATION_ERROR', 'Targets de handoff invalidos', 400);
-    await d.agentRepo.update(ws, id, { handoff: body });
-    return reply.send(successEnvelope(body));
-  });
 }

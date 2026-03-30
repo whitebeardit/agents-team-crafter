@@ -144,7 +144,7 @@ function edgePairKey(source: string, target: string): string {
   return `${source}|${target}`
 }
 
-/** Evita aresta duplicada no mesmo par source→target (persistido vs handoff derivado). */
+/** Evita aresta duplicada no mesmo par source→target (persistido vs derivado estrutural). */
 function mergeEdgesByPair(base: Edge[], extra: Edge[]): Edge[] {
   const keys = new Set(base.map((e) => edgePairKey(e.source, e.target)))
   const out = [...base]
@@ -179,23 +179,6 @@ function decorateDerivedEdgeStyles(edges: Edge[], nodes: Node[]): Edge[] {
   const successStroke = "var(--success)"
   return edges.map((e) => {
     const kind = (e.data as { edgeKind?: string; channelIo?: boolean } | undefined)?.edgeKind
-    if (kind === "handoff") {
-      return {
-        ...e,
-        type: e.type ?? "default",
-        label: e.label ?? "handoff",
-        style: {
-          strokeWidth: EDGE_STROKE_WIDTH,
-          ...e.style,
-          stroke: "var(--muted-foreground)",
-          strokeDasharray: "6 4",
-        },
-        markerEnd: e.markerEnd ?? {
-          type: MarkerType.ArrowClosed,
-          color: "var(--muted-foreground)",
-        },
-      }
-    }
     if (kind === "structural") {
       const specialistSpine = e.animated === true
       if (specialistSpine) {
@@ -314,37 +297,6 @@ function buildStructuralTemplateEdges(
   return edges
 }
 
-/** Arestas de delegação entre agentes (handoff.targets) — ids de nó resolvidos via agentId/data. */
-function buildHandoffEdgesFromAgents(agents: Agent[], nodes: Node[]): Edge[] {
-  const like = toGraphNodeLike(nodes)
-  const list: Edge[] = []
-  for (const a of agents) {
-    const src = resolveAgentNodeId(like, a.id)
-    if (!src) continue
-    for (const t of a.handoff?.targets ?? []) {
-      const tgt = resolveAgentNodeId(like, t)
-      if (!tgt || src === tgt) continue
-      list.push({
-        id: `derived-handoff-${src}-${tgt}`,
-        source: src,
-        target: tgt,
-        label: "handoff",
-        style: {
-          stroke: "var(--muted-foreground)",
-          strokeWidth: EDGE_STROKE_WIDTH,
-          strokeDasharray: "6 4",
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: "var(--muted-foreground)",
-        },
-        data: { edgeKind: "handoff" as const },
-      })
-    }
-  }
-  return list
-}
-
 export function GraphCanvas({
   team,
   agents,
@@ -433,14 +385,6 @@ export function GraphCanvas({
     [initialGraph.edges]
   )
 
-  const handoffSignature = useMemo(
-    () =>
-      agents
-        .map((a) => `${a.id}:${(a.handoff?.targets ?? []).join(",")}`)
-        .join("|"),
-    [agents]
-  )
-
   const teamRosterKey = useMemo(
     () =>
       `${team.coordinatorId}|${[...team.agentIds].sort().join(",")}|${[...team.channelIds].sort().join(",")}`,
@@ -448,7 +392,7 @@ export function GraphCanvas({
   )
 
   useEffect(() => {
-    const nextKey = `${team.id}:${teamRosterKey}:${persistedNodes.length}:${persistedEdges.length}:${handoffSignature}`
+    const nextKey = `${team.id}:${teamRosterKey}:${persistedNodes.length}:${persistedEdges.length}`
     if (hydratedGraphKey.current === nextKey) return
     hydratedGraphKey.current = nextKey
 
@@ -464,8 +408,6 @@ export function GraphCanvas({
       specialists,
       teamChannels
     )
-    const handoffDerived = buildHandoffEdgesFromAgents(agents, activeNodes)
-
     const userEdges = persistedEdges
     const base =
       userEdges.length > 0
@@ -473,17 +415,13 @@ export function GraphCanvas({
         : structural
 
     setNodes(activeNodes)
-    setEdges(
-      decorateDerivedEdgeStyles(mergeEdgesByPair(base, handoffDerived), activeNodes)
-    )
+    setEdges(decorateDerivedEdgeStyles(base, activeNodes))
   }, [
     team.id,
     teamRosterKey,
     persistedNodes,
     persistedEdges,
     initialNodes,
-    handoffSignature,
-    agents,
     coordinator,
     specialists,
     teamChannels,

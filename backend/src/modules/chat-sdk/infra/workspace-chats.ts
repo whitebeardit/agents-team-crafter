@@ -13,7 +13,8 @@ import type { IEnv } from '../../../config/env.js';
 import type { IAppDeps } from '../../../config/container.js';
 import type { ChannelDoc } from '../../channels/infra/channel.model.js';
 import type { IChatSdkSecretsPayload } from '../../channels/domain/chat-sdk-secrets.schema.js';
-import { executeAgentRun, agentRunBodySchema } from '../../runtime/application/agent-runtime-run.service.js';
+import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
+import { buildChatTeamInvocation } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 import { requireCoordinatorForChannelInstance } from '../application/resolve-inbound-coordinator.js';
 
 function createStateAdapter(workspaceId: string, env: IEnv) {
@@ -33,14 +34,20 @@ function bindInbound(
 ) {
   const channelIdStr = channelDoc._id.toString();
   const runInbound = async (text: string) => {
-    const { coordinatorId } = await requireCoordinatorForChannelInstance(
+    const { coordinatorId, teamId } = await requireCoordinatorForChannelInstance(
       d.teamRepo,
       workspaceId,
       channelIdStr,
     );
-    const body = agentRunBodySchema.parse({ message: text, channel: agentChannelLabel });
-    const result = await executeAgentRun(d, { workspaceId, agentId: coordinatorId, body });
-    return result.output;
+    const invocation = buildChatTeamInvocation(
+      workspaceId,
+      teamId,
+      coordinatorId,
+      text,
+      agentChannelLabel,
+    );
+    const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
+    return result.externalResponse.text;
   };
 
   chat.onNewMention(async (thread, message) => {

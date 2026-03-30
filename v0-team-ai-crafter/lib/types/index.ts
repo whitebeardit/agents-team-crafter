@@ -7,8 +7,6 @@ export type AccessLevel = "read" | "write" | "restricted"
 export interface AgentCapabilities {
   tools: string[]
   mcpBindings: string[]
-  canDelegate: boolean
-  canReceiveHandoff: boolean
 }
 
 export interface AgentKnowledge {
@@ -28,34 +26,8 @@ export interface AgentSecurity {
   accessLevel: AccessLevel
 }
 
-/**
- * Regra DSL em JSON (alinhada ao `dslJsonRuleSchema` do backend).
- * Presets continuam como strings em `rules`.
- */
-export interface HandoffDslJsonRule {
-  id: string
-  version: number
-  priority?: number
-  when: Record<string, unknown> & {
-    all?: unknown[]
-    any?: unknown[]
-    not?: unknown
-  }
-  then: unknown[]
-  limits?: {
-    maxDepth?: number
-    noRepeatAgents?: boolean
-    timeoutMs?: number
-  }
-}
-
-export interface AgentHandoff {
-  targets: string[]
-  rules: (string | HandoffDslJsonRule)[]
-}
-
-/** Body de `POST /api/v1/agents/:id/run` */
-export interface AgentRunRequest {
+/** Body de `POST /api/v1/teams/:id/run` */
+export interface TeamRunRequest {
   message: string
   channel?: string
   locale?: string
@@ -63,12 +35,34 @@ export interface AgentRunRequest {
   taskType?: string
 }
 
-/** `decision` no envelope de resposta do run */
-export type AgentRunDecision =
-  | { kind: "continue" }
-  | { kind: "handoff"; nextAgentId: string; reason: string }
+export interface TeamRunExternalResponse {
+  text: string
+  format?: "plain" | "markdown"
+}
 
-/** Dados em `data` de `POST /api/v1/agents/:id/run` */
+export interface TeamRunSpecialistResult {
+  specialistAgentId: string
+  summary: string
+  structured?: Record<string, unknown>
+}
+
+/** Dados em `data` de `POST /api/v1/teams/:id/run` */
+export interface TeamRunResponse {
+  runId: string
+  teamId: string
+  coordinatorAgentId: string
+  externalResponse: TeamRunExternalResponse
+  specialistResults: TeamRunSpecialistResult[]
+  events: unknown[]
+}
+
+/** @deprecated Use `TeamRunRequest` / `POST /teams/:id/run` */
+export type AgentRunRequest = TeamRunRequest
+
+/** @deprecated Legado do runtime por agente; use team run */
+export type AgentRunDecision = { kind: "continue" }
+
+/** @deprecated Replaced by `TeamRunResponse` (`POST /api/v1/teams/:id/run`) */
 export interface AgentRunResponse {
   runId: string
   agentId: string
@@ -79,7 +73,7 @@ export interface AgentRunResponse {
 }
 
 /** Códigos de erro relevantes ao runtime (além de 401/403/404 genéricos) */
-export type AgentRuntimeErrorCode = "HANDOFF_BLOCKED" | "VALIDATION_ERROR" | "NOT_FOUND"
+export type AgentRuntimeErrorCode = "VALIDATION_ERROR" | "NOT_FOUND" | "TEAM_RUNTIME_GUARD" | "TEAM_RUNTIME_INVARIANT"
 
 export interface Agent {
   id: string
@@ -103,7 +97,6 @@ export interface Agent {
   knowledge?: AgentKnowledge
   channelConfig?: AgentChannelConfig
   security?: AgentSecurity
-  handoff?: AgentHandoff
 }
 
 // MCP types
@@ -291,13 +284,4 @@ export const availableTools = [
   { id: "calendar_access", name: "Acesso ao Calendario", description: "Ler e criar eventos" },
   { id: "crm_access", name: "Acesso ao CRM", description: "Consultar e atualizar CRM" },
   { id: "database_query", name: "Consulta ao Banco", description: "Executar queries SQL" },
-] as const
-
-// Handoff rules presets
-export const handoffRulePresets = [
-  { id: "unknown", label: "Se nao souber responder", value: "when_unknown" },
-  { id: "out_of_scope", label: "Se for fora do escopo", value: "out_of_scope" },
-  { id: "complex", label: "Se for muito complexo", value: "too_complex" },
-  { id: "escalation", label: "Se cliente pedir escalacao", value: "customer_escalation" },
-  { id: "sentiment", label: "Se sentimento negativo", value: "negative_sentiment" },
 ] as const

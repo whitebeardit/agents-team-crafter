@@ -8,10 +8,14 @@ import { UserModel } from '../modules/users/infra/user.model.js';
 import { WorkspaceModel } from '../modules/workspaces/infra/workspace.model.js';
 import { WorkspaceMemberModel } from '../modules/workspaces/infra/workspace-member.model.js';
 import { AgentModel } from '../modules/agents/infra/agent.model.js';
+import { TeamModel } from '../modules/teams/infra/team.model.js';
 
-describe('runtime run endpoint', () => {
+describe('POST /teams/:id/run (team runtime)', () => {
   let mongo: MongoMemoryServer;
   let app: Awaited<ReturnType<typeof buildApp>>;
+  let teamId = '';
+  let coordId = '';
+
   const env: IEnv = {
     NODE_ENV: 'test',
     PORT: 3001,
@@ -20,12 +24,10 @@ describe('runtime run endpoint', () => {
     JWT_EXPIRES_IN: '1h',
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
-    OPENAI_API_KEY: 'test-key',
-    RUNTIME_MAX_HANDOFF_DEPTH: 4,
+    OPENAI_API_KEY: undefined,
   };
 
   beforeAll(async () => {
-    // Garante isolamento entre suites (mongoose eh singleton e pode manter estado entre testes).
     if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();
     }
@@ -47,11 +49,10 @@ describe('runtime run endpoint', () => {
       role: 'owner',
     });
 
-    // Two agents, with deterministic handoff from A -> B on taskType
     const agentB = await AgentModel.create({
       workspaceId: ws._id,
       name: 'B',
-      description: '',
+      description: 'specialist',
       role: 'specialist',
       origin: 'company',
       version: '1.0.0',
@@ -59,7 +60,7 @@ describe('runtime run endpoint', () => {
       channels: [],
       status: 'active',
       systemInstruction: 'Agente B',
-      capabilities: { canReceiveHandoff: true },
+      capabilities: {},
     });
     const agentA = await AgentModel.create({
       workspaceId: ws._id,
@@ -71,20 +72,26 @@ describe('runtime run endpoint', () => {
       category: 'Geral',
       channels: [],
       status: 'active',
-      systemInstruction: 'Agente A',
-      capabilities: { canDelegate: true },
-      handoff: {
-        targets: [agentB._id.toString()],
-        rules: [`route:taskType:invoice_validation->agent:${agentB._id.toString()}`],
-      },
+      systemInstruction: 'Agente coordenador',
+      capabilities: {},
     });
+    coordId = agentA._id.toString();
 
-    // Evita chamada real ao provedor externo (IEnv + process).
+    const team = await TeamModel.create({
+      workspaceId: ws._id,
+      name: 'T1',
+      description: '',
+      status: 'active',
+      coordinatorId: agentA._id,
+      agentIds: [agentB._id],
+      channelIds: [],
+    });
+    teamId = team._id.toString();
+
     env.OPENAI_API_KEY = undefined;
     process.env.OPENAI_API_KEY = '';
 
     app = await buildApp(env);
-    void agentA;
   });
 
   afterAll(async () => {
@@ -103,30 +110,28 @@ describe('runtime run endpoint', () => {
     return data.token;
   }
 
-  it('routes to handoff target deterministically by taskType', async () => {
+  it('executes team with coordinator as sole top-level agent (no handoff chain in API)', async () => {
     const token = await loginAndGetToken();
     const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
-    const agentA = await AgentModel.findOne({ name: 'A' }).lean();
 
     const res = await app.inject({
       method: 'POST',
-      url: `/api/v1/agents/${String((agentA as { _id: unknown })._id)}/run`,
+      url: `/api/v1/teams/${teamId}/run`,
       headers: {
         authorization: `Bearer ${token}`,
-        'x-workspace-id': String((ws as any)._id),
+        'x-workspace-id': String((ws as { _id: unknown })._id),
       },
       payload: { message: 'validar nota', taskType: 'invoice_validation' },
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body) as { success: boolean; data: any };
+    const body = JSON.parse(res.body) as { success: boolean; data: Record<string, unknown> };
     expect(body.success).toBe(true);
-    expect(body.data.decision.kind).toBe('handoff');
-    expect(body.data.selectedAgentId).not.toBe(body.data.agentId);
-    expect(Array.isArray(body.data.handoffs)).toBe(true);
-    expect(body.data.handoffs).toHaveLength(1);
-    expect(body.data.orchestrationDepth).toBe(1);
-    expect(body.data.events.some((e: { type: string }) => e.type === 'handoff')).toBe(true);
+    expect(body.data.coordinatorAgentId).toBe(coordId);
+    expect(body.data.teamId).toBe(teamId);
+    expect((body.data.externalResponse as { text?: string })?.text).toBeDefined();
+    expect(body.data).not.toHaveProperty('handoffs');
+    expect(body.data).not.toHaveProperty('selectedAgentId');
+    expect(Array.isArray(body.data.specialistResults)).toBe(true);
   });
 });
-
