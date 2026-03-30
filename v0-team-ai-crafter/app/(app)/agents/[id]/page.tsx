@@ -502,8 +502,19 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-muted-foreground">Descricao</Label>
-                  <p className="text-sm mt-1">{agent.description}</p>
+                  <Label htmlFor="agent-description" className="text-muted-foreground">
+                    Descricao
+                  </Label>
+                  <Textarea
+                    id="agent-description"
+                    value={agent.description ?? ""}
+                    onChange={(e) =>
+                      setAgent((prev) => (prev ? { ...prev, description: e.target.value } : null))
+                    }
+                    placeholder="Descreva o papel deste agente..."
+                    rows={4}
+                    className="mt-1 resize-y min-h-20"
+                  />
                 </div>
                 <Separator />
                 <div className="grid grid-cols-2 gap-4">
