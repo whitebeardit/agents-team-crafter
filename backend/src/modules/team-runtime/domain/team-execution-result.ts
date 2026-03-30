@@ -7,6 +7,9 @@ export interface ITeamExecutionEvent {
   tool?: string;
   status?: string;
   errorCode?: string;
+  agentId?: string;
+  phase?: string;
+  detail?: string;
 }
 
 export interface ITeamExecutionResult {

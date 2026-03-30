@@ -1,3 +1,4 @@
+import { PassThrough } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { IAppDeps } from '../../../config/container.js';
@@ -359,5 +360,64 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
         events: result.events,
       }),
     );
+  });
+
+  /**
+   * SSE: same payload as POST /teams/:id/run plus live agentStatus and coordinatorDelta events.
+   * Body: teamRunBodySchema (JSON).
+   */
+  app.post('/teams/:id/run/stream', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await d.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const body = teamRunBodySchema.parse(req.body);
+    const t = team as Record<string, unknown>;
+    const invocation = buildManualTeamInvocation(
+      ws,
+      String(t['id']),
+      String(t['coordinatorId']),
+      body,
+      req.requestId,
+    );
+
+    const stream = new PassThrough();
+    reply.headers({
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const writeSse = (event: string, data: unknown) => {
+      stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    void (async () => {
+      try {
+        const result = await invokeTeam(d.coordinatorOrchestrator, invocation, {
+          onProgress: (e) => writeSse('agentStatus', e),
+          streamCoordinatorText: true,
+          onCoordinatorTextDelta: (text) => writeSse('coordinatorDelta', { text }),
+        });
+        writeSse('runComplete', {
+          runId: result.runId,
+          teamId: result.teamId,
+          coordinatorAgentId: result.coordinatorAgentId,
+          externalResponse: result.externalResponse,
+          specialistResults: result.specialistResults,
+          events: result.events,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
+        const status = err instanceof AppError ? err.httpStatus : 500;
+        writeSse('error', { code, message, status });
+      } finally {
+        stream.end();
+      }
+    })();
+
+    return reply.send(stream);
   });
 }

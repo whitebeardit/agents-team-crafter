@@ -47,6 +47,33 @@ export interface TeamRunSpecialistResult {
   structured?: Record<string, unknown>
 }
 
+/** Evento na timeline de `POST /teams/:id/run` (coordenador, tools, especialistas). */
+export interface TeamRunExecutionEvent {
+  type: string
+  value?: string
+  tool?: string
+  status?: string
+  errorCode?: string
+  agentId?: string
+  phase?: string
+  detail?: string
+}
+
+/** SSE `agentStatus` durante `POST /teams/:id/run/stream`. */
+export interface TeamRunProgressEvent {
+  agentId: string
+  status: "idle" | "busy"
+  phase: string
+  detail?: string
+}
+
+/** Estado efémero por agente para o grafo em modo live. */
+export interface TeamGraphLiveAgentState {
+  status: "idle" | "busy"
+  phase: string
+  lastActivity: string
+}
+
 /** Dados em `data` de `POST /api/v1/teams/:id/run` */
 export interface TeamRunResponse {
   runId: string
@@ -54,7 +81,7 @@ export interface TeamRunResponse {
   coordinatorAgentId: string
   externalResponse: TeamRunExternalResponse
   specialistResults: TeamRunSpecialistResult[]
-  events: unknown[]
+  events: TeamRunExecutionEvent[]
 }
 
 /** @deprecated Use `TeamRunRequest` / `POST /teams/:id/run` */

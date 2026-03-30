@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,6 +17,7 @@ import {
   Crown,
   Clock,
   Calendar,
+  MessageSquareCode,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import type { Agent, Channel, ChannelType, Team } from "@/lib/types"
@@ -38,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { TeamDebugConsole } from "@/components/teams/team-debug-console"
 
 const statusColors = {
   active: "bg-success/10 text-success border-success/20",
@@ -136,6 +138,16 @@ export default function TeamDetailsPage({
   const [channelsLoading, setChannelsLoading] = useState(false)
   const [channelDraftIds, setChannelDraftIds] = useState<string[]>([])
   const [savingChannelIds, setSavingChannelIds] = useState(false)
+
+  const debugApi = useMemo(() => {
+    if (!token || !currentWorkspace) return null
+    return createApiClient({
+      getAuth: () => ({ token, refreshToken }),
+      setAuth: () => {},
+      clearAuth: () => {},
+      getWorkspaceId: () => currentWorkspace.id,
+    })
+  }, [token, refreshToken, currentWorkspace])
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -331,6 +343,10 @@ export default function TeamDetailsPage({
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="agents">Agentes</TabsTrigger>
           <TabsTrigger value="channels">Canais</TabsTrigger>
+          <TabsTrigger value="debug" className="gap-1.5">
+            <MessageSquareCode className="w-3.5 h-3.5" />
+            Console
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -482,6 +498,31 @@ export default function TeamDetailsPage({
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="debug" className="mt-6 space-y-6">
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <CardTitle className="text-lg">Teste local do runtime</CardTitle>
+              <CardDescription>
+                Mensagens usam <code className="text-xs bg-muted px-1 rounded">POST /teams/:id/run</code> com o mesmo
+                motor do coordenador (OpenAI Agents SDK) que os webhooks Chat SDK. Útil para validar prompts e
+                ferramentas antes de publicar em canais externos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {debugApi ? (
+                <TeamDebugConsole
+                  teamId={team.id}
+                  api={debugApi}
+                  coordinatorLabel={coordinator?.name}
+                  useHttpRun
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Inicie sessão com um workspace para usar o console.</p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Channels Tab — composição do time (channelIds); grafo usa esta lista + GET /channels */}

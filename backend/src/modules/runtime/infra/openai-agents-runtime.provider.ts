@@ -113,6 +113,19 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
     });
 
     try {
+      if (params.onAssistantTextDelta) {
+        const streamed = await runner.run(agent, params.userMessage, { stream: true });
+        const textStream = streamed.toTextStream({ compatibleWithNodeStreams: true });
+        textStream.on('data', (chunk: Buffer | string) => {
+          const s = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+          if (s) params.onAssistantTextDelta!(s);
+        });
+        await streamed.completed;
+        const finalOutput = String(streamed.finalOutput ?? '');
+        const events = mapNewItemsToEvents(streamed as { newItems?: unknown[] });
+        return { finalOutput, events };
+      }
+
       const result = await runner.run(agent, params.userMessage, { stream: false });
       const finalOutput = String((result as { finalOutput?: unknown }).finalOutput ?? '');
       const events = mapNewItemsToEvents(result as { newItems?: unknown[] });

@@ -15,10 +15,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Info, Save, Plus, Radio, Database } from "lucide-react"
+import { ArrowLeft, Info, Save, Plus, Radio, Database, RadioReceiver } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
-import type { Agent, Channel, Team } from "@/lib/types"
+import { TeamDebugConsole } from "@/components/teams/team-debug-console"
+import type { Agent, Channel, Team, TeamGraphLiveAgentState } from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import {
@@ -30,6 +31,10 @@ import {
 import { toast } from "sonner"
 import type { Edge, Node } from "@xyflow/react"
 import { stripDerivedGraphEdges } from "@/lib/graph-derived-edges"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 
 export default function GraphEditorPage({
   params: _params,
@@ -45,6 +50,8 @@ export default function GraphEditorPage({
   const [graph, setGraph] = useState<{ nodes: unknown[]; edges: unknown[] }>({ nodes: [], edges: [] })
   const [graphDraft, setGraphDraft] = useState<{ nodes: Node[]; edges: Edge[] }>({ nodes: [], edges: [] })
   const [saving, setSaving] = useState(false)
+  const [liveMode, setLiveMode] = useState(false)
+  const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentState>>({})
 
   const removeResolveRef = useRef<((value: boolean) => void) | null>(null)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
@@ -59,6 +66,17 @@ export default function GraphEditorPage({
       getWorkspaceId: () => currentWorkspace.id,
     })
   }, [token, refreshToken, currentWorkspace])
+
+  const onLiveAgentStatus = useCallback((agentId: string, patch: TeamGraphLiveAgentState) => {
+    setLiveAgentState((prev) => ({
+      ...prev,
+      [agentId]: patch,
+    }))
+  }, [])
+
+  const onStreamFinished = useCallback(() => {
+    window.setTimeout(() => setLiveAgentState({}), 3200)
+  }, [])
 
   const loadGraphData = useCallback(async () => {
     if (!api) return
@@ -268,7 +286,26 @@ export default function GraphEditorPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5">
+            <Switch
+              id="graph-live-mode"
+              checked={liveMode}
+              onCheckedChange={(v) => {
+                setLiveMode(v)
+                if (!v) setLiveAgentState({})
+              }}
+            />
+            <Label htmlFor="graph-live-mode" className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <RadioReceiver className="w-4 h-4 text-primary" />
+              Live
+            </Label>
+            {liveMode ? (
+              <Badge variant="secondary" className="text-xs">
+                SSE
+              </Badge>
+            ) : null}
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -365,8 +402,33 @@ export default function GraphEditorPage({
         </AlertDescription>
       </Alert>
 
+      {liveMode && api ? (
+        <Card className="mb-4 border-primary/30">
+          <CardHeader className="py-3">
+            <CardTitle className="text-base">Console em tempo real</CardTitle>
+            <CardDescription>
+              Mensagens enviam <code className="text-xs bg-muted px-1 rounded">POST /teams/:id/run/stream</code>. O
+              grafo reflete <strong>agentStatus</strong> por agente; o texto do coordenador pode surgir em fluxo
+              (tokens).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TeamDebugConsole
+              teamId={id}
+              api={api}
+              coordinatorLabel={agents.find((a) => a.id === team.coordinatorId)?.name}
+              useStreamRun
+              useHttpRun={false}
+              onLiveAgentStatus={onLiveAgentStatus}
+              onStreamFinished={onStreamFinished}
+              className="min-h-[280px]"
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* Graph Canvas */}
-      <div className="flex-1 rounded-lg border border-border overflow-hidden">
+      <div className="flex-1 rounded-lg border border-border overflow-hidden min-h-[360px]">
         <GraphCanvas
           team={team}
           agents={agents}
@@ -374,6 +436,7 @@ export default function GraphEditorPage({
           initialGraph={graph}
           onGraphChange={setGraphDraft}
           onTeamEntityRemove={handleTeamEntityRemove}
+          liveAgentState={liveMode ? liveAgentState : {}}
         />
       </div>
     </div>

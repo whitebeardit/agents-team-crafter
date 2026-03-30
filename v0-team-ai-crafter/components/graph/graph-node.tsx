@@ -7,6 +7,7 @@ import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { cn } from "@/lib/utils"
 import { formatCategoryLabel } from "@/lib/utils/agent-category"
 import type { GraphNodeIndicators, AgentRole } from "@/lib/types"
+import { useGraphLiveAgent } from "@/components/graph/graph-live-context"
 
 export interface AgentNodeData {
   label: string
@@ -81,17 +82,31 @@ type AgentNodeDataRecord = AgentNodeData & Record<string, unknown>
 type CoordinatorNodeType = Node<AgentNodeDataRecord, "coordinator">
 
 export const CoordinatorNode = memo(function CoordinatorNode({
+  id,
   data,
   selected,
 }: NodeProps<CoordinatorNodeType>) {
+  const agentId = String((data as { agentId?: string }).agentId ?? id)
+  const live = useGraphLiveAgent(agentId)
+  const busy = live?.status === "busy"
   return (
-    <div
-      className={cn(
-        "px-4 py-3 rounded-lg border-2 min-w-44 transition-all",
-        nodeColors.coordinator.bg,
-        selected ? "border-primary shadow-lg shadow-primary/20" : nodeColors.coordinator.border
-      )}
-    >
+    <div className="relative">
+      {live?.lastActivity ? (
+        <div className="absolute left-1/2 bottom-full mb-1 z-[60] w-max max-w-[min(240px,70vw)] -translate-x-1/2 pointer-events-none">
+          <div className="rounded-md border border-border bg-popover px-2 py-1 text-center text-[10px] leading-snug text-popover-foreground shadow-md">
+            <span className="font-medium text-primary">{live.phase}</span>
+            <span className="block text-muted-foreground line-clamp-3">{live.lastActivity}</span>
+          </div>
+        </div>
+      ) : null}
+      <div
+        className={cn(
+          "px-4 py-3 rounded-lg border-2 min-w-44 transition-all",
+          nodeColors.coordinator.bg,
+          selected ? "border-primary shadow-lg shadow-primary/20" : nodeColors.coordinator.border,
+          busy && "ring-2 ring-warning/80 ring-offset-2 ring-offset-background shadow-lg shadow-warning/20",
+        )}
+      >
       <Handle
         type="target"
         position={Position.Top}
@@ -110,6 +125,7 @@ export const CoordinatorNode = memo(function CoordinatorNode({
         position={Position.Bottom}
         className="!bg-primary !border-primary-foreground !w-3 !h-3"
       />
+      </div>
     </div>
   )
 })
@@ -117,17 +133,31 @@ export const CoordinatorNode = memo(function CoordinatorNode({
 type SpecialistNodeType = Node<AgentNodeDataRecord, "specialist">
 
 export const SpecialistNode = memo(function SpecialistNode({
+  id,
   data,
   selected,
 }: NodeProps<SpecialistNodeType>) {
+  const agentId = String((data as { agentId?: string }).agentId ?? id)
+  const live = useGraphLiveAgent(agentId)
+  const busy = live?.status === "busy"
   return (
-    <div
-      className={cn(
-        "px-4 py-3 rounded-lg border-2 min-w-44 transition-all",
-        nodeColors.specialist.bg,
-        selected ? "border-accent shadow-lg shadow-accent/20" : nodeColors.specialist.border
-      )}
-    >
+    <div className="relative">
+      {live?.lastActivity ? (
+        <div className="absolute left-1/2 bottom-full mb-1 z-[60] w-max max-w-[min(240px,70vw)] -translate-x-1/2 pointer-events-none">
+          <div className="rounded-md border border-border bg-popover px-2 py-1 text-center text-[10px] leading-snug text-popover-foreground shadow-md">
+            <span className="font-medium text-accent">{live.phase}</span>
+            <span className="block text-muted-foreground line-clamp-3">{live.lastActivity}</span>
+          </div>
+        </div>
+      ) : null}
+      <div
+        className={cn(
+          "px-4 py-3 rounded-lg border-2 min-w-44 transition-all",
+          nodeColors.specialist.bg,
+          selected ? "border-accent shadow-lg shadow-accent/20" : nodeColors.specialist.border,
+          busy && "ring-2 ring-accent/90 ring-offset-2 ring-offset-background shadow-lg shadow-accent/25",
+        )}
+      >
       <Handle
         type="target"
         position={Position.Top}
@@ -148,6 +178,7 @@ export const SpecialistNode = memo(function SpecialistNode({
         position={Position.Bottom}
         className="!bg-accent !border-accent-foreground !w-3 !h-3"
       />
+      </div>
     </div>
   )
 })

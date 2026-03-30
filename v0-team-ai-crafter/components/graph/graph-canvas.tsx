@@ -22,7 +22,8 @@ import "@xyflow/react/dist/style.css"
 import { ChannelIoEdge } from "./channel-io-edge"
 import { nodeTypes } from "./graph-node"
 import { NodeConfigPanel } from "./node-config-panel"
-import type { Agent, Channel, Team } from "@/lib/types"
+import type { Agent, Channel, Team, TeamGraphLiveAgentState } from "@/lib/types"
+import { GraphLiveAgentsContext } from "@/components/graph/graph-live-context"
 import {
   resolveAgentNodeId,
   resolveChannelNodeId,
@@ -40,6 +41,8 @@ interface GraphCanvasProps {
     nodes: Node[]
     edges: Edge[]
   }) => Promise<{ ok: boolean; message?: string }>
+  /** Estado em tempo real por agentId (modo live no editor de grafo). */
+  liveAgentState?: Record<string, TeamGraphLiveAgentState>
 }
 
 const toNode = (value: unknown): Node | null => {
@@ -304,6 +307,7 @@ export function GraphCanvas({
   initialGraph,
   onGraphChange,
   onTeamEntityRemove,
+  liveAgentState = {},
 }: GraphCanvasProps) {
   const coordinator = agents.find((a) => a.id === team.coordinatorId)
   const specialists = agents.filter((a) => team.agentIds.includes(a.id))
@@ -508,41 +512,43 @@ export function GraphCanvas({
 
   return (
     <div className="relative w-full h-full">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes as NodeTypes}
-        edgeTypes={graphEdgeTypes}
-        defaultEdgeOptions={{
-          style: { stroke: "var(--foreground)", strokeWidth: EDGE_STROKE_WIDTH },
-        }}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        className="bg-background"
-      >
-        <Controls className="!bg-card !border-border !shadow-lg" />
-        <MiniMap
-          className="!bg-card !border-border"
-          nodeColor={(node) => {
-            switch (node.type) {
-              case "coordinator":
-                return "var(--primary)"
-              case "specialist":
-                return "var(--accent)"
-              case "channel":
-                return "var(--success)"
-              default:
-                return "var(--muted-foreground)"
-            }
+      <GraphLiveAgentsContext.Provider value={liveAgentState}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes as NodeTypes}
+          edgeTypes={graphEdgeTypes}
+          defaultEdgeOptions={{
+            style: { stroke: "var(--foreground)", strokeWidth: EDGE_STROKE_WIDTH },
           }}
-        />
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
-      </ReactFlow>
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          className="bg-background"
+        >
+          <Controls className="!bg-card !border-border !shadow-lg" />
+          <MiniMap
+            className="!bg-card !border-border"
+            nodeColor={(node) => {
+              switch (node.type) {
+                case "coordinator":
+                  return "var(--primary)"
+                case "specialist":
+                  return "var(--accent)"
+                case "channel":
+                  return "var(--success)"
+                default:
+                  return "var(--muted-foreground)"
+              }
+            }}
+          />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
+        </ReactFlow>
+      </GraphLiveAgentsContext.Provider>
 
       {selectedNode && (
         <NodeConfigPanel

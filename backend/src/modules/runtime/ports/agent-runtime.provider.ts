@@ -42,7 +42,13 @@ export interface IExecutableAgentConfig {
 
 export type TRuntimeEvent =
   | { type: 'taskType'; value: string }
-  | { type: 'toolResult'; tool: string; status: 'success' | 'error'; errorCode?: string };
+  | {
+      type: 'toolResult';
+      tool: string;
+      status: 'success' | 'error';
+      errorCode?: string;
+      agentId?: string;
+    };
 
 export interface IAgentRunInput {
   message: string;
@@ -73,6 +79,8 @@ export interface ICoordinatorRunParams {
   userMessage: string;
   openaiApiKey?: string;
   sdkTools: readonly TCoordinatorSdkTool[];
+  /** When set, coordinator run uses streaming mode and forwards text chunks (SSE / live UI). */
+  onAssistantTextDelta?: (delta: string) => void;
 }
 
 export interface IAgentRuntimeProvider {

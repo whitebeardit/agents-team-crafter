@@ -4,7 +4,11 @@ import type { TeamRepository } from '../../teams/infra/team.repository.js';
 import type { AgentMcpBindingRepository } from '../../agents/infra/agent-mcp-binding.repository.js';
 import type { McpConnectionRepository } from '../../mcps/infra/mcp-connection.repository.js';
 import type { KnowledgeSourceRepository } from '../../knowledge/infra/knowledge-source.repository.js';
-import type { IAgentRuntimeProvider, IWorkspaceCustomToolDefinition } from '../../runtime/ports/agent-runtime.provider.js';
+import type {
+  IAgentRuntimeProvider,
+  IWorkspaceCustomToolDefinition,
+  TRuntimeEvent,
+} from '../../runtime/ports/agent-runtime.provider.js';
 import type { WorkspaceToolDefinitionRepository } from '../../tool-definitions/infra/workspace-tool-definition.repository.js';
 import { composeExecutableAgentConfig } from '../../runtime/application/compose-executable-config.js';
 import { buildSpecialistSystemInstruction } from '../../runtime/application/build-specialist-system-instruction.js';
@@ -13,7 +17,8 @@ import { loadMcpToolSpecsForAgent } from '../../runtime/application/load-mcp-too
 import { AppError } from '../../../shared/errors/app-error.js';
 import type { ITeamInvocation } from '../domain/team-invocation.js';
 import type { ISpecialistResult } from '../domain/specialist-result.js';
-import type { ITeamExecutionResult } from '../domain/team-execution-result.js';
+import type { ITeamExecutionEvent, ITeamExecutionResult } from '../domain/team-execution-result.js';
+import type { ITeamProgressEvent } from '../domain/team-progress-event.js';
 import {
   assertSpecialistAgentRow,
   assertTeamCoordinatorBinding,
@@ -22,8 +27,38 @@ import {
 import { assertInvocationMatchesTeam } from './team-runtime-guards.service.js';
 import { composeExternalResponseFromModelText } from './response-composer.service.js';
 import { formatCoordinatorUserMessage } from './format-coordinator-user-message.js';
-import { SpecialistRegistry } from '../infra/registries/specialist-registry.js';
+import {
+  resolveSpecialistAgentIdFromToolName,
+  SpecialistRegistry,
+} from '../infra/registries/specialist-registry.js';
 import type { WorkspaceIntegrationsService } from '../../settings/application/workspace-integrations.service.js';
+
+const ACTIVITY_MAX = 200;
+
+function truncateActivity(text: string, max = ACTIVITY_MAX): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+export interface ICoordinatorExecuteOptions {
+  onProgress?: (e: ITeamProgressEvent) => void;
+  streamCoordinatorText?: boolean;
+  onCoordinatorTextDelta?: (text: string) => void;
+}
+
+function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: string[]): ITeamExecutionEvent {
+  if (e.type === 'taskType') return { type: e.type, value: e.value };
+  const agentId =
+    e.tool !== undefined ? resolveSpecialistAgentIdFromToolName(e.tool, rosterSpecialistIds) : undefined;
+  return {
+    type: e.type,
+    tool: e.tool,
+    status: e.status,
+    errorCode: e.errorCode,
+    ...(agentId ? { agentId } : {}),
+  };
+}
 
 export class CoordinatorOrchestratorService {
   constructor(
@@ -38,7 +73,10 @@ export class CoordinatorOrchestratorService {
     private readonly workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository,
   ) {}
 
-  async execute(invocation: ITeamInvocation): Promise<ITeamExecutionResult> {
+  async execute(
+    invocation: ITeamInvocation,
+    options?: ICoordinatorExecuteOptions,
+  ): Promise<ITeamExecutionResult> {
     const ws = invocation.workspaceId;
     const team = await this.teamRepo.findById(ws, invocation.teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
@@ -72,10 +110,39 @@ export class CoordinatorOrchestratorService {
     }
 
     const specialistResults: ISpecialistResult[] = [];
+    const specialistSidecarEvents: ITeamExecutionEvent[] = [];
 
     const executeSpecialist = async (specialistAgentId: string, instruction: string) => {
+      specialistSidecarEvents.push({
+        type: 'specialistStarted',
+        agentId: specialistAgentId,
+        phase: 'runStep',
+        detail: truncateActivity(instruction),
+      });
+      options?.onProgress?.({
+        agentId: specialistAgentId,
+        status: 'busy',
+        phase: 'specialist',
+        detail: truncateActivity(instruction),
+      });
+
       const spec = await this.agentRepo.findById(ws, specialistAgentId);
-      if (!spec) return 'Especialista nao encontrado.';
+      if (!spec) {
+        const msg = 'Especialista nao encontrado.';
+        specialistSidecarEvents.push({
+          type: 'specialistFinished',
+          agentId: specialistAgentId,
+          phase: 'runStep',
+          detail: msg,
+        });
+        options?.onProgress?.({
+          agentId: specialistAgentId,
+          status: 'idle',
+          phase: 'specialist',
+          detail: msg,
+        });
+        return msg;
+      }
       assertSpecialistAgentRow(spec as Record<string, unknown>);
       const srow = spec as Record<string, unknown>;
 
@@ -152,6 +219,18 @@ export class CoordinatorOrchestratorService {
         ...(correlationId ? { correlationId } : {}),
       });
       specialistResults.push({ specialistAgentId, summary: r.finalOutput });
+      specialistSidecarEvents.push({
+        type: 'specialistFinished',
+        agentId: specialistAgentId,
+        phase: 'runStep',
+        detail: truncateActivity(r.finalOutput),
+      });
+      options?.onProgress?.({
+        agentId: specialistAgentId,
+        status: 'idle',
+        phase: 'specialist',
+        detail: truncateActivity(r.finalOutput),
+      });
       return r.finalOutput;
     };
 
@@ -160,6 +239,17 @@ export class CoordinatorOrchestratorService {
     const userMessage = formatCoordinatorUserMessage(invocation);
     const crow = coordinator as Record<string, unknown>;
 
+    const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
+    const timeline: ITeamExecutionEvent[] = [
+      { type: 'coordinatorStarted', agentId: teamRow.coordinatorId, phase: 'invoke' },
+    ];
+    options?.onProgress?.({
+      agentId: teamRow.coordinatorId,
+      status: 'busy',
+      phase: 'coordinator',
+      detail: 'A executar coordenador',
+    });
+
     const result = await this.agentRuntime.runCoordinatorTurn({
       coordinatorAgentId: teamRow.coordinatorId,
       workspaceId: ws,
@@ -167,6 +257,22 @@ export class CoordinatorOrchestratorService {
       userMessage,
       ...(openaiApiKey ? { openaiApiKey } : {}),
       sdkTools,
+      ...(streamText && options?.onCoordinatorTextDelta
+        ? { onAssistantTextDelta: options.onCoordinatorTextDelta }
+        : {}),
+    });
+
+    options?.onProgress?.({
+      agentId: teamRow.coordinatorId,
+      status: 'idle',
+      phase: 'coordinator',
+    });
+
+    const coordinatorMapped = result.events.map((e) => mapRuntimeEventToTeamEvent(e, specialistIds));
+    timeline.push(...coordinatorMapped, ...specialistSidecarEvents, {
+      type: 'coordinatorFinished',
+      agentId: teamRow.coordinatorId,
+      phase: 'done',
     });
 
     const runId = randomUUID();
@@ -176,10 +282,7 @@ export class CoordinatorOrchestratorService {
       coordinatorAgentId: teamRow.coordinatorId,
       externalResponse: composeExternalResponseFromModelText(result.finalOutput),
       specialistResults,
-      events: result.events.map((e) => {
-        if (e.type === 'taskType') return { type: e.type, value: e.value };
-        return { type: e.type, tool: e.tool, status: e.status, errorCode: e.errorCode };
-      }),
+      events: timeline,
     };
   }
 }

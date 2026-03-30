@@ -6,6 +6,17 @@ export function specialistToolName(agentId: string): string {
   return `specialist_${safe}`.slice(0, 64);
 }
 
+/** Reverse tool name → specialist id using the same roster encoding as buildOpenAiTools. */
+export function resolveSpecialistAgentIdFromToolName(
+  toolName: string,
+  specialistIds: string[],
+): string | undefined {
+  for (const id of specialistIds) {
+    if (specialistToolName(id) === toolName) return id;
+  }
+  return undefined;
+}
+
 export type TExecuteSpecialistFn = (specialistAgentId: string, instruction: string) => Promise<string>;
 
 /**

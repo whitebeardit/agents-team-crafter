@@ -1,3 +1,5 @@
+import type { TeamRunProgressEvent, TeamRunRequest, TeamRunResponse } from "@/lib/types"
+
 export interface ISuccessEnvelope<T> {
   success: true
   data: T
@@ -89,6 +91,40 @@ type SetAuth = (auth: { token: string; refreshToken?: string }) => void
 type ClearAuth = () => void
 type GetWorkspaceId = () => string | null | undefined
 
+/** Parse Server-Sent Events body (fetch streaming). */
+async function consumeSseResponse(
+  res: Response,
+  onParsed: (eventName: string, data: string) => void,
+): Promise<void> {
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error("Resposta sem corpo legivel")
+  const decoder = new TextDecoder()
+  let buffer = ""
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const blocks = buffer.split(/\r?\n\r?\n/)
+    buffer = blocks.pop() ?? ""
+    for (const block of blocks) {
+      let eventName = "message"
+      const dataLines: string[] = []
+      for (const line of block.split(/\r?\n/)) {
+        if (line.startsWith("event:")) eventName = line.slice(6).trim()
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim())
+      }
+      if (dataLines.length > 0) onParsed(eventName, dataLines.join("\n"))
+    }
+  }
+}
+
+export interface ITeamRunStreamHandlers {
+  onAgentStatus?: (e: TeamRunProgressEvent) => void
+  onCoordinatorDelta?: (text: string) => void
+  onRunComplete?: (data: TeamRunResponse) => void
+  onError?: (e: { code?: string; message: string; status?: number }) => void
+}
+
 export function createApiClient(deps: {
   getAuth: GetAuth
   setAuth: SetAuth
@@ -145,6 +181,69 @@ export function createApiClient(deps: {
     return parseEnvelope<T>(res)
   }
 
+  async function streamTeamRun(teamId: string, body: TeamRunRequest, handlers: ITeamRunStreamHandlers) {
+    const baseUrl = getBaseUrl()
+    const path = `/teams/${teamId}/run/stream`
+
+    const buildHeaders = () => {
+      const headers = new Headers({ "Content-Type": "application/json" })
+      const { token } = deps.getAuth()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+      const wid = deps.getWorkspaceId()
+      if (wid) headers.set("X-Workspace-Id", wid)
+      return headers
+    }
+
+    const doFetch = () =>
+      fetch(joinUrl(baseUrl, path), {
+        method: "POST",
+        headers: buildHeaders(),
+        body: JSON.stringify(body),
+      })
+
+    let res = await doFetch()
+    if (res.status === 401) {
+      const refreshed = await refreshTokenIfPossible()
+      if (refreshed) res = await doFetch()
+      else deps.clearAuth()
+    }
+
+    if (!res.ok) {
+      let message = await res.text()
+      if (!message) message = res.statusText
+      try {
+        const j = JSON.parse(message) as { error?: { message?: string; code?: string } }
+        if (j?.error?.message) message = j.error.message
+      } catch {
+        /* ignore */
+      }
+      handlers.onError?.({ message, status: res.status })
+      return
+    }
+
+    await consumeSseResponse(res, (eventName, dataJson) => {
+      try {
+        const data = JSON.parse(dataJson) as unknown
+        if (eventName === "agentStatus") handlers.onAgentStatus?.(data as TeamRunProgressEvent)
+        else if (eventName === "coordinatorDelta") {
+          const d = data as { text?: string }
+          if (d.text) handlers.onCoordinatorDelta?.(d.text)
+        } else if (eventName === "runComplete") {
+          handlers.onRunComplete?.(data as TeamRunResponse)
+        } else if (eventName === "error") {
+          const d = data as { code?: string; message?: string; status?: number }
+          handlers.onError?.({
+            code: d.code,
+            message: d.message ?? "Erro no stream",
+            status: d.status,
+          })
+        }
+      } catch {
+        /* chunk invalido */
+      }
+    })
+  }
+
   return {
     get: async <T>(path: string, opts?: { tenant?: boolean }) => request<T>(path, { method: "GET", tenant: opts?.tenant }),
     post: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean }) =>
@@ -155,6 +254,7 @@ export function createApiClient(deps: {
       request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined, tenant: opts?.tenant }),
     del: async <T>(path: string, opts?: { tenant?: boolean }) =>
       request<T>(path, { method: "DELETE", tenant: opts?.tenant }),
+    streamTeamRun,
   }
 }
 
