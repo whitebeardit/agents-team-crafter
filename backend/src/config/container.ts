@@ -19,6 +19,7 @@ import { AuditLogRepository } from '../modules/audit/infra/audit-log.repository.
 import { OpenAIAgentsRuntimeProvider } from '../modules/runtime/infra/openai-agents-runtime.provider.js';
 import { SpecialistRegistry } from '../modules/team-runtime/infra/registries/specialist-registry.js';
 import { CoordinatorOrchestratorService } from '../modules/team-runtime/application/coordinator-orchestrator.service.js';
+import { WorkspaceToolDefinitionRepository } from '../modules/tool-definitions/infra/workspace-tool-definition.repository.js';
 import { ChannelSecretsService } from '../modules/channels/application/channel-secrets.service.js';
 import { WorkspaceIntegrationsService } from '../modules/settings/application/workspace-integrations.service.js';
 import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
@@ -49,6 +50,7 @@ export interface IAppDeps {
   settingsRepo: SettingsRepository;
   workspaceIntegrationsService: WorkspaceIntegrationsService;
   auditLogRepo: AuditLogRepository;
+  workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository;
   agentRuntime: OpenAIAgentsRuntimeProvider;
   specialistRegistry: SpecialistRegistry;
   coordinatorOrchestrator: CoordinatorOrchestratorService;
@@ -75,6 +77,7 @@ export function createDeps(env: IEnv): IAppDeps {
   const settingsRepo = new SettingsRepository();
   const workspaceIntegrationsService = new WorkspaceIntegrationsService(env, workspaceRepo);
   const auditLogRepo = new AuditLogRepository();
+  const workspaceToolDefinitionRepo = new WorkspaceToolDefinitionRepository();
   const agentRuntime = new OpenAIAgentsRuntimeProvider();
   const specialistRegistry = new SpecialistRegistry();
   const coordinatorOrchestrator = new CoordinatorOrchestratorService(
@@ -83,6 +86,10 @@ export function createDeps(env: IEnv): IAppDeps {
     agentRuntime,
     specialistRegistry,
     workspaceIntegrationsService,
+    agentMcpBindingRepo,
+    mcpRepo,
+    knowledgeSourceRepo,
+    workspaceToolDefinitionRepo,
   );
   const authenticate = buildAuthenticate(env.JWT_SECRET, { platformAdminEmails });
   const requirePlatformAdmin = buildRequirePlatformAdmin();
@@ -111,6 +118,7 @@ export function createDeps(env: IEnv): IAppDeps {
     settingsRepo,
     workspaceIntegrationsService,
     auditLogRepo,
+    workspaceToolDefinitionRepo,
     agentRuntime,
     specialistRegistry,
     coordinatorOrchestrator,

@@ -67,7 +67,7 @@ describe('cross-tenant isolation', () => {
       role: 'specialist',
       origin: 'company',
       version: '1.0.0',
-      category: 'Geral',
+      category: 'geral',
       channels: [],
       status: 'active',
     });

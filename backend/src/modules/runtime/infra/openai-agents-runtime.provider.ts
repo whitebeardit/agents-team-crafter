@@ -9,6 +9,8 @@ import type {
   IExecutableAgentConfig,
 } from '../ports/agent-runtime.provider.js';
 import { formatAgentUserMessage } from '../application/format-agent-user-message.js';
+import { buildCapabilityCatalogTools, buildMcpSdkTools } from '../application/build-specialist-sdk-tools.js';
+import { buildWorkspaceCustomTools } from '../application/build-workspace-custom-tools.js';
 
 function mapNewItemsToEvents(result: { newItems?: unknown[] }): IAgentRunResult['events'] {
   const items = result.newItems ?? [];
@@ -30,7 +32,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   async compile(config: IExecutableAgentConfig) {
     return {
       ok: true,
-      detail: `openai-agents-runtime ready (tools=${config.tools.length}, mcpBindings=${config.mcpBindingIds.length})`,
+      detail: `openai-agents-runtime ready (catalogTools=${config.tools.length}, mcpToolSpecs=${config.mcpToolSpecs.length}, mcpBindingIds=${config.mcpBindingIds.length})`,
     };
   }
 
@@ -44,10 +46,23 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       };
     }
 
+    const meta = {
+      workspaceId: config.workspaceId,
+      correlationId: input.correlationId,
+    };
+    const catalogTools = buildCapabilityCatalogTools(
+      config.tools,
+      config.toolIntegrationContext,
+      meta,
+    ) as Tool[];
+    const mcpTools = buildMcpSdkTools(config.mcpToolSpecs, meta) as Tool[];
+    const customTools = buildWorkspaceCustomTools(config.customToolDefinitions ?? [], meta) as Tool[];
+    const sdkTools = [...catalogTools, ...mcpTools, ...customTools];
+
     const agent = new Agent({
       name: `Agent:${config.agentId}`,
       instructions: config.systemInstruction ?? 'Voce e um agente de IA.',
-      tools: [],
+      tools: sdkTools,
       handoffs: [],
     });
 

@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { availableTools } from "@/lib/types"
 import type {
   Agent,
   AgentMCPBinding,
   KnowledgeSource,
   MCPConnection,
+  OperationalCatalogTool,
   Team,
 } from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
@@ -65,6 +65,7 @@ import {
   ExternalLink,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
+import { normalizeAgentCategory } from "@/lib/utils/agent-category"
 
 const channelLabels: Record<string, string> = {
   whatsapp: "WhatsApp",
@@ -111,13 +112,19 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [usePersistentMemory, setUsePersistentMemory] = useState(false)
   const [fixedContext, setFixedContext] = useState("")
   const [enabledTools, setEnabledTools] = useState<string[]>([])
+  const [customToolDefinitionIds, setCustomToolDefinitionIds] = useState<string[]>([])
+  const [workspaceToolDefs, setWorkspaceToolDefs] = useState<
+    Array<{ id: string; name: string; slug: string; enabled: boolean }>
+  >([])
   const [enabledChannels, setEnabledChannels] = useState<Array<"whatsapp" | "slack" | "email" | "api">>([])
   const [canReplyDirectly, setCanReplyDirectly] = useState(true)
   const [securityAccessLevel, setSecurityAccessLevel] = useState<"read" | "write" | "restricted">("read")
   const [requiresApproval, setRequiresApproval] = useState(false)
   const [workspaceOpenAiConfigured, setWorkspaceOpenAiConfigured] = useState<boolean | null>(null)
+  const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
 
-  const applyAgentPayload = useCallback((a: Agent) => {
+  const applyAgentPayload = useCallback(
+    (a: Agent, options?: { operationalCatalogToolIds?: Set<string> }) => {
     setAgent(a)
     setMissionGoal(a.goal ?? "")
     setResponsibilities(a.responsibilities ?? [])
@@ -126,12 +133,21 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     setUseSessionMemory(a.knowledge?.useSessionMemory ?? true)
     setUsePersistentMemory(a.knowledge?.usePersistentMemory ?? false)
     setFixedContext(a.knowledge?.fixedContext ?? "")
-    setEnabledTools(a.capabilities?.tools ?? [])
+    if (options?.operationalCatalogToolIds) {
+      setEnabledTools(
+        (a.capabilities?.tools ?? []).filter((id) => options.operationalCatalogToolIds!.has(id)),
+      )
+    } else {
+      setEnabledTools(a.capabilities?.tools ?? [])
+    }
+    setCustomToolDefinitionIds(a.capabilities?.customToolDefinitionIds ?? [])
     setEnabledChannels((a.channelConfig?.enabled ?? a.channels) as Array<"whatsapp" | "slack" | "email" | "api">)
     setCanReplyDirectly(a.channelConfig?.canReplyDirectly ?? true)
     setSecurityAccessLevel((a.security?.accessLevel ?? "read") as "read" | "write" | "restricted")
     setRequiresApproval(a.security?.requiresApproval ?? false)
-  }, [])
+  },
+  [],
+)
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -143,18 +159,38 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     })
     void (async () => {
       try {
-        const [a, m, b, ks, t] = await Promise.all([
+        const [a, m, b, ks, t, td, int] = await Promise.all([
           api.get<Agent>(`/agents/${id}`),
           api.get<MCPConnection[]>("/mcps"),
           api.get<AgentMCPBinding[]>(`/agents/${id}/mcp-bindings`),
           api.get<KnowledgeSource[]>("/knowledge-sources"),
           api.get<Team[]>(`/teams?page=1&perPage=100`),
+          api
+            .get<Array<{ id: string; name: string; slug: string; enabled: boolean }>>("/tool-definitions")
+            .catch(() => ({ data: [], meta: {} })),
+          api
+            .get<{
+              secretsMasked: { openaiApiKeyConfigured: boolean }
+              operationalCatalogTools: OperationalCatalogTool[]
+            }>("/settings/workspace/integrations")
+            .catch(() => ({
+              data: {
+                secretsMasked: { openaiApiKeyConfigured: false },
+                operationalCatalogTools: [] as OperationalCatalogTool[],
+              },
+              meta: {},
+            })),
         ])
-        applyAgentPayload(a.data)
+        const opTools = int.data.operationalCatalogTools ?? []
+        setOperationalCatalogTools(opTools)
+        const opIds = new Set(opTools.map((x) => x.id))
+        applyAgentPayload(a.data, { operationalCatalogToolIds: opIds })
+        setWorkspaceOpenAiConfigured(int.data.secretsMasked.openaiApiKeyConfigured)
         setMcps(m.data)
         setBindings(b.data)
         setKnowledgeSources(ks.data)
         setTeams(t.data)
+        setWorkspaceToolDefs(td.data.filter((x) => x.enabled))
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Falha ao carregar agente"
         toast.error(msg)
@@ -171,20 +207,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       getWorkspaceId: () => currentWorkspace.id,
     })
   }, [token, refreshToken, currentWorkspace])
-
-  useEffect(() => {
-    if (!api) return
-    void (async () => {
-      try {
-        const r = await api.get<{ secretsMasked: { openaiApiKeyConfigured: boolean } }>(
-          "/settings/workspace/integrations",
-        )
-        setWorkspaceOpenAiConfigured(r.data.secretsMasked.openaiApiKeyConfigured)
-      } catch {
-        setWorkspaceOpenAiConfigured(null)
-      }
-    })()
-  }, [api])
 
   if (!agent) {
     return (
@@ -232,7 +254,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               name: agent.name,
               description: agent.description,
               skills: agent.skills,
-              category: agent.category,
+              category: normalizeAgentCategory(String(agent.category ?? "")),
             }
             if (agent.role === "coordinator") {
               payload.channels = agent.channels
@@ -263,6 +285,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           run: () =>
             api.put(`/agents/${agent.id}/tools`, {
               tools: enabledTools,
+              customToolDefinitionIds,
             }),
         },
         ...(agent.role === "coordinator"
@@ -316,8 +339,18 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       }
 
       toast.success("Alteracoes salvas com sucesso")
-      const fresh = await api.get<Agent>(`/agents/${id}`)
-      applyAgentPayload(fresh.data)
+      const [fresh, intFresh] = await Promise.all([
+        api.get<Agent>(`/agents/${id}`),
+        api.get<{
+          secretsMasked: { openaiApiKeyConfigured: boolean }
+          operationalCatalogTools: OperationalCatalogTool[]
+        }>("/settings/workspace/integrations"),
+      ])
+      const opTools = intFresh.data.operationalCatalogTools ?? []
+      setOperationalCatalogTools(opTools)
+      const opIds = new Set(opTools.map((x) => x.id))
+      applyAgentPayload(fresh.data, { operationalCatalogToolIds: opIds })
+      setWorkspaceOpenAiConfigured(intFresh.data.secretsMasked.openaiApiKeyConfigured)
     } catch (e) {
       const msg = e instanceof ApiError ? `${e.message} (${e.code})` : "Falha ao salvar"
       toast.error(msg)
@@ -372,6 +405,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   }
 
   const selectedMCPData = mcps.find((m) => m.id === selectedMCP)
+  const normalizedCategory = typeof agent.category === "string" ? agent.category : ""
+  const normalizedSkills = Array.isArray(agent.skills) ? agent.skills : []
+  const skillsCsv = normalizedSkills.join(", ")
 
   return (
     <div className="space-y-6">
@@ -532,17 +568,40 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     </Badge>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">Categoria</Label>
-                    <Badge variant="outline" className="mt-1">
-                      {agent.category}
-                    </Badge>
+                    <Label htmlFor="agent-category" className="text-muted-foreground">
+                      Categoria
+                    </Label>
+                    <Input
+                      id="agent-category"
+                      value={normalizedCategory}
+                      onChange={(e) =>
+                        setAgent((prev) => (prev ? { ...prev, category: e.target.value } : null))
+                      }
+                      className="mt-1"
+                      placeholder="Ex.: Vendas, Suporte, Financeiro..."
+                    />
                   </div>
                 </div>
                 <Separator />
                 <div>
-                  <Label className="text-muted-foreground">Skills</Label>
+                  <Label htmlFor="agent-skills" className="text-muted-foreground">
+                    Skills (separadas por virgula)
+                  </Label>
+                  <Input
+                    id="agent-skills"
+                    value={skillsCsv}
+                    onChange={(e) => {
+                      const next = e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                      setAgent((prev) => (prev ? { ...prev, skills: next } : null))
+                    }}
+                    className="mt-1"
+                    placeholder="Ex.: atendimento, copywriting, sql"
+                  />
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {agent.skills.map((skill) => (
+                    {normalizedSkills.map((skill) => (
                       <Badge key={skill} variant="secondary">
                         {skill}
                       </Badge>
@@ -773,41 +832,112 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         <TabsContent value="tools" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Ferramentas Disponiveis</CardTitle>
-              <CardDescription>Habilite as ferramentas que o agente pode utilizar</CardDescription>
+              <CardTitle>Ferramentas do catalogo</CardTitle>
+              <CardDescription>
+                So aparecem ferramentas com integracao configurada no workspace (runtime real, nao stub).{" "}
+                <Link
+                  href="/settings?tab=integrations"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Configuracoes → Integracoes
+                </Link>
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {availableTools.map((tool) => {
-                const isEnabled = enabledTools.includes(tool.id)
-                return (
-                  <div
-                    key={tool.id}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      isEnabled ? "border-accent bg-accent/5" : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${isEnabled ? "bg-accent/10" : "bg-muted"}`}>
-                        <Wrench className={`w-5 h-5 ${isEnabled ? "text-accent" : "text-muted-foreground"}`} />
+              {operationalCatalogTools.length === 0 ? (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Nenhuma ferramenta de catalogo disponivel</AlertTitle>
+                  <AlertDescription>
+                    Configure Postgres (consulta SQL), CRM ou Calendario nas integracoes do workspace para
+                    ativar toggles aqui.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                operationalCatalogTools.map((tool) => {
+                  const isEnabled = enabledTools.includes(tool.id)
+                  return (
+                    <div
+                      key={tool.id}
+                      className={`flex items-center justify-between p-4 rounded-lg border ${
+                        isEnabled ? "border-accent bg-accent/5" : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${isEnabled ? "bg-accent/10" : "bg-muted"}`}>
+                          <Wrench className={`w-5 h-5 ${isEnabled ? "text-accent" : "text-muted-foreground"}`} />
+                        </div>
+                        <div>
+                          <p className="font-medium">{tool.name}</p>
+                          <p className="text-sm text-muted-foreground">{tool.description}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{tool.name}</p>
-                        <p className="text-sm text-muted-foreground">{tool.description}</p>
-                      </div>
+                      <Switch
+                        checked={isEnabled}
+                        disabled={readOnly}
+                        onCheckedChange={(checked) => {
+                          if (readOnly) return
+                          if (checked) {
+                            setEnabledTools((prev) => [...prev, tool.id])
+                            return
+                          }
+                          setEnabledTools((prev) => prev.filter((tid) => tid !== tool.id))
+                        }}
+                      />
                     </div>
-                    <Switch
-                      checked={isEnabled}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setEnabledTools((prev) => [...prev, tool.id])
-                          return
-                        }
-                        setEnabledTools((prev) => prev.filter((id) => id !== tool.id))
-                      }}
-                    />
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Ferramentas do workspace</CardTitle>
+              <CardDescription>
+                Definicoes personalizadas (webhook HTTP, builtin_ref) criadas em{" "}
+                <Link href="/tool-definitions" className="text-primary underline-offset-4 hover:underline">
+                  Tools
+                </Link>
+                . Apenas itens ativos aparecem aqui.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {workspaceToolDefs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma tool de workspace ativa. Crie em Tools ou ative uma existente.
+                </p>
+              ) : (
+                workspaceToolDefs.map((def) => {
+                  const checked = customToolDefinitionIds.includes(def.id)
+                  return (
+                    <div
+                      key={def.id}
+                      className={`flex items-center justify-between gap-4 p-4 rounded-lg border ${
+                        checked ? "border-accent bg-accent/5" : "border-border"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{def.name}</p>
+                        <p className="text-sm text-muted-foreground font-mono">{def.slug}</p>
+                      </div>
+                      <Switch
+                        checked={checked}
+                        disabled={readOnly}
+                        onCheckedChange={(on) => {
+                          if (on) {
+                            setCustomToolDefinitionIds((prev) =>
+                              prev.includes(def.id) ? prev : [...prev, def.id],
+                            )
+                            return
+                          }
+                          setCustomToolDefinitionIds((prev) => prev.filter((x) => x !== def.id))
+                        }}
+                      />
+                    </div>
+                  )
+                })
+              )}
             </CardContent>
           </Card>
         </TabsContent>

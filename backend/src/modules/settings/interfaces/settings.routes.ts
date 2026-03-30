@@ -43,9 +43,13 @@ export async function registerSettingsRoutes(app: FastifyInstance, d: IAppDeps) 
   app.put('/settings/workspace/integrations', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = putWorkspaceIntegrationsBodySchema.parse(req.body);
-    const secretsMasked = await d.workspaceIntegrationsService.putPartial(ws, body);
+    const r = await d.workspaceIntegrationsService.putPartial(ws, body);
     return reply.send(
-      successEnvelope({ message: 'Integracoes atualizadas', secretsMasked }),
+      successEnvelope({
+        message: 'Integracoes atualizadas',
+        secretsMasked: r.secretsMasked,
+        operationalCatalogTools: r.operationalCatalogTools,
+      }),
     );
   });
 

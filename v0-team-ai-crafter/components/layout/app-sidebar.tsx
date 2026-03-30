@@ -7,6 +7,7 @@ import {
   Users,
   FileStack,
   Radio,
+  Wrench,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -48,6 +49,11 @@ const navigation = [
     name: "Canais",
     href: "/channels",
     icon: Radio,
+  },
+  {
+    name: "Tools",
+    href: "/tool-definitions",
+    icon: Wrench,
   },
 ]
 

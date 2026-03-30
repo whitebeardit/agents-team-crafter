@@ -15,10 +15,13 @@ export const knowledgeSchema = z.object({
   fixedContext: z.string().optional(),
 });
 
+const mongoId = z.string().regex(/^[a-f0-9]{24}$/i, 'ObjectId invalido');
+
 export const toolsSchema = z.object({
   tools: z.array(z.string()).refine((arr) => arr.every((t) => isAllowedTool(t)), {
     message: 'Tool id invalida',
   }),
+  customToolDefinitionIds: z.array(mongoId).optional(),
 });
 
 export const channelsCfgSchema = z.object({

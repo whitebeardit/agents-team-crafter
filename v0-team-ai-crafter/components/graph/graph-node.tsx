@@ -5,6 +5,7 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react"
 import { Crown, Radio, Database, Plug, Brain } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { cn } from "@/lib/utils"
+import { formatCategoryLabel } from "@/lib/utils/agent-category"
 import type { GraphNodeIndicators, AgentRole } from "@/lib/types"
 
 export interface AgentNodeData {
@@ -137,7 +138,7 @@ export const SpecialistNode = memo(function SpecialistNode({
         <div>
           <p className="font-medium text-sm text-foreground">{data.label}</p>
           {data.category && (
-            <p className="text-xs text-muted-foreground">{data.category}</p>
+            <p className="text-xs text-muted-foreground">{formatCategoryLabel(data.category)}</p>
           )}
           <NodeIndicators indicators={data.indicators} />
         </div>

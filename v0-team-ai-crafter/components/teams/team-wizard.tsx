@@ -28,6 +28,7 @@ import {
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { toast } from "sonner"
 import type { Agent, Channel, ChannelType, Team } from "@/lib/types"
+import { formatCategoryLabel } from "@/lib/utils/agent-category"
 
 const steps = [
   { id: 1, name: "Dados Básicos", description: "Nome e objetivo do time" },
@@ -358,7 +359,7 @@ export function TeamWizard() {
                         <AgentWhitebeardIcon className="w-4 h-4 text-accent" />
                         <span className="font-medium">{agent.name}</span>
                         <Badge variant="outline" className="text-xs">
-                          {agent.category}
+                          {formatCategoryLabel(agent.category)}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -505,7 +506,7 @@ export function TeamWizard() {
                     <div>
                       <p className="font-medium">{selectedCoordinator.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {selectedCoordinator.category}
+                        {formatCategoryLabel(selectedCoordinator.category)}
                       </p>
                     </div>
                   </div>
@@ -530,7 +531,7 @@ export function TeamWizard() {
                         <div>
                           <p className="font-medium text-sm">{agent.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {agent.category}
+                            {formatCategoryLabel(agent.category)}
                           </p>
                         </div>
                       </div>

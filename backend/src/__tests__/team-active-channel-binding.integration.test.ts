@@ -59,7 +59,7 @@ describe('binding 1:1 channelId em times ativos', () => {
       role: 'coordinator',
       origin: 'company',
       version: '1.0.0',
-      category: 'Geral',
+      category: 'geral',
       channels: ['slack'],
       status: 'active',
     });

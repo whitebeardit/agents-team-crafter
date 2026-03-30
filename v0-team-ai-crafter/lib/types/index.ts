@@ -7,6 +7,7 @@ export type AccessLevel = "read" | "write" | "restricted"
 export interface AgentCapabilities {
   tools: string[]
   mcpBindings: string[]
+  customToolDefinitionIds?: string[]
 }
 
 export interface AgentKnowledge {
@@ -274,14 +275,9 @@ export interface TeamWizardData {
   edges: GraphEdge[]
 }
 
-// Available tools for agents
-export const availableTools = [
-  { id: "web_search", name: "Busca na Web", description: "Buscar informacoes na internet" },
-  { id: "file_search", name: "Busca em Arquivos", description: "Buscar em documentos e arquivos" },
-  { id: "internal_actions", name: "Acoes Internas", description: "Executar acoes no sistema interno" },
-  { id: "code_execution", name: "Execucao de Codigo", description: "Executar codigo Python/JS" },
-  { id: "email_send", name: "Enviar Email", description: "Enviar emails automaticamente" },
-  { id: "calendar_access", name: "Acesso ao Calendario", description: "Ler e criar eventos" },
-  { id: "crm_access", name: "Acesso ao CRM", description: "Consultar e atualizar CRM" },
-  { id: "database_query", name: "Consulta ao Banco", description: "Executar queries SQL" },
-] as const
+/** Tools de catalogo com execucao real vêm de GET /settings/workspace/integrations → operationalCatalogTools */
+export type OperationalCatalogTool = {
+  id: string
+  name: string
+  description: string
+}

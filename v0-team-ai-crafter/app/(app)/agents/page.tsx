@@ -19,6 +19,7 @@ import { AgentDetailsDrawer } from "@/components/agents/agent-details-drawer"
 import type { Agent, AgentOrigin, ChannelType } from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { getBlockingTeamsForAgent } from "@/lib/agents/agent-team-blockers"
+import { formatCategoryLabel, normalizeAgentCategory } from "@/lib/utils/agent-category"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { toast } from "sonner"
 import {
@@ -250,7 +251,7 @@ export default function AgentsPage() {
         name: newName.trim(),
         description: newDescription.trim(),
         role: newRole,
-        category: newCategory.trim() || "Geral",
+        category: normalizeAgentCategory(newCategory.trim() || "Geral"),
         channels: newRole === "coordinator" ? newChannels : [],
         skills: newSkills
           .split(",")
@@ -329,7 +330,7 @@ export default function AgentsPage() {
             <SelectItem value="all">Todas Categorias</SelectItem>
             {agentCategories.map((category) => (
               <SelectItem key={category} value={category}>
-                {category}
+                {formatCategoryLabel(category)}
               </SelectItem>
             ))}
           </SelectContent>

@@ -341,7 +341,13 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
-    const invocation = buildManualTeamInvocation(ws, String(t['id']), String(t['coordinatorId']), body);
+    const invocation = buildManualTeamInvocation(
+      ws,
+      String(t['id']),
+      String(t['coordinatorId']),
+      body,
+      req.requestId,
+    );
     const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
     return reply.send(
       successEnvelope({

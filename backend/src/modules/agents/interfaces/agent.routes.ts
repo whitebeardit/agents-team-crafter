@@ -11,6 +11,7 @@ import {
   channelsCfgSchema,
   securitySchema,
 } from '../application/agent-config.schemas.js';
+import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js';
 
 const listQuerySchema = paginationQuerySchema.merge(
   z.object({
@@ -109,7 +110,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       role: body.role,
       origin: 'company',
       skills: body.skills,
-      category: body.category ?? 'Geral',
+      category: normalizeAgentCategory(body.category ?? 'Geral'),
       channels: body.channels,
       status: 'active',
       version: '1.0.0',
@@ -133,7 +134,11 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
     if (body.channels !== undefined && cur['role'] !== 'coordinator') {
       assertCoordinatorForChannels(cur);
     }
-    const updated = await d.agentRepo.update(ws, id, body);
+    const patch: typeof body = { ...body };
+    if (patch.category !== undefined) {
+      patch.category = normalizeAgentCategory(patch.category);
+    }
+    const updated = await d.agentRepo.update(ws, id, patch);
     return reply.send(successEnvelope(updated));
   });
 
@@ -263,9 +268,12 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       capabilities: {
         ...cap,
         tools: body.tools,
+        ...(body.customToolDefinitionIds !== undefined
+          ? { customToolDefinitionIds: body.customToolDefinitionIds }
+          : {}),
       },
     });
-    return reply.send(successEnvelope({ tools: body.tools }));
+    return reply.send(successEnvelope({ tools: body.tools, customToolDefinitionIds: body.customToolDefinitionIds }));
   });
 
   app.put('/agents/:id/channels', { preHandler: tenant }, async (req, reply) => {

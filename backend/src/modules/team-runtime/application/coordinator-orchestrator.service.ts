@@ -1,8 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import type { AgentRepository } from '../../agents/infra/agent.repository.js';
 import type { TeamRepository } from '../../teams/infra/team.repository.js';
-import type { IAgentRuntimeProvider } from '../../runtime/ports/agent-runtime.provider.js';
+import type { AgentMcpBindingRepository } from '../../agents/infra/agent-mcp-binding.repository.js';
+import type { McpConnectionRepository } from '../../mcps/infra/mcp-connection.repository.js';
+import type { KnowledgeSourceRepository } from '../../knowledge/infra/knowledge-source.repository.js';
+import type { IAgentRuntimeProvider, IWorkspaceCustomToolDefinition } from '../../runtime/ports/agent-runtime.provider.js';
+import type { WorkspaceToolDefinitionRepository } from '../../tool-definitions/infra/workspace-tool-definition.repository.js';
 import { composeExecutableAgentConfig } from '../../runtime/application/compose-executable-config.js';
+import { buildSpecialistSystemInstruction } from '../../runtime/application/build-specialist-system-instruction.js';
+import { buildKnowledgeAppendixForAgent } from '../../runtime/application/build-knowledge-appendix.js';
+import { loadMcpToolSpecsForAgent } from '../../runtime/application/load-mcp-tool-specs.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import type { ITeamInvocation } from '../domain/team-invocation.js';
 import type { ISpecialistResult } from '../domain/specialist-result.js';
@@ -25,6 +32,10 @@ export class CoordinatorOrchestratorService {
     private readonly agentRuntime: IAgentRuntimeProvider,
     private readonly specialistRegistry: SpecialistRegistry,
     private readonly workspaceIntegrationsService: WorkspaceIntegrationsService,
+    private readonly agentMcpBindingRepo: AgentMcpBindingRepository,
+    private readonly mcpRepo: McpConnectionRepository,
+    private readonly knowledgeSourceRepo: KnowledgeSourceRepository,
+    private readonly workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository,
   ) {}
 
   async execute(invocation: ITeamInvocation): Promise<ITeamExecutionResult> {
@@ -67,19 +78,78 @@ export class CoordinatorOrchestratorService {
       if (!spec) return 'Especialista nao encontrado.';
       assertSpecialistAgentRow(spec as Record<string, unknown>);
       const srow = spec as Record<string, unknown>;
+
+      const knowledgeRow = srow['knowledge'] as { sources?: string[] } | undefined;
+      const knowledgeSourceIds = Array.isArray(knowledgeRow?.sources)
+        ? knowledgeRow.sources.filter((x): x is string => typeof x === 'string')
+        : [];
+
+      const knowledgeAppendix = await buildKnowledgeAppendixForAgent(
+        ws,
+        knowledgeSourceIds,
+        this.knowledgeSourceRepo,
+      );
+      const systemInstruction = buildSpecialistSystemInstruction(srow, knowledgeAppendix);
+
+      const mcpToolSpecs = await loadMcpToolSpecsForAgent(
+        ws,
+        specialistAgentId,
+        this.agentMcpBindingRepo,
+        this.mcpRepo,
+      );
+      const mcpBindingIds = [...new Set(mcpToolSpecs.map((s) => s.bindingId))];
+
+      const toolIntegrationContext = await this.workspaceIntegrationsService.getToolIntegrationContext(ws);
+
+      const capRow = srow['capabilities'] as
+        | { tools?: string[]; customToolDefinitionIds?: string[] }
+        | undefined;
+      const customIds = Array.isArray(capRow?.customToolDefinitionIds)
+        ? capRow.customToolDefinitionIds.filter((x): x is string => typeof x === 'string')
+        : [];
+      const customRows = await this.workspaceToolDefinitionRepo.listByIds(ws, customIds);
+      const customToolDefinitions: IWorkspaceCustomToolDefinition[] = customRows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        kind: r.kind,
+        jsonSchema: r.jsonSchema,
+        config: r.config,
+      }));
+
       const config = composeExecutableAgentConfig({
         agentId: specialistAgentId,
         workspaceId: ws,
-        systemInstruction: (srow['systemInstruction'] as string | undefined) ?? undefined,
-        tools: ((srow['capabilities'] as { tools?: string[] } | undefined)?.tools ?? []) as string[],
-        mcpBindingIds: [],
-        knowledgeSourceIds: [],
+        systemInstruction,
+        tools: (capRow?.tools ?? []) as string[],
+        mcpBindingIds,
+        knowledgeSourceIds,
+        mcpToolSpecs,
+        toolIntegrationContext,
+        customToolDefinitions,
       });
       await this.agentRuntime.compile(config);
       const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
+
+      const ext = invocation.coordinatorExternalContext;
+      const agentSec = srow['security'] as { accessLevel?: string } | undefined;
+      const levelFromAgent = agentSec?.accessLevel;
+      const requestedAccessLevel =
+        ext.requestedAccessLevel ??
+        (levelFromAgent === 'read' || levelFromAgent === 'write' || levelFromAgent === 'restricted'
+          ? levelFromAgent
+          : undefined);
+
+      const correlationId =
+        typeof invocation.metadata?.correlationId === 'string'
+          ? invocation.metadata.correlationId
+          : undefined;
+
       const r = await this.agentRuntime.runStep(config, {
         message: instruction,
         ...(openaiApiKey ? { openaiApiKey } : {}),
+        ...(requestedAccessLevel ? { requestedAccessLevel } : {}),
+        ...(correlationId ? { correlationId } : {}),
       });
       specialistResults.push({ specialistAgentId, summary: r.finalOutput });
       return r.finalOutput;

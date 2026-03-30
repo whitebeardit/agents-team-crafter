@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import type { IAgentListFilters, IAgentRepository } from '../domain/ports/agent-repository.port.js';
 import { AgentModel } from './agent.model.js';
 import type { AgentDoc } from './agent.model.js';
+import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js';
 
 function toPublic(doc: AgentDoc) {
   return {
@@ -48,7 +49,7 @@ function buildListFilter(workspaceId: string, filters: IAgentListFilters) {
     notDeleted(),
   ];
   if (filters.origin) and.push({ origin: filters.origin });
-  if (filters.category) and.push({ category: filters.category });
+  if (filters.category) and.push({ category: normalizeAgentCategory(filters.category) });
   if (filters.role) and.push({ role: filters.role });
   if (filters.channel) and.push({ channels: filters.channel });
   if (filters.search) {
@@ -115,7 +116,10 @@ export class AgentRepository implements IAgentRepository {
       workspaceId: new Types.ObjectId(workspaceId),
       $and: [notDeleted()],
     });
-    return vals.filter(Boolean).sort() as string[];
+    const raw = vals.filter(Boolean) as string[];
+    const canonical = [...new Set(raw.map((c) => normalizeAgentCategory(String(c))))];
+    canonical.sort();
+    return canonical;
   }
 
   async existsAll(workspaceId: string, ids: string[]) {

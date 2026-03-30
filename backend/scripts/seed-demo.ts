@@ -89,7 +89,7 @@ async function main() {
     origin: 'whitebeard',
     skills: ['Orquestracao'],
     version: '2.1.0',
-    category: 'Coordenacao',
+    category: 'coordenacao',
     channels: ['whatsapp', 'slack'],
     status: 'active',
   });
@@ -101,7 +101,7 @@ async function main() {
     origin: 'whitebeard',
     skills: ['Atendimento'],
     version: '1.0.0',
-    category: 'Atendimento',
+    category: 'atendimento',
     channels: [],
     status: 'active',
   });
@@ -113,7 +113,7 @@ async function main() {
     origin: 'whitebeard',
     skills: ['Monitoramento'],
     version: '1.0.0',
-    category: 'Monitoramento',
+    category: 'monitoramento',
     channels: [],
     status: 'active',
   });
@@ -125,7 +125,7 @@ async function main() {
     origin: 'company',
     skills: ['CRM'],
     version: '1.0.0',
-    category: 'Vendas',
+    category: 'vendas',
     channels: [],
     status: 'active',
   });
@@ -137,7 +137,7 @@ async function main() {
     origin: 'company',
     skills: ['Suporte'],
     version: '1.0.0',
-    category: 'Suporte',
+    category: 'suporte',
     channels: [],
     status: 'active',
   });
@@ -201,7 +201,7 @@ async function main() {
       name: 'Atendimento Omnichannel',
       description: 'Template completo para atendimento ao cliente em multiplos canais.',
       version: '2.0.0',
-      category: 'Atendimento',
+      category: 'atendimento',
       agentCount: 4,
       teamConfig: {
         name: 'Atendimento Omnichannel',
@@ -226,7 +226,7 @@ async function main() {
       name: 'Template do time Atendimento',
       description: 'Salvo a partir do time seed',
       version: '1.0.0',
-      category: 'Geral',
+      category: 'geral',
       agentCount: 1,
       teamConfig: { name: team.name, description: team.description },
       graph: { nodes: [], edges: [] },

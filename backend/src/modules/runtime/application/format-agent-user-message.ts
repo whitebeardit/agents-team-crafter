@@ -6,6 +6,7 @@ export function formatAgentUserMessage(input: IAgentRunInput): string {
   if (input.channel) meta.push(`channel=${input.channel}`);
   if (input.locale) meta.push(`locale=${input.locale}`);
   if (input.taskType) meta.push(`taskType=${input.taskType}`);
+  if (input.requestedAccessLevel) meta.push(`access=${input.requestedAccessLevel}`);
   const prefix = meta.length > 0 ? `[${meta.join('] [')}] ` : '';
   return `${prefix}${input.message}`;
 }

@@ -8,6 +8,8 @@ import {
   maskIntegrationsForApi,
   mergeWorkspaceIntegrationsPayload,
 } from '../domain/workspace-integrations.schema.js';
+import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
+import { resolveOperationalCatalogTools } from '../../agents/domain/operational-catalog-tools.js';
 import nodemailer from 'nodemailer';
 
 export class WorkspaceIntegrationsService {
@@ -42,7 +44,11 @@ export class WorkspaceIntegrationsService {
 
   async getMasked(workspaceId: string) {
     const plain = await this.getPlainPayload(workspaceId);
-    return { secretsMasked: maskIntegrationsForApi(plain) };
+    const ctx = await this.getToolIntegrationContext(workspaceId);
+    return {
+      secretsMasked: maskIntegrationsForApi(plain),
+      operationalCatalogTools: resolveOperationalCatalogTools(ctx),
+    };
   }
 
   async putPartial(workspaceId: string, patch: IPutWorkspaceIntegrationsBody) {
@@ -54,14 +60,47 @@ export class WorkspaceIntegrationsService {
       Boolean(
         next.slack &&
           Object.values(next.slack).some((v) => typeof v === 'string' && v.trim().length > 0),
-      );
+      ) ||
+      Boolean(next.toolDatabase?.postgresReadOnlyUrl?.trim()) ||
+      Boolean(next.toolCrm?.restBaseUrl?.trim() || next.toolCrm?.bearerToken?.trim()) ||
+      Boolean(next.toolCalendar?.restBaseUrl?.trim() || next.toolCalendar?.authHeader?.trim());
     if (!hasAny) {
       await this.workspaceRepo.setIntegrationSecretsEncrypted(workspaceId, null);
-      return maskIntegrationsForApi(null);
+      return {
+        secretsMasked: maskIntegrationsForApi(null),
+        operationalCatalogTools: resolveOperationalCatalogTools({}),
+      };
     }
     const enc = encryptJson(this.requireMasterKey(), next);
     await this.workspaceRepo.setIntegrationSecretsEncrypted(workspaceId, enc);
-    return maskIntegrationsForApi(next);
+    const ctxAfter = await this.getToolIntegrationContext(workspaceId);
+    return {
+      secretsMasked: maskIntegrationsForApi(next),
+      operationalCatalogTools: resolveOperationalCatalogTools(ctxAfter),
+    };
+  }
+
+  /** Contexto para tools builtin (catalog) no runtime de agentes. */
+  async getToolIntegrationContext(workspaceId: string): Promise<IToolIntegrationContext> {
+    const p = await this.getPlainPayload(workspaceId);
+    if (!p) return {};
+    const out: IToolIntegrationContext = {};
+    if (p.toolDatabase?.postgresReadOnlyUrl?.trim()) {
+      out.database = { postgresReadOnlyUrl: p.toolDatabase.postgresReadOnlyUrl.trim() };
+    }
+    if (p.toolCrm?.restBaseUrl?.trim() || p.toolCrm?.bearerToken?.trim()) {
+      out.crm = {
+        restBaseUrl: p.toolCrm.restBaseUrl?.trim(),
+        bearerToken: p.toolCrm.bearerToken?.trim(),
+      };
+    }
+    if (p.toolCalendar?.restBaseUrl?.trim() || p.toolCalendar?.authHeader?.trim()) {
+      out.calendar = {
+        restBaseUrl: p.toolCalendar.restBaseUrl?.trim(),
+        authHeader: p.toolCalendar.authHeader?.trim(),
+      };
+    }
+    return out;
   }
 
   async resolveOpenAiApiKey(workspaceId: string): Promise<string | undefined> {

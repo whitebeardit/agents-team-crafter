@@ -19,6 +19,21 @@ export interface IWorkspaceIntegrationsPayload {
     clientId?: string;
     clientSecret?: string;
   };
+  /** Postgres somente leitura para tool catalog_database_query */
+  toolDatabase?: {
+    postgresReadOnlyUrl?: string;
+  };
+  /** Base REST para tool catalog_crm_access (GET ?q=) */
+  toolCrm?: {
+    restBaseUrl?: string;
+    bearerToken?: string;
+  };
+  /** Base REST para tool catalog_calendar_access (GET path relativo em query) */
+  toolCalendar?: {
+    restBaseUrl?: string;
+    /** Valor completo do header Authorization (ex. Bearer ...) */
+    authHeader?: string;
+  };
 }
 
 export const putWorkspaceIntegrationsBodySchema = z.object({
@@ -42,6 +57,23 @@ export const putWorkspaceIntegrationsBodySchema = z.object({
       clientSecret: z.string().optional(),
     })
     .optional(),
+  toolDatabase: z
+    .object({
+      postgresReadOnlyUrl: z.string().optional(),
+    })
+    .optional(),
+  toolCrm: z
+    .object({
+      restBaseUrl: z.string().optional(),
+      bearerToken: z.string().optional(),
+    })
+    .optional(),
+  toolCalendar: z
+    .object({
+      restBaseUrl: z.string().optional(),
+      authHeader: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type IPutWorkspaceIntegrationsBody = z.infer<typeof putWorkspaceIntegrationsBodySchema>;
@@ -63,6 +95,9 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
     clientIdMasked?: string;
     clientSecretMasked?: string;
   };
+  toolDatabase?: { postgresReadOnlyUrlConfigured: boolean };
+  toolCrm?: { restBaseUrl?: string; bearerTokenConfigured: boolean };
+  toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean };
 } {
   if (!payload) {
     return { openaiApiKeyConfigured: false };
@@ -97,6 +132,29 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
             ...(slack.clientSecret?.trim()
               ? { clientSecretMasked: maskSecretValue(slack.clientSecret) }
               : {}),
+          },
+        }
+      : {}),
+    ...(payload.toolDatabase?.postgresReadOnlyUrl?.trim()
+      ? {
+          toolDatabase: {
+            postgresReadOnlyUrlConfigured: true,
+          },
+        }
+      : {}),
+    ...(payload.toolCrm?.restBaseUrl?.trim() || payload.toolCrm?.bearerToken?.trim()
+      ? {
+          toolCrm: {
+            restBaseUrl: payload.toolCrm.restBaseUrl?.trim(),
+            bearerTokenConfigured: Boolean(payload.toolCrm.bearerToken?.trim()),
+          },
+        }
+      : {}),
+    ...(payload.toolCalendar?.restBaseUrl?.trim() || payload.toolCalendar?.authHeader?.trim()
+      ? {
+          toolCalendar: {
+            restBaseUrl: payload.toolCalendar.restBaseUrl?.trim(),
+            authHeaderConfigured: Boolean(payload.toolCalendar.authHeader?.trim()),
           },
         }
       : {}),
@@ -158,6 +216,51 @@ export function mergeWorkspaceIntegrationsPayload(
     if (merged.clientSecret?.trim()) cleaned.clientSecret = merged.clientSecret.trim();
     if (Object.keys(cleaned).length === 0) delete next.slack;
     else next.slack = cleaned;
+  }
+
+  if (patch.toolDatabase !== undefined) {
+    const prev = next.toolDatabase ?? {};
+    const merged = {
+      postgresReadOnlyUrl:
+        patch.toolDatabase.postgresReadOnlyUrl !== undefined
+          ? patch.toolDatabase.postgresReadOnlyUrl
+          : prev.postgresReadOnlyUrl,
+    };
+    if (merged.postgresReadOnlyUrl?.trim() === '') delete next.toolDatabase;
+    else if (merged.postgresReadOnlyUrl?.trim()) {
+      next.toolDatabase = { postgresReadOnlyUrl: merged.postgresReadOnlyUrl.trim() };
+    }
+  }
+
+  if (patch.toolCrm !== undefined) {
+    const prev = next.toolCrm ?? {};
+    const merged = {
+      restBaseUrl: patch.toolCrm.restBaseUrl !== undefined ? patch.toolCrm.restBaseUrl : prev.restBaseUrl,
+      bearerToken: patch.toolCrm.bearerToken !== undefined ? patch.toolCrm.bearerToken : prev.bearerToken,
+    };
+    const empty =
+      !merged.restBaseUrl?.trim() && !merged.bearerToken?.trim();
+    if (empty) delete next.toolCrm;
+    else {
+      next.toolCrm = {};
+      if (merged.restBaseUrl?.trim()) next.toolCrm.restBaseUrl = merged.restBaseUrl.trim();
+      if (merged.bearerToken?.trim()) next.toolCrm.bearerToken = merged.bearerToken.trim();
+    }
+  }
+
+  if (patch.toolCalendar !== undefined) {
+    const prev = next.toolCalendar ?? {};
+    const merged = {
+      restBaseUrl: patch.toolCalendar.restBaseUrl !== undefined ? patch.toolCalendar.restBaseUrl : prev.restBaseUrl,
+      authHeader: patch.toolCalendar.authHeader !== undefined ? patch.toolCalendar.authHeader : prev.authHeader,
+    };
+    const empty = !merged.restBaseUrl?.trim() && !merged.authHeader?.trim();
+    if (empty) delete next.toolCalendar;
+    else {
+      next.toolCalendar = {};
+      if (merged.restBaseUrl?.trim()) next.toolCalendar.restBaseUrl = merged.restBaseUrl.trim();
+      if (merged.authHeader?.trim()) next.toolCalendar.authHeader = merged.authHeader.trim();
+    }
   }
 
   return next;

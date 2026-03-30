@@ -10,7 +10,7 @@ const AgentSchema = new Schema(
     skills: [{ type: String }],
     version: { type: String, default: '1.0.0' },
     avatar: { type: String },
-    category: { type: String, default: 'Geral' },
+    category: { type: String, default: 'geral' },
     channels: [{ type: String }],
     status: { type: String, enum: ['draft', 'active', 'archived'], default: 'active' },
     goal: { type: String },

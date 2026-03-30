@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import type { Agent, AgentMCPBinding } from "@/lib/types"
 import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
+import { formatCategoryLabel } from "@/lib/utils/agent-category"
 
 interface AgentDetailsDrawerProps {
   agent: Agent | null
@@ -220,7 +221,7 @@ export function AgentDetailsDrawer({
             <h4 className="text-sm font-medium text-foreground mb-2">
               Categoria
             </h4>
-            <Badge variant="outline">{agent.category}</Badge>
+            <Badge variant="outline">{formatCategoryLabel(agent.category)}</Badge>
           </div>
 
           <Separator />

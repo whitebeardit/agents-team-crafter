@@ -15,4 +15,12 @@ describe('toolsSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('aceita customToolDefinitionIds opcionais', () => {
+    const parsed = toolsSchema.parse({
+      tools: ['web_search'],
+      customToolDefinitionIds: ['507f1f77bcf86cd799439011'],
+    });
+    expect(parsed.customToolDefinitionIds).toHaveLength(1);
+  });
 });

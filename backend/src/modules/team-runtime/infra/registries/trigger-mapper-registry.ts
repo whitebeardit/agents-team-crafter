@@ -36,6 +36,7 @@ export function buildManualTeamInvocation(
   teamId: string,
   coordinatorId: string,
   body: ITeamRunBody,
+  correlationId?: string,
 ): ITeamInvocation {
   return {
     trigger: 'manual',
@@ -49,6 +50,7 @@ export function buildManualTeamInvocation(
       taskType: body.taskType,
       requestedAccessLevel: body.requestedAccessLevel,
     },
+    ...(correlationId ? { metadata: { correlationId } } : {}),
   };
 }
 

@@ -1,14 +1,43 @@
+import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
+
 /**
  * Configuracao executavel agregada para o runtime de agentes (Fase 15).
  * Composicao a partir de Agent + config + bindings + knowledge.
  */
+export interface IMcpToolSpec {
+  bindingId: string;
+  mcpConnectionId: string;
+  mcpDisplayName: string;
+  toolName: string;
+  toolDescription: string;
+  requiresApproval: boolean;
+  /** Se definido no McpConnection.config, chama HTTP em vez de stub. */
+  mcpHttpEndpoint?: string;
+  mcpHttpHeaders?: Record<string, string>;
+}
+
+export interface IWorkspaceCustomToolDefinition {
+  id: string;
+  name: string;
+  slug: string;
+  kind: 'builtin_ref' | 'http_webhook' | 'mcp_ref';
+  jsonSchema: Record<string, unknown>;
+  config: Record<string, unknown>;
+}
+
 export interface IExecutableAgentConfig {
   agentId: string;
   workspaceId: string;
   systemInstruction?: string;
   tools: string[];
+  /** @deprecated Prefer mcpToolSpecs; kept for logging/back compat */
   mcpBindingIds: string[];
   knowledgeSourceIds: string[];
+  mcpToolSpecs: IMcpToolSpec[];
+  /** Integracoes cifradas (tools catalog database/crm/calendar). */
+  toolIntegrationContext?: IToolIntegrationContext;
+  /** Definicoes dinamicas do workspace (webhook, etc.). */
+  customToolDefinitions?: IWorkspaceCustomToolDefinition[];
 }
 
 export type TRuntimeEvent =
@@ -26,6 +55,7 @@ export interface IAgentRunInput {
   /** Estado para manter determinismo (PolicyEngine), não para o LLM decidir. */
   depth?: number;
   visitedAgentIds?: string[];
+  correlationId?: string;
 }
 
 export interface IAgentRunResult {

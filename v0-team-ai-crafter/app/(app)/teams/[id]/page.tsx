@@ -26,6 +26,7 @@ import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { toast } from "sonner"
+import { formatCategoryLabel } from "@/lib/utils/agent-category"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -71,7 +72,7 @@ function TeamAgentDigestMeta({
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Categoria</p>
-          <p className="font-medium">{category || "—"}</p>
+          <p className="font-medium">{category ? formatCategoryLabel(category) : "—"}</p>
         </div>
       </div>
       <div>

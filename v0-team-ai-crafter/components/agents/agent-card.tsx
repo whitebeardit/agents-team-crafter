@@ -13,6 +13,7 @@ import {
 import { Crown, MoreVertical, Eye, Plus, Copy, Trash2 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import type { Agent } from "@/lib/types"
+import { formatCategoryLabel } from "@/lib/utils/agent-category"
 
 interface AgentCardProps {
   agent: Agent
@@ -167,7 +168,7 @@ export function AgentCard({ agent, onView, onAddToTeam, onDuplicate, onDelete }:
               variant="outline"
               className="text-xs capitalize"
             >
-              {agent.category}
+              {formatCategoryLabel(agent.category)}
             </Badge>
           </div>
         </div>

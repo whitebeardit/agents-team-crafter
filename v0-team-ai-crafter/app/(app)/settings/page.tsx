@@ -49,6 +49,8 @@ import {
   Check,
   Plug,
   ExternalLink,
+  Database,
+  Wrench,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -67,6 +69,7 @@ type SettingsWorkspaceState = {
 }
 
 type IntegrationsApiData = {
+  operationalCatalogTools?: Array<{ id: string; name: string; description: string }>
   secretsMasked: {
     openaiApiKeyConfigured: boolean
     openaiApiKeyMasked?: string
@@ -84,6 +87,9 @@ type IntegrationsApiData = {
       clientIdMasked?: string
       clientSecretMasked?: string
     }
+    toolDatabase?: { postgresReadOnlyUrlConfigured: boolean }
+    toolCrm?: { restBaseUrl?: string; bearerTokenConfigured: boolean }
+    toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean }
   }
 }
 
@@ -117,6 +123,12 @@ export default function SettingsPage() {
   const [slackClientSecret, setSlackClientSecret] = useState("")
   const [smtpTestTo, setSmtpTestTo] = useState("")
 
+  const [toolDbPostgresUrl, setToolDbPostgresUrl] = useState("")
+  const [toolCrmRestBase, setToolCrmRestBase] = useState("")
+  const [toolCrmBearer, setToolCrmBearer] = useState("")
+  const [toolCalRestBase, setToolCalRestBase] = useState("")
+  const [toolCalAuthHeader, setToolCalAuthHeader] = useState("")
+
   const defaultTab = searchParams.get("tab") === "integrations" ? "integrations" : "workspace"
 
   // Form states
@@ -149,6 +161,7 @@ export default function SettingsPage() {
             secretsMasked: {
               openaiApiKeyConfigured: false,
             },
+            operationalCatalogTools: [],
           },
         })),
       ])
@@ -164,6 +177,12 @@ export default function SettingsPage() {
         setSmtpSecure(Boolean(sm.secure))
         setSmtpFrom(sm.from ?? "")
       }
+      const tm = int.data.secretsMasked
+      setToolDbPostgresUrl("")
+      setToolCrmRestBase(tm.toolCrm?.restBaseUrl ?? "")
+      setToolCrmBearer("")
+      setToolCalRestBase(tm.toolCalendar?.restBaseUrl ?? "")
+      setToolCalAuthHeader("")
       setWorkspaceName(ws.data.name ?? "")
       setUserName(me.data.name ?? "")
       setUserEmail(me.data.email ?? "")
@@ -342,6 +361,77 @@ export default function SettingsPage() {
       toast.success("Slack guardado")
     } catch {
       toast.error("Falha ao guardar Slack")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const saveToolDatabaseIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<{
+        message: string
+        secretsMasked: IntegrationsApiData["secretsMasked"]
+      }>("/settings/workspace/integrations", {
+        toolDatabase: { postgresReadOnlyUrl: toolDbPostgresUrl },
+      })
+      setIntegrations(res.data.secretsMasked)
+      setToolDbPostgresUrl("")
+      toast.success("Postgres (somente leitura) guardado")
+    } catch {
+      toast.error("Falha ao guardar Postgres para tools")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const saveToolCrmIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<{
+        message: string
+        secretsMasked: IntegrationsApiData["secretsMasked"]
+      }>("/settings/workspace/integrations", {
+        toolCrm: {
+          restBaseUrl: toolCrmRestBase || undefined,
+          bearerToken: toolCrmBearer || undefined,
+        },
+      })
+      setIntegrations(res.data.secretsMasked)
+      setToolCrmRestBase(res.data.secretsMasked.toolCrm?.restBaseUrl ?? "")
+      setToolCrmBearer("")
+      toast.success("CRM (REST) guardado")
+    } catch {
+      toast.error("Falha ao guardar CRM para tools")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const saveToolCalendarIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<{
+        message: string
+        secretsMasked: IntegrationsApiData["secretsMasked"]
+      }>("/settings/workspace/integrations", {
+        toolCalendar: {
+          restBaseUrl: toolCalRestBase || undefined,
+          authHeader: toolCalAuthHeader || undefined,
+        },
+      })
+      setIntegrations(res.data.secretsMasked)
+      setToolCalRestBase(res.data.secretsMasked.toolCalendar?.restBaseUrl ?? "")
+      setToolCalAuthHeader("")
+      toast.success("Calendario (REST) guardado")
+    } catch {
+      toast.error("Falha ao guardar calendario para tools")
     } finally {
       setIntBusy(false)
     }
@@ -853,6 +943,121 @@ export default function SettingsPage() {
               </div>
               <Button onClick={() => void saveSlackIntegration()} disabled={intBusy}>
                 Guardar Slack
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Tools do catalogo — Postgres (database_query)
+              </CardTitle>
+              <CardDescription>
+                Connection string <strong>somente leitura</strong> para a tool <code className="text-xs">database_query</code>.
+                Deixe vazio e guarde para remover. A URL nunca e exibida de volta; apenas se ha credencial configurada.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Estado:{" "}
+                {integrations?.toolDatabase?.postgresReadOnlyUrlConfigured ? (
+                  <Badge variant="secondary">Configurado</Badge>
+                ) : (
+                  <span className="text-amber-600 dark:text-amber-500">Nao configurado</span>
+                )}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="tool-pg-url">Nova connection string (postgres://...)</Label>
+                <Input
+                  id="tool-pg-url"
+                  type="password"
+                  autoComplete="off"
+                  value={toolDbPostgresUrl}
+                  onChange={(e) => setToolDbPostgresUrl(e.target.value)}
+                  placeholder={integrations?.toolDatabase?.postgresReadOnlyUrlConfigured ? "(substituir ou limpar)" : ""}
+                />
+              </div>
+              <Button onClick={() => void saveToolDatabaseIntegration()} disabled={intBusy}>
+                Guardar Postgres
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="h-5 w-5" />
+                Tools do catalogo — CRM (crm_access)
+              </CardTitle>
+              <CardDescription>
+                API REST base (ex. <code className="text-xs">https://crm.exemplo.com/api</code>). O backend chama{" "}
+                <code className="text-xs">GET ...?q=...</code> com Bearer se configurado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>REST base URL</Label>
+                  <Input
+                    value={toolCrmRestBase}
+                    onChange={(e) => setToolCrmRestBase(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Bearer token</Label>
+                  <Input
+                    type="password"
+                    value={toolCrmBearer}
+                    onChange={(e) => setToolCrmBearer(e.target.value)}
+                    placeholder={
+                      integrations?.toolCrm?.bearerTokenConfigured ? "(deixe vazio para manter)" : ""
+                    }
+                  />
+                </div>
+              </div>
+              <Button onClick={() => void saveToolCrmIntegration()} disabled={intBusy}>
+                Guardar CRM
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Tools do catalogo — Calendario (calendar_access)
+              </CardTitle>
+              <CardDescription>
+                Base URL para pedidos HTTP relativos da tool. Envie o header <code className="text-xs">Authorization</code>{" "}
+                completo se o destino exigir.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>REST base URL</Label>
+                  <Input
+                    value={toolCalRestBase}
+                    onChange={(e) => setToolCalRestBase(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Authorization (header completo)</Label>
+                  <Input
+                    type="password"
+                    value={toolCalAuthHeader}
+                    onChange={(e) => setToolCalAuthHeader(e.target.value)}
+                    placeholder={
+                      integrations?.toolCalendar?.authHeaderConfigured ? "(deixe vazio para manter)" : ""
+                    }
+                  />
+                </div>
+              </div>
+              <Button onClick={() => void saveToolCalendarIntegration()} disabled={intBusy}>
+                Guardar calendario
               </Button>
             </CardContent>
           </Card>

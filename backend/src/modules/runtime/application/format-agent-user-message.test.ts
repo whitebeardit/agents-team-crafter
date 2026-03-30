@@ -15,4 +15,13 @@ describe('formatAgentUserMessage', () => {
   it('returns plain message when no metadata', () => {
     expect(formatAgentUserMessage({ message: 'x' })).toBe('x');
   });
+
+  it('prefixes requestedAccessLevel when set', () => {
+    expect(
+      formatAgentUserMessage({
+        message: 'do it',
+        requestedAccessLevel: 'read',
+      }),
+    ).toBe('[access=read] do it');
+  });
 });
