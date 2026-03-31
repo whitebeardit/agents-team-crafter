@@ -65,6 +65,8 @@ import {
   ExternalLink,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
+import { CardTitleWithInfo, FieldInfo, LabelWithInfo } from "@/components/agents/field-info"
+import { agentFieldHelp } from "@/lib/copy/agent-field-help"
 import { normalizeAgentCategory } from "@/lib/utils/agent-category"
 
 const channelLabels: Record<string, string> = {
@@ -449,8 +451,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             </AvatarFallback>
           </Avatar>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold text-foreground">{agent.name}</h1>
+              <FieldInfo ariaLabel="Ajuda sobre nome e origem do agente">{agentFieldHelp.agentNameHeader}</FieldInfo>
               {agent.role === "coordinator" && (
                 <Crown className="w-5 h-5 text-warning" />
               )}
@@ -470,6 +473,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             <Label htmlFor="advanced-mode" className="text-sm text-muted-foreground">
               Modo avancado
             </Label>
+            <FieldInfo ariaLabel="Ajuda sobre modo avançado">{agentFieldHelp.advancedMode}</FieldInfo>
             <Switch
               id="advanced-mode"
               checked={isAdvancedMode}
@@ -534,13 +538,23 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Informacoes Basicas</CardTitle>
+                <CardTitleWithInfo title="Informacoes Basicas" infoAriaLabel="Ajuda sobre informações básicas do agente">
+                  <p>
+                    Nome e origem do agente vêm da criação. Ajuste aqui descrição, categoria e skills para organizar e
+                    orientar o runtime.
+                  </p>
+                </CardTitleWithInfo>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="agent-description" className="text-muted-foreground">
-                    Descricao
-                  </Label>
+                  <LabelWithInfo
+                    htmlFor="agent-description"
+                    className="text-muted-foreground"
+                    labelText="Descricao"
+                    infoAriaLabel="Ajuda sobre a descrição do agente"
+                  >
+                    {agentFieldHelp.description}
+                  </LabelWithInfo>
                   <Textarea
                     id="agent-description"
                     value={agent.description ?? ""}
@@ -555,7 +569,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 <Separator />
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground">Funcao</Label>
+                    <div className="flex items-center gap-1">
+                      <Label className="text-muted-foreground">Funcao</Label>
+                      <FieldInfo ariaLabel="Ajuda sobre a função do agente">{agentFieldHelp.role}</FieldInfo>
+                    </div>
                     <Badge
                       variant="secondary"
                       className={`mt-1 ${
@@ -568,9 +585,14 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     </Badge>
                   </div>
                   <div>
-                    <Label htmlFor="agent-category" className="text-muted-foreground">
-                      Categoria
-                    </Label>
+                    <LabelWithInfo
+                      htmlFor="agent-category"
+                      className="text-muted-foreground"
+                      labelText="Categoria"
+                      infoAriaLabel="Ajuda sobre categoria do agente"
+                    >
+                      {agentFieldHelp.category}
+                    </LabelWithInfo>
                     <Input
                       id="agent-category"
                       value={normalizedCategory}
@@ -584,9 +606,14 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 </div>
                 <Separator />
                 <div>
-                  <Label htmlFor="agent-skills" className="text-muted-foreground">
-                    Skills (separadas por virgula)
-                  </Label>
+                  <LabelWithInfo
+                    htmlFor="agent-skills"
+                    className="text-muted-foreground"
+                    labelText="Skills (separadas por virgula)"
+                    infoAriaLabel="Ajuda sobre skills do agente"
+                  >
+                    {agentFieldHelp.skills}
+                  </LabelWithInfo>
                   <Input
                     id="agent-skills"
                     value={skillsCsv}
@@ -613,7 +640,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
             <Card>
               <CardHeader>
-                <CardTitle>Resumo de Configuracao</CardTitle>
+                <CardTitleWithInfo title="Resumo de Configuracao" infoAriaLabel="Ajuda sobre o resumo de configuração">
+                  {agentFieldHelp.configSummary}
+                </CardTitleWithInfo>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -648,7 +677,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 </div>
                 <Separator />
                 <div>
-                  <Label className="text-muted-foreground">Times</Label>
+                  <div className="flex items-center gap-1">
+                    <Label className="text-muted-foreground">Times</Label>
+                    <FieldInfo ariaLabel="Ajuda sobre times do agente">{agentFieldHelp.teamsSummary}</FieldInfo>
+                  </div>
                   {agentTeams.length > 0 ? (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {agentTeams.map((team) => (
@@ -671,7 +703,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         <TabsContent value="mission" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Objetivo</CardTitle>
+              <CardTitleWithInfo title="Objetivo" infoAriaLabel="Ajuda sobre o objetivo do agente">
+                {agentFieldHelp.missionObjective}
+              </CardTitleWithInfo>
               <CardDescription>Defina o proposito principal deste agente</CardDescription>
             </CardHeader>
             <CardContent>
@@ -686,7 +720,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
           <Card>
             <CardHeader>
-              <CardTitle>Responsabilidades</CardTitle>
+              <CardTitleWithInfo title="Responsabilidades" infoAriaLabel="Ajuda sobre responsabilidades do agente">
+                {agentFieldHelp.missionResponsibilities}
+              </CardTitleWithInfo>
               <CardDescription>Liste as principais responsabilidades do agente</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -727,7 +763,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           {isAdvancedMode && (
             <Card>
               <CardHeader>
-                <CardTitle>Instrucao de Sistema</CardTitle>
+                <CardTitleWithInfo title="Instrucao de Sistema" infoAriaLabel="Ajuda sobre instrução de sistema">
+                  {agentFieldHelp.systemInstruction}
+                </CardTitleWithInfo>
                 <CardDescription>Prompt base que define o comportamento do agente</CardDescription>
               </CardHeader>
               <CardContent>
@@ -747,7 +785,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         <TabsContent value="knowledge" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Fontes de Conhecimento</CardTitle>
+              <CardTitleWithInfo title="Fontes de Conhecimento" infoAriaLabel="Ajuda sobre fontes de conhecimento">
+                {agentFieldHelp.knowledgeSources}
+              </CardTitleWithInfo>
               <CardDescription>Selecione as bases de conhecimento que o agente pode acessar</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -794,17 +834,23 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               <CardTitle>Configuracao de Memoria</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Memoria de Sessao</p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <p className="font-medium">Memoria de Sessao</p>
+                    <FieldInfo ariaLabel="Ajuda sobre memória de sessão">{agentFieldHelp.sessionMemory}</FieldInfo>
+                  </div>
                   <p className="text-sm text-muted-foreground">Lembra do contexto durante a conversa</p>
                 </div>
                 <Switch checked={useSessionMemory} onCheckedChange={setUseSessionMemory} />
               </div>
               <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Memoria Persistente</p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <p className="font-medium">Memoria Persistente</p>
+                    <FieldInfo ariaLabel="Ajuda sobre memória persistente">{agentFieldHelp.persistentMemory}</FieldInfo>
+                  </div>
                   <p className="text-sm text-muted-foreground">Lembra de informacoes entre sessoes</p>
                 </div>
                 <Switch checked={usePersistentMemory} onCheckedChange={setUsePersistentMemory} />
@@ -813,7 +859,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 <>
                   <Separator />
                   <div>
-                    <Label>Contexto Fixo</Label>
+                    <div className="flex items-center gap-1">
+                      <Label>Contexto Fixo</Label>
+                      <FieldInfo ariaLabel="Ajuda sobre contexto fixo">{agentFieldHelp.fixedContext}</FieldInfo>
+                    </div>
                     <Textarea
                       value={fixedContext}
                       onChange={(e) => setFixedContext(e.target.value)}
@@ -832,7 +881,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         <TabsContent value="tools" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Ferramentas do catalogo</CardTitle>
+              <CardTitleWithInfo title="Ferramentas do catalogo" infoAriaLabel="Ajuda sobre ferramentas do catálogo">
+                {agentFieldHelp.catalogTools}
+              </CardTitleWithInfo>
               <CardDescription>
                 So aparecem ferramentas com integracao configurada no workspace (runtime real, nao stub).{" "}
                 <Link
@@ -893,7 +944,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
           <Card>
             <CardHeader>
-              <CardTitle>Ferramentas do workspace</CardTitle>
+              <CardTitleWithInfo title="Ferramentas do workspace" infoAriaLabel="Ajuda sobre ferramentas do workspace">
+                {agentFieldHelp.workspaceTools}
+              </CardTitleWithInfo>
               <CardDescription>
                 Definicoes personalizadas (webhook HTTP, builtin_ref) criadas em{" "}
                 <Link href="/tool-definitions" className="text-primary underline-offset-4 hover:underline">
@@ -944,9 +997,12 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
         {/* MCPs Tab */}
         <TabsContent value="mcps" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">Conexoes MCP</h3>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1">
+                <h3 className="text-lg font-semibold">Conexoes MCP</h3>
+                <FieldInfo ariaLabel="Ajuda sobre conexões MCP">{agentFieldHelp.mcpSection}</FieldInfo>
+              </div>
               <p className="text-sm text-muted-foreground">Vincule integracs externas ao agente</p>
             </div>
             <Dialog open={isMCPBindingOpen} onOpenChange={setIsMCPBindingOpen}>
@@ -965,7 +1021,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Selecionar MCP</Label>
+                    <div className="flex items-center gap-1">
+                      <Label>Selecionar MCP</Label>
+                      <FieldInfo ariaLabel="Ajuda sobre seleção de MCP">{agentFieldHelp.mcpDialogSelect}</FieldInfo>
+                    </div>
                     <Select value={selectedMCP || ""} onValueChange={setSelectedMCP}>
                       <SelectTrigger>
                         <SelectValue placeholder="Escolha uma conexao" />
@@ -983,7 +1042,12 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                   {selectedMCPData && (
                     <>
                       <div className="space-y-2">
-                        <Label>Ferramentas Permitidas</Label>
+                        <div className="flex items-center gap-1">
+                          <Label>Ferramentas Permitidas</Label>
+                          <FieldInfo ariaLabel="Ajuda sobre ferramentas MCP permitidas">
+                            {agentFieldHelp.mcpDialogTools}
+                          </FieldInfo>
+                        </div>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                           {selectedMCPData.tools.map((tool) => (
                             <div key={tool.name} className="flex items-center space-x-2">
@@ -1009,9 +1073,14 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between p-3 rounded-lg border">
-                        <div>
-                          <p className="font-medium text-sm">Requer aprovacao</p>
+                      <div className="flex items-center justify-between gap-2 p-3 rounded-lg border">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <p className="font-medium text-sm">Requer aprovacao</p>
+                            <FieldInfo ariaLabel="Ajuda sobre aprovação no vínculo MCP">
+                              {agentFieldHelp.mcpDialogApproval}
+                            </FieldInfo>
+                          </div>
                           <p className="text-xs text-muted-foreground">Acoes precisam de aprovacao manual</p>
                         </div>
                         <Switch
@@ -1134,7 +1203,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           )}
           <Card>
             <CardHeader>
-              <CardTitle>Canais Habilitados</CardTitle>
+              <CardTitleWithInfo title="Canais Habilitados" infoAriaLabel="Ajuda sobre canais habilitados">
+                {agentFieldHelp.channelsEnabled}
+              </CardTitleWithInfo>
               <CardDescription>Defina em quais canais o agente pode atuar</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1174,11 +1245,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
           <Card>
             <CardHeader>
-              <CardTitle>Comportamento de Resposta</CardTitle>
+              <CardTitleWithInfo title="Comportamento de Resposta" infoAriaLabel="Ajuda sobre comportamento de resposta">
+                {agentFieldHelp.canReplyDirectly}
+              </CardTitleWithInfo>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <p className="font-medium">Pode responder diretamente</p>
                   <p className="text-sm text-muted-foreground">
                     Se desabilitado, respostas sao apenas via coordenador
@@ -1196,16 +1269,19 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           {!channelsLockedForRole && agent.role === "coordinator" && (
             <Card className="border-dashed">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  Chat SDK (Slack, Discord, Telegram, …)
-                  <a
-                    href="https://chat-sdk.dev"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary inline-flex items-center gap-1 text-sm font-normal"
-                  >
-                    Docs <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
+                <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                  <span className="inline-flex items-center gap-2">
+                    Chat SDK (Slack, Discord, Telegram, …)
+                    <a
+                      href="https://chat-sdk.dev"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary inline-flex items-center gap-1 text-sm font-normal"
+                    >
+                      Docs <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </span>
+                  <FieldInfo ariaLabel="Ajuda sobre integração Chat SDK">{agentFieldHelp.chatSdkCard}</FieldInfo>
                 </CardTitle>
                 <CardDescription>
                   Webhooks públicos disparam o <strong>coordenador</strong> do time ativo cujo{" "}
@@ -1245,14 +1321,19 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Nivel de Acesso</CardTitle>
+              <CardTitleWithInfo title="Nivel de Acesso" infoAriaLabel="Ajuda sobre nível de acesso">
+                {agentFieldHelp.securityAccessLevel}
+              </CardTitleWithInfo>
               <CardDescription>Defina as permissoes de acesso do agente</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Nivel de acesso a dados</Label>
-                <Select value={securityAccessLevel} onValueChange={(v) => setSecurityAccessLevel(v as "read" | "write" | "restricted")}>
-                  <SelectTrigger>
+                <Label htmlFor="security-access-level">Nivel de acesso a dados</Label>
+                <Select
+                  value={securityAccessLevel}
+                  onValueChange={(v) => setSecurityAccessLevel(v as "read" | "write" | "restricted")}
+                >
+                  <SelectTrigger id="security-access-level">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1267,11 +1348,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
           <Card>
             <CardHeader>
-              <CardTitle>Aprovacoes</CardTitle>
+              <CardTitleWithInfo title="Aprovacoes" infoAriaLabel="Ajuda sobre aprovações">
+                {agentFieldHelp.securityApproval}
+              </CardTitleWithInfo>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <p className="font-medium">Requer aprovacao para acoes</p>
                   <p className="text-sm text-muted-foreground">
                     Acoes criticas precisam de aprovacao manual
@@ -1285,7 +1368,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           {isAdvancedMode && (
             <Card className="border-destructive/50">
               <CardHeader>
-                <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
+                <CardTitleWithInfo
+                  title="Zona de Perigo"
+                  infoAriaLabel="Ajuda sobre arquivar ou excluir agente"
+                  className="text-destructive"
+                >
+                  {agentFieldHelp.dangerZone}
+                </CardTitleWithInfo>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
