@@ -28,6 +28,10 @@ export interface TeamDebugConsoleProps {
   onLiveAgentStatus?: (agentId: string, state: TeamGraphLiveAgentState) => void
   onStreamFinished?: () => void
   className?: string
+  /** Painel lateral (Sheet): menos altura mínima e área de mensagens com scroll. */
+  variant?: "default" | "compact"
+  /** Quando o título está no contentor pai (ex.: SheetHeader). */
+  hideHeader?: boolean
 }
 
 type ChatLine = { role: "user" | "assistant"; content: string; streaming?: boolean }
@@ -41,7 +45,10 @@ export function TeamDebugConsole({
   onLiveAgentStatus,
   onStreamFinished,
   className,
+  variant = "default",
+  hideHeader = false,
 }: TeamDebugConsoleProps) {
+  const compact = variant === "compact"
   const useHttpRun = useHttpRunProp ?? !useStreamRun
   const [input, setInput] = useState("")
   const [lines, setLines] = useState<ChatLine[]>([])
@@ -157,22 +164,41 @@ export function TeamDebugConsole({
   ])
 
   return (
-    <div className={cn("rounded-lg border border-border bg-card flex flex-col min-h-[320px]", className)}>
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <MessageSquareCode className="w-4 h-4 text-primary" />
-        <div>
-          <p className="text-sm font-medium">Console do coordenador</p>
-          <p className="text-xs text-muted-foreground">
-            Canal local <code className="text-xs bg-muted px-1 rounded">debug</code>
-            {coordinatorLabel ? ` · ${coordinatorLabel}` : ""}
-            {useStreamRun ? " · SSE live" : ""}
-          </p>
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-card flex flex-col",
+        compact ? "min-h-0 flex-1 border-0 shadow-none rounded-none" : "min-h-[320px]",
+        className,
+      )}
+    >
+      {!hideHeader ? (
+        <div
+          className={cn(
+            "flex items-center gap-2 border-b border-border shrink-0",
+            compact ? "px-3 py-2" : "px-4 py-3",
+          )}
+        >
+          <MessageSquareCode className={cn("text-primary shrink-0", compact ? "w-3.5 h-3.5" : "w-4 h-4")} />
+          <div className="min-w-0">
+            <p className={cn("font-medium", compact ? "text-xs" : "text-sm")}>Console do coordenador</p>
+            <p className={cn("text-muted-foreground", compact ? "text-[10px] leading-tight" : "text-xs")}>
+              Canal local <code className="text-[10px] bg-muted px-1 rounded">debug</code>
+              {coordinatorLabel ? ` · ${coordinatorLabel}` : ""}
+              {useStreamRun ? " · SSE live" : ""}
+            </p>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[360px]">
+      <div
+        className={cn(
+          "flex-1 overflow-y-auto space-y-3 min-h-0",
+          compact ? "p-3" : "max-h-[360px] p-4",
+          hideHeader && compact && "pt-1",
+        )}
+      >
         {lines.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className={cn("text-muted-foreground", compact ? "text-xs leading-snug" : "text-sm")}>
             Envie uma mensagem para testar o mesmo runtime que produção (OpenAI Agents SDK), sem Slack ou Discord.
           </p>
         ) : (
@@ -197,12 +223,12 @@ export function TeamDebugConsole({
         )}
       </div>
 
-      <div className="p-4 border-t border-border space-y-3">
+      <div className={cn("border-t border-border space-y-2 shrink-0", compact ? "p-3" : "p-4 space-y-3")}>
         <Textarea
           placeholder="Mensagem para o coordenador..."
           value={input}
           disabled={busy}
-          rows={3}
+          rows={compact ? 2 : 3}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

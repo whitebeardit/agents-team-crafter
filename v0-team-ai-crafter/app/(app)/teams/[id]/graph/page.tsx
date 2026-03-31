@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Info, Save, Plus, Radio, Database, RadioReceiver } from "lucide-react"
+import { ArrowLeft, HelpCircle, Info, MessageSquareCode, Save, Plus, Radio, Database, RadioReceiver } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { TeamDebugConsole } from "@/components/teams/team-debug-console"
@@ -31,10 +31,17 @@ import {
 import { toast } from "sonner"
 import type { Edge, Node } from "@xyflow/react"
 import { stripDerivedGraphEdges } from "@/lib/graph-derived-edges"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export default function GraphEditorPage({
   params: _params,
@@ -51,6 +58,7 @@ export default function GraphEditorPage({
   const [graphDraft, setGraphDraft] = useState<{ nodes: Node[]; edges: Edge[] }>({ nodes: [], edges: [] })
   const [saving, setSaving] = useState(false)
   const [liveMode, setLiveMode] = useState(false)
+  const [liveSheetOpen, setLiveSheetOpen] = useState(false)
   const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentState>>({})
 
   const removeResolveRef = useRef<((value: boolean) => void) | null>(null)
@@ -77,6 +85,11 @@ export default function GraphEditorPage({
   const onStreamFinished = useCallback(() => {
     window.setTimeout(() => setLiveAgentState({}), 3200)
   }, [])
+
+  useEffect(() => {
+    if (liveMode) setLiveSheetOpen(true)
+    else setLiveSheetOpen(false)
+  }, [liveMode])
 
   const loadGraphData = useCallback(async () => {
     if (!api) return
@@ -239,7 +252,7 @@ export default function GraphEditorPage({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-[calc(100vh-8rem)] min-h-0">
       <AlertDialog
         open={removeDialogOpen}
         onOpenChange={(open) => {
@@ -293,7 +306,10 @@ export default function GraphEditorPage({
               checked={liveMode}
               onCheckedChange={(v) => {
                 setLiveMode(v)
-                if (!v) setLiveAgentState({})
+                if (!v) {
+                  setLiveAgentState({})
+                  setLiveSheetOpen(false)
+                }
               }}
             />
             <Label htmlFor="graph-live-mode" className="flex items-center gap-1.5 text-sm cursor-pointer">
@@ -306,6 +322,12 @@ export default function GraphEditorPage({
               </Badge>
             ) : null}
           </div>
+          {liveMode && api && !liveSheetOpen ? (
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setLiveSheetOpen(true)}>
+              <MessageSquareCode className="w-4 h-4" />
+              Console
+            </Button>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -336,109 +358,201 @@ export default function GraphEditorPage({
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-primary" />
-          <span className="text-muted-foreground">Coordenador</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-accent" />
-          <span className="text-muted-foreground">Especialista</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-success" />
-          <span className="text-muted-foreground">Canal</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-muted-foreground" />
-          <span className="text-muted-foreground">Base de Conhecimento</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5">
-            <span className="text-success text-xs leading-none">‹</span>
-            <div className="w-6 h-0 border-t-2 border-success border-solid" />
-            <span className="text-success text-xs leading-none">›</span>
+      <div className="flex flex-col flex-1 min-h-0 gap-3">
+        {/* Legend: compact when Live to maximize graph height */}
+        {liveMode ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  Legenda do grafo
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto max-w-sm" align="start">
+                <p className="text-xs font-medium text-foreground mb-2">Tipos de nó e linhas</p>
+                <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-primary shrink-0" />
+                    <span>Coordenador</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-accent shrink-0" />
+                    <span>Especialista</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-success shrink-0" />
+                    <span>Canal</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-muted-foreground shrink-0" />
+                    <span>Base de Conhecimento</span>
+                  </div>
+                  <div className="flex items-start gap-2 pt-1 border-t border-border">
+                    <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                      <span className="text-success text-xs leading-none">‹</span>
+                      <div className="w-6 h-0 border-t-2 border-success border-solid" />
+                      <span className="text-success text-xs leading-none">›</span>
+                    </div>
+                    <span>
+                      Coordenador ↔ canal (desenho bidirecional; passe o rato na linha para o texto)
+                    </span>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
-          <span className="text-muted-foreground">
-            Coordenador ↔ canal (desenho bidirecional; passe o rato na linha para o texto)
-          </span>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-1 text-sm shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-primary" />
+              <span className="text-muted-foreground">Coordenador</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-accent" />
+              <span className="text-muted-foreground">Especialista</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-success" />
+              <span className="text-muted-foreground">Canal</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-muted-foreground" />
+              <span className="text-muted-foreground">Base de Conhecimento</span>
+            </div>
+            <div className="flex items-center gap-2 min-w-[200px]">
+              <div className="flex items-center gap-0.5 shrink-0">
+                <span className="text-success text-xs leading-none">‹</span>
+                <div className="w-6 h-0 border-t-2 border-success border-solid" />
+                <span className="text-success text-xs leading-none">›</span>
+              </div>
+              <span className="text-muted-foreground">
+                Coordenador ↔ canal (desenho bidirecional; passe o rato na linha para o texto)
+              </span>
+            </div>
+          </div>
+        )}
+
+        {team.channelIds.length === 0 && (
+          <Alert className="shrink-0 border-warning/50 bg-warning/5 py-3">
+            <Info className="h-4 w-4" />
+            <AlertTitle className="text-sm">Nenhum canal associado a este time</AlertTitle>
+            <AlertDescription className={liveMode ? "text-xs leading-snug" : "space-y-2"}>
+              {liveMode ? (
+                <p>
+                  <Link href={`/teams/${team.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
+                    Ficha do time → Canais
+                  </Link>{" "}
+                  para associar canais.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    Os nós de canal no grafo vêm da composição do time: cada id em{" "}
+                    <code className="text-xs bg-muted px-1 rounded">channelIds</code> que exista em GET{" "}
+                    <code className="text-xs bg-muted px-1 rounded">/channels</code> gera um nó. Tipos de canal na ficha do
+                    coordenador não preenchem isto sozinhos.
+                  </p>
+                  <p>
+                    <Link
+                      href={`/teams/${team.id}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Abrir ficha do time → tab Canais
+                    </Link>{" "}
+                    para selecionar canais do workspace.
+                  </p>
+                </>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {liveMode ? (
+          <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+            <Info className="w-3.5 h-3.5 shrink-0 text-primary" />
+            <span>
+              Com Live, as mensagens passam pelo coordenador; o grafo mostra atividade por agente.
+            </span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="link" className="h-auto p-0 text-xs text-primary">
+                  Ler mais
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 text-xs" align="start">
+                <p className="text-muted-foreground leading-relaxed">
+                  Os canais do time ligam-se sempre ao <strong className="text-foreground">coordenador</strong> (linha
+                  verde mais espessa). O layout padrão empilha canais acima, coordenador no meio e especialistas abaixo.
+                  Ao gravar o grafo, arestas entre canal e agente devem ligar ao nó do coordenador. O backend rejeita
+                  layout inválido ao salvar.
+                </p>
+              </PopoverContent>
+            </Popover>
+          </div>
+        ) : (
+          <Alert className="shrink-0">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Canais e coordenador</AlertTitle>
+            <AlertDescription>
+              Os canais do time ligam-se sempre ao <strong>coordenador</strong> (linha verde mais espessa, com setas
+              nas duas pontas só no desenho — entrada e saída de mensagens passam pelo coordenador). O layout padrão
+              empilha <strong>canais acima</strong>, coordenador no meio e especialistas abaixo. Ao gravar o grafo,
+              arestas persistidas entre canal e agente devem ligar ao nó do coordenador. O backend rejeita layout
+              inválido ao salvar.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex-1 min-h-0 rounded-lg border border-border overflow-hidden">
+          <GraphCanvas
+            team={team}
+            agents={agents}
+            channels={channels}
+            initialGraph={graph}
+            onGraphChange={setGraphDraft}
+            onTeamEntityRemove={handleTeamEntityRemove}
+            liveAgentState={liveMode ? liveAgentState : {}}
+          />
         </div>
       </div>
 
-      {team.channelIds.length === 0 && (
-        <Alert className="mb-4 border-warning/50 bg-warning/5">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Nenhum canal associado a este time</AlertTitle>
-          <AlertDescription className="space-y-2">
-            <p>
-              Os nós de canal no grafo vêm da composição do time: cada id em{" "}
-              <code className="text-xs bg-muted px-1 rounded">channelIds</code> que exista em GET{" "}
-              <code className="text-xs bg-muted px-1 rounded">/channels</code> gera um nó. Tipos de canal na ficha do
-              coordenador não preenchem isto sozinhos.
-            </p>
-            <p>
-              <Link
-                href={`/teams/${team.id}`}
-                className="font-medium text-primary underline-offset-4 hover:underline"
-              >
-                Abrir ficha do time → tab Canais
-              </Link>{" "}
-              para selecionar canais do workspace.
-            </p>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <Alert className="mb-4">
-        <Info className="h-4 w-4" />
-        <AlertTitle>Canais e coordenador</AlertTitle>
-        <AlertDescription>
-          Os canais do time ligam-se sempre ao <strong>coordenador</strong> (linha verde mais espessa, com setas
-          nas duas pontas só no desenho — entrada e saída de mensagens passam pelo coordenador). O layout padrão
-          empilha <strong>canais acima</strong>, coordenador no meio e especialistas abaixo. Ao gravar o grafo,
-          arestas persistidas entre canal e agente devem ligar ao nó do coordenador. O backend rejeita layout
-          inválido ao salvar.
-        </AlertDescription>
-      </Alert>
-
-      {liveMode && api ? (
-        <Card className="mb-4 border-primary/30">
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">Console em tempo real</CardTitle>
-            <CardDescription>
-              Mensagens enviam <code className="text-xs bg-muted px-1 rounded">POST /teams/:id/run/stream</code>. O
-              grafo reflete <strong>agentStatus</strong> por agente; o texto do coordenador pode surgir em fluxo
-              (tokens).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TeamDebugConsole
-              teamId={id}
-              api={api}
-              coordinatorLabel={agents.find((a) => a.id === team.coordinatorId)?.name}
-              useStreamRun
-              useHttpRun={false}
-              onLiveAgentStatus={onLiveAgentStatus}
-              onStreamFinished={onStreamFinished}
-              className="min-h-[280px]"
-            />
-          </CardContent>
-        </Card>
+      {api ? (
+        <Sheet
+          open={liveMode && liveSheetOpen}
+          onOpenChange={(open) => {
+            if (!liveMode) return
+            setLiveSheetOpen(open)
+          }}
+        >
+          <SheetContent
+            side="right"
+            className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md [&>button]:top-3"
+          >
+            <SheetHeader className="space-y-1 border-b border-border px-4 py-3 text-left">
+              <SheetTitle className="text-base">Console em tempo real</SheetTitle>
+              <SheetDescription className="text-xs leading-relaxed">
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">POST /teams/:id/run/stream</code> — o grafo
+                reflete <strong>agentStatus</strong>; a resposta do coordenador pode aparecer em fluxo.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-2">
+              <TeamDebugConsole
+                teamId={id}
+                api={api}
+                coordinatorLabel={agents.find((a) => a.id === team.coordinatorId)?.name}
+                useStreamRun
+                useHttpRun={false}
+                onLiveAgentStatus={onLiveAgentStatus}
+                onStreamFinished={onStreamFinished}
+                variant="compact"
+                hideHeader
+                className="flex min-h-0 flex-1"
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       ) : null}
-
-      {/* Graph Canvas */}
-      <div className="flex-1 rounded-lg border border-border overflow-hidden min-h-[360px]">
-        <GraphCanvas
-          team={team}
-          agents={agents}
-          channels={channels}
-          initialGraph={graph}
-          onGraphChange={setGraphDraft}
-          onTeamEntityRemove={handleTeamEntityRemove}
-          liveAgentState={liveMode ? liveAgentState : {}}
-        />
-      </div>
     </div>
   )
 }

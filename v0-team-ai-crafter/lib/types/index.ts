@@ -57,6 +57,10 @@ export interface TeamRunExecutionEvent {
   agentId?: string
   phase?: string
   detail?: string
+  /** Texto completo do argumento `instruction` da tool (coordenador). */
+  toolInstruction?: string
+  /** Mensagem efetiva enviada ao especialista em `runStep` (após merge com a mensagem do utilizador). */
+  runtimeMessage?: string
 }
 
 /** SSE `agentStatus` durante `POST /teams/:id/run/stream`. */

@@ -33,9 +33,14 @@ Ordem lógica (simplificada):
 1. **Carregar time** por `teamId` + `workspaceId`; validar `invocation.coordinatorId` contra o documento do time.
 2. **Carregar coordenador** e validar `role === 'coordinator'`.
 3. **Listar especialistas** (`team.agentIds` excluindo `coordinatorId`); validar que não são coordenadores.
-4. **Construir tools** — `SpecialistRegistry.buildOpenAiTools`: cada tool executa `runStep` do provider para aquele especialista **sem** contexto de canal/thread (mensagem interna apenas).
-5. **Coordenador** — `OpenAIAgentsRuntimeProvider.runCoordinatorTurn`: um `Agent` com `tools` dos especialistas, `handoffs: []`, mensagem formatada por [`format-coordinator-user-message`](../../backend/src/modules/team-runtime/application/format-coordinator-user-message.ts) (metadados de canal/locale/`taskType` só para o coordenador).
+4. **Construir tools** — `SpecialistRegistry.buildOpenAiTools`: cada tool executa `runStep` com a mensagem obtida por [`build-specialist-runtime-message`](../../backend/src/modules/team-runtime/application/build-specialist-runtime-message.ts): junta o argumento `instruction` da tool com `invocation.message` quando o utilizador ainda não está incluído na instrução (o coordenador não precisa colar manualmente código longo; os especialistas deixam de ficar sem o texto bruto).
+5. **Coordenador** — `OpenAIAgentsRuntimeProvider.runCoordinatorTurn`: um `Agent` com `tools` dos especialistas, `handoffs: []`, mensagem formatada por [`format-coordinator-user-message`](../../backend/src/modules/team-runtime/application/format-coordinator-user-message.ts) (metadados de canal/locale/`taskType` só para o coordenador). Ao `systemInstruction` persistido junta-se um bloco curto sobre ferramentas de especialistas (recomendação de uso da `instruction`).
 6. **Resposta** — `runId`, `teamId`, `coordinatorAgentId`, `externalResponse`, `specialistResults`, `events`.
+
+### Especialistas: o que inspecionar na resposta
+
+- **`specialistResults[].summary`** — saída final de cada especialista (`runStep`).
+- **Evento `specialistStarted`** — `detail` continua a ser uma versão truncada (~200 caracteres) para UI compacta; **`toolInstruction`** é o argumento `instruction` completo da tool; **`runtimeMessage`** é a mensagem efetiva enviada ao especialista (após o merge com a mensagem do utilizador). Usa estes dois campos para perceber o que o modelo do coordenador pediu e o que o runtime entregou ao `runStep`.
 
 ---
 

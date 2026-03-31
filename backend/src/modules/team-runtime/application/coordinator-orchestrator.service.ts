@@ -27,6 +27,7 @@ import {
 import { assertInvocationMatchesTeam } from './team-runtime-guards.service.js';
 import { composeExternalResponseFromModelText } from './response-composer.service.js';
 import { formatCoordinatorUserMessage } from './format-coordinator-user-message.js';
+import { buildSpecialistRuntimeMessage } from './build-specialist-runtime-message.js';
 import {
   resolveSpecialistAgentIdFromToolName,
   SpecialistRegistry,
@@ -34,6 +35,12 @@ import {
 import type { WorkspaceIntegrationsService } from '../../settings/application/workspace-integrations.service.js';
 
 const ACTIVITY_MAX = 200;
+
+/** Appended to the coordinator system instruction so tool calls stay explicit. */
+const COORDINATOR_SPECIALIST_TOOL_GUIDANCE = `
+
+## Ferramentas de especialistas
+Cada chamada recebe o parâmetro \`instruction\`. O sistema repassa automaticamente a **mensagem completa do utilizador** ao especialista quando ainda não estiver incluída nessa instrução; podes focar a \`instruction\` na tarefa e confiar nesse reenvio para código ou texto longo.`;
 
 function truncateActivity(text: string, max = ACTIVITY_MAX): string {
   const t = text.replace(/\s+/g, ' ').trim();
@@ -113,17 +120,20 @@ export class CoordinatorOrchestratorService {
     const specialistSidecarEvents: ITeamExecutionEvent[] = [];
 
     const executeSpecialist = async (specialistAgentId: string, instruction: string) => {
+      const runtimeMessage = buildSpecialistRuntimeMessage(instruction, invocation.message);
       specialistSidecarEvents.push({
         type: 'specialistStarted',
         agentId: specialistAgentId,
         phase: 'runStep',
-        detail: truncateActivity(instruction),
+        detail: truncateActivity(runtimeMessage),
+        toolInstruction: instruction,
+        runtimeMessage,
       });
       options?.onProgress?.({
         agentId: specialistAgentId,
         status: 'busy',
         phase: 'specialist',
-        detail: truncateActivity(instruction),
+        detail: truncateActivity(runtimeMessage),
       });
 
       const spec = await this.agentRepo.findById(ws, specialistAgentId);
@@ -213,7 +223,7 @@ export class CoordinatorOrchestratorService {
           : undefined;
 
       const r = await this.agentRuntime.runStep(config, {
-        message: instruction,
+        message: runtimeMessage,
         ...(openaiApiKey ? { openaiApiKey } : {}),
         ...(requestedAccessLevel ? { requestedAccessLevel } : {}),
         ...(correlationId ? { correlationId } : {}),
@@ -238,6 +248,10 @@ export class CoordinatorOrchestratorService {
     const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
     const userMessage = formatCoordinatorUserMessage(invocation);
     const crow = coordinator as Record<string, unknown>;
+    const baseCoordinatorSystem = (crow['systemInstruction'] as string | undefined)?.trim();
+    const coordinatorSystemInstruction =
+      (baseCoordinatorSystem ? `${baseCoordinatorSystem}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}` : undefined) ??
+      `Voce e o coordenador do time de agentes.${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}`;
 
     const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
     const timeline: ITeamExecutionEvent[] = [
@@ -253,7 +267,7 @@ export class CoordinatorOrchestratorService {
     const result = await this.agentRuntime.runCoordinatorTurn({
       coordinatorAgentId: teamRow.coordinatorId,
       workspaceId: ws,
-      systemInstruction: (crow['systemInstruction'] as string | undefined) ?? undefined,
+      systemInstruction: coordinatorSystemInstruction,
       userMessage,
       ...(openaiApiKey ? { openaiApiKey } : {}),
       sdkTools,

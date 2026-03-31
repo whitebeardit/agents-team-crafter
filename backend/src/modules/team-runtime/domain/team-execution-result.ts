@@ -10,6 +10,10 @@ export interface ITeamExecutionEvent {
   agentId?: string;
   phase?: string;
   detail?: string;
+  /** Raw `instruction` from the coordinator tool call (full string). */
+  toolInstruction?: string;
+  /** Exact user message passed to specialist `runStep` after merge with user invocation (full string). */
+  runtimeMessage?: string;
 }
 
 export interface ITeamExecutionResult {
