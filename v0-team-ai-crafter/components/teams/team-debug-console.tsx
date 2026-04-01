@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
+import ReactMarkdown from "react-markdown"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -11,7 +12,11 @@ import {
 import { ChevronDown, Loader2, MessageSquareCode, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ApiError, type createApiClient } from "@/lib/api/client"
-import type { TeamGraphLiveAgentState, TeamRunResponse } from "@/lib/types"
+import type {
+  TeamGraphLiveAgentState,
+  TeamRunExternalImageAttachment,
+  TeamRunResponse,
+} from "@/lib/types"
 import { toast } from "sonner"
 
 type Api = ReturnType<typeof createApiClient>
@@ -34,7 +39,72 @@ export interface TeamDebugConsoleProps {
   hideHeader?: boolean
 }
 
-type ChatLine = { role: "user" | "assistant"; content: string; streaming?: boolean }
+type ChatLine = {
+  role: "user" | "assistant"
+  content: string
+  streaming?: boolean
+  format?: "plain" | "markdown"
+  attachments?: TeamRunExternalImageAttachment[]
+}
+
+function AssistantMessageBody({ line }: { line: ChatLine }) {
+  const { content, format, attachments, streaming } = line
+  const showGallery = Boolean(attachments && attachments.length > 0 && !streaming)
+  const useMd = format === "markdown" && !streaming
+
+  return (
+    <div className="space-y-2">
+      {showGallery ? (
+        <div className="flex flex-wrap gap-2">
+          {attachments!.map((a, i) => (
+            // Remote coordinator URLs are arbitrary; next/image would require per-domain config.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={`${a.url}-${i}`}
+              src={a.url}
+              alt=""
+              className="max-h-48 max-w-full rounded-md border border-border object-contain bg-background"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          ))}
+        </div>
+      ) : null}
+      {streaming ? (
+        <p className="whitespace-pre-wrap break-words">
+          {content}
+          <span className="inline-block w-2 h-4 ml-0.5 align-middle bg-primary/50 animate-pulse" />
+        </p>
+      ) : useMd ? (
+        <div className="break-words [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/80 [&_code]:px-1 [&_code]:text-xs">
+          <ReactMarkdown
+            components={{
+              img: ({ src, alt }) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={src}
+                  alt={alt ?? ""}
+                  className="max-h-48 max-w-full rounded-md border border-border object-contain"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              ),
+              a: ({ href, children }) => (
+                <a href={href} className="text-primary underline" target="_blank" rel="noopener noreferrer">
+                  {children}
+                </a>
+              ),
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
+      ) : (
+        <p className="whitespace-pre-wrap break-words">{content}</p>
+      )}
+    </div>
+  )
+}
 
 export function TeamDebugConsole({
   teamId,
@@ -96,11 +166,15 @@ export function TeamDebugConsole({
               const next = [...prev]
               const i = next.length - 1
               if (i >= 0 && next[i].role === "assistant") {
-                const text =
-                  data.externalResponse?.text?.trim() ||
-                  assistantBuffer ||
-                  "(sem texto)"
-                next[i] = { role: "assistant", content: text, streaming: false }
+                const er = data.externalResponse
+                const text = er?.text?.trim() || assistantBuffer || "(sem texto)"
+                next[i] = {
+                  role: "assistant",
+                  content: text,
+                  streaming: false,
+                  format: er?.format,
+                  attachments: er?.attachments,
+                }
               }
               return next
             })
@@ -134,11 +208,14 @@ export function TeamDebugConsole({
           channel: "debug",
         })
         setLastRaw(res.data)
+        const er = res.data.externalResponse
         setLines((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: res.data.externalResponse?.text?.trim() || "(resposta vazia)",
+            content: er?.text?.trim() || "(resposta vazia)",
+            format: er?.format,
+            attachments: er?.attachments,
           },
         ])
       } catch (e) {
@@ -212,12 +289,11 @@ export function TeamDebugConsole({
                   : "mr-auto bg-muted/80 text-foreground border border-border",
               )}
             >
-              <p className="whitespace-pre-wrap break-words">
-                {line.content}
-                {line.streaming ? (
-                  <span className="inline-block w-2 h-4 ml-0.5 align-middle bg-primary/50 animate-pulse" />
-                ) : null}
-              </p>
+              {line.role === "user" ? (
+                <p className="whitespace-pre-wrap break-words">{line.content}</p>
+              ) : (
+                <AssistantMessageBody line={line} />
+              )}
             </div>
           ))
         )}

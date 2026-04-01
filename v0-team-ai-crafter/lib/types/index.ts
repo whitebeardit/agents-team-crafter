@@ -36,9 +36,15 @@ export interface TeamRunRequest {
   taskType?: string
 }
 
+export interface TeamRunExternalImageAttachment {
+  type: "image"
+  url: string
+}
+
 export interface TeamRunExternalResponse {
   text: string
   format?: "plain" | "markdown"
+  attachments?: TeamRunExternalImageAttachment[]
 }
 
 export interface TeamRunSpecialistResult {

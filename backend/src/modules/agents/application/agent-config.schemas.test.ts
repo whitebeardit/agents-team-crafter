@@ -8,6 +8,13 @@ describe('toolsSchema', () => {
     expect(parsed.tools).toEqual(['web_search']);
   });
 
+  it('aceita image_generation', () => {
+    const parsed = toolsSchema.parse({
+      tools: ['image_generation'],
+    });
+    expect(parsed.tools).toEqual(['image_generation']);
+  });
+
   it('rejeita tool nao permitida', () => {
     expect(() =>
       toolsSchema.parse({

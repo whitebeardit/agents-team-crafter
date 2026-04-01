@@ -38,6 +38,8 @@ export interface IExecutableAgentConfig {
   toolIntegrationContext?: IToolIntegrationContext;
   /** Definicoes dinamicas do workspace (webhook, etc.). */
   customToolDefinitions?: IWorkspaceCustomToolDefinition[];
+  /** Quando a execucao e no contexto de um time (ex.: especialista no orquestrador). */
+  teamContext?: { teamId: string; teamName: string };
 }
 
 export type TRuntimeEvent =

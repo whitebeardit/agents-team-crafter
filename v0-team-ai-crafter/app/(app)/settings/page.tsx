@@ -90,6 +90,8 @@ type IntegrationsApiData = {
     toolDatabase?: { postgresReadOnlyUrlConfigured: boolean }
     toolCrm?: { restBaseUrl?: string; bearerTokenConfigured: boolean }
     toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean }
+    /** Padrao workspace para tool catalog_image_generation quando model=default */
+    imageGenerationModel?: "dall-e-2" | "dall-e-3"
   }
 }
 
@@ -111,6 +113,10 @@ export default function SettingsPage() {
   const [integrations, setIntegrations] = useState<IntegrationsApiData["secretsMasked"] | null>(null)
   const [intBusy, setIntBusy] = useState(false)
   const [openaiKeyInput, setOpenaiKeyInput] = useState("")
+  /** __default__ = sem valor persistido (runtime usa DALL-E 3 se model=default na tool) */
+  const [imageGenModelDefault, setImageGenModelDefault] = useState<"__default__" | "dall-e-2" | "dall-e-3">(
+    "__default__",
+  )
   const [smtpHost, setSmtpHost] = useState("")
   const [smtpPort, setSmtpPort] = useState("587")
   const [smtpSecure, setSmtpSecure] = useState(false)
@@ -169,6 +175,8 @@ export default function SettingsPage() {
       setProfile(me.data)
       setApiKeys(keys.data)
       setIntegrations(int.data.secretsMasked)
+      const igm = int.data.secretsMasked.imageGenerationModel
+      setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       setSmtpTestTo(me.data.email ?? "")
       const sm = int.data.secretsMasked.smtp
       if (sm) {
@@ -281,6 +289,8 @@ export default function SettingsPage() {
         secretsMasked: IntegrationsApiData["secretsMasked"]
       }>("/settings/workspace/integrations", { openaiApiKey: openaiKeyInput })
       setIntegrations(res.data.secretsMasked)
+      const igm = res.data.secretsMasked.imageGenerationModel
+      setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       setOpenaiKeyInput("")
       toast.success("Chave OpenAI guardada")
     } catch {
@@ -301,9 +311,33 @@ export default function SettingsPage() {
       }>("/settings/workspace/integrations", { openaiApiKey: "" })
       setIntegrations(res.data.secretsMasked)
       setOpenaiKeyInput("")
+      const igm = res.data.secretsMasked.imageGenerationModel
+      setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       toast.success("Chave OpenAI removida do workspace")
     } catch {
       toast.error("Falha ao remover chave")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const saveImageGenerationModelDefault = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<{
+        message: string
+        secretsMasked: IntegrationsApiData["secretsMasked"]
+      }>("/settings/workspace/integrations", {
+        imageGenerationModel: imageGenModelDefault === "__default__" ? "" : imageGenModelDefault,
+      })
+      setIntegrations(res.data.secretsMasked)
+      const igm = res.data.secretsMasked.imageGenerationModel
+      setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
+      toast.success("Modelo padrao de imagem guardado")
+    } catch {
+      toast.error("Falha ao guardar (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)")
     } finally {
       setIntBusy(false)
     }
@@ -789,7 +823,8 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>OpenAI (BYOK)</CardTitle>
               <CardDescription>
-                Chave para o runtime dos agentes neste workspace.{" "}
+                Chave para o runtime dos agentes neste workspace e para a ferramenta de catalogo{" "}
+                <code className="text-xs">image_generation</code> (DALL-E 2 / DALL-E 3), quando ativa no agente.{" "}
                 <a
                   href="https://platform.openai.com/api-keys"
                   target="_blank"
@@ -836,6 +871,39 @@ export default function SettingsPage() {
                 <Button variant="secondary" onClick={() => void runTestOpenAi()} disabled={intBusy}>
                   Testar ligacao
                 </Button>
+              </div>
+              <div className="space-y-2 pt-2 border-t border-border">
+                <Label htmlFor="image-gen-model">Modelo padrao para geracao de imagens (catalog)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Usado quando a tool envia <code className="text-xs">model: default</code>. DALL-E 2 costuma ser mais
+                  barato; DALL-E 3 tende a melhor qualidade. Sem preferencia guardada, o runtime usa DALL-E 3 ao
+                  resolver <code className="text-xs">default</code>.
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <Select
+                    value={imageGenModelDefault}
+                    onValueChange={(v) =>
+                      setImageGenModelDefault(v as "__default__" | "dall-e-2" | "dall-e-3")
+                    }
+                  >
+                    <SelectTrigger id="image-gen-model" className="w-[min(100%,280px)]">
+                      <SelectValue placeholder="Escolher..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__default__">Sem preferencia (padrao runtime: DALL-E 3)</SelectItem>
+                      <SelectItem value="dall-e-2">DALL-E 2 (custo menor)</SelectItem>
+                      <SelectItem value="dall-e-3">DALL-E 3 (qualidade)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void saveImageGenerationModelDefault()}
+                    disabled={intBusy}
+                  >
+                    Guardar modelo
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

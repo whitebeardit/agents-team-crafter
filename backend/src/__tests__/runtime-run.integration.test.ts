@@ -129,7 +129,13 @@ describe('POST /teams/:id/run (team runtime)', () => {
     expect(body.success).toBe(true);
     expect(body.data.coordinatorAgentId).toBe(coordId);
     expect(body.data.teamId).toBe(teamId);
-    expect((body.data.externalResponse as { text?: string })?.text).toBeDefined();
+    const er = body.data.externalResponse as {
+      text?: string;
+      format?: string;
+      attachments?: unknown;
+    };
+    expect(er.text).toBeDefined();
+    expect(er.attachments === undefined || Array.isArray(er.attachments)).toBe(true);
     expect(body.data).not.toHaveProperty('handoffs');
     expect(body.data).not.toHaveProperty('selectedAgentId');
     expect(Array.isArray(body.data.specialistResults)).toBe(true);

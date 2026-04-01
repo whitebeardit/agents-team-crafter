@@ -16,6 +16,7 @@ export function composeExecutableAgentConfig(parts: {
   mcpToolSpecs: IMcpToolSpec[];
   toolIntegrationContext?: IToolIntegrationContext;
   customToolDefinitions?: IWorkspaceCustomToolDefinition[];
+  teamContext?: { teamId: string; teamName: string };
 }): IExecutableAgentConfig {
   return { ...parts };
 }

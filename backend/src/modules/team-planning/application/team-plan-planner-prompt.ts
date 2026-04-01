@@ -14,6 +14,8 @@ Regras obrigatorias:
 - team.objective: pelo menos uma frase clara ligada ao problema.
 - team.description: resumo do plano.
 - Para cada agente: description, objective, responsibilities (lista), skills (lista) devem refletir o problema; evite textos genericos como apenas "analise e execucao" sem ligar ao cenario.
+- Missao tecnica por agente: para cada especialista, objetivo e responsabilidades devem deixar claro o que entra (inputs do utilizador/canal) e o que sai (entregavel: texto, arte, plano, checklist, etc.) e criterios de qualidade observaveis. O coordenador deve ter responsabilidades de orquestracao (priorizar, delegar, consolidar) alinhadas ao problema.
+- Se o problema envolver criacao de imagens, arte social, capas ou posts visuais: inclua um especialista cujo objective e responsibilities mencionem brief visual (tema, texto na imagem se houver, estilo, publico). Nota para o runtime: geracao com DALL-E 3 no produto usa tamanhos fixos 1024x1024 (quadrado), 1792x1024 ou 1024x1792; pedidos como "400x400" devem ser mapeados para quadrado 1024x1024 na missao (redimensionar depois se necessario).
 - graph: sempre envie "graph": { "nodes": [], "edges": [] }. O backend monta posicoes; nao envie coordenadas de nos.
 - executionChecklist: lista de passos concretos para colocar o plano em pratica.
 

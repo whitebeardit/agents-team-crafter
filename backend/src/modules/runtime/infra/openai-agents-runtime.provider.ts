@@ -49,6 +49,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
     const meta = {
       workspaceId: config.workspaceId,
       correlationId: input.correlationId,
+      teamContext: config.teamContext,
     };
     const catalogTools = buildCapabilityCatalogTools(
       config.tools,

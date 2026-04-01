@@ -7,6 +7,7 @@ export const AVAILABLE_TOOL_IDS = [
   'calendar_access',
   'crm_access',
   'database_query',
+  'image_generation',
 ] as const;
 
 export type TAvailableToolId = (typeof AVAILABLE_TOOL_IDS)[number];

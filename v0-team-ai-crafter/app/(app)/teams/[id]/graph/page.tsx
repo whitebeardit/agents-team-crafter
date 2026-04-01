@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Info, MessageSquareCode, Save, Plus, Radio, Database, RadioReceiver } from "lucide-react"
+import { ArrowLeft, Images, Info, MessageSquareCode, Save, Plus, Radio, Database, RadioReceiver } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { TeamDebugConsole } from "@/components/teams/team-debug-console"
@@ -288,6 +288,12 @@ export default function GraphEditorPage({
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
+          </Link>
+          <Link href={`/teams/${team.id}/gallery`}>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5">
+              <Images className="w-4 h-4" />
+              Galeria
+            </Button>
           </Link>
           <div>
             <h1 className="text-xl font-bold text-foreground">

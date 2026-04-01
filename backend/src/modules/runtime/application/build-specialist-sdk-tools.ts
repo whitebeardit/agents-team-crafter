@@ -8,6 +8,7 @@ import {
   executeCalendarAccess,
   executeCrmAccess,
   executeDatabaseQuery,
+  executeImageGeneration,
 } from './tool-builtin-executors.js';
 import { logToolInvocation } from './tool-invocation-logger.js';
 
@@ -54,15 +55,43 @@ const CATALOG_STUB: Record<
     stubResult: () =>
       '[catalog_stub] database_query: configure toolDatabase.postgresReadOnlyUrl em Integracoes.',
   },
+  image_generation: {
+    description: 'Generate images via OpenAI (DALL-E 2/3) when API key is configured.',
+    stubResult: () =>
+      '[catalog_stub] image_generation: configure chave OpenAI em Integracoes (ou OPENAI_API_KEY) para gerar imagens reais.',
+  },
 };
 
 const catalogArgs = z.object({
   query: z.string().optional().describe('Optional query, path, or SQL depending on the tool'),
 });
 
+/**
+ * Sizes cover DALL-E 2 and DALL-E 3; executor normalizes invalid size for the resolved model.
+ * All keys required for strict OpenAI function JSON Schema validation.
+ */
+export const imageGenerationArgs = z.object({
+  prompt: z
+    .string()
+    .min(1)
+    .max(3800)
+    .describe('Detailed prompt describing the image (DALL-E 2 max 1000 chars enforced server-side).'),
+  size: z
+    .enum(['256x256', '512x512', '1024x1024', '1792x1024', '1024x1792'])
+    .describe(
+      'DALL-E 2: 256x256, 512x512, 1024x1024. DALL-E 3: 1024x1024, 1792x1024, 1024x1792. Square social: prefer 1024x1024 or 256x256 for lower cost.',
+    ),
+  model: z
+    .enum(['dall-e-2', 'dall-e-3', 'default'])
+    .describe(
+      'Use default to apply workspace Integrations default model; otherwise dall-e-2 (lower cost) or dall-e-3 (quality).',
+    ),
+});
+
 export type TBuildCatalogMeta = {
   workspaceId: string;
   correlationId?: string;
+  teamContext?: { teamId: string; teamName: string };
 };
 
 /**
@@ -121,6 +150,23 @@ export function buildCapabilityCatalogTools(
             executeCalendarAccess(ctx, input as { query?: string }, {
               workspaceId: meta.workspaceId,
               correlationId: meta.correlationId,
+            }),
+        }),
+      );
+      continue;
+    }
+    if (bid === 'image_generation' && ctx.openai?.apiKey) {
+      out.push(
+        tool({
+          name: `catalog_${id}`.slice(0, 64),
+          description:
+            'Generate an image with OpenAI Images API (DALL-E 2 or DALL-E 3). Returns Markdown ![...](https://...) with a public HTTPS URL. Set model to default to use the workspace default from Integrations.',
+          parameters: imageGenerationArgs,
+          execute: async (input) =>
+            executeImageGeneration(ctx, input as { prompt?: string; size?: string; model?: string }, {
+              workspaceId: meta.workspaceId,
+              correlationId: meta.correlationId,
+              teamContext: meta.teamContext,
             }),
         }),
       );

@@ -2,8 +2,13 @@ import { z } from 'zod';
 import { maskSecretValue } from '../../../utils/mask-secret.js';
 
 /** Payload interno (plaintext) guardado cifrado em Workspace.integrationSecretsEncrypted */
+/** Modelo padrao para a tool de catalogo `image_generation` (override por chamada na tool com `model`). */
+export type TImageGenerationModel = 'dall-e-2' | 'dall-e-3';
+
 export interface IWorkspaceIntegrationsPayload {
   openaiApiKey?: string;
+  /** Padrao quando a tool usa `model: default`; se omitido, o runtime usa dall-e-3. */
+  imageGenerationModel?: TImageGenerationModel;
   smtp?: {
     host: string;
     port: number;
@@ -74,6 +79,8 @@ export const putWorkspaceIntegrationsBodySchema = z.object({
       authHeader: z.string().optional(),
     })
     .optional(),
+  /** Padrao workspace para geracao de imagem; string vazia remove e volta ao default dall-e-3 no runtime. */
+  imageGenerationModel: z.union([z.enum(['dall-e-2', 'dall-e-3']), z.literal('')]).optional(),
 });
 
 export type IPutWorkspaceIntegrationsBody = z.infer<typeof putWorkspaceIntegrationsBodySchema>;
@@ -98,6 +105,7 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
   toolDatabase?: { postgresReadOnlyUrlConfigured: boolean };
   toolCrm?: { restBaseUrl?: string; bearerTokenConfigured: boolean };
   toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean };
+  imageGenerationModel?: TImageGenerationModel;
 } {
   if (!payload) {
     return { openaiApiKeyConfigured: false };
@@ -158,6 +166,7 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
           },
         }
       : {}),
+    ...(payload.imageGenerationModel ? { imageGenerationModel: payload.imageGenerationModel } : {}),
   };
 }
 
@@ -261,6 +270,11 @@ export function mergeWorkspaceIntegrationsPayload(
       if (merged.restBaseUrl?.trim()) next.toolCalendar.restBaseUrl = merged.restBaseUrl.trim();
       if (merged.authHeader?.trim()) next.toolCalendar.authHeader = merged.authHeader.trim();
     }
+  }
+
+  if (patch.imageGenerationModel !== undefined) {
+    if (patch.imageGenerationModel === '') delete next.imageGenerationModel;
+    else next.imageGenerationModel = patch.imageGenerationModel;
   }
 
   return next;

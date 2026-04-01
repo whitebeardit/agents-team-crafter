@@ -16,6 +16,7 @@ import type { IChatSdkSecretsPayload } from '../../channels/domain/chat-sdk-secr
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
 import { buildChatTeamInvocation } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 import { requireCoordinatorForChannelInstance } from '../application/resolve-inbound-coordinator.js';
+import { postCoordinatorExternalResponse } from './post-coordinator-external-response.js';
 
 function createStateAdapter(workspaceId: string, env: IEnv) {
   const logger = new ConsoleLogger('info', `[chat-sdk:${workspaceId}]`);
@@ -47,7 +48,7 @@ function bindInbound(
       agentChannelLabel,
     );
     const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
-    return result.externalResponse.text;
+    return result.externalResponse;
   };
 
   chat.onNewMention(async (thread, message) => {
@@ -55,14 +56,14 @@ function bindInbound(
     const text = (message.text ?? '').trim();
     if (!text) return;
     const out = await runInbound(text);
-    await thread.post(out);
+    await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
   });
 
   chat.onSubscribedMessage(async (thread, message) => {
     const text = (message.text ?? '').trim();
     if (!text) return;
     const out = await runInbound(text);
-    await thread.post(out);
+    await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
   });
 }
 

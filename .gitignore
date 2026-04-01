@@ -28,3 +28,6 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+
+# Galeria local de imagens (backend MEDIA_GALLERY_ROOT default)
+data/gallery/

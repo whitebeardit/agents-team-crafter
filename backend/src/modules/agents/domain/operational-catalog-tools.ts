@@ -20,6 +20,10 @@ const META: Record<string, { name: string; description: string }> = {
     name: 'Acesso ao Calendario',
     description: 'Pedidos HTTP ao calendario configurado nas integracoes.',
   },
+  image_generation: {
+    name: 'Geracao de imagens (OpenAI)',
+    description: 'Gera imagens com DALL-E 2 ou DALL-E 3 usando a chave OpenAI do workspace (ou ambiente).',
+  },
 };
 
 /**
@@ -39,6 +43,10 @@ export function resolveOperationalCatalogTools(ctx: IToolIntegrationContext): IO
   if (ctx.calendar?.restBaseUrl?.trim()) {
     const m = META.calendar_access;
     out.push({ id: 'calendar_access', ...m });
+  }
+  if (ctx.openai?.apiKey?.trim()) {
+    const m = META.image_generation;
+    out.push({ id: 'image_generation', ...m });
   }
   return out;
 }

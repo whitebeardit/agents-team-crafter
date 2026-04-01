@@ -29,4 +29,9 @@ describe('resolveOperationalCatalogTools', () => {
   it('nao inclui crm sem restBaseUrl', () => {
     expect(resolveOperationalCatalogTools({ crm: { bearerToken: 'x' } })).toEqual([]);
   });
+
+  it('inclui image_generation com chave OpenAI', () => {
+    const r = resolveOperationalCatalogTools({ openai: { apiKey: 'sk-test' } });
+    expect(r.map((x) => x.id)).toEqual(['image_generation']);
+  });
 });

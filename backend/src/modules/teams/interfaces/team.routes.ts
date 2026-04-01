@@ -14,6 +14,7 @@ import {
   stripDerivedGraphEdges,
 } from '../../graphs/domain/graph-enrichment.js';
 import { assertActiveChannelBindingUnique } from '../application/assert-active-channel-binding.js';
+import { getTeamGalleryService } from '../application/team-gallery.service.js';
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
 import {
   buildManualTeamInvocation,
@@ -218,6 +219,82 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     const enrich = { team: enrichTeam };
     const result = validateTeamGraph(normalizedNodes, edgesToValidate, { agentIds, channelIds }, enrich);
     return reply.send(successEnvelope(result));
+  });
+
+  const gallerySvc = getTeamGalleryService();
+
+  app.get('/teams/:id/gallery', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await d.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const name = String((team as Record<string, unknown>)['name'] ?? '');
+    const albums = await gallerySvc.listAlbums(ws, teamId, name);
+    return reply.send(successEnvelope({ albums }));
+  });
+
+  app.get('/teams/:id/gallery/:subject/files', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const subjectRaw = (req.params as { subject: string }).subject;
+    const team = await d.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const name = String((team as Record<string, unknown>)['name'] ?? '');
+    let subject: string;
+    try {
+      subject = decodeURIComponent(subjectRaw);
+    } catch {
+      subject = subjectRaw;
+    }
+    const files = await gallerySvc.listFiles(ws, teamId, name, subject);
+    return reply.send(successEnvelope({ files }));
+  });
+
+  app.get('/teams/:id/gallery/:subject/file/:filename', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const subjectRaw = (req.params as { subject: string }).subject;
+    const filenameRaw = (req.params as { filename: string }).filename;
+    const team = await d.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const name = String((team as Record<string, unknown>)['name'] ?? '');
+    let subject: string;
+    let filename: string;
+    try {
+      subject = decodeURIComponent(subjectRaw);
+      filename = decodeURIComponent(filenameRaw);
+    } catch {
+      subject = subjectRaw;
+      filename = filenameRaw;
+    }
+    const buf = await gallerySvc.readFileBuffer(ws, teamId, name, subject, filename);
+    if (!buf) throw new AppError('NOT_FOUND', 'Ficheiro nao encontrado', 404);
+    return reply
+      .header('Cache-Control', 'private, max-age=3600')
+      .type(gallerySvc.guessContentType(filename))
+      .send(buf);
+  });
+
+  app.delete('/teams/:id/gallery/:subject/file/:filename', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const subjectRaw = (req.params as { subject: string }).subject;
+    const filenameRaw = (req.params as { filename: string }).filename;
+    const team = await d.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const name = String((team as Record<string, unknown>)['name'] ?? '');
+    let subject: string;
+    let filename: string;
+    try {
+      subject = decodeURIComponent(subjectRaw);
+      filename = decodeURIComponent(filenameRaw);
+    } catch {
+      subject = subjectRaw;
+      filename = filenameRaw;
+    }
+    const ok = await gallerySvc.deleteFile(ws, teamId, name, subject, filename);
+    if (!ok) throw new AppError('NOT_FOUND', 'Ficheiro nao encontrado', 404);
+    return reply.send(successEnvelope({ deleted: true }));
   });
 
   app.get('/teams/:id', { preHandler: tenant }, async (req, reply) => {

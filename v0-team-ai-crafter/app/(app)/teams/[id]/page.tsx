@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   Radio,
   GitBranch,
+  Images,
   Edit,
   Power,
   Crown,
@@ -313,6 +314,12 @@ export default function TeamDetailsPage({
           <p className="text-muted-foreground mt-1">{team.description}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href={`/teams/${team.id}/gallery`}>
+            <Button variant="outline" className="gap-2">
+              <Images className="w-4 h-4" />
+              Galeria
+            </Button>
+          </Link>
           <Link href={`/teams/${team.id}/graph`}>
             <Button variant="outline" className="gap-2">
               <GitBranch className="w-4 h-4" />

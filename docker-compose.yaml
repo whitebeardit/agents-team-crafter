@@ -48,6 +48,10 @@ services:
       JWT_REFRESH_EXPIRES_IN: 30d
       CORS_ORIGIN: http://localhost:3000
       PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
+      MEDIA_GALLERY_ROOT: /app/data/gallery
+      PUBLIC_API_BASE_URL: http://localhost:3001
+    volumes:
+      - backend_gallery:/app/data/gallery
     depends_on:
       redis:
         condition: service_healthy
@@ -96,3 +100,4 @@ services:
 
 volumes:
   redis_data:
+  backend_gallery:

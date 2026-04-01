@@ -40,7 +40,10 @@ const ACTIVITY_MAX = 200;
 const COORDINATOR_SPECIALIST_TOOL_GUIDANCE = `
 
 ## Ferramentas de especialistas
-Cada chamada recebe o parâmetro \`instruction\`. O sistema repassa automaticamente a **mensagem completa do utilizador** ao especialista quando ainda não estiver incluída nessa instrução; podes focar a \`instruction\` na tarefa e confiar nesse reenvio para código ou texto longo.`;
+Cada chamada recebe o parâmetro \`instruction\`. O sistema repassa automaticamente a **mensagem completa do utilizador** ao especialista quando ainda não estiver incluída nessa instrução; podes focar a \`instruction\` na tarefa e confiar nesse reenvio para código ou texto longo.
+
+## Resposta final ao utilizador (imagens)
+Quando um especialista devolver uma **URL HTTPS** de imagem gerada (por exemplo após usar a tool de geração de imagens) ou Markdown \`![descricao](https://...)\`, **inclui obrigatoriamente** essa linha Markdown na tua resposta final, para a interface e o Telegram mostrarem a imagem. Não substituas por apenas uma descrição textual se existir URL disponível.`;
 
 function truncateActivity(text: string, max = ACTIVITY_MAX): string {
   const t = text.replace(/\s+/g, ' ').trim();
@@ -204,6 +207,7 @@ export class CoordinatorOrchestratorService {
         mcpToolSpecs,
         toolIntegrationContext,
         customToolDefinitions,
+        teamContext: { teamId: teamRow.id, teamName: teamRow.name },
       });
       await this.agentRuntime.compile(config);
       const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);

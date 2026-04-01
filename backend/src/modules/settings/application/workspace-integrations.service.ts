@@ -63,7 +63,8 @@ export class WorkspaceIntegrationsService {
       ) ||
       Boolean(next.toolDatabase?.postgresReadOnlyUrl?.trim()) ||
       Boolean(next.toolCrm?.restBaseUrl?.trim() || next.toolCrm?.bearerToken?.trim()) ||
-      Boolean(next.toolCalendar?.restBaseUrl?.trim() || next.toolCalendar?.authHeader?.trim());
+      Boolean(next.toolCalendar?.restBaseUrl?.trim() || next.toolCalendar?.authHeader?.trim()) ||
+      Boolean(next.imageGenerationModel);
     if (!hasAny) {
       await this.workspaceRepo.setIntegrationSecretsEncrypted(workspaceId, null);
       return {
@@ -98,6 +99,13 @@ export class WorkspaceIntegrationsService {
       out.calendar = {
         restBaseUrl: p.toolCalendar.restBaseUrl?.trim(),
         authHeader: p.toolCalendar.authHeader?.trim(),
+      };
+    }
+    const openaiKey = await this.resolveOpenAiApiKey(workspaceId);
+    if (openaiKey) {
+      out.openai = {
+        apiKey: openaiKey,
+        ...(p.imageGenerationModel ? { defaultImageModel: p.imageGenerationModel } : {}),
       };
     }
     return out;

@@ -187,6 +187,38 @@ export function createApiClient(deps: {
     return parseEnvelope<T>(res)
   }
 
+  /** GET com os mesmos headers de tenant/JWT que `request`; devolve `Response` bruto (imagens, blobs). */
+  async function fetchAuthorized(
+    path: string,
+    init: RequestInit & { tenant?: boolean } = { tenant: true },
+  ): Promise<Response> {
+    const baseUrl = getBaseUrl()
+    const { token } = deps.getAuth()
+    const headers = new Headers(init.headers)
+    if (token) headers.set("Authorization", `Bearer ${token}`)
+    if (init.tenant !== false) {
+      const wid = deps.getWorkspaceId()
+      if (wid) headers.set("X-Workspace-Id", wid)
+    }
+    const doFetch = () =>
+      fetch(joinUrl(baseUrl, path), {
+        ...init,
+        headers,
+      })
+    let res = await doFetch()
+    if (res.status === 401) {
+      const refreshed = await refreshTokenIfPossible()
+      if (refreshed) {
+        const { token: newToken } = deps.getAuth()
+        if (newToken) headers.set("Authorization", `Bearer ${newToken}`)
+        res = await doFetch()
+      } else {
+        deps.clearAuth()
+      }
+    }
+    return res
+  }
+
   async function streamTeamRun(teamId: string, body: TeamRunRequest, handlers: ITeamRunStreamHandlers) {
     const baseUrl = getBaseUrl()
     const path = `/teams/${teamId}/run/stream`
@@ -319,6 +351,7 @@ export function createApiClient(deps: {
       request<T>(path, { method: "DELETE", tenant: opts?.tenant }),
     streamTeamRun,
     streamTeamPlanExecute,
+    fetchAuthorized,
   }
 }
 

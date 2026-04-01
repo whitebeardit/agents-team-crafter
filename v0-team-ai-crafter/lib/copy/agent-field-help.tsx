@@ -84,6 +84,16 @@ export const agentFieldHelp = {
         Propósito principal do especialista. No runtime, vira a seção <strong>## Objective</strong> nas instruções do
         modelo.
       </p>
+      <p>
+        Seja específico sobre <strong>entregáveis</strong> (ex.: texto final, roteiro, arte com URL). Para criação de
+        imagens com a tool <code className="text-xs">image_generation</code>, use{" "}
+        <code className="text-xs">model</code>: <code className="text-xs">default</code> (respeita o padrão em
+        Integrações), <code className="text-xs">dall-e-3</code> ou <code className="text-xs">dall-e-2</code>. Tamanhos
+        válidos incluem DALL-E 2: <code className="text-xs">256x256</code>, <code className="text-xs">512x512</code>,{" "}
+        <code className="text-xs">1024x1024</code>; DALL-E 3: <code className="text-xs">1024x1024</code>,{" "}
+        <code className="text-xs">1792x1024</code>, <code className="text-xs">1024x1792</code>. Pedidos tipo
+        &quot;400x400&quot; mapeiam para quadrado no tamanho mais próximo.
+      </p>
     </>
   ),
 
@@ -92,6 +102,10 @@ export const agentFieldHelp = {
       <p>
         Lista de responsabilidades. Cada item vira uma linha em <strong>## Responsibilities</strong> no prompt do
         especialista.
+      </p>
+      <p>
+        Prefira itens <strong>acionáveis</strong> (o que fazer, em que ordem, o que validar). Se o agente usar tools,
+        descreva quando deve invocar gerar dados, consultar ou gerar imagem em vez de só descrever em texto.
       </p>
     </>
   ),
@@ -146,8 +160,16 @@ export const agentFieldHelp = {
     <>
       <p>
         Ferramentas do catálogo operacional (OpenAI Agents SDK). Cada item habilitado vira uma function tool no
-        agente. A execução real exige integração configurada no workspace (Postgres, CRM, calendário, etc.); sem
-        integração, o runtime pode responder com stub ou indisponível.
+        agente. A execução real exige integração configurada no workspace (Postgres, CRM, calendário, chave OpenAI
+        para <code className="text-xs">image_generation</code>, etc.); sem integração, o runtime pode responder com
+        stub ou indisponível.
+      </p>
+      <p>
+        <strong>Geração de imagens:</strong> a tool exige <code className="text-xs">prompt</code>,{" "}
+        <code className="text-xs">size</code> e <code className="text-xs">model</code> (
+        <code className="text-xs">default</code> usa o padrão do workspace em Integrações, ou{" "}
+        <code className="text-xs">dall-e-2</code> / <code className="text-xs">dall-e-3</code>). Tamanhos cobrem DALL-E
+        2 e 3; o servidor normaliza combinações inválidas. Configure o modelo padrão em Configurações → Integrações.
       </p>
     </>
   ),
