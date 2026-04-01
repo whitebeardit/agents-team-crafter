@@ -94,9 +94,11 @@ function canvasEntityKey(n: Node): string | null {
   return null
 }
 
+const ROSTER_HORIZONTAL_SPACING = 280
+
 /**
- * Mantém posição/dados persistidos para quem já estava no grafo;
- * injeta nós do layout do time para agentes/canais novos no roster.
+ * Injeta nós do layout do time; funde dados do persistido com o template (API) e
+ * usa posição do template para evitar sobreposição antiga no banco.
  * Nós sem chave (ex.: knowledge) persistem no fim.
  */
 function mergePersistedWithTeamRoster(persisted: Node[], teamLayout: Node[]): Node[] {
@@ -111,7 +113,18 @@ function mergePersistedWithTeamRoster(persisted: Node[], teamLayout: Node[]): No
     const k = canvasEntityKey(tmpl)
     if (!k) continue
     const existing = byKey.get(k)
-    const chosen = existing ?? tmpl
+    const mergedData = {
+      ...((existing?.data ?? {}) as Record<string, unknown>),
+      ...((tmpl.data ?? {}) as Record<string, unknown>),
+    }
+    const base = existing ?? tmpl
+    const chosen: Node = {
+      ...base,
+      id: base.id,
+      type: tmpl.type,
+      position: tmpl.position,
+      data: mergedData,
+    }
     out.push(chosen)
     usedIds.add(chosen.id)
   }
@@ -124,19 +137,19 @@ function mergePersistedWithTeamRoster(persisted: Node[], teamLayout: Node[]): No
   return out
 }
 
-/** Força fila vertical: canais (topo) → coordenador → especialistas; mantém `x` do nó já fundido. */
-function applyRosterStackLayoutY(nodes: Node[], template: Node[]): Node[] {
-  const templateYByKey = new Map<string, number>()
+/** Alinha posição (x e y) ao template do roster: canais (topo) → coordenador → especialistas. */
+function applyRosterStackLayout(nodes: Node[], template: Node[]): Node[] {
+  const templatePosByKey = new Map<string, { x: number; y: number }>()
   for (const t of template) {
     const k = canvasEntityKey(t)
-    if (k) templateYByKey.set(k, t.position.y)
+    if (k) templatePosByKey.set(k, { ...t.position })
   }
   return nodes.map((n) => {
     const k = canvasEntityKey(n)
     if (!k) return n
-    const ty = templateYByKey.get(k)
-    if (ty === undefined) return n
-    return { ...n, position: { x: n.position.x, y: ty } }
+    const pos = templatePosByKey.get(k)
+    if (!pos) return n
+    return { ...n, position: { x: pos.x, y: pos.y } }
   })
 }
 
@@ -322,38 +335,45 @@ export function GraphCanvas({
       nodes.push({
         id: coordinator.id,
         type: "coordinator",
-        position: { x: 250, y: 200 },
+        position: { x: 320, y: 200 },
         data: {
           label: coordinator.name,
+          role: "coordinator",
           category: coordinator.category,
           description: coordinator.description,
+          objective: coordinator.goal ?? "",
+          skills: coordinator.skills ?? [],
+          responsibilities: coordinator.responsibilities ?? [],
           agentId: coordinator.id,
         },
       })
     }
 
     specialists.forEach((agent, index) => {
-      const xOffset = (index - (specialists.length - 1) / 2) * 200
+      const xOffset = (index - (specialists.length - 1) / 2) * ROSTER_HORIZONTAL_SPACING
       nodes.push({
         id: agent.id,
         type: "specialist",
-        position: { x: 250 + xOffset, y: 360 },
+        position: { x: 320 + xOffset, y: 360 },
         data: {
           label: agent.name,
           role: "specialist",
           category: agent.category,
           description: agent.description,
+          objective: agent.goal ?? "",
+          skills: agent.skills ?? [],
+          responsibilities: agent.responsibilities ?? [],
           agentId: agent.id,
         },
       })
     })
 
     teamChannels.forEach((channel, index) => {
-      const xOffset = (index - (teamChannels.length - 1) / 2) * 200
+      const xOffset = (index - (teamChannels.length - 1) / 2) * ROSTER_HORIZONTAL_SPACING
       nodes.push({
         id: channel.id,
         type: "channel",
-        position: { x: 250 + xOffset, y: 40 },
+        position: { x: 320 + xOffset, y: 40 },
         data: {
           label: channel.name,
           channelType: channel.type,
@@ -401,7 +421,7 @@ export function GraphCanvas({
       persistedNodes.length > 0
         ? mergePersistedWithTeamRoster(persistedNodes, initialNodes)
         : initialNodes
-    const activeNodes = applyRosterStackLayoutY(merged, initialNodes)
+    const activeNodes = applyRosterStackLayout(merged, initialNodes)
 
     const structural = buildStructuralTemplateEdges(
       activeNodes,
@@ -511,6 +531,7 @@ export function GraphCanvas({
     <div className="relative w-full h-full">
       <GraphLiveAgentsContext.Provider value={liveAgentState}>
         <ReactFlow
+          colorMode="dark"
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}

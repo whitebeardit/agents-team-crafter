@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { Loader2, Sparkles, Play, PencilLine } from "lucide-react"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { ApiError, createApiClient } from "@/lib/api/client"
-import type { TeamPlanDraft } from "@/lib/types"
+import type { TeamPlanAgentDraft, TeamPlanDraft } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -60,6 +60,49 @@ function parseCsv(input: string): string[] {
     .filter(Boolean)
 }
 
+/** Mapeia `data.agentId` do grafo (`coordinator`, `specialist-1`, …) — alinhado ao backend `buildDefaultGraph`. */
+function agentsByGraphKey(agents: TeamPlanAgentDraft[]): Map<string, TeamPlanAgentDraft> {
+  const map = new Map<string, TeamPlanAgentDraft>()
+  const coordinator = agents.find((a) => a.role === "coordinator")
+  if (coordinator) map.set("coordinator", coordinator)
+  let specialistIndex = 1
+  for (const a of agents) {
+    if (a.role !== "specialist") continue
+    map.set(`specialist-${specialistIndex}`, a)
+    specialistIndex += 1
+  }
+  return map
+}
+
+function enrichPreviewNodes(plan: TeamPlanDraft): Node[] {
+  const byKey = agentsByGraphKey(plan.agents)
+  return (plan.graph?.nodes ?? [])
+    .map((raw) => {
+      const n = toNode(raw)
+      if (!n) return null
+      const agentId =
+        typeof (n.data as { agentId?: unknown }).agentId === "string"
+          ? (n.data as { agentId: string }).agentId
+          : undefined
+      const agent = agentId ? byKey.get(agentId) : undefined
+      if (!agent) return n
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          label: agent.name,
+          role: agent.role,
+          category: agent.category,
+          description: agent.description,
+          objective: agent.objective,
+          skills: agent.skills,
+          responsibilities: agent.responsibilities,
+        },
+      }
+    })
+    .filter((x): x is Node => x !== null)
+}
+
 export default function AiCreateTeamPage() {
   const router = useRouter()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
@@ -75,6 +118,15 @@ export default function AiCreateTeamPage() {
   >(null)
   const [executionDetail, setExecutionDetail] = useState<string>("")
   const [openaiKeyConfiguredInWorkspace, setOpenaiKeyConfiguredInWorkspace] = useState<boolean | null>(null)
+
+  const previewGraphNodes = useMemo(
+    () => (plan ? enrichPreviewNodes(plan) : []),
+    [plan],
+  )
+  const previewGraphEdges = useMemo(
+    () => (plan?.graph?.edges ?? []).map(toEdge).filter(Boolean) as Edge[],
+    [plan],
+  )
 
   const api = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -353,10 +405,18 @@ export default function AiCreateTeamPage() {
               <GraphLegendInline />
               <div className="h-[280px] rounded-lg border overflow-hidden">
                 <ReactFlow
+                  key={`${plan.id}-${previewGraphNodes.length}-${previewGraphEdges.length}`}
+                  colorMode="dark"
                   nodeTypes={graphNodeTypes}
-                  nodes={(plan.graph?.nodes ?? []).map(toNode).filter(Boolean) as Node[]}
-                  edges={(plan.graph?.edges ?? []).map(toEdge).filter(Boolean) as Edge[]}
+                  nodes={previewGraphNodes}
+                  edges={previewGraphEdges}
                   fitView
+                  fitViewOptions={{ padding: 0.15, maxZoom: 1.25 }}
+                  onInit={(instance) => {
+                    requestAnimationFrame(() => {
+                      instance.fitView({ padding: 0.15, maxZoom: 1.25, duration: 150 })
+                    })
+                  }}
                   nodesDraggable={false}
                   nodesConnectable={false}
                   elementsSelectable={false}

@@ -8,12 +8,13 @@ Regras obrigatorias:
 - Responda APENAS com um unico objeto JSON valido (sem markdown, sem texto antes ou depois).
 - Use portugues do Brasil para todos os textos.
 - O nome do time (team.name) deve ser CURTO e significativo (ex.: "Time Revisao de Seguranca ISO"), NUNCA copie o problema inteiro nem comece com "Time Estou...".
+- Nomes dos agentes (name): CURTOS (2 a 4 palavras). Se o problema NAO pedir tom corporativo/auditoria formal explicito, use um tom leve e humoristico nos nomes, mantendo o vinculo com o dominio (ex.: "Capitao do PR", "Guardiao do Pipeline"). Se o usuario pedir formalidade, use nomes profissionais curtos.
 - Cada agente deve ter nome e responsabilidades ESPECIFICOS ao dominio descrito (ex.: certificacao ISO, revisao de codigo, GitHub, pipeline CI, .NET, Node.js quando o contexto mencionar).
 - Inclua pelo menos 1 agente com role "coordinator" e pelo menos 1 com role "specialist". Pode haver varios especialistas se o problema exigir papéis distintos.
 - team.objective: pelo menos uma frase clara ligada ao problema.
 - team.description: resumo do plano.
 - Para cada agente: description, objective, responsibilities (lista), skills (lista) devem refletir o problema; evite textos genericos como apenas "analise e execucao" sem ligar ao cenario.
-- graph: pode ser objeto com nodes e edges vazios []; o sistema monta o layout padrao se vier vazio.
+- graph: sempre envie "graph": { "nodes": [], "edges": [] }. O backend monta posicoes; nao envie coordenadas de nos.
 - executionChecklist: lista de passos concretos para colocar o plano em pratica.
 
 Estrutura JSON exata das chaves de nivel superior:

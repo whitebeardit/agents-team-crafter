@@ -104,8 +104,32 @@ export class TeamPlanService {
     };
   }
 
+  /** Dados do nó React Flow alinhados ao agente do plano (preview / execute mapeia agentId → Mongo). */
+  private static agentGraphData(
+    agent: TPlannerOutput['agents'][number],
+    agentIdKey: string,
+  ): Record<string, unknown> {
+    return {
+      label: agent.name,
+      agentId: agentIdKey,
+      category: agent.category ?? 'geral',
+      description: agent.description ?? '',
+      objective: agent.objective ?? '',
+      skills: agent.skills ?? [],
+      responsibilities: agent.responsibilities ?? [],
+    };
+  }
+
+  /**
+   * Layout determinístico do spine coordenador → especialistas.
+   * Ignora `plan.graph` da LLM (posições podem sobrepor); só usamos os agentes.
+   */
   private buildDefaultGraph(plan: TPlannerOutput) {
-    if (plan.graph.nodes.length > 0) return plan.graph;
+    const SPACING = 280;
+    const CENTER_X = 320;
+    const COORD_Y = 80;
+    const SPEC_Y = 260;
+
     const nodes: Array<Record<string, unknown>> = [];
     const edges: Array<Record<string, unknown>> = [];
     const coord = plan.agents.find((a) => a.role === 'coordinator') ?? plan.agents[0];
@@ -113,21 +137,24 @@ export class TeamPlanService {
     nodes.push({
       id: coordNodeId,
       type: 'coordinator',
-      data: { label: coord.name, agentId: 'coordinator' },
-      position: { x: 200, y: 80 },
+      data: TeamPlanService.agentGraphData(coord, 'coordinator'),
+      position: { x: CENTER_X, y: COORD_Y },
     });
-    let idx = 0;
-    for (const agent of plan.agents.filter((a) => a.role === 'specialist')) {
-      idx += 1;
+
+    const specialists = plan.agents.filter((a) => a.role === 'specialist');
+    const n = specialists.length;
+    specialists.forEach((agent, i) => {
+      const idx = i + 1;
       const nid = `specialist-${idx}`;
+      const xOffset = n > 0 ? (i - (n - 1) / 2) * SPACING : 0;
       nodes.push({
         id: nid,
         type: 'specialist',
-        data: { label: agent.name, agentId: `specialist-${idx}` },
-        position: { x: 120 + idx * 180, y: 260 },
+        data: TeamPlanService.agentGraphData(agent, `specialist-${idx}`),
+        position: { x: CENTER_X + xOffset, y: SPEC_Y },
       });
       edges.push({ id: `e-${coordNodeId}-${nid}`, source: coordNodeId, target: nid, type: 'smoothstep' });
-    }
+    });
     return { nodes, edges };
   }
 
