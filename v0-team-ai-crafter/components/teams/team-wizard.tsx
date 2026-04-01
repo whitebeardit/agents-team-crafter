@@ -158,6 +158,12 @@ export function TeamWizard() {
     <div className="max-w-4xl mx-auto">
       {/* Progress Steps */}
       <div className="mb-8">
+        <div className="mb-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-sm">
+          Quer montar o time com ajuda da IA?{" "}
+          <Link href="/teams/ai-create" className="font-medium text-primary underline-offset-4 hover:underline">
+            Abrir Whitebeard AI Builder
+          </Link>
+        </div>
         <div className="flex items-center justify-between">
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">

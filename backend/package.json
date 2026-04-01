@@ -35,6 +35,7 @@
     "@fastify/cors": "^10.0.1",
     "@fastify/multipart": "^9.4.0",
     "@openai/agents": "^0.8.1",
+    "@openai/agents-openai": "^0.8.2",
     "@types/pg": "^8.20.0",
     "bcrypt": "^5.1.1",
     "chat": "^4.23.0",

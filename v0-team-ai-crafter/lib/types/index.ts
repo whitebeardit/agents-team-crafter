@@ -306,6 +306,55 @@ export interface TeamWizardData {
   edges: GraphEdge[]
 }
 
+export interface TeamPlanAgentDraft {
+  name: string
+  role: AgentRole
+  description: string
+  objective: string
+  responsibilities: string[]
+  skills: string[]
+  category: string
+  channels: Array<Extract<ChannelType, "whatsapp" | "slack" | "email" | "api">>
+}
+
+/** Metadados do planner (POST /team-plans); espelha backend `plannerMeta`. */
+export interface TeamPlanPlannerMeta {
+  usedOpenAi?: boolean
+  usedFallback?: boolean
+  fallbackReason?:
+    | "no_openai_key"
+    | "openai_request_failed"
+    | "json_extract_failed"
+    | "schema_validation_failed"
+    | string
+  openaiResolvedFromEnv?: boolean
+  parseErrorSummary?: string
+}
+
+export interface TeamPlanDraft {
+  id: string
+  problem: string
+  context?: string
+  status: "draft" | "ready" | "executing" | "executed" | "failed"
+  team: {
+    name: string
+    objective: string
+    description: string
+    primaryChannel?: Extract<ChannelType, "whatsapp" | "slack" | "email" | "api">
+    channelIds: string[]
+  }
+  agents: TeamPlanAgentDraft[]
+  graph: { nodes: GraphNode[]; edges: GraphEdge[] }
+  executionChecklist: string[]
+  plannerMeta?: TeamPlanPlannerMeta
+  result?: {
+    teamId: string
+    coordinatorId: string
+    specialistIds: string[]
+    activatedAt: string
+  } | null
+}
+
 /** Tools de catalogo com execucao real vêm de GET /settings/workspace/integrations → operationalCatalogTools */
 export type OperationalCatalogTool = {
   id: string

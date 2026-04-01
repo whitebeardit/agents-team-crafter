@@ -125,6 +125,12 @@ export interface ITeamRunStreamHandlers {
   onError?: (e: { code?: string; message: string; status?: number }) => void
 }
 
+export interface ITeamPlanExecuteStreamHandlers<T> {
+  onPhase?: (e: { phase: "creating_agents" | "creating_team" | "graph" | "activate"; detail?: string }) => void
+  onComplete?: (data: T) => void
+  onError?: (e: { code?: string; message: string; status?: number }) => void
+}
+
 export function createApiClient(deps: {
   getAuth: GetAuth
   setAuth: SetAuth
@@ -244,6 +250,63 @@ export function createApiClient(deps: {
     })
   }
 
+  async function streamTeamPlanExecute<T>(
+    planId: string,
+    body: { operationId?: string },
+    handlers: ITeamPlanExecuteStreamHandlers<T>,
+  ) {
+    const baseUrl = getBaseUrl()
+    const path = `/team-plans/${planId}/execute/stream`
+
+    const buildHeaders = () => {
+      const headers = new Headers({ "Content-Type": "application/json" })
+      const { token } = deps.getAuth()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+      const wid = deps.getWorkspaceId()
+      if (wid) headers.set("X-Workspace-Id", wid)
+      return headers
+    }
+
+    const doFetch = () =>
+      fetch(joinUrl(baseUrl, path), {
+        method: "POST",
+        headers: buildHeaders(),
+        body: JSON.stringify(body),
+      })
+
+    let res = await doFetch()
+    if (res.status === 401) {
+      const refreshed = await refreshTokenIfPossible()
+      if (refreshed) res = await doFetch()
+      else deps.clearAuth()
+    }
+
+    if (!res.ok) {
+      let message = await res.text()
+      if (!message) message = res.statusText
+      handlers.onError?.({ message, status: res.status })
+      return
+    }
+
+    await consumeSseResponse(res, (eventName, dataJson) => {
+      try {
+        const data = JSON.parse(dataJson) as unknown
+        if (eventName === "phase") handlers.onPhase?.(data as { phase: any; detail?: string })
+        else if (eventName === "complete") handlers.onComplete?.(data as T)
+        else if (eventName === "error") {
+          const d = data as { code?: string; message?: string; status?: number }
+          handlers.onError?.({
+            code: d.code,
+            message: d.message ?? "Erro no stream",
+            status: d.status,
+          })
+        }
+      } catch {
+        /* ignore */
+      }
+    })
+  }
+
   return {
     get: async <T>(path: string, opts?: { tenant?: boolean }) => request<T>(path, { method: "GET", tenant: opts?.tenant }),
     post: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean }) =>
@@ -255,6 +318,7 @@ export function createApiClient(deps: {
     del: async <T>(path: string, opts?: { tenant?: boolean }) =>
       request<T>(path, { method: "DELETE", tenant: opts?.tenant }),
     streamTeamRun,
+    streamTeamPlanExecute,
   }
 }
 

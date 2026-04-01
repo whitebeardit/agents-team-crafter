@@ -103,15 +103,24 @@ export class WorkspaceIntegrationsService {
     return out;
   }
 
-  async resolveOpenAiApiKey(workspaceId: string): Promise<string | undefined> {
+  /**
+   * Origem da chave: workspace (BYOK) ou variavel de ambiente (demo/dev).
+   */
+  async resolveOpenAiApiKeyWithSource(workspaceId: string): Promise<{
+    apiKey?: string;
+    source: 'workspace' | 'environment' | 'none';
+  }> {
     const p = await this.getPlainPayload(workspaceId);
     const w = p?.openaiApiKey?.trim();
-    if (w) return w;
-    return (
-      process.env.OPENAI_API_KEY?.trim() ||
-      this.env.OPENAI_API_KEY?.trim() ||
-      undefined
-    );
+    if (w) return { apiKey: w, source: 'workspace' };
+    const env = process.env.OPENAI_API_KEY?.trim() || this.env.OPENAI_API_KEY?.trim();
+    if (env) return { apiKey: env, source: 'environment' };
+    return { source: 'none' };
+  }
+
+  async resolveOpenAiApiKey(workspaceId: string): Promise<string | undefined> {
+    const r = await this.resolveOpenAiApiKeyWithSource(workspaceId);
+    return r.apiKey;
   }
 
   async getPlainSmtp(workspaceId: string) {

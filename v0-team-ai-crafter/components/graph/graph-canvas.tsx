@@ -3,10 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ReactFlow,
-  Controls,
-  MiniMap,
-  Background,
-  BackgroundVariant,
   useNodesState,
   useEdgesState,
   addEdge,
@@ -17,6 +13,7 @@ import {
   type EdgeTypes,
   MarkerType,
 } from "@xyflow/react"
+import { GraphFlowOverlays } from "@/components/graph/graph-flow-overlays"
 import "@xyflow/react/dist/style.css"
 
 import { ChannelIoEdge } from "./channel-io-edge"
@@ -530,10 +527,8 @@ export function GraphCanvas({
           fitViewOptions={{ padding: 0.2 }}
           className="bg-background"
         >
-          <Controls className="!bg-card !border-border !shadow-lg" />
-          <MiniMap
-            className="!bg-card !border-border"
-            nodeColor={(node) => {
+          <GraphFlowOverlays
+            minimapNodeColor={(node) => {
               switch (node.type) {
                 case "coordinator":
                   return "var(--primary)"
@@ -546,7 +541,6 @@ export function GraphCanvas({
               }
             }}
           />
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
         </ReactFlow>
       </GraphLiveAgentsContext.Provider>
 
