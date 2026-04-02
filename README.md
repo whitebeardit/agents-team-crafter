@@ -35,7 +35,7 @@ Requisitos gerais: MongoDB 6+; Redis opcional conforme documentação de cada pa
 
 `docker-compose.yaml` sobe Redis, o BFF e o frontend. Copie [`.env.example`](./.env.example) para `.env` e defina `MONGODB_URI`. Por defeito: app `https://myteams.whitebeard.dev` (Next no contentor e no host na **3002**, sem porta **3000**), API `https://api.myteams.whitebeard.dev` (`NEXT_PUBLIC_*`, `PUBLIC_API_BASE_URL`, `CORS_ORIGIN`).
 
-**Coolify:** não coloques `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_API_URL` com `localhost` nas variáveis do projeto — sobrescrevem o build e o login no browser falha. Após mudar `NEXT_PUBLIC_*`, faz **rebuild** do frontend. `@vercel/analytics` fica desligado por defeito (`NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS=false`) para evitar 404 em `/_vercel/insights/` fora da Vercel.
+**Coolify:** o `Dockerfile` do frontend **substitui** `NEXT_PUBLIC_*` com `localhost` pelos URLs HTTPS públicos (evita build a falhar quando o Coolify injeta build-args internos). Para controlo explícito, remove ou corrige essas variáveis no painel. Após mudar `NEXT_PUBLIC_*`, faz **rebuild** do frontend. `@vercel/analytics` fica desligado por defeito (`NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS=false`) para evitar 404 em `/_vercel/insights/` fora da Vercel.
 
 ## Versão
 

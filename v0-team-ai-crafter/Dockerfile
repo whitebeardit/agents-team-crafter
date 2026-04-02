@@ -16,14 +16,22 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS=$NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS
-# Evita imagem de produção com API apontada para localhost (bundle do browser). Docker local: ALLOW_LOCALHOST_API=true
-RUN if [ "$ALLOW_LOCALHOST_API" != "true" ]; then \
-  if echo "$NEXT_PUBLIC_API_URL" | grep -qE 'localhost|127\.0\.0\.1'; then \
-    echo "ERROR: NEXT_PUBLIC_API_URL must not contain localhost or 127.0.0.1 (inlined in client). Use Coolify/https URL or build with --build-arg ALLOW_LOCALHOST_API=true for local Docker."; \
-    exit 1; \
+# Coolify injeta build-args com localhost; sanitizar para defaults HTTPS (ALLOW_LOCALHOST_API=true mantém URLs locais)
+RUN set -e; \
+  APP="$NEXT_PUBLIC_APP_URL"; \
+  API="$NEXT_PUBLIC_API_URL"; \
+  if [ "$ALLOW_LOCALHOST_API" != "true" ]; then \
+    if echo "$APP" | grep -qE 'localhost|127\.0\.0\.1'; then \
+      echo "WARN: NEXT_PUBLIC_APP_URL contained localhost; using https://myteams.whitebeard.dev"; \
+      APP="https://myteams.whitebeard.dev"; \
+    fi; \
+    if echo "$API" | grep -qE 'localhost|127\.0\.0\.1'; then \
+      echo "WARN: NEXT_PUBLIC_API_URL contained localhost; using https://api.myteams.whitebeard.dev/api/v1"; \
+      API="https://api.myteams.whitebeard.dev/api/v1"; \
+    fi; \
   fi; \
-fi
-RUN npm run build
+  export NEXT_PUBLIC_APP_URL="$APP" NEXT_PUBLIC_API_URL="$API"; \
+  npm run build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
