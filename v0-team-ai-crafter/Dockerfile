@@ -9,7 +9,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_APP_URL=https://myteams.whitebeard.dev
-ARG NEXT_PUBLIC_API_URL=https://myteams.whitebeard.dev:3001/api/v1
+ARG NEXT_PUBLIC_API_URL=https://api.myteams.whitebeard.dev/api/v1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL

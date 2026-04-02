@@ -32,19 +32,20 @@ export class ApiError extends Error {
 }
 
 /**
- * No browser, usa o mesmo hostname da página e porta 3001 (BFF local), para funcionar
- * tanto em `localhost` quanto em IP da rede (ex.: `10.0.0.148`) sem trocar `.env`.
- * No servidor (SSR), mantém `NEXT_PUBLIC_API_URL`.
+ * Base do BFF: `NEXT_PUBLIC_API_URL` (build-time) quando definida — obrigatório em produção HTTPS
+ * atrás de proxy (Coolify): a porta 3001 no host costuma ser HTTP cru; usar `https://...` nessa porta
+ * causa ERR_SSL_PROTOCOL_ERROR. Sem env no browser, cai no fallback hostname:3001 (dev local).
  */
 function getBaseUrl() {
+  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "")
   if (typeof window !== "undefined") {
+    if (fromEnv) return fromEnv
     const protocol = window.location.protocol === "https:" ? "https:" : "http:"
     const host = window.location.hostname
     return `${protocol}//${host}:3001/api/v1`.replace(/\/+$/, "")
   }
-  const v = process.env.NEXT_PUBLIC_API_URL
-  if (!v) throw new Error("NEXT_PUBLIC_API_URL is not set")
-  return v.replace(/\/+$/, "")
+  if (!fromEnv) throw new Error("NEXT_PUBLIC_API_URL is not set")
+  return fromEnv
 }
 
 function joinUrl(base: string, path: string) {

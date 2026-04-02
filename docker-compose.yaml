@@ -7,8 +7,11 @@
 # Seed (dados demo + login admin@whitebeard.dev / Admin123!) — aponta para o mesmo Atlas:
 #        docker compose --profile seed run --rm seed
 #
-# Produção (Coolify, defaults): https://myteams.whitebeard.dev — front host :3002 → Next :3002; API host :3001.
-# Desenvolvimento local: sobrescreva CORS_ORIGIN, NEXT_PUBLIC_*, PUBLIC_API_BASE_URL no .env (ver .env.example).
+# Produção (Coolify) — defaults no compose:
+#   App: https://myteams.whitebeard.dev  (front host :3002 → Next :3002)
+#   API: https://api.myteams.whitebeard.dev  (PUBLIC_API_BASE_URL + NEXT_PUBLIC_API_URL; TLS na 443 no proxy Coolify;
+#        o BFF no contentor continua em HTTP na :3001.)
+# Desenvolvimento local: sobrescreva no .env (ver .env.example).
 #
 # Coolify: variáveis como FRONTEND_PORT e PORT devem aparecer na UI se estiverem em `environment` com ${VAR:-default}
 # (ver documentação Coolify — Docker Compose). Se alterar PORT no backend, o healthcheck usa o mesmo valor.
@@ -54,7 +57,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-https://myteams.whitebeard.dev,https://myteams.whitebeard.dev:3002}
       PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
       MEDIA_GALLERY_ROOT: /app/data/gallery
-      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-https://myteams.whitebeard.dev:3001}
+      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-https://api.myteams.whitebeard.dev}
     volumes:
       - backend_gallery:/app/data/gallery
     depends_on:
@@ -77,13 +80,15 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://myteams.whitebeard.dev}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://myteams.whitebeard.dev:3001/api/v1}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.myteams.whitebeard.dev/api/v1}
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-3002}:3002"
     environment:
       NODE_ENV: production
       FRONTEND_PORT: ${FRONTEND_PORT:-3002}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://myteams.whitebeard.dev}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.myteams.whitebeard.dev/api/v1}
     depends_on:
       backend:
         condition: service_healthy
