@@ -11,6 +11,7 @@
 #
 # Coolify: variáveis como FRONTEND_PORT e PORT devem aparecer na UI se estiverem em `environment` com ${VAR:-default}
 # (ver documentação Coolify — Docker Compose). Se alterar PORT no backend, o healthcheck usa o mesmo valor.
+# Healthcheck do frontend usa 3000 dentro do container (FRONTEND_PORT mapeia só no host).
 # Ajuste também CORS_ORIGIN, NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_API_URL e PUBLIC_API_BASE_URL para o URL público.
 #
 # JWT_SECRET: opcional no .env; senão usa o default de desenvolvimento abaixo.
@@ -86,6 +87,16 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
 
   # Popula o Atlas (login demo). Requer MONGODB_URI no .env da raiz.
   seed:
