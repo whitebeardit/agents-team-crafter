@@ -11,10 +11,10 @@ Base técnica da API BFF com Fastify, MongoDB, envelope de resposta e healthchec
 - `GET /health` na raiz (fora de `/api/v1`).
 - `src/shared/kernel/envelope.ts`: `successEnvelope` / `errorEnvelope`.
 - `src/shared/errors/app-error.ts`: erros de domínio com código HTTP.
-- Compilação: `bun run build` (ou `tsc -p tsconfig.build.json`).
+- Compilação: `npm run build` (ou `tsc -p tsconfig.build.json`; `bun run build` é equivalente se usar Bun).
 
 ## Critérios de aceite
-- Servidor sobe com `bun run dev` ou `node` após build.
+- Servidor sobe com `npm run dev` ou `node` após build (`bun run dev` equivalente com Bun).
 - Mongo conecta via `MONGODB_URI`.
 - `GET /health` retorna JSON com status.
 - Erros retornam envelope `{ success: false, error: { code, message, details } }`.

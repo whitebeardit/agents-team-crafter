@@ -12,6 +12,7 @@ Plataforma SaaS para criacao e gerenciamento de times de agentes de IA com edito
 - [Estrutura do Projeto](#estrutura-do-projeto)
 - [Rotas da Aplicacao](#rotas-da-aplicacao)
 - [API BFF - Documentacao Completa](#api-bff---documentacao-completa)
+  - [Indice e fonte no codigo](#indice-e-fonte-no-codigo)
   - [Autenticacao](#autenticacao)
   - [Workspaces](#workspaces)
   - [Agentes](#agentes)
@@ -21,36 +22,37 @@ Plataforma SaaS para criacao e gerenciamento de times de agentes de IA com edito
   - [Grafo](#grafo)
   - [Dashboard](#dashboard)
   - [Configuracoes](#configuracoes)
+  - [Rotas adicionais](#rotas-adicionais-do-bff-audit-team-plans-tool-definitions)
 - [Tipos TypeScript](#tipos-typescript)
 
 ---
 
 ## Requisitos
 
-- Node.js >= 18.x
-- pnpm >= 8.x
+- **Node.js** conforme `engines` em [`package.json`](./package.json) (atualmente >= 20.19, com faixas 22/24 suportadas)
+- **npm** (este app usa [`package-lock.json`](./package-lock.json); nao ha lockfile pnpm neste pacote)
 - MongoDB >= 6.x (recomendado)
-- Redis (opcional, para cache)
+- Redis opcional no **BFF** para estado persistente do Chat SDK (`REDIS_URL` em `backend/.env`; ver [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md))
 
 ## Instalacao
 
+No **monorepo** [`agents-team-crafter`](../README.md), a app Next.js fica em `v0-team-ai-crafter/`:
+
 ```bash
-# Clonar o repositorio
-git clone https://github.com/seu-usuario/teamagentsaicrafter.git
-cd teamagentsaicrafter
+cd v0-team-ai-crafter
 
 # Instalar dependencias
-pnpm install
+npm install
 
 # Configurar variaveis de ambiente
 cp .env.example .env.local
 
 # Rodar em desenvolvimento
-pnpm dev
+npm run dev
 
 # Build para producao
-pnpm build
-pnpm start
+npm run build
+npm start
 ```
 
 No **backend** (BFF), com MongoDB no ar, rode `npm run seed` para criar dados de demo. Depois faça login no app com **admin@whitebeard.dev** / **Admin123!** (somente desenvolvimento).
@@ -135,6 +137,10 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 ## API BFF - Documentacao Completa
 
 Base URL: `{API_URL}/api/v1`
+
+### Indice e fonte no codigo
+
+Para evitar drift entre este documento e o servidor, a **lista canonica de rotas** registadas sob `/api/v1` esta em [`backend/src/app/routes.ts`](../backend/src/app/routes.ts). Resumo em camada: [docs/backend-api.md](./docs/backend-api.md). Webhooks Chat SDK (URLs e segredos): [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md).
 
 ### Headers Padrao
 
@@ -2587,60 +2593,78 @@ Regenera uma chave de API.
 
 ---
 
+### Rotas adicionais do BFF (audit, team-plans, tool-definitions)
+
+Todas exigem `Authorization`, `X-Workspace-Id` e envelope padrao. Detalhes de validacao: schemas Zod nos ficheiros indicados.
+
+#### GET /audit-logs
+
+- **Quem:** membro com papel **admin** ou **owner** no workspace.
+- **Resposta:** lista de entradas de auditoria (limite fixo no servidor; ver [`audit.routes.ts`](../backend/src/modules/audit/interfaces/audit.routes.ts)).
+
+#### Tool definitions (`/tool-definitions`)
+
+| Metodo | Path | Papel |
+|--------|------|--------|
+| GET | `/tool-definitions` | Membro autenticado |
+| GET | `/tool-definitions/:id` | Membro autenticado |
+| POST | `/tool-definitions` | Admin workspace |
+| PUT | `/tool-definitions/:id` | Admin workspace |
+| DELETE | `/tool-definitions/:id` | Admin workspace |
+
+Corpo de criacao/atualizacao: `name`, `slug`, `kind` (`builtin_ref` \| `http_webhook` \| `mcp_ref`), `jsonSchema` e `config` opcionais. Ver [`tool-definition.routes.ts`](../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts).
+
+#### Team plans (`/team-plans`)
+
+| Metodo | Path | Descricao |
+|--------|------|-----------|
+| POST | `/team-plans` | Cria plano; body `{ problem` (min 10 chars), `context?` } |
+| GET | `/team-plans/:id` | Obtem plano |
+| PUT | `/team-plans/:id` | Atualiza `team`, `agents` e/ou `graph` (parcial) |
+| POST | `/team-plans/:id/execute` | Executa plano; body opcional `{ operationId?` } |
+| POST | `/team-plans/:id/execute/stream` | Mesmo body; resposta **SSE** (`text/event-stream`) com eventos `phase`, `complete` ou `error` |
+
+Implementacao: [`team-plan.routes.ts`](../backend/src/modules/team-planning/interfaces/team-plan.routes.ts).
+
+---
+
 ## Tipos TypeScript
 
-Todos os tipos utilizados pelo frontend estao em `lib/types/index.ts`:
+**Fonte de verdade:** [`lib/types/index.ts`](./lib/types/index.ts). Importe tipos a partir desse modulo no frontend; nao copie blocos longos deste README para evitar drift.
+
+Extrato alinhado ao codigo atual (canais e pedido de execucao de time):
 
 ```typescript
-// Agent types
-export type AgentRole = "coordinator" | "specialist"
-export type AgentOrigin = "whitebeard" | "company"
-export type AgentStatus = "draft" | "active" | "archived"
-export type AccessLevel = "read" | "write" | "restricted"
+export type ChannelType =
+  | "whatsapp"
+  | "slack"
+  | "email"
+  | "api"
+  | "teams"
+  | "discord"
+  | "gchat"
+  | "telegram"
+  | "github"
+  | "linear"
 
-export interface AgentCapabilities {
-  tools: string[]
-  mcpBindings: string[]
-  canDelegate: boolean
-  canReceiveHandoff: boolean
-}
-
-export interface AgentKnowledge {
-  sources: string[]
-  useSessionMemory: boolean
-  usePersistentMemory: boolean
-  fixedContext?: string
-}
-
-export interface AgentChannelConfig {
-  enabled: ChannelType[]
-  canReplyDirectly: boolean
-}
-
-export interface AgentSecurity {
-  requiresApproval: boolean
-  accessLevel: AccessLevel
-}
-
-export interface HandoffDslJsonRule {
+export interface Channel {
   id: string
-  version: number
-  priority?: number
-  when: Record<string, unknown> & { all?: unknown[]; any?: unknown[]; not?: unknown }
-  then: unknown[]
-  limits?: { maxDepth?: number; noRepeatAgents?: boolean; timeoutMs?: number }
-}
-
-export interface AgentHandoff {
-  targets: string[]
-  rules: (string | HandoffDslJsonRule)[]
+  type: ChannelType
+  provider?: "native" | "chat_sdk"
+  platform?: string
+  name: string
+  status: "connected" | "disconnected" | "pending"
+  teamId?: string
+  config?: Record<string, unknown>
+  secretsMasked?: Record<string, string>
+  webhookUrl?: string
 }
 
 export interface TeamRunRequest {
   message: string
   channel?: string
   locale?: string
-  requestedAccessLevel?: AccessLevel
+  requestedAccessLevel?: "read" | "write" | "restricted"
   taskType?: string
 }
 
@@ -2648,208 +2672,17 @@ export interface TeamRunResponse {
   runId: string
   teamId: string
   coordinatorAgentId: string
-  externalResponse: { text: string; format?: "plain" | "markdown" }
-  specialistResults: { specialistAgentId: string; summary: string }[]
+  externalResponse: {
+    text: string
+    format?: "plain" | "markdown"
+    attachments?: Array<{ type: "image"; url: string }>
+  }
+  specialistResults: { specialistAgentId: string; summary: string; structured?: Record<string, unknown> }[]
   events: unknown[]
 }
-
-export interface Agent {
-  id: string
-  name: string
-  description: string
-  role: AgentRole
-  origin: AgentOrigin
-  skills: string[]
-  version: string
-  avatar?: string
-  category: string
-  channels: ChannelType[]
-  status: AgentStatus
-  
-  // Extended fields
-  goal?: string
-  responsibilities?: string[]
-  systemInstruction?: string
-  
-  capabilities?: AgentCapabilities
-  knowledge?: AgentKnowledge
-  channelConfig?: AgentChannelConfig
-  security?: AgentSecurity
-  handoff?: AgentHandoff
-}
-
-// MCP types
-export type MCPStatus = "connected" | "disconnected" | "pending"
-
-export interface MCPTool {
-  name: string
-  description: string
-}
-
-export interface MCPConnection {
-  id: string
-  name: string
-  description: string
-  status: MCPStatus
-  tools: MCPTool[]
-  tenantId: string
-  icon?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface AgentMCPBinding {
-  id: string
-  agentId: string
-  mcpConnectionId: string
-  allowedTools: string[]
-  requiresApproval: boolean
-  createdAt: string
-}
-
-// Knowledge Source types
-export type KnowledgeSourceType = "document" | "database" | "api" | "website"
-
-export interface KnowledgeSource {
-  id: string
-  name: string
-  type: KnowledgeSourceType
-  description: string
-  status: "active" | "inactive" | "syncing"
-  lastSyncAt?: string
-  itemCount?: number
-}
-
-// Team types
-export type TeamStatus = "active" | "draft" | "inactive"
-
-export interface Team {
-  id: string
-  name: string
-  description: string
-  status: TeamStatus
-  coordinatorId: string
-  agentIds: string[]
-  channelIds: string[]
-  createdAt: string
-  updatedAt: string
-}
-
-// Template types
-export interface Template {
-  id: string
-  name: string
-  description: string
-  version: string
-  origin: AgentOrigin
-  category: string
-  agentCount: number
-  teamConfig: Partial<Team>
-}
-
-// Channel types
-export type ChannelType = "whatsapp" | "slack" | "email" | "api"
-export type ChannelStatus = "connected" | "disconnected" | "pending"
-
-export interface Channel {
-  id: string
-  type: ChannelType
-  name: string
-  status: ChannelStatus
-  teamId?: string
-  config?: Record<string, string>
-}
-
-// Workspace types
-export interface Workspace {
-  id: string
-  name: string
-  logo?: string
-  plan: "free" | "pro" | "enterprise"
-}
-
-// User types
-export interface User {
-  id: string
-  name: string
-  email: string
-  avatar?: string
-  workspaceIds: string[]
-}
-
-// Graph Node types for React Flow
-export type GraphNodeType = "coordinator" | "specialist" | "channel" | "knowledge"
-
-export interface GraphNodeIndicators {
-  hasMcp: boolean
-  hasKnowledge: boolean
-  hasChannels: boolean
-}
-
-export interface GraphNode {
-  id: string
-  type: GraphNodeType
-  data: {
-    label: string
-    agentId?: string
-    channelId?: string
-    description?: string
-    category?: string
-    role?: AgentRole
-    indicators?: GraphNodeIndicators
-  }
-  position: { x: number; y: number }
-}
-
-// Available tools for agents
-export const availableTools = [
-  { id: "web_search", name: "Busca na Web", description: "Buscar informacoes na internet" },
-  { id: "file_search", name: "Busca em Arquivos", description: "Buscar em documentos e arquivos" },
-  { id: "internal_actions", name: "Acoes Internas", description: "Executar acoes no sistema interno" },
-  { id: "code_execution", name: "Execucao de Codigo", description: "Executar codigo Python/JS" },
-  { id: "email_send", name: "Enviar Email", description: "Enviar emails automaticamente" },
-  { id: "calendar_access", name: "Acesso ao Calendario", description: "Ler e criar eventos" },
-  { id: "crm_access", name: "Acesso ao CRM", description: "Consultar e atualizar CRM" },
-  { id: "database_query", name: "Consulta ao Banco", description: "Executar queries SQL" },
-] as const
-
-// Handoff rules presets
-export const handoffRulePresets = [
-  { id: "unknown", label: "Se nao souber responder", value: "when_unknown" },
-  { id: "out_of_scope", label: "Se for fora do escopo", value: "out_of_scope" },
-  { id: "complex", label: "Se for muito complexo", value: "too_complex" },
-  { id: "escalation", label: "Se cliente pedir escalacao", value: "customer_escalation" },
-  { id: "sentiment", label: "Se sentimento negativo", value: "negative_sentiment" },
-] as const
-
-export interface GraphEdge {
-  id: string
-  source: string
-  target: string
-  type?: string
-  animated?: boolean
-}
-
-// Dashboard metrics
-export interface DashboardMetrics {
-  activeTeams: number
-  availableAgents: number
-  connectedChannels: number
-  templates: number
-}
-
-// Wizard step types
-export interface TeamWizardData {
-  name: string
-  description: string
-  objective: string
-  primaryChannel: ChannelType | null
-  coordinatorId: string | null
-  specialistIds: string[]
-  nodes: GraphNode[]
-  edges: GraphEdge[]
-}
 ```
+
+Tipos de **plano de time** (`TeamPlanDraft`, `TeamPlanAgentDraft`, …) e restantes interfaces estao no mesmo ficheiro.
 
 ---
 
@@ -2863,32 +2696,33 @@ export interface TeamWizardData {
 | `NOT_FOUND` | 404 | Recurso nao encontrado |
 | `VALIDATION_ERROR` | 400 | Erro de validacao nos dados |
 | `CONFLICT` | 409 | Conflito (ex: nome duplicado) |
-| `RATE_LIMIT` | 429 | Limite de requisicoes excedido |
 | `INTERNAL_ERROR` | 500 | Erro interno do servidor |
 
----
-
-## Rate Limiting
-
-- **Autenticacao:** 5 req/min por IP
-- **API Geral:** 100 req/min por workspace
-- **Uploads:** 10 req/min por usuario
+> O codigo `RATE_LIMIT` nao e emitido pelo BFF atual; limites podem ser aplicados no reverse proxy ou numa evolucao futura do servidor.
 
 ---
 
-## Webhooks (Futuro)
+## Rate limiting e limites no BFF
 
-Eventos disponiveis para webhooks:
+O **BFF Fastify** nao aplica hoje rate limiting HTTP por rota (sem contadores 5/100 req/min no codigo). Ha limite de **tamanho de upload** em avatar (`multipart`, 1 MB) em [`backend/src/app/app.ts`](../backend/src/app/app.ts).
 
-- `team.created`
-- `team.updated`
-- `team.deleted`
-- `team.activated`
-- `team.deactivated`
-- `channel.connected`
-- `channel.disconnected`
-- `conversation.started`
-- `conversation.ended`
+Para producao, configure limites no **edge** (API gateway, CDN, Nginx, etc.) conforme a sua politica.
+
+---
+
+## Webhooks
+
+### Chat SDK (implementado)
+
+Entrada publica para Slack, Discord, Telegram, GitHub, etc., sob **`/api/v1/webhooks/chat/...`**. Nao usa JWT de utilizador; identifica `workspaceId` (e canal) pelo path e configuracao. Documentacao normativa: [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md) e [docs/chat-sdk.md](./docs/chat-sdk.md).
+
+### Webhooks de eventos de produto (nao implementados)
+
+Notificacoes push para integradores (ex.: `team.created`, `channel.connected`, `conversation.started`) **nao** estao expostas pelo BFF nesta versao — a lista abaixo e **objetivo / roadmap**, nao contrato:
+
+- `team.created`, `team.updated`, `team.deleted`, `team.activated`, `team.deactivated`
+- `channel.connected`, `channel.disconnected`
+- `conversation.started`, `conversation.ended`
 
 ---
 

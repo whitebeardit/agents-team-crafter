@@ -116,6 +116,7 @@ Documentação aprofundada que **não** duplicamos aqui — use como referência
 
 | Ficheiro | Tema |
 |----------|------|
+| [`backend/src/app/routes.ts`](../../backend/src/app/routes.ts) | Registo canónico de todas as rotas sob `/api/v1` (evita drift com READMEs longos). |
 | [MULTI_TENANT.md](../../docs/MULTI_TENANT.md) | Princípios multi-tenant, segredos, APIs de integrações. |
 | [BACKEND_STACK.md](../../docs/BACKEND_STACK.md) | Fastify, variáveis de ambiente do BFF. |
 | [CHAT_SDK_TEAM_TRIGGER.md](../../docs/CHAT_SDK_TEAM_TRIGGER.md) | URLs de webhook por plataforma, segredos Slack, fluxo de disparo. |

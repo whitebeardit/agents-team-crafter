@@ -52,8 +52,10 @@ Ordem lógica de registo (todas com prefixo `/api/v1`):
 8. `registerKnowledgeRoutes`
 9. `registerDashboardRoutes`
 10. `registerSettingsRoutes`
-11. `registerAuditRoutes`
-12. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
+11. `registerAuditRoutes` — `GET /audit-logs` (admin do workspace)
+12. `registerToolDefinitionRoutes` — CRUD `/tool-definitions` (mutações: admin)
+13. `registerTeamPlanRoutes` — `/team-plans` (criar, obter, atualizar, `execute`, `execute/stream` SSE)
+14. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
 
 Execução por time: **`POST /teams/:id/run`** em `registerTeamRoutes` (`invokeTeam` / `team-runtime`).
 
