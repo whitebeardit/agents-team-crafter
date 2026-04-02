@@ -135,6 +135,15 @@ export function requireRole(...allowed: Array<'owner' | 'admin' | 'member'>): pr
   };
 }
 
-export function requireAdmin(): preHandlerHookHandler {
-  return requireRole('owner', 'admin');
+export function requireAdmin(opts?: { allowPlatformAdmin?: boolean }): preHandlerHookHandler {
+  return async (req: FastifyRequest) => {
+    if (opts?.allowPlatformAdmin === true && req.user?.isPlatformAdmin) {
+      return;
+    }
+    const role = req.membershipRole;
+    if (!role || !['owner', 'admin'].includes(role)) {
+      const { AppError } = await import('../shared/errors/app-error.js');
+      throw new AppError('FORBIDDEN', 'Sem permissao para esta operacao', 403);
+    }
+  };
 }

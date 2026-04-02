@@ -40,22 +40,26 @@ export async function registerSettingsRoutes(app: FastifyInstance, d: IAppDeps) 
     return reply.send(successEnvelope(data));
   });
 
-  app.put('/settings/workspace/integrations', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
-    const ws = req.workspaceId!;
-    const body = putWorkspaceIntegrationsBodySchema.parse(req.body);
-    const r = await d.workspaceIntegrationsService.putPartial(ws, body);
-    return reply.send(
-      successEnvelope({
-        message: 'Integracoes atualizadas',
-        secretsMasked: r.secretsMasked,
-        operationalCatalogTools: r.operationalCatalogTools,
-      }),
-    );
-  });
+  app.put(
+    '/settings/workspace/integrations',
+    { preHandler: [...tenant, requireAdmin({ allowPlatformAdmin: true })] },
+    async (req, reply) => {
+      const ws = req.workspaceId!;
+      const body = putWorkspaceIntegrationsBodySchema.parse(req.body);
+      const r = await d.workspaceIntegrationsService.putPartial(ws, body);
+      return reply.send(
+        successEnvelope({
+          message: 'Integracoes atualizadas',
+          secretsMasked: r.secretsMasked,
+          operationalCatalogTools: r.operationalCatalogTools,
+        }),
+      );
+    },
+  );
 
   app.post(
     '/settings/workspace/integrations/test-openai',
-    { preHandler: [...tenant, requireAdmin()] },
+    { preHandler: [...tenant, requireAdmin({ allowPlatformAdmin: true })] },
     async (req, reply) => {
       const ws = req.workspaceId!;
       const r = await d.workspaceIntegrationsService.testOpenAi(ws);
@@ -65,7 +69,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, d: IAppDeps) 
 
   app.post(
     '/settings/workspace/integrations/test-smtp',
-    { preHandler: [...tenant, requireAdmin()] },
+    { preHandler: [...tenant, requireAdmin({ allowPlatformAdmin: true })] },
     async (req, reply) => {
       const ws = req.workspaceId!;
       const { to } = testSmtpBody.parse(req.body);

@@ -1,6 +1,7 @@
 # Stack: Redis (Chat SDK), BFF Fastify, Next.js — MongoDB via MongoDB Atlas (MONGODB_URI no .env da raiz).
 #
-# 1. Copie .env.example para .env e preencha MONGODB_URI (connection string do Atlas).
+# 1. Copie .env.example para .env e preencha MONGODB_URI (connection string do Atlas) e ENCRYPTION_MASTER_KEY
+#    (64 caracteres hex para cifrar segredos por workspace; openssl rand -hex 32).
 #
 # Subir:  docker compose up --build
 #
@@ -50,6 +51,7 @@ services:
       NODE_ENV: production
       PORT: ${PORT:-3001}
       MONGODB_URI: ${MONGODB_URI:?Defina MONGODB_URI no ficheiro .env na raiz (MongoDB Atlas)}
+      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY:?Defina ENCRYPTION_MASTER_KEY no .env na raiz (64 caracteres hex; openssl rand -hex 32)}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars-long-for-docker!!}
       JWT_EXPIRES_IN: 7d

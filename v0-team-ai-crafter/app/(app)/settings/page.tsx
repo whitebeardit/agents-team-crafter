@@ -95,6 +95,37 @@ type IntegrationsApiData = {
   }
 }
 
+function toastIntegrationRequestError(err: unknown, fallback: string) {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      toast.error(
+        "Sem permissao: e preciso ser admin ou owner deste workspace (ou admin global para integracoes).",
+      )
+      return
+    }
+    if (err.status === 503 && err.code === "CONFIG_ERROR") {
+      toast.error(
+        err.message ||
+          "ENCRYPTION_MASTER_KEY nao configurada no servidor (64 caracteres hex no BFF; openssl rand -hex 32).",
+      )
+      return
+    }
+    if (err.message && err.message !== "Request failed") {
+      toast.error(err.message)
+      return
+    }
+  }
+  toast.error(fallback)
+}
+
+function toastApiRequestError(err: unknown, fallback: string) {
+  if (err instanceof ApiError && err.message && err.message !== "Request failed") {
+    toast.error(err.message)
+    return
+  }
+  toast.error(fallback)
+}
+
 export default function SettingsPage() {
   const searchParams = useSearchParams()
   const { token, refreshToken, currentWorkspace, bootstrap } = useWorkspaceStore()
@@ -262,8 +293,8 @@ export default function SettingsPage() {
         api.put("/settings/profile", { name: userName }, { tenant: false }),
       ])
       toast.success("Configuracoes salvas com sucesso!")
-    } catch {
-      toast.error("Falha ao salvar configuracoes")
+    } catch (err) {
+      toastApiRequestError(err, "Falha ao salvar configuracoes")
     } finally {
       setSaving(false)
     }
@@ -293,8 +324,11 @@ export default function SettingsPage() {
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       setOpenaiKeyInput("")
       toast.success("Chave OpenAI guardada")
-    } catch {
-      toast.error("Falha ao guardar (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)")
+    } catch (err) {
+      toastIntegrationRequestError(
+        err,
+        "Falha ao guardar (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)",
+      )
     } finally {
       setIntBusy(false)
     }
@@ -314,8 +348,8 @@ export default function SettingsPage() {
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       toast.success("Chave OpenAI removida do workspace")
-    } catch {
-      toast.error("Falha ao remover chave")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao remover chave")
     } finally {
       setIntBusy(false)
     }
@@ -336,8 +370,11 @@ export default function SettingsPage() {
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       toast.success("Modelo padrao de imagem guardado")
-    } catch {
-      toast.error("Falha ao guardar (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)")
+    } catch (err) {
+      toastIntegrationRequestError(
+        err,
+        "Falha ao guardar (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)",
+      )
     } finally {
       setIntBusy(false)
     }
@@ -364,8 +401,8 @@ export default function SettingsPage() {
       setIntegrations(res.data.secretsMasked)
       setSmtpPassword("")
       toast.success("SMTP guardado")
-    } catch {
-      toast.error("Falha ao guardar SMTP")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar SMTP")
     } finally {
       setIntBusy(false)
     }
@@ -393,8 +430,8 @@ export default function SettingsPage() {
       setSlackClientId("")
       setSlackClientSecret("")
       toast.success("Slack guardado")
-    } catch {
-      toast.error("Falha ao guardar Slack")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar Slack")
     } finally {
       setIntBusy(false)
     }
@@ -414,8 +451,8 @@ export default function SettingsPage() {
       setIntegrations(res.data.secretsMasked)
       setToolDbPostgresUrl("")
       toast.success("Postgres (somente leitura) guardado")
-    } catch {
-      toast.error("Falha ao guardar Postgres para tools")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar Postgres para tools")
     } finally {
       setIntBusy(false)
     }
@@ -439,8 +476,8 @@ export default function SettingsPage() {
       setToolCrmRestBase(res.data.secretsMasked.toolCrm?.restBaseUrl ?? "")
       setToolCrmBearer("")
       toast.success("CRM (REST) guardado")
-    } catch {
-      toast.error("Falha ao guardar CRM para tools")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar CRM para tools")
     } finally {
       setIntBusy(false)
     }
@@ -464,8 +501,8 @@ export default function SettingsPage() {
       setToolCalRestBase(res.data.secretsMasked.toolCalendar?.restBaseUrl ?? "")
       setToolCalAuthHeader("")
       toast.success("Calendario (REST) guardado")
-    } catch {
-      toast.error("Falha ao guardar calendario para tools")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar calendario para tools")
     } finally {
       setIntBusy(false)
     }
@@ -482,8 +519,8 @@ export default function SettingsPage() {
       )
       if (r.data.ok) toast.success(r.data.message)
       else toast.error(r.data.message)
-    } catch {
-      toast.error("Falha no teste OpenAI")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha no teste OpenAI")
     } finally {
       setIntBusy(false)
     }
@@ -500,8 +537,8 @@ export default function SettingsPage() {
       )
       if (r.data.ok) toast.success(r.data.message)
       else toast.error(r.data.message)
-    } catch {
-      toast.error("Falha no teste SMTP")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha no teste SMTP")
     } finally {
       setIntBusy(false)
     }
@@ -540,8 +577,8 @@ export default function SettingsPage() {
       ])
       setNewApiKeyName("")
       toast.success("Nova chave de API criada")
-    } catch {
-      toast.error("Falha ao criar chave de API")
+    } catch (err) {
+      toastApiRequestError(err, "Falha ao criar chave de API")
     } finally {
       setApiKeyBusy(false)
     }
@@ -570,8 +607,8 @@ export default function SettingsPage() {
         ),
       )
       toast.success("Nova chave API gerada!")
-    } catch {
-      toast.error("Falha ao regenerar chave de API")
+    } catch (err) {
+      toastApiRequestError(err, "Falha ao regenerar chave de API")
     } finally {
       setApiKeyBusy(false)
     }
@@ -590,8 +627,8 @@ export default function SettingsPage() {
       await api.del(`/settings/api-keys/${id}`)
       setApiKeys((prev) => prev.filter((item) => item.id !== id))
       toast.success("Chave de API removida")
-    } catch {
-      toast.error("Falha ao remover chave de API")
+    } catch (err) {
+      toastApiRequestError(err, "Falha ao remover chave de API")
     } finally {
       setApiKeyBusy(false)
     }
