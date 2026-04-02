@@ -31,6 +31,10 @@ npm run dev
 
 Requisitos gerais: MongoDB 6+; Redis opcional conforme documentação de cada pacote.
 
+## Docker Compose (raiz do repositório)
+
+`docker-compose.yaml` sobe Redis, o BFF e o frontend. Copie [`.env.example`](./.env.example) para `.env` e defina `MONGODB_URI`. O default da porta **no host** do frontend é **3002** (`FRONTEND_PORT`); o backend expõe `PORT` e `BACKEND_PORT` como variáveis substituíveis (útil no Coolify). Ajuste `CORS_ORIGIN`, `NEXT_PUBLIC_*` e `PUBLIC_API_BASE_URL` ao URL público real.
+
 ## Versão
 
 Primeira versão publicada no repositório: **v1** (commit inicial unificado).

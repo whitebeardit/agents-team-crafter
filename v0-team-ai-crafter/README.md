@@ -68,6 +68,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
 ```
 
+Com `npm run dev`, o Next.js usa por defeito a porta **3000** — alinhe `NEXT_PUBLIC_APP_URL` ao host que abrir no browser. No **Docker Compose** da raiz do monorepo, o default da porta no host do frontend é **3002** (`FRONTEND_PORT`); use `NEXT_PUBLIC_APP_URL` coerente com esse URL ou com o domínio público (ex.: Coolify).
+
 **Backend (`backend/.env`)** — segredos **so de instancia**:
 
 ```env
