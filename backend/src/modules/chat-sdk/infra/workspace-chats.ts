@@ -123,14 +123,32 @@ function bindInbound(
     const text = (message.text ?? '').trim();
     if (!text) return;
     const out = await runInbound(text, thread);
-    await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
+    try {
+      await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
+    } catch (err) {
+      console.error('[postCoordinatorExternalResponse] inbound failed', {
+        platform: agentChannelLabel,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      throw err;
+    }
   });
 
   chat.onSubscribedMessage(async (thread, message) => {
     const text = (message.text ?? '').trim();
     if (!text) return;
     const out = await runInbound(text, thread);
-    await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
+    try {
+      await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
+    } catch (err) {
+      console.error('[postCoordinatorExternalResponse] inbound failed', {
+        platform: agentChannelLabel,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      throw err;
+    }
   });
 }
 

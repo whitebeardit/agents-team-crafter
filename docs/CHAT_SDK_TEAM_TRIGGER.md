@@ -236,6 +236,7 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 - Runs **inbound** publicam `coordinatorDelta` no bus (texto do coordenador em streaming), igual ao `POST .../run/stream` manual.
 - Em `runComplete`, o JSON inclui **`source`**: `inbound` (webhook Chat SDK) ou `manual` (consola / `POST .../run/stream`), para o frontend distinguir espelho vs. envio local.
 - O backend publica num bus por time; falhas ao escrever no SSE **não** devem propagar para o webhook (listeners e `publish` em memória isolados com `try/catch`).
+- Os envelopes devem ser **JSON-serializáveis**. Se `JSON.stringify` falhar (ex.: referência circular em `data`), o broadcast usa um envelope mínimo de erro ou ignora o publish — **nunca** interrompe o fluxo inbound nem impede `postCoordinatorExternalResponse` de enviar a resposta ao Telegram.
 - O editor de grafo (`/teams/[id]/graph`, modo Live) subscreve este GET para o grafo e, na mesma ligação, alimenta o **espelho** no painel “Console em tempo real” (mensagem inbound + resposta quando `source === 'inbound'`).
 - Cada `agentStatus` inclui `runId` para correlacionar com `runComplete`.
 
@@ -255,6 +256,7 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 - Em **429** (rate limit), o código faz **uma** nova tentativa após o intervalo indicado pelo Telegram (`retry_after`, até um teto).
 - Texto vazio (após trim) envia um placeholder curto em vez de falhar com “mensagem vazia”.
 - Erros no fallback são registados em `console.warn` com contexto (`markdown_fallback`, `empty_skip`).
+- Falhas ao enviar a resposta final são registadas em `console.error` (`[postCoordinatorExternalResponse] inbound failed`); o erro **repropaga-se** para o handler do webhook (comportamento explícito para diagnóstico e para o Telegram poder repetir o update se aplicável).
 
 ### Limitações
 
@@ -280,7 +282,7 @@ O runtime envia `channel` como prefixo na mensagem do usuário (`[channel=slack]
 - Resolução 0/1/N: `backend/src/modules/chat-sdk/application/resolve-inbound-coordinator.test.ts`
 - Texto com canal: `backend/src/modules/runtime/application/format-agent-user-message.test.ts`
 - Cifragem: `backend/src/utils/secrets-crypto.test.ts`
-- Live broadcast: `backend/src/modules/teams/infrastructure/team-live-broadcaster.test.ts`
+- Live broadcast: `backend/src/modules/teams/infrastructure/team-live-broadcaster.test.ts` (inclui payload não serializável em `publish`)
 - Telegram typing: `backend/src/modules/chat-sdk/infra/telegram-typing-loop.test.ts`
 - Telegram estado inbound (debounce): `backend/src/modules/chat-sdk/infra/telegram-inbound-status-debouncer.test.ts`
 - Resposta final inbound (Telegram fallback / 429): `backend/src/modules/chat-sdk/infra/post-coordinator-external-response.test.ts`

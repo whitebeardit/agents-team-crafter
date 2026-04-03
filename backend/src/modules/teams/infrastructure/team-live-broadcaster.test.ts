@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { TeamLiveBroadcaster } from './team-live-broadcaster.js';
 
 describe('TeamLiveBroadcaster (memory)', () => {
@@ -36,6 +37,20 @@ describe('TeamLiveBroadcaster (memory)', () => {
     });
     await new Promise((r) => setImmediate(r));
     expect(received).toHaveLength(0);
+  });
+
+  it('publish does not throw when envelope data is not JSON-serializable', () => {
+    const b = new TeamLiveBroadcaster(undefined);
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    expect(() =>
+      b.publish('ws1', 'teamA', {
+        source: 'inbound',
+        runId: 'r1',
+        event: 'runComplete',
+        data: circular,
+      }),
+    ).not.toThrow();
   });
 
   it('publish does not throw when memory subscriber throws', async () => {

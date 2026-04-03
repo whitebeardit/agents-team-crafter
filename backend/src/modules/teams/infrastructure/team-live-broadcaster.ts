@@ -46,7 +46,24 @@ export class TeamLiveBroadcaster {
 
   publish(workspaceId: string, teamId: string, envelope: ITeamLiveEnvelope): void {
     const ch = channelName(workspaceId, teamId);
-    const raw = JSON.stringify(envelope);
+    let raw: string;
+    try {
+      raw = JSON.stringify(envelope);
+    } catch {
+      try {
+        raw = JSON.stringify({
+          source: envelope.source,
+          runId: envelope.runId,
+          event: envelope.event,
+          data: {
+            _serializationError: true,
+            message: 'team live envelope not JSON-serializable',
+          },
+        });
+      } catch {
+        return;
+      }
+    }
     if (this.publisher) {
       void this.publisher.publish(ch, raw).catch(() => {
         /* ignore publish errors */

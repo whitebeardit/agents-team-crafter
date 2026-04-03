@@ -1,4 +1,3 @@
-import { AdapterRateLimitError } from '@chat-adapter/shared';
 import type { Thread } from 'chat';
 import type { IExternalResponse } from '../../team-runtime/domain/external-response.js';
 
@@ -8,8 +7,13 @@ const EMPTY_POST_FALLBACK = '(Sem texto na resposta.)';
 
 type TInboundPlatform = string;
 
-function isRateLimitError(err: unknown): err is AdapterRateLimitError {
-  return err instanceof AdapterRateLimitError;
+/** Duck-typed: avoids `instanceof` when duplicate @chat-adapter/shared copies exist in node_modules. */
+function getRateLimitRetryAfterSeconds(err: unknown): number | null {
+  if (typeof err !== 'object' || err === null) return null;
+  const o = err as { name?: string; retryAfter?: unknown };
+  if (o.name !== 'AdapterRateLimitError') return null;
+  if (typeof o.retryAfter !== 'number' || Number.isNaN(o.retryAfter)) return null;
+  return o.retryAfter;
 }
 
 async function sleepMs(ms: number): Promise<void> {
@@ -23,8 +27,8 @@ async function postThreadWith429Retry(thread: Thread, message: Parameters<Thread
   try {
     await thread.post(message);
   } catch (err) {
-    if (!isRateLimitError(err)) throw err;
-    const sec = typeof err.retryAfter === 'number' ? err.retryAfter : 1;
+    const sec = getRateLimitRetryAfterSeconds(err);
+    if (sec === null) throw err;
     const ms = Math.min(Math.max(sec, 0) * 1000, 60_000);
     await sleepMs(ms);
     await thread.post(message);

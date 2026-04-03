@@ -1,4 +1,3 @@
-import { AdapterRateLimitError } from '@chat-adapter/shared';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Thread } from 'chat';
 import { postCoordinatorExternalResponse } from './post-coordinator-external-response.js';
@@ -48,11 +47,15 @@ describe('postCoordinatorExternalResponse', () => {
     expect(calls[0]).toBe('(Sem texto na resposta.)');
   });
 
-  it('telegram: retries once on AdapterRateLimitError', async () => {
+  it('telegram: retries once on rate limit duck-typed error', async () => {
     let n = 0;
     const thread = mockThread(async (msg) => {
       n += 1;
-      if (n === 1) throw new AdapterRateLimitError('telegram', 0);
+      if (n === 1) {
+        const e = new Error('Rate limited');
+        Object.assign(e, { name: 'AdapterRateLimitError', retryAfter: 0 });
+        throw e;
+      }
       await Promise.resolve();
       expect(msg).toBe('hello');
     });
