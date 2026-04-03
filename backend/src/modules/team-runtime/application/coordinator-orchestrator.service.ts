@@ -101,6 +101,11 @@ export class CoordinatorOrchestratorService {
 
     assertInvocationMatchesTeam(invocation, teamRow);
 
+    const runId = randomUUID();
+    const emitProgress = (partial: Omit<ITeamProgressEvent, 'runId'>) => {
+      options?.onProgress?.({ ...partial, runId });
+    };
+
     const coordinator = await this.agentRepo.findById(ws, teamRow.coordinatorId);
     if (!coordinator) throw new AppError('NOT_FOUND', 'Coordenador nao encontrado', 404);
     assertTeamCoordinatorBinding(coordinator as Record<string, unknown>, teamRow.coordinatorId);
@@ -132,7 +137,7 @@ export class CoordinatorOrchestratorService {
         toolInstruction: instruction,
         runtimeMessage,
       });
-      options?.onProgress?.({
+      emitProgress({
         agentId: specialistAgentId,
         status: 'busy',
         phase: 'specialist',
@@ -148,7 +153,7 @@ export class CoordinatorOrchestratorService {
           phase: 'runStep',
           detail: msg,
         });
-        options?.onProgress?.({
+        emitProgress({
           agentId: specialistAgentId,
           status: 'idle',
           phase: 'specialist',
@@ -239,7 +244,7 @@ export class CoordinatorOrchestratorService {
         phase: 'runStep',
         detail: truncateActivity(r.finalOutput),
       });
-      options?.onProgress?.({
+      emitProgress({
         agentId: specialistAgentId,
         status: 'idle',
         phase: 'specialist',
@@ -261,7 +266,7 @@ export class CoordinatorOrchestratorService {
     const timeline: ITeamExecutionEvent[] = [
       { type: 'coordinatorStarted', agentId: teamRow.coordinatorId, phase: 'invoke' },
     ];
-    options?.onProgress?.({
+    emitProgress({
       agentId: teamRow.coordinatorId,
       status: 'busy',
       phase: 'coordinator',
@@ -280,7 +285,7 @@ export class CoordinatorOrchestratorService {
         : {}),
     });
 
-    options?.onProgress?.({
+    emitProgress({
       agentId: teamRow.coordinatorId,
       status: 'idle',
       phase: 'coordinator',
@@ -293,7 +298,6 @@ export class CoordinatorOrchestratorService {
       phase: 'done',
     });
 
-    const runId = randomUUID();
     return {
       runId,
       teamId: teamRow.id,

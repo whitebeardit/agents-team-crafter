@@ -69,8 +69,9 @@ export interface TeamRunExecutionEvent {
   runtimeMessage?: string
 }
 
-/** SSE `agentStatus` durante `POST /teams/:id/run/stream`. */
+/** SSE `agentStatus` durante `POST /teams/:id/run/stream` e `GET /teams/:id/live`. */
 export interface TeamRunProgressEvent {
+  runId: string
   agentId: string
   status: "idle" | "busy"
   phase: string

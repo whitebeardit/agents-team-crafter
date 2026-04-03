@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { Chat, ConsoleLogger } from 'chat';
+import type { Thread } from 'chat';
 import { createSlackAdapter } from '@chat-adapter/slack';
 import { createDiscordAdapter } from '@chat-adapter/discord';
 import { createTeamsAdapter } from '@chat-adapter/teams';
@@ -13,10 +15,12 @@ import type { IEnv } from '../../../config/env.js';
 import type { IAppDeps } from '../../../config/container.js';
 import type { ChannelDoc } from '../../channels/infra/channel.model.js';
 import type { IChatSdkSecretsPayload } from '../../channels/domain/chat-sdk-secrets.schema.js';
+import { AppError } from '../../../shared/errors/app-error.js';
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
 import { buildChatTeamInvocation } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 import { requireCoordinatorForChannelInstance } from '../application/resolve-inbound-coordinator.js';
 import { postCoordinatorExternalResponse } from './post-coordinator-external-response.js';
+import { startTelegramTypingLoop } from './telegram-typing-loop.js';
 
 function createStateAdapter(workspaceId: string, env: IEnv) {
   const logger = new ConsoleLogger('info', `[chat-sdk:${workspaceId}]`);
@@ -34,7 +38,7 @@ function bindInbound(
   agentChannelLabel: string,
 ) {
   const channelIdStr = channelDoc._id.toString();
-  const runInbound = async (text: string) => {
+  const runInbound = async (text: string, thread: Thread) => {
     const { coordinatorId, teamId } = await requireCoordinatorForChannelInstance(
       d.teamRepo,
       workspaceId,
@@ -47,22 +51,55 @@ function bindInbound(
       text,
       agentChannelLabel,
     );
-    const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
-    return result.externalResponse;
+    const stopTyping = agentChannelLabel === 'telegram' ? startTelegramTypingLoop(thread) : undefined;
+    try {
+      const result = await invokeTeam(d.coordinatorOrchestrator, invocation, {
+        onProgress: (e) => {
+          d.teamLiveBroadcaster.publishAgentStatus(workspaceId, teamId, 'inbound', e);
+        },
+      });
+      d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+        source: 'inbound',
+        runId: result.runId,
+        event: 'runComplete',
+        data: {
+          runId: result.runId,
+          teamId: result.teamId,
+          coordinatorAgentId: result.coordinatorAgentId,
+          externalResponse: result.externalResponse,
+          specialistResults: result.specialistResults,
+          events: result.events,
+        },
+      });
+      return result.externalResponse;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
+      const status = err instanceof AppError ? err.httpStatus : 500;
+      d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+        source: 'inbound',
+        runId: randomUUID(),
+        event: 'error',
+        data: { code, message, status },
+      });
+      throw err;
+    } finally {
+      stopTyping?.();
+    }
   };
 
   chat.onNewMention(async (thread, message) => {
     await thread.subscribe();
     const text = (message.text ?? '').trim();
     if (!text) return;
-    const out = await runInbound(text);
+    const out = await runInbound(text, thread);
     await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
   });
 
   chat.onSubscribedMessage(async (thread, message) => {
     const text = (message.text ?? '').trim();
     if (!text) return;
-    const out = await runInbound(text);
+    const out = await runInbound(text, thread);
     await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
   });
 }

@@ -19,6 +19,10 @@ import { AuditLogRepository } from '../modules/audit/infra/audit-log.repository.
 import { OpenAIAgentsRuntimeProvider } from '../modules/runtime/infra/openai-agents-runtime.provider.js';
 import { SpecialistRegistry } from '../modules/team-runtime/infra/registries/specialist-registry.js';
 import { CoordinatorOrchestratorService } from '../modules/team-runtime/application/coordinator-orchestrator.service.js';
+import {
+  createTeamLiveBroadcaster,
+  type TeamLiveBroadcaster,
+} from '../modules/teams/infrastructure/team-live-broadcaster.js';
 import { WorkspaceToolDefinitionRepository } from '../modules/tool-definitions/infra/workspace-tool-definition.repository.js';
 import { ChannelSecretsService } from '../modules/channels/application/channel-secrets.service.js';
 import { WorkspaceIntegrationsService } from '../modules/settings/application/workspace-integrations.service.js';
@@ -54,6 +58,7 @@ export interface IAppDeps {
   agentRuntime: OpenAIAgentsRuntimeProvider;
   specialistRegistry: SpecialistRegistry;
   coordinatorOrchestrator: CoordinatorOrchestratorService;
+  teamLiveBroadcaster: TeamLiveBroadcaster;
 }
 
 export function createDeps(env: IEnv): IAppDeps {
@@ -91,6 +96,7 @@ export function createDeps(env: IEnv): IAppDeps {
     knowledgeSourceRepo,
     workspaceToolDefinitionRepo,
   );
+  const teamLiveBroadcaster = createTeamLiveBroadcaster(env.REDIS_URL);
   const authenticate = buildAuthenticate(env.JWT_SECRET, { platformAdminEmails });
   const requirePlatformAdmin = buildRequirePlatformAdmin();
   const requireTenant = buildRequireTenant(memberRepo);
@@ -122,6 +128,7 @@ export function createDeps(env: IEnv): IAppDeps {
     agentRuntime,
     specialistRegistry,
     coordinatorOrchestrator,
+    teamLiveBroadcaster,
   };
 }
 

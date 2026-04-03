@@ -76,21 +76,40 @@ export default function GraphEditorPage({
     })
   }, [token, refreshToken, currentWorkspace])
 
-  const onLiveAgentStatus = useCallback((agentId: string, patch: TeamGraphLiveAgentState) => {
-    setLiveAgentState((prev) => ({
-      ...prev,
-      [agentId]: patch,
-    }))
-  }, [])
-
-  const onStreamFinished = useCallback(() => {
-    window.setTimeout(() => setLiveAgentState({}), 3200)
-  }, [])
-
   useEffect(() => {
     if (liveMode) setLiveSheetOpen(true)
     else setLiveSheetOpen(false)
   }, [liveMode])
+
+  /** Grafo: GET /teams/:id/live (inbound + runs manuais via bus). */
+  useEffect(() => {
+    if (!liveMode || !api) return
+    const ac = new AbortController()
+    void api
+      .streamTeamLive(
+        id,
+        {
+          onAgentStatus: (e) => {
+            setLiveAgentState((prev) => ({
+              ...prev,
+              [e.agentId]: {
+                status: e.status,
+                phase: e.phase,
+                lastActivity: e.detail ?? e.phase,
+              },
+            }))
+          },
+          onRunComplete: () => {
+            window.setTimeout(() => setLiveAgentState({}), 3200)
+          },
+        },
+        ac.signal,
+      )
+      .catch(() => {
+        /* abort ou rede */
+      })
+    return () => ac.abort()
+  }, [liveMode, api, id])
 
   const loadGraphData = useCallback(async () => {
     if (!api) return
@@ -468,8 +487,9 @@ export default function GraphEditorPage({
             <SheetHeader className="space-y-1 border-b border-border px-4 py-3 text-left">
               <SheetTitle className="text-base">Console em tempo real</SheetTitle>
               <SheetDescription className="text-xs leading-relaxed">
-                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">POST /teams/:id/run/stream</code> — o grafo
-                reflete <strong>agentStatus</strong>; a resposta do coordenador pode aparecer em fluxo.
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">GET /teams/:id/live</code> atualiza o grafo
+                com <strong>agentStatus</strong> (Telegram e consola). O chat usa{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">POST /teams/:id/run/stream</code>.
               </SheetDescription>
             </SheetHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-2">
@@ -479,8 +499,6 @@ export default function GraphEditorPage({
                 coordinatorLabel={agents.find((a) => a.id === team.coordinatorId)?.name}
                 useStreamRun
                 useHttpRun={false}
-                onLiveAgentStatus={onLiveAgentStatus}
-                onStreamFinished={onStreamFinished}
                 variant="compact"
                 hideHeader
                 className="flex min-h-0 flex-1"

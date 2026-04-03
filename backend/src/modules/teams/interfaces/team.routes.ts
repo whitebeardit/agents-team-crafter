@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { PassThrough } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -440,6 +441,51 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   });
 
   /**
+   * SSE: subscribe to live team runs (inbound Chat SDK + manual) — same events as POST /teams/:id/run/stream.
+   */
+  app.get('/teams/:id/live', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await d.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+
+    const stream = new PassThrough();
+    reply.headers({
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const writeSse = (event: string, data: unknown) => {
+      if (!stream.writableEnded) {
+        stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      }
+    };
+
+    const unsub = await d.teamLiveBroadcaster.subscribe(ws, teamId, (env) => {
+      if (env.event === 'agentStatus') writeSse('agentStatus', env.data);
+      else if (env.event === 'coordinatorDelta') writeSse('coordinatorDelta', env.data);
+      else if (env.event === 'runComplete') writeSse('runComplete', env.data);
+      else if (env.event === 'error') writeSse('error', env.data);
+    });
+
+    const heartbeat = setInterval(() => {
+      if (!stream.writableEnded) stream.write(': ping\n\n');
+    }, 15000);
+
+    const cleanup = () => {
+      clearInterval(heartbeat);
+      unsub();
+      if (!stream.writableEnded) stream.end();
+    };
+
+    req.raw.on('close', cleanup);
+
+    return reply.send(stream);
+  });
+
+  /**
    * SSE: same payload as POST /teams/:id/run plus live agentStatus and coordinatorDelta events.
    * Body: teamRunBodySchema (JSON).
    */
@@ -470,26 +516,57 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
       stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
 
+    let streamRunId: string | undefined;
+
     void (async () => {
       try {
         const result = await invokeTeam(d.coordinatorOrchestrator, invocation, {
-          onProgress: (e) => writeSse('agentStatus', e),
+          onProgress: (e) => {
+            streamRunId = e.runId;
+            writeSse('agentStatus', e);
+            d.teamLiveBroadcaster.publishAgentStatus(ws, teamId, 'manual', e);
+          },
           streamCoordinatorText: true,
-          onCoordinatorTextDelta: (text) => writeSse('coordinatorDelta', { text }),
+          onCoordinatorTextDelta: (text) => {
+            const payload = { text, runId: streamRunId };
+            writeSse('coordinatorDelta', payload);
+            if (streamRunId) {
+              d.teamLiveBroadcaster.publish(ws, teamId, {
+                source: 'manual',
+                runId: streamRunId,
+                event: 'coordinatorDelta',
+                data: payload,
+              });
+            }
+          },
         });
-        writeSse('runComplete', {
+        const complete = {
           runId: result.runId,
           teamId: result.teamId,
           coordinatorAgentId: result.coordinatorAgentId,
           externalResponse: result.externalResponse,
           specialistResults: result.specialistResults,
           events: result.events,
+        };
+        writeSse('runComplete', complete);
+        d.teamLiveBroadcaster.publish(ws, teamId, {
+          source: 'manual',
+          runId: result.runId,
+          event: 'runComplete',
+          data: complete,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const errMsg = err instanceof Error ? err.message : String(err);
         const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
         const status = err instanceof AppError ? err.httpStatus : 500;
-        writeSse('error', { code, message, status });
+        const errPayload = { code, message: errMsg, status };
+        writeSse('error', errPayload);
+        d.teamLiveBroadcaster.publish(ws, teamId, {
+          source: 'manual',
+          runId: streamRunId ?? randomUUID(),
+          event: 'error',
+          data: errPayload,
+        });
       } finally {
         stream.end();
       }

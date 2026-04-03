@@ -16,7 +16,7 @@ Este documento descreve como configurar canais **Chat SDK** (`provider: 'chat_sd
 | `ENCRYPTION_MASTER_KEY` | 64 caracteres hex (32 bytes). Obrigatório no servidor para **persistir** segredos via `PUT /channels/:id/secrets`. Ver `backend/.env.example`. |
 | `PUT /channels/:id/secrets` | Corpo JSON com `platform` e campos de segredo por plataforma. Exige **admin** ou **owner** no workspace (`requireAdmin`). |
 | `PUT /channels/:id` | Atualiza `config` (ex.: `slackTeamId`, `discordGuildId`). Autenticação normal com tenant. |
-| `REDIS_URL` | (Opcional) estado do Chat SDK entre réplicas (`@chat-adapter/state-redis`). |
+| `REDIS_URL` | (Opcional) estado do Chat SDK entre réplicas (`@chat-adapter/state-redis`). **Recomendado em produção** com várias instâncias do BFF para `GET /teams/:id/live` (pub/sub de progresso do time). Sem Redis, o live do grafo funciona só dentro do mesmo processo Node. |
 | Frontend | Página **Canais** (`v0-team-ai-crafter`) — criação por plataforma Chat SDK e diálogo **Configurar** (roteamento JSON + segredos). |
 
 Segredos **nunca** são devolvidos em texto claro no `GET /channels` ou `GET /channels/:id`; apenas `secretsMasked` (máscara).
@@ -226,6 +226,27 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 
 ---
 
+## Live no grafo (inbound) e feedback no Telegram
+
+### `GET /api/v1/teams/:id/live` (SSE, autenticado)
+
+- Mesmo formato de eventos que `POST /api/v1/teams/:id/run/stream`: `agentStatus`, `coordinatorDelta`, `runComplete`, `error`.
+- O backend publica progresso de **duas fontes** num bus por time: runs **manuais** (consola no grafo) e runs **inbound** (Chat SDK, ex.: Telegram).
+- O editor de grafo (`/teams/[id]/graph`, modo Live) subscreve este GET para pintar o grafo sem depender só do POST da consola.
+- Cada `agentStatus` inclui `runId` para correlacionar com `runComplete`.
+
+### Telegram: indicador "a escrever"
+
+- Enquanto o coordenador e os especialistas processam, o adaptador Telegram renova `sendChatAction` com `action=typing` (via `startTyping` do `@chat-adapter/telegram`) até a resposta final ser enviada.
+- Aplica-se a **todos** os canais Telegram do workspace que usem o mesmo fluxo inbound.
+
+### Limitações
+
+- Runs concorrentes no mesmo time podem sobrepor estados no grafo (chave por `agentId`); `runId` permite evoluir a UI para filas ou último run.
+- Sem `REDIS_URL`, o SSE live só vê eventos publicados **na mesma instância** do servidor que trata o webhook.
+
+---
+
 ## OpenAI Agent SDK
 
 O runtime envia `channel` como prefixo na mensagem do usuário (`[channel=slack]`, `[channel=discord]`, etc.), via `formatAgentUserMessage`.
@@ -242,3 +263,5 @@ O runtime envia `channel` como prefixo na mensagem do usuário (`[channel=slack]
 - Resolução 0/1/N: `backend/src/modules/chat-sdk/application/resolve-inbound-coordinator.test.ts`
 - Texto com canal: `backend/src/modules/runtime/application/format-agent-user-message.test.ts`
 - Cifragem: `backend/src/utils/secrets-crypto.test.ts`
+- Live broadcast: `backend/src/modules/teams/infrastructure/team-live-broadcaster.test.ts`
+- Telegram typing: `backend/src/modules/chat-sdk/infra/telegram-typing-loop.test.ts`

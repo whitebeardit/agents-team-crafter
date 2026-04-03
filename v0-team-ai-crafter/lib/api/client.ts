@@ -283,6 +283,70 @@ export function createApiClient(deps: {
     })
   }
 
+  /** GET SSE: mesmo formato que `streamTeamRun` (inbound Chat SDK + runs manuais publicados no bus). */
+  async function streamTeamLive(teamId: string, handlers: ITeamRunStreamHandlers, signal?: AbortSignal) {
+    const baseUrl = getBaseUrl()
+    const path = `/teams/${teamId}/live`
+
+    const buildHeaders = () => {
+      const headers = new Headers()
+      const { token } = deps.getAuth()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+      const wid = deps.getWorkspaceId()
+      if (wid) headers.set("X-Workspace-Id", wid)
+      return headers
+    }
+
+    const doFetch = () =>
+      fetch(joinUrl(baseUrl, path), {
+        method: "GET",
+        headers: buildHeaders(),
+        signal,
+      })
+
+    let res = await doFetch()
+    if (res.status === 401) {
+      const refreshed = await refreshTokenIfPossible()
+      if (refreshed) res = await doFetch()
+      else deps.clearAuth()
+    }
+
+    if (!res.ok) {
+      let message = await res.text()
+      if (!message) message = res.statusText
+      try {
+        const j = JSON.parse(message) as { error?: { message?: string; code?: string } }
+        if (j?.error?.message) message = j.error.message
+      } catch {
+        /* ignore */
+      }
+      handlers.onError?.({ message, status: res.status })
+      return
+    }
+
+    await consumeSseResponse(res, (eventName, dataJson) => {
+      try {
+        const data = JSON.parse(dataJson) as unknown
+        if (eventName === "agentStatus") handlers.onAgentStatus?.(data as TeamRunProgressEvent)
+        else if (eventName === "coordinatorDelta") {
+          const d = data as { text?: string }
+          if (d.text) handlers.onCoordinatorDelta?.(d.text)
+        } else if (eventName === "runComplete") {
+          handlers.onRunComplete?.(data as TeamRunResponse)
+        } else if (eventName === "error") {
+          const d = data as { code?: string; message?: string; status?: number }
+          handlers.onError?.({
+            code: d.code,
+            message: d.message ?? "Erro no stream",
+            status: d.status,
+          })
+        }
+      } catch {
+        /* chunk invalido */
+      }
+    })
+  }
+
   async function streamTeamPlanExecute<T>(
     planId: string,
     body: { operationId?: string },
@@ -351,6 +415,7 @@ export function createApiClient(deps: {
     del: async <T>(path: string, opts?: { tenant?: boolean }) =>
       request<T>(path, { method: "DELETE", tenant: opts?.tenant }),
     streamTeamRun,
+    streamTeamLive,
     streamTeamPlanExecute,
     fetchAuthorized,
   }
