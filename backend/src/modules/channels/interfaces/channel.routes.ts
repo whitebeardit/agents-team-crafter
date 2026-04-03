@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { IAppDeps } from '../../../config/container.js';
 import { requireAdmin } from '../../../config/container.js';
@@ -7,6 +7,8 @@ import { AppError } from '../../../shared/errors/app-error.js';
 import { mockChannelConnect, mockChannelTest } from '../infra/channel.repository.js';
 import { CHAT_SDK_PLATFORMS } from '../domain/chat-sdk-platform.js';
 import { parseChatSdkSecretsBody } from '../domain/chat-sdk-secrets.schema.js';
+import { buildChatSdkWebhookUrl } from '../application/build-chat-sdk-webhook-url.js';
+import { registerTelegramWebhookWithTelegramApi } from '../application/register-telegram-webhook.js';
 
 const channelTypeEnum = z.enum([
   'whatsapp',
@@ -49,25 +51,6 @@ const putSecretsBody = z
     platform: z.enum(CHAT_SDK_PLATFORMS),
   })
   .passthrough();
-
-function publicBaseUrl(req: FastifyRequest): string {
-  const proto = (req.headers['x-forwarded-proto'] as string) || 'http';
-  const host = req.headers.host || 'localhost:3001';
-  return `${proto}://${host}`;
-}
-
-function buildChatSdkWebhookUrl(
-  req: FastifyRequest,
-  workspaceId: string,
-  platform: string,
-  channelId: string,
-): string {
-  const base = publicBaseUrl(req);
-  if (platform === 'slack') {
-    return `${base}/api/v1/webhooks/chat/${workspaceId}/slack`;
-  }
-  return `${base}/api/v1/webhooks/chat/${workspaceId}/${platform}/${channelId}`;
-}
 
 export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
   const tenant = [d.authenticate, d.requireTenant];
@@ -196,6 +179,55 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
       }),
     );
   });
+
+  app.post(
+    '/channels/:id/telegram/register-webhook',
+    { preHandler: [...tenant, requireAdmin()] },
+    async (req, reply) => {
+      const ws = req.workspaceId!;
+      const id = (req.params as { id: string }).id;
+      const doc = await d.channelRepo.findById(ws, id);
+      if (!doc) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
+      const prov = (doc as { provider?: string }).provider;
+      const plat = (doc as { platform?: string }).platform;
+      if (prov !== 'chat_sdk' || plat !== 'telegram') {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'Apenas canais Chat SDK com platform telegram',
+          400,
+        );
+      }
+      const plain = d.channelSecretsService.decryptPayload(doc);
+      if (!plain || plain.platform !== 'telegram') {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'Segredos Telegram nao configurados para este canal',
+          400,
+        );
+      }
+      const webhookUrl = buildChatSdkWebhookUrl(req, ws, 'telegram', doc._id.toString());
+      const { setWebhook, webhookInfo } = await registerTelegramWebhookWithTelegramApi(
+        plain.botToken,
+        webhookUrl,
+        plain.secretToken,
+      );
+      if (!setWebhook.ok) {
+        throw new AppError(
+          'UPSTREAM_ERROR',
+          setWebhook.description ?? 'setWebhook do Telegram falhou',
+          502,
+          { setWebhook, webhookUrl },
+        );
+      }
+      return reply.send(
+        successEnvelope({
+          webhookUrl,
+          setWebhook,
+          webhookInfo,
+        }),
+      );
+    },
+  );
 
   app.delete('/channels/:id', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
     const ws = req.workspaceId!;
