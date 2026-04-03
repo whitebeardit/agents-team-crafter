@@ -19,7 +19,7 @@ import { ArrowLeft, Images, Info, MessageSquareCode, Save, Plus, Radio, Database
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { TeamDebugConsole } from "@/components/teams/team-debug-console"
-import type { Agent, Channel, Team, TeamGraphLiveAgentState } from "@/lib/types"
+import type { Agent, Channel, Team, TeamDebugLiveMirrorLine, TeamGraphLiveAgentState } from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import {
@@ -44,6 +44,20 @@ import {
 } from "@/components/ui/sheet"
 import { GraphLegendInline, GraphLegendPopover } from "@/components/graph/graph-legend"
 
+function inboundChannelLabel(channel: string): string {
+  const m: Record<string, string> = {
+    telegram: "Telegram",
+    slack: "Slack",
+    discord: "Discord",
+    teams: "Teams",
+    gchat: "Google Chat",
+    github: "GitHub",
+    linear: "Linear",
+    whatsapp: "WhatsApp",
+  }
+  return m[channel] ?? channel
+}
+
 export default function GraphEditorPage({
   params: _params,
 }: {
@@ -61,6 +75,8 @@ export default function GraphEditorPage({
   const [liveMode, setLiveMode] = useState(false)
   const [liveSheetOpen, setLiveSheetOpen] = useState(false)
   const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentState>>({})
+  const [liveMirrorLines, setLiveMirrorLines] = useState<TeamDebugLiveMirrorLine[]>([])
+  const [liveMirrorStreamText, setLiveMirrorStreamText] = useState("")
 
   const removeResolveRef = useRef<((value: boolean) => void) | null>(null)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
@@ -81,7 +97,14 @@ export default function GraphEditorPage({
     else setLiveSheetOpen(false)
   }, [liveMode])
 
-  /** Grafo: GET /teams/:id/live (inbound + runs manuais via bus). */
+  useEffect(() => {
+    if (!liveMode) {
+      setLiveMirrorLines([])
+      setLiveMirrorStreamText("")
+    }
+  }, [liveMode])
+
+  /** Grafo + espelho consola: GET /teams/:id/live (inbound + runs manuais via bus). */
   useEffect(() => {
     if (!liveMode || !api) return
     const ac = new AbortController()
@@ -89,6 +112,21 @@ export default function GraphEditorPage({
       .streamTeamLive(
         id,
         {
+          onInboundUserMessage: (d) => {
+            setLiveMirrorStreamText("")
+            setLiveMirrorLines((prev) => [
+              ...prev,
+              {
+                role: "user",
+                content: d.text,
+                sourceLabel: inboundChannelLabel(d.channel),
+              },
+            ])
+          },
+          onCoordinatorDelta: (payload) => {
+            if (payload.source !== "inbound") return
+            setLiveMirrorStreamText((prev) => prev + payload.text)
+          },
           onAgentStatus: (e) => {
             setLiveAgentState((prev) => ({
               ...prev,
@@ -99,7 +137,21 @@ export default function GraphEditorPage({
               },
             }))
           },
-          onRunComplete: () => {
+          onRunComplete: (data) => {
+            if (data.source === "inbound") {
+              const er = data.externalResponse
+              const text = er?.text?.trim() || "(sem texto)"
+              setLiveMirrorStreamText("")
+              setLiveMirrorLines((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: text,
+                  sourceLabel: "Resposta (inbound)",
+                  format: er?.format,
+                },
+              ])
+            }
             window.setTimeout(() => setLiveAgentState({}), 3200)
           },
         },
@@ -499,6 +551,8 @@ export default function GraphEditorPage({
                 coordinatorLabel={agents.find((a) => a.id === team.coordinatorId)?.name}
                 useStreamRun
                 useHttpRun={false}
+                liveMirrorLines={liveMirrorLines}
+                liveMirrorStreamText={liveMirrorStreamText}
                 variant="compact"
                 hideHeader
                 className="flex min-h-0 flex-1"

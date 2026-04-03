@@ -458,20 +458,48 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     });
 
     const writeSse = (event: string, data: unknown) => {
-      if (!stream.writableEnded) {
-        stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      try {
+        if (!stream.writableEnded) {
+          stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        }
+      } catch {
+        try {
+          stream.destroy();
+        } catch {
+          /* ignore */
+        }
       }
     };
 
     const unsub = await d.teamLiveBroadcaster.subscribe(ws, teamId, (env) => {
-      if (env.event === 'agentStatus') writeSse('agentStatus', env.data);
-      else if (env.event === 'coordinatorDelta') writeSse('coordinatorDelta', env.data);
-      else if (env.event === 'runComplete') writeSse('runComplete', env.data);
-      else if (env.event === 'error') writeSse('error', env.data);
+      try {
+        if (env.event === 'agentStatus') writeSse('agentStatus', env.data);
+        else if (env.event === 'coordinatorDelta') {
+          const data =
+            typeof env.data === 'object' && env.data !== null
+              ? { ...(env.data as Record<string, unknown>), source: env.source }
+              : { source: env.source, payload: env.data };
+          writeSse('coordinatorDelta', data);
+        }
+        else if (env.event === 'runComplete') {
+          const data =
+            typeof env.data === 'object' && env.data !== null
+              ? { ...(env.data as Record<string, unknown>), source: env.source }
+              : { source: env.source, payload: env.data };
+          writeSse('runComplete', data);
+        } else if (env.event === 'error') writeSse('error', env.data);
+        else if (env.event === 'inboundUserMessage') writeSse('inboundUserMessage', env.data);
+      } catch {
+        /* never break webhook path */
+      }
     });
 
     const heartbeat = setInterval(() => {
-      if (!stream.writableEnded) stream.write(': ping\n\n');
+      try {
+        if (!stream.writableEnded) stream.write(': ping\n\n');
+      } catch {
+        /* ignore */
+      }
     }, 15000);
 
     const cleanup = () => {
@@ -528,7 +556,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
           },
           streamCoordinatorText: true,
           onCoordinatorTextDelta: (text) => {
-            const payload = { text, runId: streamRunId };
+            const payload = { text, runId: streamRunId, source: 'manual' as const };
             writeSse('coordinatorDelta', payload);
             if (streamRunId) {
               d.teamLiveBroadcaster.publish(ws, teamId, {

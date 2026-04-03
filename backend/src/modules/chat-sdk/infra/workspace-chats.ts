@@ -21,6 +21,7 @@ import { buildChatTeamInvocation } from '../../team-runtime/infra/registries/tri
 import { requireCoordinatorForChannelInstance } from '../application/resolve-inbound-coordinator.js';
 import { postCoordinatorExternalResponse } from './post-coordinator-external-response.js';
 import { startTelegramTypingLoop } from './telegram-typing-loop.js';
+import { createTelegramInboundStatusDebouncer } from './telegram-inbound-status-debouncer.js';
 
 function createStateAdapter(workspaceId: string, env: IEnv) {
   const logger = new ConsoleLogger('info', `[chat-sdk:${workspaceId}]`);
@@ -52,10 +53,38 @@ function bindInbound(
       agentChannelLabel,
     );
     const stopTyping = agentChannelLabel === 'telegram' ? startTelegramTypingLoop(thread) : undefined;
+    const telegramStatusDebouncer =
+      agentChannelLabel === 'telegram' ? createTelegramInboundStatusDebouncer(thread) : undefined;
+    let streamRunId: string | undefined;
     try {
+      d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+        source: 'inbound',
+        runId: randomUUID(),
+        event: 'inboundUserMessage',
+        data: {
+          channel: agentChannelLabel,
+          text,
+          teamId,
+          channelId: channelIdStr,
+          workspaceId,
+        },
+      });
       const result = await invokeTeam(d.coordinatorOrchestrator, invocation, {
         onProgress: (e) => {
+          streamRunId = e.runId;
           d.teamLiveBroadcaster.publishAgentStatus(workspaceId, teamId, 'inbound', e);
+          telegramStatusDebouncer?.notifyFromProgress(e);
+        },
+        streamCoordinatorText: true,
+        onCoordinatorTextDelta: (deltaText) => {
+          if (!streamRunId) return;
+          const payload = { text: deltaText, runId: streamRunId };
+          d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+            source: 'inbound',
+            runId: streamRunId,
+            event: 'coordinatorDelta',
+            data: payload,
+          });
         },
       });
       d.teamLiveBroadcaster.publish(workspaceId, teamId, {
@@ -84,6 +113,7 @@ function bindInbound(
       });
       throw err;
     } finally {
+      telegramStatusDebouncer?.dispose();
       stopTyping?.();
     }
   };

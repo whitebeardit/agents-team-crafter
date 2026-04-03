@@ -1,4 +1,10 @@
-import type { TeamRunProgressEvent, TeamRunRequest, TeamRunResponse } from "@/lib/types"
+import type {
+  TeamCoordinatorDeltaPayload,
+  TeamLiveInboundUserMessage,
+  TeamRunProgressEvent,
+  TeamRunRequest,
+  TeamRunResponse,
+} from "@/lib/types"
 
 export interface ISuccessEnvelope<T> {
   success: true
@@ -121,9 +127,14 @@ async function consumeSseResponse(
 
 export interface ITeamRunStreamHandlers {
   onAgentStatus?: (e: TeamRunProgressEvent) => void
-  onCoordinatorDelta?: (text: string) => void
+  onCoordinatorDelta?: (payload: TeamCoordinatorDeltaPayload) => void
   onRunComplete?: (data: TeamRunResponse) => void
   onError?: (e: { code?: string; message: string; status?: number }) => void
+}
+
+/** Handlers para `GET /teams/:id/live` (inclui espelho inbound). */
+export interface ITeamLiveStreamHandlers extends ITeamRunStreamHandlers {
+  onInboundUserMessage?: (data: TeamLiveInboundUserMessage) => void
 }
 
 export interface ITeamPlanExecuteStreamHandlers<T> {
@@ -265,8 +276,8 @@ export function createApiClient(deps: {
         const data = JSON.parse(dataJson) as unknown
         if (eventName === "agentStatus") handlers.onAgentStatus?.(data as TeamRunProgressEvent)
         else if (eventName === "coordinatorDelta") {
-          const d = data as { text?: string }
-          if (d.text) handlers.onCoordinatorDelta?.(d.text)
+          const d = data as TeamCoordinatorDeltaPayload
+          if (d.text) handlers.onCoordinatorDelta?.(d)
         } else if (eventName === "runComplete") {
           handlers.onRunComplete?.(data as TeamRunResponse)
         } else if (eventName === "error") {
@@ -284,7 +295,7 @@ export function createApiClient(deps: {
   }
 
   /** GET SSE: mesmo formato que `streamTeamRun` (inbound Chat SDK + runs manuais publicados no bus). */
-  async function streamTeamLive(teamId: string, handlers: ITeamRunStreamHandlers, signal?: AbortSignal) {
+  async function streamTeamLive(teamId: string, handlers: ITeamLiveStreamHandlers, signal?: AbortSignal) {
     const baseUrl = getBaseUrl()
     const path = `/teams/${teamId}/live`
 
@@ -329,8 +340,8 @@ export function createApiClient(deps: {
         const data = JSON.parse(dataJson) as unknown
         if (eventName === "agentStatus") handlers.onAgentStatus?.(data as TeamRunProgressEvent)
         else if (eventName === "coordinatorDelta") {
-          const d = data as { text?: string }
-          if (d.text) handlers.onCoordinatorDelta?.(d.text)
+          const d = data as TeamCoordinatorDeltaPayload
+          if (d.text) handlers.onCoordinatorDelta?.(d)
         } else if (eventName === "runComplete") {
           handlers.onRunComplete?.(data as TeamRunResponse)
         } else if (eventName === "error") {
@@ -340,6 +351,8 @@ export function createApiClient(deps: {
             message: d.message ?? "Erro no stream",
             status: d.status,
           })
+        } else if (eventName === "inboundUserMessage") {
+          handlers.onInboundUserMessage?.(data as TeamLiveInboundUserMessage)
         }
       } catch {
         /* chunk invalido */

@@ -13,6 +13,7 @@ import { ChevronDown, Loader2, MessageSquareCode, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ApiError, type createApiClient } from "@/lib/api/client"
 import type {
+  TeamDebugLiveMirrorLine,
   TeamGraphLiveAgentState,
   TeamRunExternalImageAttachment,
   TeamRunResponse,
@@ -37,6 +38,10 @@ export interface TeamDebugConsoleProps {
   variant?: "default" | "compact"
   /** Quando o título está no contentor pai (ex.: SheetHeader). */
   hideHeader?: boolean
+  /** Mensagens espelhadas do GET /teams/:id/live (ex.: Telegram inbound). */
+  liveMirrorLines?: TeamDebugLiveMirrorLine[]
+  /** Texto do coordenador em streaming (só inbound no espelho). */
+  liveMirrorStreamText?: string | null
 }
 
 type ChatLine = {
@@ -117,6 +122,8 @@ export function TeamDebugConsole({
   className,
   variant = "default",
   hideHeader = false,
+  liveMirrorLines = [],
+  liveMirrorStreamText = null,
 }: TeamDebugConsoleProps) {
   const compact = variant === "compact"
   const useHttpRun = useHttpRunProp ?? !useStreamRun
@@ -149,8 +156,8 @@ export function TeamDebugConsole({
               lastActivity: e.detail ?? e.phase,
             })
           },
-          onCoordinatorDelta: (text) => {
-            assistantBuffer += text
+          onCoordinatorDelta: (payload) => {
+            assistantBuffer += payload.text
             setLines((prev) => {
               const next = [...prev]
               const i = next.length - 1
@@ -274,7 +281,50 @@ export function TeamDebugConsole({
           hideHeader && compact && "pt-1",
         )}
       >
-        {lines.length === 0 ? (
+        {liveMirrorLines.length > 0 || (liveMirrorStreamText != null && liveMirrorStreamText.length > 0) ? (
+          <div className="space-y-2 mb-3 pb-3 border-b border-border">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Espelho live (inbound)</p>
+            {liveMirrorLines.map((line, idx) => (
+              <div
+                key={`mir-${idx}-${line.role}`}
+                className={cn(
+                  "text-sm rounded-lg px-3 py-2 max-w-[95%]",
+                  line.role === "user"
+                    ? "ml-auto bg-primary/10 text-foreground border border-dashed border-primary/30"
+                    : "mr-auto bg-muted/60 text-foreground border border-border",
+                )}
+              >
+                {line.sourceLabel ? (
+                  <p className="text-[10px] text-muted-foreground mb-1">{line.sourceLabel}</p>
+                ) : null}
+                {line.role === "user" ? (
+                  <p className="whitespace-pre-wrap break-words">{line.content}</p>
+                ) : (
+                  <AssistantMessageBody
+                    line={{
+                      role: "assistant",
+                      content: line.content,
+                      format: line.format,
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+            {liveMirrorStreamText != null && liveMirrorStreamText.length > 0 ? (
+              <div className="text-sm rounded-lg px-3 py-2 max-w-[95%] mr-auto bg-muted/40 text-foreground border border-dashed border-border">
+                <p className="text-[10px] text-muted-foreground mb-1">Coordenador (a gerar)</p>
+                <AssistantMessageBody
+                  line={{
+                    role: "assistant",
+                    content: liveMirrorStreamText,
+                    streaming: true,
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {lines.length === 0 && liveMirrorLines.length === 0 && !(liveMirrorStreamText != null && liveMirrorStreamText.length > 0) ? (
           <p className={cn("text-muted-foreground", compact ? "text-xs leading-snug" : "text-sm")}>
             Envie uma mensagem para testar o mesmo runtime que produção (OpenAI Agents SDK), sem Slack ou Discord.
           </p>

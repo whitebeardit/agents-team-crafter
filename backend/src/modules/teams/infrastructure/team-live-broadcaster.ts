@@ -4,7 +4,12 @@ import type { ITeamProgressEvent } from '../../team-runtime/domain/team-progress
 
 export type TTeamLiveSource = 'inbound' | 'manual';
 
-export type TTeamLiveEnvelopeEvent = 'agentStatus' | 'coordinatorDelta' | 'runComplete' | 'error';
+export type TTeamLiveEnvelopeEvent =
+  | 'agentStatus'
+  | 'coordinatorDelta'
+  | 'runComplete'
+  | 'error'
+  | 'inboundUserMessage';
 
 export interface ITeamLiveEnvelope {
   source: TTeamLiveSource;
@@ -47,7 +52,11 @@ export class TeamLiveBroadcaster {
         /* ignore publish errors */
       });
     } else {
-      this.memory.emit(ch, raw);
+      try {
+        this.memory.emit(ch, raw);
+      } catch {
+        /* Listener errors must not break inbound webhooks (sync EventEmitter). */
+      }
     }
   }
 
@@ -65,7 +74,11 @@ export class TeamLiveBroadcaster {
       const handler = (_channel: string, message: string) => {
         try {
           const parsed = JSON.parse(message) as ITeamLiveEnvelope;
-          onEnvelope(parsed);
+          try {
+            onEnvelope(parsed);
+          } catch {
+            /* Subscriber must not break publish path */
+          }
         } catch {
           /* ignore */
         }
@@ -82,7 +95,11 @@ export class TeamLiveBroadcaster {
     const listener = (raw: string) => {
       try {
         const parsed = JSON.parse(raw) as ITeamLiveEnvelope;
-        onEnvelope(parsed);
+        try {
+          onEnvelope(parsed);
+        } catch {
+          /* Subscriber must not break publish path */
+        }
       } catch {
         /* ignore */
       }

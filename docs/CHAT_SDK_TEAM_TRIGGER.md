@@ -230,9 +230,13 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 
 ### `GET /api/v1/teams/:id/live` (SSE, autenticado)
 
-- Mesmo formato de eventos que `POST /api/v1/teams/:id/run/stream`: `agentStatus`, `coordinatorDelta`, `runComplete`, `error`.
-- O backend publica progresso de **duas fontes** num bus por time: runs **manuais** (consola no grafo) e runs **inbound** (Chat SDK, ex.: Telegram).
-- O editor de grafo (`/teams/[id]/graph`, modo Live) subscreve este GET para pintar o grafo sem depender só do POST da consola.
+- Eventos alinhados a `POST /api/v1/teams/:id/run/stream`: `agentStatus`, `coordinatorDelta`, `runComplete`, `error`, e adicionalmente **`inboundUserMessage`** (início de um run vindo do Chat SDK, antes de `invokeTeam`).
+- Payload de `inboundUserMessage`: `channel` (ex.: `telegram`), `text`, `teamId`, `channelId`, `workspaceId`.
+- Em `coordinatorDelta` (GET live), o JSON inclui **`source`**: `inbound` ou `manual`, tal como em `runComplete`, para o frontend filtrar o espelho (ex.: acumular texto só para inbound).
+- Runs **inbound** publicam `coordinatorDelta` no bus (texto do coordenador em streaming), igual ao `POST .../run/stream` manual.
+- Em `runComplete`, o JSON inclui **`source`**: `inbound` (webhook Chat SDK) ou `manual` (consola / `POST .../run/stream`), para o frontend distinguir espelho vs. envio local.
+- O backend publica num bus por time; falhas ao escrever no SSE **não** devem propagar para o webhook (listeners e `publish` em memória isolados com `try/catch`).
+- O editor de grafo (`/teams/[id]/graph`, modo Live) subscreve este GET para o grafo e, na mesma ligação, alimenta o **espelho** no painel “Console em tempo real” (mensagem inbound + resposta quando `source === 'inbound'`).
 - Cada `agentStatus` inclui `runId` para correlacionar com `runComplete`.
 
 ### Telegram: indicador "a escrever"
@@ -240,10 +244,16 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 - Enquanto o coordenador e os especialistas processam, o adaptador Telegram renova `sendChatAction` com `action=typing` (via `startTyping` do `@chat-adapter/telegram`) até a resposta final ser enviada.
 - Aplica-se a **todos** os canais Telegram do workspace que usem o mesmo fluxo inbound.
 
+### Telegram: mensagens curtas de estado (debounce)
+
+- Durante a fase **`specialist`** com `status: busy`, o backend pode enviar **mensagens de texto** opcionais (`thread.post`) com um resumo da tarefa (truncado), no máximo **uma por intervalo** (~9s por defeito), para não spammar o chat. Erros do Telegram são ignorados (não abortam o run).
+- Complementa o indicador "a escrever"; não substitui a resposta final do coordenador.
+
 ### Limitações
 
 - Runs concorrentes no mesmo time podem sobrepor estados no grafo (chave por `agentId`); `runId` permite evoluir a UI para filas ou último run.
 - Sem `REDIS_URL`, o SSE live só vê eventos publicados **na mesma instância** do servidor que trata o webhook.
+- Com Live **desligado**, o espelho no console é limpo; mensagens inbound aparecem apenas no canal externo (ex.: Telegram). A consola continua a usar `POST .../run/stream` apenas para mensagens escritas localmente.
 
 ---
 
@@ -265,3 +275,4 @@ O runtime envia `channel` como prefixo na mensagem do usuário (`[channel=slack]
 - Cifragem: `backend/src/utils/secrets-crypto.test.ts`
 - Live broadcast: `backend/src/modules/teams/infrastructure/team-live-broadcaster.test.ts`
 - Telegram typing: `backend/src/modules/chat-sdk/infra/telegram-typing-loop.test.ts`
+- Telegram estado inbound (debounce): `backend/src/modules/chat-sdk/infra/telegram-inbound-status-debouncer.test.ts`

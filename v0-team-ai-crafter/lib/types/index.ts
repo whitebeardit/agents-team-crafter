@@ -85,6 +85,14 @@ export interface TeamGraphLiveAgentState {
   lastActivity: string
 }
 
+/** Payload SSE `coordinatorDelta` em `POST /teams/:id/run/stream` e `GET /teams/:id/live`. */
+export interface TeamCoordinatorDeltaPayload {
+  text: string
+  runId?: string
+  /** Presente no GET live (merge a partir do envelope); no POST stream manual também. */
+  source?: "inbound" | "manual"
+}
+
 /** Dados em `data` de `POST /api/v1/teams/:id/run` */
 export interface TeamRunResponse {
   runId: string
@@ -93,6 +101,26 @@ export interface TeamRunResponse {
   externalResponse: TeamRunExternalResponse
   specialistResults: TeamRunSpecialistResult[]
   events: TeamRunExecutionEvent[]
+  /** Presente em `GET /teams/:id/live` (`runComplete`) para distinguir inbound vs consola. */
+  source?: "inbound" | "manual"
+}
+
+/** Evento SSE `inboundUserMessage` em `GET /teams/:id/live` (Chat SDK inbound). */
+export interface TeamLiveInboundUserMessage {
+  channel: string
+  text: string
+  teamId: string
+  channelId: string
+  workspaceId: string
+}
+
+/** Linhas espelhadas no TeamDebugConsole a partir do live SSE. */
+export interface TeamDebugLiveMirrorLine {
+  role: "user" | "assistant"
+  content: string
+  /** ex.: Telegram, slack */
+  sourceLabel?: string
+  format?: TeamRunExternalResponse["format"]
 }
 
 /** @deprecated Use `TeamRunRequest` / `POST /teams/:id/run` */

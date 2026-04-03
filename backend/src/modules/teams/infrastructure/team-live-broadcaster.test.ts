@@ -37,4 +37,24 @@ describe('TeamLiveBroadcaster (memory)', () => {
     await new Promise((r) => setImmediate(r));
     expect(received).toHaveLength(0);
   });
+
+  it('publish does not throw when memory subscriber throws', async () => {
+    const b = new TeamLiveBroadcaster(undefined);
+    await b.subscribe('ws1', 'teamA', () => {
+      throw new Error('listener boom');
+    });
+    expect(() =>
+      b.publish('ws1', 'teamA', {
+        source: 'inbound',
+        runId: 'r1',
+        event: 'agentStatus',
+        data: {
+          runId: 'r1',
+          agentId: 'a1',
+          status: 'busy',
+          phase: 'coordinator',
+        },
+      }),
+    ).not.toThrow();
+  });
 });
