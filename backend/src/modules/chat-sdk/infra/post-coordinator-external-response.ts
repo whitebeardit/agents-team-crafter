@@ -1,10 +1,61 @@
+import { AdapterRateLimitError } from '@chat-adapter/shared';
 import type { Thread } from 'chat';
 import type { IExternalResponse } from '../../team-runtime/domain/external-response.js';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 25_000;
+const EMPTY_POST_FALLBACK = '(Sem texto na resposta.)';
 
 type TInboundPlatform = string;
+
+function isRateLimitError(err: unknown): err is AdapterRateLimitError {
+  return err instanceof AdapterRateLimitError;
+}
+
+async function sleepMs(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * One attempt to post; on 429, wait `retryAfter` (capped) and retry the same payload once.
+ */
+async function postThreadWith429Retry(thread: Thread, message: Parameters<Thread['post']>[0]): Promise<void> {
+  try {
+    await thread.post(message);
+  } catch (err) {
+    if (!isRateLimitError(err)) throw err;
+    const sec = typeof err.retryAfter === 'number' ? err.retryAfter : 1;
+    const ms = Math.min(Math.max(sec, 0) * 1000, 60_000);
+    await sleepMs(ms);
+    await thread.post(message);
+  }
+}
+
+function logTelegramPostContext(
+  phase: 'markdown_fallback' | 'empty_skip',
+  detail: {
+    textLength: number;
+    format?: string;
+    imageCount: number;
+    err?: unknown;
+  },
+): void {
+  const base = {
+    phase,
+    textLength: detail.textLength,
+    format: detail.format ?? 'plain',
+    imageCount: detail.imageCount,
+  };
+  if (detail.err !== undefined) {
+    console.warn('[postCoordinatorExternalResponse] telegram', {
+      ...base,
+      error: detail.err instanceof Error ? detail.err.message : String(detail.err),
+      errorName: detail.err instanceof Error ? detail.err.name : undefined,
+    });
+  } else {
+    console.warn('[postCoordinatorExternalResponse] telegram', base);
+  }
+}
 
 function filenameFromUrl(url: string): string {
   try {
@@ -51,12 +102,88 @@ export async function fetchHttpsImageAsFileUpload(
   if (buf.length === 0 || buf.length > MAX_IMAGE_BYTES) return null;
   const filename = filenameFromUrl(url);
   const mimeType = ct || guessMimeFromFilename(filename) || 'image/png';
-  return { data: buf, filename, mimeType };
+  return { data: buf, filename, mimeType: mimeType };
+}
+
+async function postTelegramTextOnly(
+  thread: Thread,
+  text: string,
+  format: IExternalResponse['format'],
+): Promise<void> {
+  const normalized = (text ?? '').trim();
+  const imageCount = 0;
+  if (!normalized) {
+    logTelegramPostContext('empty_skip', { textLength: 0, format, imageCount });
+    await postThreadWith429Retry(thread, EMPTY_POST_FALLBACK);
+    return;
+  }
+
+  if (format === 'markdown') {
+    try {
+      await postThreadWith429Retry(thread, { markdown: normalized });
+    } catch (err) {
+      logTelegramPostContext('markdown_fallback', {
+        textLength: normalized.length,
+        format: 'markdown',
+        imageCount,
+        err,
+      });
+      await postThreadWith429Retry(thread, normalized);
+    }
+    return;
+  }
+
+  await postThreadWith429Retry(thread, normalized);
+}
+
+async function postTelegramWithFirstImageFile(
+  thread: Thread,
+  body: string,
+  format: IExternalResponse['format'],
+  file: { data: Buffer; filename: string; mimeType: string },
+): Promise<void> {
+  const normalized = (body ?? '').trim();
+  const captionForMarkdown = normalized || '\u2060'; /* word joiner so caption is non-empty if needed */
+  const imageCount = 1;
+
+  if (format === 'markdown') {
+    try {
+      await postThreadWith429Retry(thread, {
+        markdown: captionForMarkdown,
+        files: [{ data: file.data, filename: file.filename, mimeType: file.mimeType }],
+      });
+    } catch (err) {
+      logTelegramPostContext('markdown_fallback', {
+        textLength: normalized.length,
+        format: 'markdown',
+        imageCount,
+        err,
+      });
+      await postThreadWith429Retry(thread, {
+        raw: normalized || EMPTY_POST_FALLBACK,
+        files: [{ data: file.data, filename: file.filename, mimeType: file.mimeType }],
+      });
+    }
+    return;
+  }
+
+  await postThreadWith429Retry(thread, {
+    raw: normalized || EMPTY_POST_FALLBACK,
+    files: [{ data: file.data, filename: file.filename, mimeType: file.mimeType }],
+  });
+}
+
+async function postTelegramImageOnly(thread: Thread, file: { data: Buffer; filename: string; mimeType: string }) {
+  await postThreadWith429Retry(thread, {
+    markdown: '\u2060',
+    files: [{ data: file.data, filename: file.filename, mimeType: file.mimeType }],
+  });
 }
 
 /**
  * Publishes coordinator output to a chat thread. For Telegram, image attachments are downloaded
  * and sent as file uploads (one per message). Other platforms receive markdown/plain text only.
+ * Telegram: legacy Markdown often fails on code-heavy replies; we fall back to plain text without parse_mode.
  */
 export async function postCoordinatorExternalResponse(
   thread: Thread,
@@ -68,11 +195,21 @@ export async function postCoordinatorExternalResponse(
     attachments?.filter((a) => a.type === 'image').map((a) => a.url.trim()).filter(Boolean) ?? [];
   const useFileUpload = inboundPlatform === 'telegram' && imageUrls.length > 0;
 
+  if (inboundPlatform === 'telegram' && !useFileUpload) {
+    await postTelegramTextOnly(thread, text, format);
+    return;
+  }
+
   if (!useFileUpload) {
+    const normalized = (text ?? '').trim();
+    if (!normalized) {
+      await thread.post(EMPTY_POST_FALLBACK);
+      return;
+    }
     if (format === 'markdown') {
-      await thread.post({ markdown: text });
+      await thread.post({ markdown: normalized });
     } else {
-      await thread.post(text);
+      await thread.post(normalized);
     }
     return;
   }
@@ -83,11 +220,33 @@ export async function postCoordinatorExternalResponse(
     if (file) files.push(file);
   }
 
+  if (inboundPlatform === 'telegram') {
+    if (files.length === 0) {
+      await postTelegramTextOnly(thread, text, format);
+      return;
+    }
+
+    const body = text ?? '';
+    const first = files[0]!;
+    await postTelegramWithFirstImageFile(thread, body, format, first);
+
+    for (let i = 1; i < files.length; i++) {
+      const f = files[i]!;
+      await postTelegramImageOnly(thread, f);
+    }
+    return;
+  }
+
   if (files.length === 0) {
+    const normalized = (text ?? '').trim();
+    if (!normalized) {
+      await thread.post(EMPTY_POST_FALLBACK);
+      return;
+    }
     if (format === 'markdown') {
-      await thread.post({ markdown: text });
+      await thread.post({ markdown: normalized });
     } else {
-      await thread.post(text);
+      await thread.post(normalized);
     }
     return;
   }

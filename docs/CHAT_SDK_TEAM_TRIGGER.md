@@ -249,6 +249,13 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 - Durante a fase **`specialist`** com `status: busy`, o backend pode enviar **mensagens de texto** opcionais (`thread.post`) com um resumo da tarefa (truncado), no máximo **uma por intervalo** (~9s por defeito), para não spammar o chat. Erros do Telegram são ignorados (não abortam o run).
 - Complementa o indicador "a escrever"; não substitui a resposta final do coordenador.
 
+### Telegram: resposta final (`postCoordinatorExternalResponse`)
+
+- O envio da resposta do coordenador ao chat usa o adaptador com `parse_mode` **Markdown (legacy)** quando o runtime marca `format: markdown`. Texto com muitos blocos de código, `**` ou caracteres especiais pode fazer a API do Telegram devolver erro de entidades; nesse caso o backend **tenta de novo** com texto **simples** (sem `parse_mode`), para a mensagem chegar ao utilizador.
+- Em **429** (rate limit), o código faz **uma** nova tentativa após o intervalo indicado pelo Telegram (`retry_after`, até um teto).
+- Texto vazio (após trim) envia um placeholder curto em vez de falhar com “mensagem vazia”.
+- Erros no fallback são registados em `console.warn` com contexto (`markdown_fallback`, `empty_skip`).
+
 ### Limitações
 
 - Runs concorrentes no mesmo time podem sobrepor estados no grafo (chave por `agentId`); `runId` permite evoluir a UI para filas ou último run.
@@ -276,3 +283,4 @@ O runtime envia `channel` como prefixo na mensagem do usuário (`[channel=slack]
 - Live broadcast: `backend/src/modules/teams/infrastructure/team-live-broadcaster.test.ts`
 - Telegram typing: `backend/src/modules/chat-sdk/infra/telegram-typing-loop.test.ts`
 - Telegram estado inbound (debounce): `backend/src/modules/chat-sdk/infra/telegram-inbound-status-debouncer.test.ts`
+- Resposta final inbound (Telegram fallback / 429): `backend/src/modules/chat-sdk/infra/post-coordinator-external-response.test.ts`
