@@ -17,7 +17,7 @@ import type { Channel } from "@/lib/types"
 import type { ChatSdkPlatform } from "@/lib/constants/chat-sdk-platforms"
 import { chatSdkPlatformLabels } from "@/lib/constants/chat-sdk-platforms"
 import { channelTypeLabels } from "@/lib/constants/channel-labels"
-import type { createApiClient } from "@/lib/api/client"
+import { ApiError, type createApiClient } from "@/lib/api/client"
 
 type ApiClient = ReturnType<typeof createApiClient>
 
@@ -38,6 +38,7 @@ export function ChannelConfigureDialog({
 }: ChannelConfigureDialogProps) {
   const [routingJson, setRoutingJson] = useState("{}")
   const [saving, setSaving] = useState(false)
+  const [registeringWebhook, setRegisteringWebhook] = useState(false)
 
   const platform = (channel?.platform ?? "") as ChatSdkPlatform | ""
   const isChatSdk = channel?.provider === "chat_sdk" && platform
@@ -134,6 +135,29 @@ export function ChannelConfigureDialog({
       appSecret: String(form.get("appSecret") ?? ""),
       verifyToken: String(form.get("verifyToken") ?? ""),
     })
+  }
+
+  const handleRegisterTelegramWebhook = async () => {
+    if (!channel || platform !== "telegram") return
+    setRegisteringWebhook(true)
+    try {
+      const res = await api.post<{
+        webhookUrl: string
+        setWebhook: { ok?: boolean; description?: string }
+        webhookInfo: { ok?: boolean; result?: { url?: string; pending_update_count?: number } }
+      }>(`/channels/${channel.id}/telegram/register-webhook`)
+      const info = res.data.webhookInfo?.result as { url?: string } | undefined
+      toast.success(
+        info?.url
+          ? `Webhook registado: ${info.url}`
+          : "Webhook registado no Telegram (setWebhook OK)",
+      )
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Falha ao registar webhook"
+      toast.error(msg)
+    } finally {
+      setRegisteringWebhook(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -279,6 +303,21 @@ export function ChannelConfigureDialog({
               <div className="space-y-1">
                 <Label htmlFor="secretToken">Secret token (opcional)</Label>
                 <Input id="secretToken" name="secretToken" type="password" autoComplete="off" />
+              </div>
+              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Guarde os segredos antes de registar o webhook. O URL enviado ao Telegram usa o{" "}
+                  <code className="text-xs">Host</code> deste pedido — em produção, aceda à app pelo domínio
+                  público (ou ajuste o proxy) para o Telegram receber HTTPS correto.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={registeringWebhook}
+                  onClick={() => void handleRegisterTelegramWebhook()}
+                >
+                  {registeringWebhook ? "A registar…" : "Registar webhook no Telegram"}
+                </Button>
               </div>
             </>
           )}

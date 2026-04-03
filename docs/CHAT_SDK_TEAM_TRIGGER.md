@@ -193,10 +193,18 @@ Remova `secret_token` do JSON se não usar `secretToken` nos segredos salvos.
 
 O backend usa o adapter em modo **webhook** (`createTelegramAdapter` com `mode: 'webhook'`).
 
+### API: registar webhook (admin)
+
+Com segredos Telegram já gravados (`PUT /channels/:id/secrets`), **owner/admin** pode chamar:
+
+`POST /api/v1/channels/:id/telegram/register-webhook` (JWT + `X-Workspace-Id`).
+
+O servidor monta a mesma `webhookUrl` que `GET /channels` (a partir de `Host` / `X-Forwarded-Proto` do pedido), chama `setWebhook` na API do Telegram e devolve `setWebhook` + `getWebhookInfo` no envelope de sucesso. Em falha do Telegram, resposta **502** com mensagem descritiva.
+
 ### Scripts auxiliares (backend)
 
 - Verificar times ativos, `channelIds` e conflitos no Mongo: `npm run verify:team-channels` (env: `MONGODB_URI`; opcional `WORKSPACE_ID` ou `WORKSPACE_NAME`, padrão `Workspace Alpha`).
-- Registrar webhook no Telegram: `npm run telegram:set-webhook` com `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_URL` (URL completa como em `GET /channels`), opcional `TELEGRAM_SECRET_TOKEN`.
+- Registrar webhook no Telegram (alternativa à API/UI): `npm run telegram:set-webhook` com `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_URL` (URL completa como em `GET /channels`), opcional `TELEGRAM_SECRET_TOKEN`.
 
 **GitHub:** configure o webhook do repositório em *Settings → Webhooks* com `POST https://<host>/api/v1/webhooks/chat/<workspaceId>/github/<channelId>` e o mesmo `webhookSecret` gravado em `PUT /channels/:id/secrets` (`platform: "github"`).
 
