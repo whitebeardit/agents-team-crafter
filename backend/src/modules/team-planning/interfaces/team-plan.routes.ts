@@ -54,8 +54,11 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, d: IAppDeps) 
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = executeSchema.parse(req.body ?? {});
-    const result = await service.executePlan(ws, id, body.operationId);
-    return reply.send(successEnvelope(result));
+    const { plan, responseMeta } = await service.executePlan(ws, id, body.operationId, {
+      actorUserId: req.user!.sub,
+      correlationId: req.requestId,
+    });
+    return reply.send(successEnvelope(plan, responseMeta));
   });
 
   /**
@@ -81,10 +84,12 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, d: IAppDeps) 
 
     void (async () => {
       try {
-        const result = await service.executePlan(ws, id, body.operationId, {
+        const { plan, responseMeta } = await service.executePlan(ws, id, body.operationId, {
           onPhase: (phase, detail) => writeSse('phase', { phase, detail }),
+          actorUserId: req.user!.sub,
+          correlationId: req.requestId,
         });
-        writeSse('complete', result);
+        writeSse('complete', { data: plan, meta: responseMeta });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';

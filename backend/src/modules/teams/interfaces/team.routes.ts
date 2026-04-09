@@ -420,6 +420,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
+    const startedAt = new Date();
     const invocation = buildManualTeamInvocation(
       ws,
       String(t['id']),
@@ -427,17 +428,47 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
       body,
       req.requestId,
     );
-    const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
-    return reply.send(
-      successEnvelope({
-        runId: result.runId,
-        teamId: result.teamId,
-        coordinatorAgentId: result.coordinatorAgentId,
-        externalResponse: result.externalResponse,
-        specialistResults: result.specialistResults,
-        events: result.events,
-      }),
-    );
+    try {
+      const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
+      await d.runRecorderService.recordCompleted({
+        workspaceId: ws,
+        teamId,
+        trigger: 'manual_http',
+        source: 'manual',
+        channel: body.channel,
+        correlationId: req.requestId,
+        startedAt,
+        result,
+      });
+      return reply.send(
+        successEnvelope({
+          runId: result.runId,
+          teamId: result.teamId,
+          coordinatorAgentId: result.coordinatorAgentId,
+          externalResponse: result.externalResponse,
+          specialistResults: result.specialistResults,
+          events: result.events,
+        }),
+      );
+    } catch (err) {
+      await d.runRecorderService.recordFailed({
+        workspaceId: ws,
+        teamId,
+        runId: randomUUID(),
+        coordinatorAgentId: String(t['coordinatorId']),
+        trigger: 'manual_http',
+        source: 'manual',
+        channel: body.channel,
+        correlationId: req.requestId,
+        startedAt,
+        error: {
+          code: err instanceof AppError ? err.code : 'INTERNAL_ERROR',
+          message: err instanceof Error ? err.message : String(err),
+          status: err instanceof AppError ? err.httpStatus : 500,
+        },
+      });
+      throw err;
+    }
   });
 
   /**
@@ -524,6 +555,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
+    const startedAt = new Date();
     const invocation = buildManualTeamInvocation(
       ws,
       String(t['id']),
@@ -577,6 +609,16 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
           events: result.events,
         };
         writeSse('runComplete', complete);
+        await d.runRecorderService.recordCompleted({
+          workspaceId: ws,
+          teamId,
+          trigger: 'manual_stream',
+          source: 'manual',
+          channel: body.channel,
+          correlationId: req.requestId,
+          startedAt,
+          result,
+        });
         d.teamLiveBroadcaster.publish(ws, teamId, {
           source: 'manual',
           runId: result.runId,
@@ -589,6 +631,18 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
         const status = err instanceof AppError ? err.httpStatus : 500;
         const errPayload = { code, message: errMsg, status };
         writeSse('error', errPayload);
+        await d.runRecorderService.recordFailed({
+          workspaceId: ws,
+          teamId,
+          runId: streamRunId ?? randomUUID(),
+          coordinatorAgentId: String(t['coordinatorId']),
+          trigger: 'manual_stream',
+          source: 'manual',
+          channel: body.channel,
+          correlationId: req.requestId,
+          startedAt,
+          error: errPayload,
+        });
         d.teamLiveBroadcaster.publish(ws, teamId, {
           source: 'manual',
           runId: streamRunId ?? randomUUID(),

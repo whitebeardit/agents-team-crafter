@@ -13,6 +13,7 @@ function toPublic(doc: TeamPlanDoc) {
     graph: doc.graph ?? { nodes: [], edges: [] },
     executionChecklist: doc.executionChecklist ?? [],
     plannerMeta: doc.plannerMeta ?? {},
+    reuseSummary: doc.reuseSummary ?? {},
     result: doc.result ?? null,
     lastOperationId: doc.lastOperationId,
     createdAt: doc.createdAt?.toISOString(),
@@ -32,6 +33,7 @@ export class TeamPlanRepository {
       graph: Record<string, unknown>;
       executionChecklist: string[];
       plannerMeta?: Record<string, unknown>;
+      reuseSummary?: Record<string, unknown>;
     },
   ) {
     const doc = await TeamPlanModel.create({

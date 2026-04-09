@@ -56,6 +56,7 @@ function bindInbound(
     const telegramStatusDebouncer =
       agentChannelLabel === 'telegram' ? createTelegramInboundStatusDebouncer(thread) : undefined;
     let streamRunId: string | undefined;
+    const startedAt = new Date();
     try {
       d.teamLiveBroadcaster.publish(workspaceId, teamId, {
         source: 'inbound',
@@ -100,11 +101,35 @@ function bindInbound(
           events: result.events,
         },
       });
+      await d.runRecorderService.recordCompleted({
+        workspaceId,
+        teamId,
+        trigger: 'channel_inbound',
+        source: 'inbound',
+        channel: agentChannelLabel,
+        correlationId:
+          typeof invocation.metadata?.correlationId === 'string' ? invocation.metadata.correlationId : undefined,
+        startedAt,
+        result,
+      });
       return result.externalResponse;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
       const status = err instanceof AppError ? err.httpStatus : 500;
+      await d.runRecorderService.recordFailed({
+        workspaceId,
+        teamId,
+        runId: streamRunId ?? randomUUID(),
+        coordinatorAgentId: coordinatorId,
+        trigger: 'channel_inbound',
+        source: 'inbound',
+        channel: agentChannelLabel,
+        correlationId:
+          typeof invocation.metadata?.correlationId === 'string' ? invocation.metadata.correlationId : undefined,
+        startedAt,
+        error: { code, message, status },
+      });
       d.teamLiveBroadcaster.publish(workspaceId, teamId, {
         source: 'inbound',
         runId: randomUUID(),

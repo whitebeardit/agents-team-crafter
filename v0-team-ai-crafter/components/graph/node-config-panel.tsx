@@ -2,11 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { FieldGroup, Field, FieldLabel } from "@/components/ui/field"
 import { X, Crown, Radio, Database, Trash2 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import type { Node } from "@xyflow/react"
@@ -14,7 +11,6 @@ import type { Node } from "@xyflow/react"
 interface NodeConfigPanelProps {
   node: Node | null
   onClose: () => void
-  onUpdate: (id: string, data: Record<string, unknown>) => void
   onDelete: (id: string) => void | Promise<void>
   deleteBusy?: boolean
 }
@@ -36,21 +32,13 @@ const nodeLabels = {
 export function NodeConfigPanel({
   node,
   onClose,
-  onUpdate,
   onDelete,
   deleteBusy = false,
 }: NodeConfigPanelProps) {
   if (!node) return null
 
   const Icon = nodeIcons[node.type as keyof typeof nodeIcons] || AgentWhitebeardIcon
-
-  const handleLabelChange = (label: string) => {
-    onUpdate(node.id, { ...(node.data as Record<string, unknown>), label })
-  }
-
-  const handleDescriptionChange = (description: string) => {
-    onUpdate(node.id, { ...(node.data as Record<string, unknown>), description })
-  }
+  const data = (node.data ?? {}) as Record<string, unknown>
 
   return (
     <Card className="w-80 border-border bg-card shadow-xl absolute right-4 top-4 z-10">
@@ -68,37 +56,31 @@ export function NodeConfigPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <FieldGroup>
-          <Field>
-            <FieldLabel>Nome</FieldLabel>
-            <Input
-              value={(node.data as { label: string }).label || ""}
-              onChange={(e) => handleLabelChange(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </Field>
-
+        <div className="space-y-3 rounded-md border border-border bg-secondary/30 p-3 text-sm">
+          <div>
+            <p className="text-xs text-muted-foreground">Nome</p>
+            <p className="font-medium">{String(data.label ?? "Sem nome")}</p>
+          </div>
           {(node.type === "coordinator" || node.type === "specialist") && (
-            <Field>
-              <FieldLabel>Descrição</FieldLabel>
-              <Textarea
-                value={(node.data as { description?: string }).description || ""}
-                onChange={(e) => handleDescriptionChange(e.target.value)}
-                className="bg-secondary border-border min-h-20"
-                placeholder="Descreva a função deste agente..."
-              />
-            </Field>
+            <div>
+              <p className="text-xs text-muted-foreground">Descrição</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                {String(data.description ?? "A composição estrutural do time é gerida fora do canvas.")}
+              </p>
+            </div>
           )}
-
           {node.type === "channel" && (
-            <Field>
-              <FieldLabel>Tipo de Canal</FieldLabel>
+            <div>
+              <p className="text-xs text-muted-foreground">Tipo de canal</p>
               <Badge variant="outline" className="mt-1">
-                {(node.data as { channelType?: string }).channelType || "N/A"}
+                {String(data.channelType ?? "N/A")}
               </Badge>
-            </Field>
+            </div>
           )}
-        </FieldGroup>
+          <p className="text-xs text-muted-foreground">
+            O canvas é estrutural: use a ficha do time e os wizards para adicionar ou redefinir composição.
+          </p>
+        </div>
 
         <Separator />
 

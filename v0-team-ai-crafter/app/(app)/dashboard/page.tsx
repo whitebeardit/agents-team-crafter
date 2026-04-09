@@ -14,10 +14,13 @@ import {
   TrendingUp,
   Clock,
   AlertCircle,
+  Gavel,
+  History,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
+import type { GovernanceOpsSummary } from "@/lib/types"
 
 type Metrics = {
   activeTeams: number
@@ -93,6 +96,8 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [recentTeams, setRecentTeams] = useState<RecentTeam[]>([])
   const [alerts, setAlerts] = useState<DashboardAlert[]>([])
+  const [govOps, setGovOps] = useState<GovernanceOpsSummary | null>(null)
+  const [govOpsLoaded, setGovOpsLoaded] = useState(false)
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -103,14 +108,17 @@ export default function DashboardPage() {
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const [m, rt, a] = await Promise.all([
+      const [m, rt, a, g] = await Promise.all([
         api.get<Metrics>("/dashboard/metrics"),
         api.get<RecentTeam[]>("/dashboard/recent-teams"),
         api.get<DashboardAlert[]>("/dashboard/alerts"),
+        api.get<GovernanceOpsSummary>("/governance/ops-summary").catch(() => null),
       ])
       setMetrics(m.data)
       setRecentTeams(rt.data.slice(0, 3))
       setAlerts(a.data)
+      setGovOps(g?.data ?? null)
+      setGovOpsLoaded(true)
     })()
   }, [token, refreshToken, currentWorkspace])
 
@@ -185,6 +193,77 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Governança (resumo) */}
+      <Card className="border-border bg-card border-primary/20">
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Gavel className="w-5 h-5 text-primary" />
+              Governança
+            </CardTitle>
+            <CardDescription>
+              Execuções, overlap e auditoria do workspace
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Link href="/runs">
+              <Button size="sm" variant="outline" className="gap-1">
+                <History className="w-4 h-4" />
+                Execuções
+              </Button>
+            </Link>
+            <Link href="/governance">
+              <Button size="sm" variant="secondary" className="gap-1">
+                Abrir painel
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!govOpsLoaded ? (
+            <p className="text-sm text-muted-foreground">Carregando resumo de governança…</p>
+          ) : govOps ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Runs com falha</p>
+                <p className="text-2xl font-semibold tabular-nums">{govOps.runsFailedTotal}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Runs com sucesso</p>
+                <p className="text-2xl font-semibold tabular-nums">{govOps.runsCompletedTotal}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Em execução</p>
+                <p className="text-2xl font-semibold tabular-nums">{govOps.runsRunningTotal}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Taxa falha (30d)</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {govOps.runsFailureRateLast30d == null
+                    ? "—"
+                    : `${(govOps.runsFailureRateLast30d * 100).toFixed(1)}%`}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Auditoria (30d)</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {govOps.governanceAuditEventsLast30d}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Reviews bloqueados (30d)</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {govOps.overlapReviewsBlockedLast30d}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Resumo de governança indisponível.</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions & Recent Teams */}
       <div className="grid gap-6 lg:grid-cols-3">

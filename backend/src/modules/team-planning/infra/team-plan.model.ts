@@ -10,6 +10,14 @@ const TeamPlanAgentSchema = new Schema(
     skills: [{ type: String }],
     category: { type: String, default: 'geral' },
     channels: [{ type: String }],
+    planningMode: {
+      type: String,
+      enum: ['existing', 'new', 'split_required', 'conflict'],
+      default: 'new',
+    },
+    existingAgentId: { type: String, default: null },
+    overlapScore: { type: Number, default: 0 },
+    overlapReason: { type: String, default: '' },
   },
   { _id: false },
 );
@@ -30,6 +38,7 @@ const TeamPlanSchema = new Schema(
     graph: { type: Schema.Types.Mixed, default: { nodes: [], edges: [] } },
     executionChecklist: [{ type: String }],
     plannerMeta: { type: Schema.Types.Mixed, default: {} },
+    reuseSummary: { type: Schema.Types.Mixed, default: {} },
     result: { type: Schema.Types.Mixed, default: null },
     lastOperationId: { type: String },
   },

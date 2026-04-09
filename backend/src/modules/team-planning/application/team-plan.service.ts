@@ -9,6 +9,8 @@ import type { IGraphNode } from '../../graphs/domain/graph-types.js';
 import type { TeamPlanRepository } from '../infra/team-plan.repository.js';
 import { fetchTeamPlanJsonCompletion, teamPlanModelFromEnv } from './team-plan-json-completion.js';
 import { TEAM_PLANNER_SYSTEM_PROMPT, buildTeamPlannerUserMessage } from './team-plan-planner-prompt.js';
+import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
+import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
 
@@ -40,6 +42,10 @@ const plannerOutputSchema = z.object({
         skills: z.array(z.string()).default([]),
         category: z.string().default('geral'),
         channels: z.array(z.enum(['whatsapp', 'slack', 'email', 'api'])).default([]),
+        planningMode: z.enum(['existing', 'new', 'split_required', 'conflict']).optional(),
+        existingAgentId: z.string().optional().nullable(),
+        overlapScore: z.number().optional(),
+        overlapReason: z.string().optional(),
       }),
     )
     .min(1),
@@ -158,6 +164,68 @@ export class TeamPlanService {
     return { nodes, edges };
   }
 
+  private async annotateAgentsWithReuse(workspaceId: string, agents: TPlannerOutput['agents']) {
+    const annotated: TPlannerOutput['agents'] = [];
+    const reuseRecommendations: string[] = [];
+    const conflicts: Array<{ agentName: string; existingAgentId?: string; reason: string }> = [];
+
+    for (const agent of agents) {
+      const review = await this.d.domainGuardService.review(workspaceId, {
+        name: agent.name,
+        description: agent.description,
+        role: agent.role,
+        category: agent.category,
+        skills: agent.skills,
+        goal: agent.objective,
+        responsibilities: agent.responsibilities,
+        domain: {
+          summary: agent.objective,
+          keywords: agent.skills,
+          inputDescription: agent.description,
+          outputDescription: agent.objective,
+          boundaries: agent.responsibilities,
+          exclusions: [],
+        },
+      } satisfies IAgentGovernanceDraft);
+      const top = review.matches[0];
+      const planningMode: 'existing' | 'new' | 'split_required' | 'conflict' =
+        review.decision === 'reuse_existing'
+          ? 'existing'
+          : review.decision === 'block'
+            ? 'conflict'
+            : review.decision === 'review'
+              ? 'split_required'
+              : 'new';
+      if (planningMode === 'existing' && top) {
+        reuseRecommendations.push(`Reutilizar "${top.agentName}" para o papel planejado de "${agent.name}".`);
+      }
+      if (planningMode === 'conflict') {
+        conflicts.push({
+          agentName: agent.name,
+          existingAgentId: top?.agentId,
+          reason: review.summary,
+        });
+      }
+      annotated.push({
+        ...agent,
+        planningMode,
+        existingAgentId: top?.agentId ?? null,
+        overlapScore: top?.score ?? 0,
+        overlapReason: top?.reason ?? review.summary,
+      });
+    }
+
+    return {
+      agents: annotated,
+      reuseSummary: {
+        reuseRecommendations,
+        conflicts,
+        existingAgentRefs: annotated.filter((agent) => agent.planningMode === 'existing').map((agent) => agent.existingAgentId),
+        proposedNewAgents: annotated.filter((agent) => agent.planningMode !== 'existing').map((agent) => agent.name),
+      },
+    };
+  }
+
   /** Extrai JSON do texto (markdown ou puro); null se nao houver objeto parseavel. */
   private extractJsonLoose(text: string): unknown | null {
     const content = text.trim();
@@ -248,16 +316,21 @@ export class TeamPlanService {
       }
     }
 
-    const graph = this.buildDefaultGraph(raw);
+    const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
+    const graph = this.buildDefaultGraph({ ...raw, agents: reuse.agents });
     const created = await this.repo.create(workspaceId, {
       problem: input.problem,
       context: input.context,
       status: 'ready',
       team: raw.team,
-      agents: raw.agents.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
+      agents: reuse.agents.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
       graph,
       executionChecklist: raw.executionChecklist,
-      plannerMeta: plannerMeta as unknown as Record<string, unknown>,
+      plannerMeta: {
+        ...(plannerMeta as unknown as Record<string, unknown>),
+        platformAssistant: 'team-crafter',
+      },
+      reuseSummary: reuse.reuseSummary,
     });
     return created;
   }
@@ -277,11 +350,13 @@ export class TeamPlanService {
       ...next,
       executionChecklist: current.executionChecklist ?? [],
     });
+    const reuse = await this.annotateAgentsWithReuse(workspaceId, parsed.agents);
     const updated = await this.repo.update(workspaceId, id, {
       team: parsed.team,
-      agents: parsed.agents.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
+      agents: reuse.agents.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
       graph: parsed.graph,
       status: 'ready',
+      reuseSummary: reuse.reuseSummary,
     });
     if (!updated) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
     return updated;
@@ -291,13 +366,20 @@ export class TeamPlanService {
     workspaceId: string,
     id: string,
     operationId?: string,
-    opts?: { onPhase?: (phase: 'creating_agents' | 'creating_team' | 'graph' | 'activate', detail?: string) => void },
-  ) {
+    opts?: {
+      onPhase?: (phase: 'creating_agents' | 'creating_team' | 'graph' | 'activate', detail?: string) => void;
+      actorUserId?: string;
+      correlationId?: string;
+    },
+  ): Promise<{
+    plan: NonNullable<Awaited<ReturnType<TeamPlanRepository['findById']>>>;
+    responseMeta: Record<string, unknown>;
+  }> {
     const onPhase = opts?.onPhase;
     const plan = await this.repo.findById(workspaceId, id);
     if (!plan) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
     if (operationId && plan.lastOperationId && plan.lastOperationId === operationId && plan.result) {
-      return plan;
+      return { plan, responseMeta: {} };
     }
     const parsed = plannerOutputSchema.parse({
       team: plan.team,
@@ -307,40 +389,86 @@ export class TeamPlanService {
     });
     const coordinator = parsed.agents.find((a) => a.role === 'coordinator');
     if (!coordinator) throw new AppError('VALIDATION_ERROR', 'Plano precisa de um coordenador', 400);
+
+    let responseMeta: Record<string, unknown> = {};
+    const conflictAgents = parsed.agents.filter((agent) => agent.planningMode === 'conflict');
+    if (conflictAgents.length > 0) {
+      const overlapMode = await getWorkspaceOverlapMode(this.d, workspaceId);
+      if (overlapMode === 'blocking') {
+        await this.d.governanceAuditRepo.append({
+          workspaceId,
+          userId: opts?.actorUserId,
+          correlationId: opts?.correlationId,
+          eventType: 'governance.team_plan_blocked',
+          payload: { teamPlanId: id, reason: 'overlap_conflict' },
+        });
+        throw new AppError('CONFLICT', 'Plano contem conflitos de reuso/overlap; ajuste antes de executar', 409);
+      }
+      await this.d.governanceAuditRepo.append({
+        workspaceId,
+        userId: opts?.actorUserId,
+        correlationId: opts?.correlationId,
+        eventType: 'governance.overlap_warning_allowed',
+        payload: { route: 'team_plan.execute', teamPlanId: id, reason: 'overlap_conflict' },
+      });
+      responseMeta.governanceWarning = {
+        decision: 'block',
+        conflicts: conflictAgents.map((a) => ({
+          agentName: a.name,
+          overlapScore: a.overlapScore,
+          overlapReason: a.overlapReason,
+        })),
+      };
+    }
+
     await this.repo.update(workspaceId, id, { status: 'executing', lastOperationId: operationId });
 
     try {
       onPhase?.('creating_agents', 'Criando coordenador e especialistas');
-      const createdAgents: Array<{ id: string; role: 'coordinator' | 'specialist'; name: string }> = [];
-      const createdCoordinator = await this.d.agentRepo.create(workspaceId, {
-        name: coordinator.name,
-        description: coordinator.description ?? '',
-        role: 'coordinator',
-        origin: 'company',
-        skills: coordinator.skills,
-        category: normalizeAgentCategory(coordinator.category),
-        channels: coordinator.channels ?? [],
-        status: 'active',
-        version: '1.0.0',
-        goal: coordinator.objective,
-        responsibilities: coordinator.responsibilities,
-      });
-      createdAgents.push({ id: String(createdCoordinator.id), role: 'coordinator', name: coordinator.name });
-      for (const specialist of parsed.agents.filter((a) => a.role === 'specialist')) {
+      const createdAgents: Array<{ id: string; role: 'coordinator' | 'specialist'; name: string; reused?: boolean }> = [];
+      let createdCoordinator:
+        | { id: string; role: 'coordinator' | 'specialist'; name: string; reused?: boolean }
+        | undefined;
+      for (const plannedAgent of parsed.agents) {
+        if (plannedAgent.planningMode === 'existing' && plannedAgent.existingAgentId) {
+          const existing = await this.d.agentRepo.findById(workspaceId, plannedAgent.existingAgentId);
+          if (!existing) {
+            throw new AppError('VALIDATION_ERROR', `Agente reutilizado nao encontrado: ${plannedAgent.existingAgentId}`, 400);
+          }
+          const reused = {
+            id: existing.id,
+            role: plannedAgent.role,
+            name: existing.name,
+            reused: true,
+          };
+          createdAgents.push(reused);
+          if (plannedAgent.role === 'coordinator') createdCoordinator = reused;
+          continue;
+        }
         const created = await this.d.agentRepo.create(workspaceId, {
-          name: specialist.name,
-          description: specialist.description ?? '',
-          role: 'specialist',
+          name: plannedAgent.name,
+          description: plannedAgent.description ?? '',
+          role: plannedAgent.role,
           origin: 'company',
-          skills: specialist.skills,
-          category: normalizeAgentCategory(specialist.category),
-          channels: [],
+          skills: plannedAgent.skills,
+          category: normalizeAgentCategory(plannedAgent.category),
+          channels: plannedAgent.role === 'coordinator' ? plannedAgent.channels ?? [] : [],
           status: 'active',
           version: '1.0.0',
-          goal: specialist.objective,
-          responsibilities: specialist.responsibilities,
+          goal: plannedAgent.objective,
+          responsibilities: plannedAgent.responsibilities,
         });
-        createdAgents.push({ id: String(created.id), role: 'specialist', name: specialist.name });
+        const createdRow = {
+          id: String(created.id),
+          role: plannedAgent.role,
+          name: plannedAgent.name,
+          reused: false,
+        };
+        createdAgents.push(createdRow);
+        if (plannedAgent.role === 'coordinator') createdCoordinator = createdRow;
+      }
+      if (!createdCoordinator) {
+        throw new AppError('VALIDATION_ERROR', 'Plano precisa resolver um coordenador valido', 400);
       }
 
       const specialistIds = createdAgents.filter((a) => a.role === 'specialist').map((a) => a.id);
@@ -411,7 +539,21 @@ export class TeamPlanService {
         lastOperationId: operationId,
       });
       if (!updated) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
-      return updated;
+      const reusedCount = createdAgents.filter((a) => a.reused).length;
+      const newCount = createdAgents.filter((a) => !a.reused).length;
+      await this.d.governanceAuditRepo.append({
+        workspaceId,
+        userId: opts?.actorUserId,
+        correlationId: opts?.correlationId,
+        eventType: 'governance.team_plan_execute',
+        payload: {
+          teamPlanId: id,
+          teamId: result.teamId,
+          reusedAgents: reusedCount,
+          newAgents: newCount,
+        },
+      });
+      return { plan: updated, responseMeta };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await this.repo.update(workspaceId, id, { status: 'failed', result: { error: message }, lastOperationId: operationId });

@@ -29,7 +29,7 @@ npm install
 npm run dev
 ```
 
-Requisitos gerais: MongoDB 6+; Redis opcional conforme documentação de cada pacote.
+Requisitos gerais: MongoDB 6+; **Redis opcional** no BFF (`REDIS_URL` em `backend/.env`) — usado pelo Chat SDK (estado de conversas) e, quando configurado, reforça rate limiting em rotas de governance (com fallback in-memory se Redis não estiver disponível). Ver `backend/.env.example` e [backend/README.md](./backend/README.md).
 
 ## Docker Compose (raiz do repositório)
 

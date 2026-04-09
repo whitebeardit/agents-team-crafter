@@ -16,6 +16,11 @@ import { registerAuditRoutes } from '../modules/audit/interfaces/audit.routes.js
 import { registerChatWebhookRoutes } from '../modules/chat-sdk/interfaces/chat-webhook.routes.js';
 import { registerToolDefinitionRoutes } from '../modules/tool-definitions/interfaces/tool-definition.routes.js';
 import { registerTeamPlanRoutes } from '../modules/team-planning/interfaces/team-plan.routes.js';
+import { registerAgentGovernanceRoutes } from '../modules/agent-governance/interfaces/agent-governance.routes.js';
+import { registerAgentPlanRoutes } from '../modules/agent-planning/interfaces/agent-plan.routes.js';
+import { registerRunRoutes } from '../modules/runs/interfaces/run.routes.js';
+import { registerPlatformAgentRoutes } from '../modules/platform-agents/interfaces/platform-agent.routes.js';
+import { registerGovernanceRoutes } from '../modules/governance/interfaces/governance.routes.js';
 
 export async function registerRoutes(app: FastifyInstance, env: IEnv, deps?: IAppDeps) {
   const d = deps ?? createDeps(env);
@@ -24,6 +29,7 @@ export async function registerRoutes(app: FastifyInstance, env: IEnv, deps?: IAp
       await registerAuthRoutes(r, d);
       await registerWorkspaceRoutes(r, d);
       await registerAgentRoutes(r, d);
+      await registerAgentGovernanceRoutes(r, d);
       await registerAgentMcpBindingRoutes(r, d);
       await registerMcpRoutes(r, d);
       await registerTeamRoutes(r, d);
@@ -34,7 +40,11 @@ export async function registerRoutes(app: FastifyInstance, env: IEnv, deps?: IAp
       await registerSettingsRoutes(r, d);
       await registerAuditRoutes(r, d);
       await registerToolDefinitionRoutes(r, d);
+      await registerAgentPlanRoutes(r, d);
       await registerTeamPlanRoutes(r, d);
+      await registerRunRoutes(r, d);
+      await registerPlatformAgentRoutes(r, d);
+      await registerGovernanceRoutes(r, d);
       await registerChatWebhookRoutes(r, env, d);
     },
     { prefix: '/api/v1' },

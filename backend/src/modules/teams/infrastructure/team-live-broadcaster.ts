@@ -24,20 +24,16 @@ function channelName(workspaceId: string, teamId: string): string {
 
 /**
  * Pub/sub for team run progress so GET /teams/:id/live can mirror POST /teams/:id/run/stream
- * (inbound Chat SDK + manual console). Uses Redis when REDIS_URL is set; otherwise in-process EventEmitter.
+ * (inbound Chat SDK + manual console). Uses the shared app Redis client when provided; otherwise in-process EventEmitter.
  */
 export class TeamLiveBroadcaster {
   private readonly publisher: Redis | null;
   private readonly memory: EventEmitter;
 
-  constructor(redisUrl: string | undefined) {
+  constructor(redis: Redis | null) {
     this.memory = new EventEmitter();
     this.memory.setMaxListeners(2000);
-    if (redisUrl?.trim()) {
-      this.publisher = new Redis(redisUrl, { maxRetriesPerRequest: 2 });
-    } else {
-      this.publisher = null;
-    }
+    this.publisher = redis;
   }
 
   channelKey(workspaceId: string, teamId: string): string {
@@ -149,6 +145,6 @@ export class TeamLiveBroadcaster {
   }
 }
 
-export function createTeamLiveBroadcaster(redisUrl: string | undefined): TeamLiveBroadcaster {
-  return new TeamLiveBroadcaster(redisUrl);
+export function createTeamLiveBroadcaster(redis: Redis | null): TeamLiveBroadcaster {
+  return new TeamLiveBroadcaster(redis);
 }

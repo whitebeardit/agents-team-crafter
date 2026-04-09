@@ -12,4 +12,5 @@ export interface ITeamRepository {
   delete(workspaceId: string, id: string): Promise<void>;
   duplicate(workspaceId: string, teamId: string, name: string): Promise<unknown | null>;
   findTeamsReferencingAgent(workspaceId: string, agentId: string): Promise<ITeamAgentRef[]>;
+  findNamesByIds(workspaceId: string, teamIds: string[]): Promise<Map<string, string>>;
 }

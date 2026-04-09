@@ -5,13 +5,17 @@ import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { paginationQuerySchema, paginationMeta } from '../../../shared/kernel/pagination.js';
 import {
+  agentDomainSchema,
   missionSchema,
   knowledgeSchema,
   toolsSchema,
   channelsCfgSchema,
   securitySchema,
+  qualityCriteriaSchema,
+  systemRoleSchema,
 } from '../application/agent-config.schemas.js';
 import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js';
+import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
 
 const listQuerySchema = paginationQuerySchema.merge(
   z.object({
@@ -30,6 +34,14 @@ const createAgentSchema = z.object({
   skills: z.array(z.string()).default([]),
   category: z.string().optional(),
   channels: z.array(z.enum(['whatsapp', 'slack', 'email', 'api'])).default([]),
+  goal: z.string().optional(),
+  responsibilities: z.array(z.string()).optional(),
+  domain: agentDomainSchema.optional(),
+  qualityCriteria: qualityCriteriaSchema,
+  reuseHints: z.array(z.string()).optional(),
+  platformManaged: z.boolean().optional(),
+  systemRole: systemRoleSchema,
+  allowConflictOverride: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -39,6 +51,14 @@ const updateAgentSchema = z.object({
   skills: z.array(z.string()).optional(),
   category: z.string().optional(),
   channels: z.array(z.enum(['whatsapp', 'slack', 'email', 'api'])).optional(),
+  goal: z.string().optional(),
+  responsibilities: z.array(z.string()).optional(),
+  domain: agentDomainSchema.optional(),
+  qualityCriteria: qualityCriteriaSchema,
+  reuseHints: z.array(z.string()).optional(),
+  platformManaged: z.boolean().optional(),
+  systemRole: systemRoleSchema,
+  allowConflictOverride: z.boolean().optional(),
 });
 
 function asRec(a: unknown): Record<string, unknown> {
@@ -104,18 +124,105 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
         400,
       );
     }
+    const governanceReview = await d.domainGuardService.review(ws, {
+      name: body.name,
+      description: body.description,
+      role: body.role,
+      category: body.category,
+      skills: body.skills,
+      goal: body.goal,
+      responsibilities: body.responsibilities,
+      domain: body.domain,
+      qualityCriteria: body.qualityCriteria,
+      reuseHints: body.reuseHints,
+      platformManaged: body.platformManaged,
+      systemRole: body.systemRole,
+    });
+    await d.agentOverlapReviewRepo.create(ws, {
+      draftAgent: governanceReview.draftAgent,
+      matches: governanceReview.matches,
+      decision: governanceReview.decision,
+      summary: governanceReview.summary,
+    });
+    await d.governanceAuditRepo.append({
+      workspaceId: ws,
+      userId: req.user!.sub,
+      correlationId: req.requestId,
+      eventType: 'governance.overlap_review',
+      payload: {
+        route: 'agent.create',
+        draftName: body.name,
+        role: body.role,
+        decision: governanceReview.decision,
+      },
+    });
+    const overlapMode = await getWorkspaceOverlapMode(d, ws);
+    const wouldBlockCreate =
+      body.role === 'specialist'
+      && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
+      && body.allowConflictOverride !== true;
+    if (wouldBlockCreate && overlapMode === 'blocking') {
+      await d.governanceAuditRepo.append({
+        workspaceId: ws,
+        userId: req.user!.sub,
+        correlationId: req.requestId,
+        eventType: 'governance.agent_blocked',
+        payload: { route: 'agent.create', decision: governanceReview.decision },
+      });
+      throw new AppError('CONFLICT', governanceReview.summary, 409, { review: governanceReview });
+    }
+    if (wouldBlockCreate && overlapMode === 'warning') {
+      await d.governanceAuditRepo.append({
+        workspaceId: ws,
+        userId: req.user!.sub,
+        correlationId: req.requestId,
+        eventType: 'governance.overlap_warning_allowed',
+        payload: { route: 'agent.create', decision: governanceReview.decision },
+      });
+    }
+    const normalizedCategory = normalizeAgentCategory(body.category ?? 'Geral');
     const created = await d.agentRepo.create(ws, {
       name: body.name,
       description: body.description ?? '',
       role: body.role,
       origin: 'company',
       skills: body.skills,
-      category: normalizeAgentCategory(body.category ?? 'Geral'),
+      category: normalizedCategory,
       channels: body.channels,
       status: 'active',
       version: '1.0.0',
+      goal: body.goal,
+      responsibilities: body.responsibilities ?? [],
+      domain: body.domain,
+      qualityCriteria: body.qualityCriteria ?? [],
+      reuseHints: body.reuseHints ?? [],
+      platformManaged: body.platformManaged ?? false,
+      systemRole: body.systemRole ?? null,
     });
-    return reply.code(201).send(successEnvelope(created));
+    const overrideOnCreate =
+      body.role === 'specialist'
+      && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
+      && body.allowConflictOverride === true;
+    if (overrideOnCreate) {
+      await d.governanceAuditRepo.append({
+        workspaceId: ws,
+        userId: req.user!.sub,
+        correlationId: req.requestId,
+        eventType: 'governance.override_applied',
+        payload: { route: 'agent.create', decision: governanceReview.decision },
+      });
+    }
+    const createMeta: Record<string, unknown> =
+      wouldBlockCreate && overlapMode === 'warning'
+        ? {
+            governanceWarning: {
+              decision: governanceReview.decision,
+              summary: governanceReview.summary,
+              matches: governanceReview.matches,
+            },
+          }
+        : {};
+    return reply.code(201).send(successEnvelope(created, createMeta));
   });
 
   app.get('/agents/:id', { preHandler: tenant }, async (req, reply) => {
@@ -131,6 +238,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
     const cur = await loadAgent(d, ws, id);
     assertCompany(cur);
     const body = updateAgentSchema.parse(req.body);
+    const current = cur as Record<string, unknown>;
     if (body.channels !== undefined && cur['role'] !== 'coordinator') {
       assertCoordinatorForChannels(cur);
     }
@@ -138,8 +246,102 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
     if (patch.category !== undefined) {
       patch.category = normalizeAgentCategory(patch.category);
     }
+    const draftForReview = {
+      id,
+      name: patch.name ?? String(current['name'] ?? ''),
+      description: patch.description ?? String(current['description'] ?? ''),
+      role: String(current['role'] ?? 'specialist') as 'coordinator' | 'specialist',
+      category: patch.category ?? String(current['category'] ?? 'geral'),
+      skills: patch.skills ?? ((current['skills'] as string[]) ?? []),
+      goal: patch.goal ?? (current['goal'] as string | undefined),
+      responsibilities: patch.responsibilities ?? ((current['responsibilities'] as string[]) ?? []),
+      domain:
+        patch.domain
+        ?? ((current['domain'] as Record<string, unknown> | undefined) as {
+          summary?: string;
+          keywords?: string[];
+          inputDescription?: string;
+          outputDescription?: string;
+          boundaries?: string[];
+          exclusions?: string[];
+        }),
+      qualityCriteria: patch.qualityCriteria ?? ((current['qualityCriteria'] as string[]) ?? []),
+      reuseHints: patch.reuseHints ?? ((current['reuseHints'] as string[]) ?? []),
+      platformManaged: patch.platformManaged ?? Boolean(current['platformManaged']),
+      systemRole:
+        patch.systemRole
+        ?? ((current['systemRole'] as 'team-crafter' | 'agent-crafter' | 'domain-guard' | null | undefined) ?? null),
+    };
+    const governanceReview = await d.domainGuardService.review(ws, draftForReview);
+    await d.agentOverlapReviewRepo.create(ws, {
+      draftAgent: governanceReview.draftAgent,
+      matches: governanceReview.matches,
+      decision: governanceReview.decision,
+      summary: governanceReview.summary,
+    });
+    await d.governanceAuditRepo.append({
+      workspaceId: ws,
+      userId: req.user!.sub,
+      correlationId: req.requestId,
+      eventType: 'governance.overlap_review',
+      payload: {
+        route: 'agent.update',
+        agentId: id,
+        draftName: draftForReview.name,
+        role: draftForReview.role,
+        decision: governanceReview.decision,
+      },
+    });
+    const overlapModeUpdate = await getWorkspaceOverlapMode(d, ws);
+    const wouldBlockUpdate =
+      draftForReview.role === 'specialist'
+      && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
+      && body.allowConflictOverride !== true;
+    if (wouldBlockUpdate && overlapModeUpdate === 'blocking') {
+      await d.governanceAuditRepo.append({
+        workspaceId: ws,
+        userId: req.user!.sub,
+        correlationId: req.requestId,
+        eventType: 'governance.agent_blocked',
+        payload: { route: 'agent.update', agentId: id, decision: governanceReview.decision },
+      });
+      throw new AppError('CONFLICT', governanceReview.summary, 409, { review: governanceReview });
+    }
+    if (wouldBlockUpdate && overlapModeUpdate === 'warning') {
+      await d.governanceAuditRepo.append({
+        workspaceId: ws,
+        userId: req.user!.sub,
+        correlationId: req.requestId,
+        eventType: 'governance.overlap_warning_allowed',
+        payload: { route: 'agent.update', agentId: id, decision: governanceReview.decision },
+      });
+    }
+    delete patch.allowConflictOverride;
     const updated = await d.agentRepo.update(ws, id, patch);
-    return reply.send(successEnvelope(updated));
+    const overrideOnUpdate =
+      draftForReview.role === 'specialist'
+      && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
+      && body.allowConflictOverride === true;
+    if (overrideOnUpdate) {
+      await d.governanceAuditRepo.append({
+        workspaceId: ws,
+        userId: req.user!.sub,
+        correlationId: req.requestId,
+        eventType: 'governance.override_applied',
+        payload: { route: 'agent.update', agentId: id, decision: governanceReview.decision },
+      });
+    }
+    const updateMeta: Record<string, unknown> =
+      wouldBlockUpdate && overlapModeUpdate === 'warning'
+        ? {
+            governanceWarning: {
+              decision: governanceReview.decision,
+              summary: governanceReview.summary,
+              matches: governanceReview.matches,
+            },
+          }
+        : {};
+    return reply.send(successEnvelope(updated, updateMeta));
   });
 
   app.delete('/agents/:id', { preHandler: tenant }, async (req, reply) => {

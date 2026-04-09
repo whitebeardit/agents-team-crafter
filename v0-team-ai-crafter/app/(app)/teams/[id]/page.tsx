@@ -21,7 +21,7 @@ import {
   MessageSquareCode,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
-import type { Agent, Channel, ChannelType, Team } from "@/lib/types"
+import type { Agent, Channel, ChannelType, Team, TeamRunRecord } from "@/lib/types"
 import { channelTypeLabels, channelStatusLabels } from "@/lib/constants/channel-labels"
 import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
@@ -139,6 +139,7 @@ export default function TeamDetailsPage({
   const [channelsLoading, setChannelsLoading] = useState(false)
   const [channelDraftIds, setChannelDraftIds] = useState<string[]>([])
   const [savingChannelIds, setSavingChannelIds] = useState(false)
+  const [runs, setRuns] = useState<TeamRunRecord[]>([])
 
   const debugApi = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -161,6 +162,8 @@ export default function TeamDetailsPage({
     void (async () => {
       const res = await api.get<any>(`/teams/${id}`)
       setTeam(res.data)
+      const runsRes = await api.get<TeamRunRecord[]>(`/teams/${id}/runs`)
+      setRuns(runsRes.data)
     })()
   }, [token, refreshToken, currentWorkspace, id])
 
@@ -181,7 +184,7 @@ export default function TeamDetailsPage({
     if (!team) return
     setChannelDraftIds([...team.channelIds])
     // team.channelIds snapshot encoded in teamChannelIdsKey
-  }, [teamChannelIdsKey])
+  }, [team, teamChannelIdsKey])
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -350,6 +353,7 @@ export default function TeamDetailsPage({
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="agents">Agentes</TabsTrigger>
           <TabsTrigger value="channels">Canais</TabsTrigger>
+          <TabsTrigger value="runs">Execução</TabsTrigger>
           <TabsTrigger value="debug" className="gap-1.5">
             <MessageSquareCode className="w-3.5 h-3.5" />
             Console
@@ -527,6 +531,46 @@ export default function TeamDetailsPage({
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">Inicie sessão com um workspace para usar o console.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="runs" className="mt-6 space-y-6">
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <CardTitle className="text-lg">Runs persistidas</CardTitle>
+              <CardDescription>
+                Histórico operacional do time para inspeção rápida, replay manual e auditoria básica.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {runs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma run persistida ainda para este time.</p>
+              ) : (
+                runs.map((run) => (
+                  <div key={run.runId} className="rounded-lg border border-border bg-secondary/30 p-4 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{run.source}</Badge>
+                      <Badge variant={run.status === "completed" ? "secondary" : "outline"}>{run.status}</Badge>
+                      <Badge variant="outline">{run.channel || "debug"}</Badge>
+                    </div>
+                    <div className="text-sm">
+                      <p className="font-medium">{run.runId}</p>
+                      <p className="text-muted-foreground">
+                        Início: {format(new Date(run.startedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        {run.finishedAt
+                          ? ` · Fim: ${format(new Date(run.finishedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}`
+                          : ""}
+                      </p>
+                    </div>
+                    {run.externalResponse?.text ? (
+                      <p className="text-sm text-muted-foreground line-clamp-3">{run.externalResponse.text}</p>
+                    ) : run.error?.message ? (
+                      <p className="text-sm text-destructive">{run.error.message}</p>
+                    ) : null}
+                  </div>
+                ))
               )}
             </CardContent>
           </Card>

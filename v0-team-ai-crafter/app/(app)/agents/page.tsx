@@ -13,13 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, X } from "lucide-react"
+import { Search, Filter, X, Sparkles } from "lucide-react"
 import { AgentCard } from "@/components/agents/agent-card"
 import { AgentDetailsDrawer } from "@/components/agents/agent-details-drawer"
 import type { Agent, AgentOrigin, ChannelType } from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { getBlockingTeamsForAgent } from "@/lib/agents/agent-team-blockers"
-import { formatCategoryLabel, normalizeAgentCategory } from "@/lib/utils/agent-category"
+import { formatCategoryLabel } from "@/lib/utils/agent-category"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { toast } from "sonner"
 import {
@@ -31,8 +31,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -62,14 +60,6 @@ export default function AgentsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
   const [agentCategories, setAgentCategories] = useState<string[]>([])
-  const [createOpen, setCreateOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [newName, setNewName] = useState("")
-  const [newDescription, setNewDescription] = useState("")
-  const [newRole, setNewRole] = useState<"coordinator" | "specialist">("specialist")
-  const [newCategory, setNewCategory] = useState("Geral")
-  const [newChannels, setNewChannels] = useState<ChannelType[]>([])
-  const [newSkills, setNewSkills] = useState("")
   const [teams, setTeams] = useState<Team[]>([])
   const [addToTeamOpen, setAddToTeamOpen] = useState(false)
   const [agentToAdd, setAgentToAdd] = useState<Agent | null>(null)
@@ -180,16 +170,6 @@ export default function AgentsPage() {
     }
   }
 
-  const resetCreateForm = () => {
-    setCreateOpen(false)
-    setNewName("")
-    setNewDescription("")
-    setNewRole("specialist")
-    setNewCategory("Geral")
-    setNewChannels([])
-    setNewSkills("")
-  }
-
   const handleRequestDeleteAgent = (agent: Agent) => {
     setAgentToDelete(agent)
     setDeleteDialogOpen(true)
@@ -237,49 +217,21 @@ export default function AgentsPage() {
     }
   }
 
-  const handleCreateAgent = async () => {
-    if (!token || !currentWorkspace || !newName.trim()) return
-    const api = createApiClient({
-      getAuth: () => ({ token, refreshToken }),
-      setAuth: () => {},
-      clearAuth: () => {},
-      getWorkspaceId: () => currentWorkspace.id,
-    })
-    setCreating(true)
-    try {
-      const created = await api.post<Agent>("/agents", {
-        name: newName.trim(),
-        description: newDescription.trim(),
-        role: newRole,
-        category: normalizeAgentCategory(newCategory.trim() || "Geral"),
-        channels: newRole === "coordinator" ? newChannels : [],
-        skills: newSkills
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean),
-      })
-      toast.success("Agente criado com sucesso")
-      resetCreateForm()
-      setAgents((prev) => [created.data, ...prev])
-      setSelectedAgent(created.data)
-      setDrawerOpen(true)
-    } catch {
-      toast.error("Falha ao criar agente")
-    } finally {
-      setCreating(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div>
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-3xl font-bold text-foreground">Catálogo de Agentes</h1>
-          <Button onClick={() => setCreateOpen(true)}>Criar Agente</Button>
+          <Button asChild className="gap-2">
+            <Link href="/agents/create">
+              <Sparkles className="w-4 h-4" />
+              Wizard de Agente
+            </Link>
+          </Button>
         </div>
         <p className="text-muted-foreground mt-1">
-          Explore e adicione agentes aos seus times
+          Explore, reutilize e crie agentes com overlap guard no workspace
         </p>
       </div>
 
@@ -416,110 +368,6 @@ export default function AgentsPage() {
         onOpenChange={setDrawerOpen}
         onAddToTeam={handleAddToTeam}
       />
-
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Criar Agente</DialogTitle>
-            <DialogDescription>
-              Escolha <strong>Coordenador</strong> para quem orquestra o time e pode configurar canais;{" "}
-              <strong>Especialista</strong> para execução delegada (sem canais próprios).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-agent-name">Nome</Label>
-              <Input id="new-agent-name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-agent-description">Descricao</Label>
-              <Textarea
-                id="new-agent-description"
-                rows={3}
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Funcao</Label>
-                <Select
-                  value={newRole}
-                  onValueChange={(v) => {
-                    const r = v as "coordinator" | "specialist"
-                    setNewRole(r)
-                    if (r === "specialist") setNewChannels([])
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="coordinator">Coordenador</SelectItem>
-                    <SelectItem value="specialist">Especialista</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-agent-category">Categoria</Label>
-                <Input id="new-agent-category" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-agent-skills">Skills (separadas por virgula)</Label>
-              <Input id="new-agent-skills" value={newSkills} onChange={(e) => setNewSkills(e.target.value)} />
-            </div>
-            {newRole === "coordinator" ? (
-              <div className="space-y-2">
-                <Label>Canais (coordenador)</Label>
-                <p className="text-xs text-muted-foreground">
-                  Coordenadores podem ativar tipos de canal na ficha após criar; isto define a lista inicial.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Integrações{" "}
-                  <span className="font-medium text-foreground">Chat SDK</span> (Slack, Discord, Telegram, …): crie o
-                  canal em{" "}
-                  <Link href="/channels" className="text-primary underline-offset-4 hover:underline">
-                    Canais
-                  </Link>{" "}
-                  e associe-o ao time.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {channelOptions.map((channel) => (
-                    <label key={channel.value} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={newChannels.includes(channel.value as ChannelType)}
-                        onCheckedChange={(checked) => {
-                          const value = channel.value as ChannelType
-                          if (checked) {
-                            setNewChannels((prev) => [...prev, value])
-                            return
-                          }
-                          setNewChannels((prev) => prev.filter((item) => item !== value))
-                        }}
-                      />
-                      <span>{channel.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Especialistas não recebem canais na criação; o coordenador do time concentra a comunicação
-                externa.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={resetCreateForm}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateAgent} disabled={creating || !newName.trim()}>
-              {creating ? "Criando..." : "Criar agente"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog
         open={deleteDialogOpen}

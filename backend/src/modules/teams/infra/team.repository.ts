@@ -43,6 +43,23 @@ export class TeamRepository implements ITeamRepository {
     return doc ? toPublic(doc as TeamDoc) : null;
   }
 
+  /** Mapa teamId → nome para enriquecer métricas (ex.: SLO por time). */
+  async findNamesByIds(workspaceId: string, teamIds: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const unique = [...new Set(teamIds)].filter(Boolean);
+    if (unique.length === 0) return map;
+    const docs = await TeamModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      _id: { $in: unique.map((id) => new Types.ObjectId(id)) },
+    })
+      .select({ _id: 1, name: 1 })
+      .lean();
+    for (const d of docs) {
+      map.set(String(d._id), String(d.name));
+    }
+    return map;
+  }
+
   async create(workspaceId: string, data: Record<string, unknown>) {
     const payload: Record<string, unknown> = {
       workspaceId: new Types.ObjectId(workspaceId),

@@ -90,14 +90,22 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 ├── app/
 │   ├── (app)/                    # Rotas autenticadas
 │   │   ├── dashboard/            # Dashboard principal
-│   │   ├── agents/               # Catalogo de agentes
+│   │   ├── agents/               # Catalogo e criacao de agentes
+│   │   │   ├── create/           # Wizard criar agente
+│   │   │   └── [id]/             # Detalhe do agente
+│   │   ├── governance/           # Analytics e operacoes de governance
+│   │   ├── runs/                 # Historico de execucoes
+│   │   ├── tool-definitions/     # Definicoes de tools (admin)
 │   │   ├── teams/                # Listagem e gestao de times
 │   │   │   ├── [id]/             # Detalhes do time
-│   │   │   │   └── graph/        # Editor de grafo
-│   │   │   └── create/           # Wizard criar time
+│   │   │   │   ├── graph/        # Editor de grafo
+│   │   │   │   └── gallery/      # Galeria (time)
+│   │   │   ├── create/           # Wizard criar time
+│   │   │   └── ai-create/        # Criacao assistida por IA
 │   │   ├── templates/            # Templates de times
 │   │   ├── channels/             # Canais de comunicacao
 │   │   └── settings/             # Configuracoes
+│   ├── invite/[inviteId]/        # Aceitar convite de workspace
 │   ├── login/                    # Pagina de login
 │   ├── register/                 # Cadastro de usuario
 │   └── layout.tsx                # Layout raiz
@@ -111,6 +119,7 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 │   └── ui/                       # Componentes shadcn/ui
 ├── lib/
 │   ├── data/                     # Dados mockados
+│   ├── governance/               # Helpers (ex.: export de auditoria)
 │   ├── store/                    # Zustand stores
 │   ├── types/                    # Tipos TypeScript
 │   └── utils.ts                  # Utilitarios
@@ -124,12 +133,20 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 | `/` | Redirect para `/login` ou `/dashboard` |
 | `/login` | Pagina de autenticacao |
 | `/register` | Cadastro de novo usuario |
+| `/invite/[inviteId]` | Aceitar convite para workspace |
 | `/dashboard` | Dashboard principal com metricas |
 | `/agents` | Catalogo de agentes disponiveis |
+| `/agents/create` | Wizard de criacao de agente |
+| `/agents/[id]` | Detalhe de um agente |
+| `/governance` | Painel de governance (metricas, auditoria) |
+| `/runs` | Historico de execucoes de times |
+| `/tool-definitions` | Gestao de definicoes de tools (conforme permissao) |
 | `/teams` | Listagem de times |
 | `/teams/create` | Wizard de criacao de time (5 etapas) |
+| `/teams/ai-create` | Fluxo de criacao de time assistido por IA |
 | `/teams/[id]` | Detalhes do time |
 | `/teams/[id]/graph` | Editor visual de grafo do time |
+| `/teams/[id]/gallery` | Galeria associada ao time |
 | `/templates` | Galeria de templates |
 | `/channels` | Gestao de canais |
 | `/settings` | Configuracoes do workspace e perfil |
@@ -2595,9 +2612,19 @@ Regenera uma chave de API.
 
 ---
 
-### Rotas adicionais do BFF (audit, team-plans, tool-definitions)
+### Rotas adicionais do BFF (governance, runs, planos, audit, etc.)
 
-Todas exigem `Authorization`, `X-Workspace-Id` e envelope padrao. Detalhes de validacao: schemas Zod nos ficheiros indicados.
+Alem dos recursos documentados nas secoes anteriores, o BFF expoe modulos registados em [`routes.ts`](../backend/src/app/routes.ts), entre outros:
+
+| Area | Prefixo / ficheiro | Notas |
+|------|-------------------|--------|
+| **governance** | `/governance/*` — [`governance.routes.ts`](../backend/src/modules/governance/interfaces/governance.routes.ts) | Analytics, SLOs, eventos de auditoria (`GET /governance/audit-events` com rate limit; ver abaixo) |
+| **runs** | `/runs`, `/runs/:runId`, `/runs/:runId/events` — [`run.routes.ts`](../backend/src/modules/runs/interfaces/run.routes.ts) | Historico de execucoes de times |
+| **agent-plans** | `/agent-plans`, `/agent-plans/:id`, `POST .../execute` — [`agent-plan.routes.ts`](../backend/src/modules/agent-planning/interfaces/agent-plan.routes.ts) | Planos por agente |
+| **agent-governance** | `GET/POST /agent-overlap-reviews` — [`agent-governance.routes.ts`](../backend/src/modules/agent-governance/interfaces/agent-governance.routes.ts) | Revisao de sobreposicao de dominio entre agentes |
+| **platform-agents** | `GET /platform/agent-teams/catalog` — [`platform-agent.routes.ts`](../backend/src/modules/platform-agents/interfaces/platform-agent.routes.ts) | Catálogo de equipas de agentes de plataforma |
+
+As secoes seguintes detalham **audit**, **tool-definitions** e **team-plans**. Todas as rotas autenticadas tipicas exigem `Authorization`, `X-Workspace-Id` e envelope padrao. Detalhes de validacao: schemas Zod nos ficheiros indicados.
 
 #### GET /audit-logs
 
@@ -2698,17 +2725,18 @@ Tipos de **plano de time** (`TeamPlanDraft`, `TeamPlanAgentDraft`, …) e restan
 | `NOT_FOUND` | 404 | Recurso nao encontrado |
 | `VALIDATION_ERROR` | 400 | Erro de validacao nos dados |
 | `CONFLICT` | 409 | Conflito (ex: nome duplicado) |
+| `TOO_MANY_REQUESTS` | 429 | Limite de pedidos excedido (ex.: `GET /governance/audit-events`); corpo pode incluir `retryAfterSeconds` |
 | `INTERNAL_ERROR` | 500 | Erro interno do servidor |
 
-> O codigo `RATE_LIMIT` nao e emitido pelo BFF atual; limites podem ser aplicados no reverse proxy ou numa evolucao futura do servidor.
+> Limites adicionais podem ser aplicados no reverse proxy.
 
 ---
 
 ## Rate limiting e limites no BFF
 
-O **BFF Fastify** nao aplica hoje rate limiting HTTP por rota (sem contadores 5/100 req/min no codigo). Ha limite de **tamanho de upload** em avatar (`multipart`, 1 MB) em [`backend/src/app/app.ts`](../backend/src/app/app.ts).
+Nao ha rate limiting **global** aplicado a todas as rotas HTTP no [`app.ts`](../backend/src/app/app.ts). Existem limites **por rota** em **governance**: por exemplo `GET /governance/audit-events` usa janela fixa (Redis quando `REDIS_URL` esta configurado; fallback in-memory) — ver [`governance.routes.ts`](../backend/src/modules/governance/interfaces/governance.routes.ts). Ha limite de **tamanho de upload** em avatar (`multipart`, 1 MB) em [`backend/src/app/app.ts`](../backend/src/app/app.ts).
 
-Para producao, configure limites no **edge** (API gateway, CDN, Nginx, etc.) conforme a sua politica.
+Para producao, configure limites adicionais no **edge** (API gateway, CDN, Nginx, etc.) conforme a sua politica.
 
 ---
 

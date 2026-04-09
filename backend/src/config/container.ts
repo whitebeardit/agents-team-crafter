@@ -26,9 +26,16 @@ import {
 import { WorkspaceToolDefinitionRepository } from '../modules/tool-definitions/infra/workspace-tool-definition.repository.js';
 import { ChannelSecretsService } from '../modules/channels/application/channel-secrets.service.js';
 import { WorkspaceIntegrationsService } from '../modules/settings/application/workspace-integrations.service.js';
+import { AgentOverlapReviewRepository } from '../modules/agent-governance/infra/agent-overlap-review.repository.js';
+import { DomainGuardService } from '../modules/agent-governance/application/domain-guard.service.js';
+import { RunRepository } from '../modules/runs/infra/run.repository.js';
+import { RunRecorderService } from '../modules/runs/application/run-recorder.service.js';
+import { GovernanceAuditEventRepository } from '../modules/governance/infra/governance-audit-event.repository.js';
 import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
 import type { FastifyRequest } from 'fastify';
 import type { preHandlerHookHandler } from 'fastify';
+import { Redis } from 'ioredis';
+import { createRedisAppClient } from '../infrastructure/redis-app.js';
 
 export interface IAppDeps {
   env: IEnv;
@@ -55,10 +62,20 @@ export interface IAppDeps {
   workspaceIntegrationsService: WorkspaceIntegrationsService;
   auditLogRepo: AuditLogRepository;
   workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository;
+  agentOverlapReviewRepo: AgentOverlapReviewRepository;
+  domainGuardService: DomainGuardService;
+  runRepo: RunRepository;
+  runRecorderService: RunRecorderService;
+  governanceAuditRepo: GovernanceAuditEventRepository;
   agentRuntime: OpenAIAgentsRuntimeProvider;
   specialistRegistry: SpecialistRegistry;
   coordinatorOrchestrator: CoordinatorOrchestratorService;
   teamLiveBroadcaster: TeamLiveBroadcaster;
+  /**
+   * Cliente Redis opcional (único por processo): team live pub/sub + rate limit de governança.
+   * Criado em `createRedisAppClient` quando `REDIS_URL` está definido.
+   */
+  redis: Redis | null;
 }
 
 export function createDeps(env: IEnv): IAppDeps {
@@ -83,6 +100,11 @@ export function createDeps(env: IEnv): IAppDeps {
   const workspaceIntegrationsService = new WorkspaceIntegrationsService(env, workspaceRepo);
   const auditLogRepo = new AuditLogRepository();
   const workspaceToolDefinitionRepo = new WorkspaceToolDefinitionRepository();
+  const agentOverlapReviewRepo = new AgentOverlapReviewRepository();
+  const domainGuardService = new DomainGuardService(agentRepo);
+  const runRepo = new RunRepository();
+  const runRecorderService = new RunRecorderService(runRepo);
+  const governanceAuditRepo = new GovernanceAuditEventRepository();
   const agentRuntime = new OpenAIAgentsRuntimeProvider();
   const specialistRegistry = new SpecialistRegistry();
   const coordinatorOrchestrator = new CoordinatorOrchestratorService(
@@ -96,7 +118,8 @@ export function createDeps(env: IEnv): IAppDeps {
     knowledgeSourceRepo,
     workspaceToolDefinitionRepo,
   );
-  const teamLiveBroadcaster = createTeamLiveBroadcaster(env.REDIS_URL);
+  const redis = createRedisAppClient(env.REDIS_URL);
+  const teamLiveBroadcaster = createTeamLiveBroadcaster(redis);
   const authenticate = buildAuthenticate(env.JWT_SECRET, { platformAdminEmails });
   const requirePlatformAdmin = buildRequirePlatformAdmin();
   const requireTenant = buildRequireTenant(memberRepo);
@@ -125,10 +148,16 @@ export function createDeps(env: IEnv): IAppDeps {
     workspaceIntegrationsService,
     auditLogRepo,
     workspaceToolDefinitionRepo,
+    agentOverlapReviewRepo,
+    domainGuardService,
+    runRepo,
+    runRecorderService,
+    governanceAuditRepo,
     agentRuntime,
     specialistRegistry,
     coordinatorOrchestrator,
     teamLiveBroadcaster,
+    redis,
   };
 }
 

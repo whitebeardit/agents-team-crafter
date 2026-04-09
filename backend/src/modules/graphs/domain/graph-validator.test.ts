@@ -33,6 +33,25 @@ describe('graph-validator channel edges', () => {
     expect(r.errors.some((e) => e.code === 'CHANNEL_EDGE_INVALID')).toBe(true);
   });
 
+  it('rejects specialist to specialist persisted edge', () => {
+    const nodes: IGraphNode[] = [
+      { id: 'n-coord', type: 'coordinator', data: { agentId: 'coord1' } },
+      { id: 'n-spec', type: 'specialist', data: { agentId: 'spec1' } },
+      { id: 'n-spec-2', type: 'specialist', data: { agentId: 'spec2' } },
+      { id: 'n-ch', type: 'channel', data: { channelId: 'ch1' } },
+    ];
+    const r = validateTeamGraph(
+      nodes,
+      [{ id: 'e-spec-spec', source: 'n-spec', target: 'n-spec-2' }],
+      { agentIds: new Set(['coord1', 'spec1', 'spec2']), channelIds },
+      {
+        team: { coordinatorId: 'coord1', agentIds: ['spec1', 'spec2'], channelIds: ['ch1'] },
+      },
+    );
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => e.code === 'AGENT_EDGE_INVALID')).toBe(true);
+  });
+
   it('rejects edge between two channel nodes', () => {
     const nodes: IGraphNode[] = [
       { id: 'n-coord', type: 'coordinator', data: { agentId: 'coord1' } },

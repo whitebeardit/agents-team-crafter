@@ -19,6 +19,11 @@ function toPublic(doc: AgentDoc) {
     status: doc.status,
     goal: doc.goal,
     responsibilities: doc.responsibilities,
+    domain: doc.domain,
+    qualityCriteria: doc.qualityCriteria ?? [],
+    reuseHints: doc.reuseHints ?? [],
+    platformManaged: doc.platformManaged ?? false,
+    systemRole: doc.systemRole ?? null,
     systemInstruction: doc.systemInstruction,
     capabilities: doc.capabilities,
     knowledge: doc.knowledge,
@@ -78,7 +83,6 @@ export class AgentRepository implements IAgentRepository {
     });
     return doc ? toPublic(doc as AgentDoc) : null;
   }
-
 
   async create(workspaceId: string, data: Record<string, unknown>) {
     const doc = await AgentModel.create({
@@ -140,6 +144,16 @@ export class AgentRepository implements IAgentRepository {
       .select('_id')
       .lean();
     return new Set(docs.map((d) => String((d as { _id: unknown })._id)));
+  }
+
+  async listByWorkspace(workspaceId: string) {
+    const docs = await AgentModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      $and: [notDeleted()],
+    })
+      .sort({ updatedAt: -1 })
+      .exec();
+    return docs.map((doc) => toPublic(doc as AgentDoc));
   }
 
   async countByWorkspace(workspaceId: string) {

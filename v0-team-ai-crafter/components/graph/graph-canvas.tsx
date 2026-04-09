@@ -5,8 +5,6 @@ import {
   ReactFlow,
   useNodesState,
   useEdgesState,
-  addEdge,
-  type Connection,
   type Node,
   type Edge,
   type NodeTypes,
@@ -454,26 +452,6 @@ export function GraphCanvas({
     onGraphChange?.({ nodes, edges })
   }, [nodes, edges, onGraphChange])
 
-  const onConnect = useCallback(
-    (connection: Connection) => {
-      setEdges((eds) =>
-        addEdge(
-          {
-            ...connection,
-            animated: true,
-            style: { stroke: "var(--primary)", strokeWidth: EDGE_STROKE_WIDTH },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: "var(--primary)",
-            },
-          },
-          eds
-        )
-      )
-    },
-    [setEdges]
-  )
-
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setSelectedNode(node)
   }, [])
@@ -481,20 +459,6 @@ export function GraphCanvas({
   const onPaneClick = useCallback(() => {
     setSelectedNode(null)
   }, [])
-
-  const handleUpdateNode = useCallback(
-    (id: string, data: Record<string, unknown>) => {
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (node.id === id) {
-            return { ...node, data }
-          }
-          return node
-        })
-      )
-    },
-    [setNodes]
-  )
 
   const handleDeleteNode = useCallback(
     async (id: string) => {
@@ -536,11 +500,11 @@ export function GraphCanvas({
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes as NodeTypes}
           edgeTypes={graphEdgeTypes}
+          nodesConnectable={false}
           defaultEdgeOptions={{
             style: { stroke: "var(--foreground)", strokeWidth: EDGE_STROKE_WIDTH },
           }}
@@ -569,7 +533,6 @@ export function GraphCanvas({
         <NodeConfigPanel
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
-          onUpdate={handleUpdateNode}
           onDelete={handleDeleteNode}
           deleteBusy={removeInProgress}
         />

@@ -126,6 +126,11 @@ export function AgentDetailsDrawer({
                 >
                   {agent.status === "active" ? "Ativo" : agent.status === "draft" ? "Rascunho" : "Arquivado"}
                 </Badge>
+                {agent.platformManaged ? (
+                  <Badge variant="secondary" className="text-xs">
+                    Plataforma
+                  </Badge>
+                ) : null}
               </SheetDescription>
             </div>
           </div>
@@ -152,6 +157,25 @@ export function AgentDetailsDrawer({
               </div>
             </>
           )}
+
+          {agent.domain?.summary ? (
+            <>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium text-foreground mb-2">Domínio</h4>
+                <p className="text-sm text-muted-foreground">{agent.domain.summary}</p>
+                {(agent.domain.boundaries?.length ?? 0) > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {agent.domain?.boundaries?.map((boundary) => (
+                      <Badge key={boundary} variant="outline" className="text-xs">
+                        {boundary}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
 
           <Separator />
 

@@ -15,19 +15,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Images, Info, MessageSquareCode, Save, Plus, Radio, Database, RadioReceiver } from "lucide-react"
-import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
+import { ArrowLeft, Images, Info, MessageSquareCode, Save, RadioReceiver, Settings2 } from "lucide-react"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { TeamDebugConsole } from "@/components/teams/team-debug-console"
 import type { Agent, Channel, Team, TeamDebugLiveMirrorLine, TeamGraphLiveAgentState } from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import type { Edge, Node } from "@xyflow/react"
 import { stripDerivedGraphEdges } from "@/lib/graph-derived-edges"
@@ -406,28 +399,12 @@ export default function GraphEditorPage({
               Console
             </Button>
           ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Adicionar Nó
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                <AgentWhitebeardIcon className="w-4 h-4 mr-2" />
-                Agente Especialista
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Radio className="w-4 h-4 mr-2" />
-                Canal
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Database className="w-4 h-4 mr-2" />
-                Base de Conhecimento
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Link href={`/teams/${team.id}`}>
+            <Button variant="outline" className="gap-2">
+              <Settings2 className="w-4 h-4" />
+              Gerir composição
+            </Button>
+          </Link>
 
           <Button className="gap-2" onClick={handleSaveGraph} disabled={saving}>
             <Save className="w-4 h-4" />
@@ -506,7 +483,7 @@ export default function GraphEditorPage({
               nas duas pontas só no desenho — entrada e saída de mensagens passam pelo coordenador). O layout padrão
               empilha <strong>canais acima</strong>, coordenador no meio e especialistas abaixo. Ao gravar o grafo,
               arestas persistidas entre canal e agente devem ligar ao nó do coordenador. O backend rejeita layout
-              inválido ao salvar.
+              inválido ao salvar. A composição do roster é feita na ficha do time e nos wizards, não por “Adicionar nó”.
             </AlertDescription>
           </Alert>
         )}

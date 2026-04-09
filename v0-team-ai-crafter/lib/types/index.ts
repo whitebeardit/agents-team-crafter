@@ -3,6 +3,7 @@ export type AgentRole = "coordinator" | "specialist"
 export type AgentOrigin = "whitebeard" | "company"
 export type AgentStatus = "draft" | "active" | "archived"
 export type AccessLevel = "read" | "write" | "restricted"
+export type AgentSystemRole = "team-crafter" | "agent-crafter" | "domain-guard" | null
 
 export interface AgentCapabilities {
   tools: string[]
@@ -25,6 +26,15 @@ export interface AgentChannelConfig {
 export interface AgentSecurity {
   requiresApproval: boolean
   accessLevel: AccessLevel
+}
+
+export interface AgentDomainProfile {
+  summary?: string
+  keywords?: string[]
+  inputDescription?: string
+  outputDescription?: string
+  boundaries?: string[]
+  exclusions?: string[]
 }
 
 /** Body de `POST /api/v1/teams/:id/run` */
@@ -158,6 +168,11 @@ export interface Agent {
   // Extended fields
   goal?: string
   responsibilities?: string[]
+  domain?: AgentDomainProfile
+  qualityCriteria?: string[]
+  reuseHints?: string[]
+  platformManaged?: boolean
+  systemRole?: AgentSystemRole
   systemInstruction?: string
   
   capabilities?: AgentCapabilities
@@ -350,6 +365,10 @@ export interface TeamPlanAgentDraft {
   skills: string[]
   category: string
   channels: Array<Extract<ChannelType, "whatsapp" | "slack" | "email" | "api">>
+  planningMode?: "existing" | "new" | "split_required" | "conflict"
+  existingAgentId?: string | null
+  overlapScore?: number
+  overlapReason?: string
 }
 
 /** Metadados do planner (POST /team-plans); espelha backend `plannerMeta`. */
@@ -382,12 +401,223 @@ export interface TeamPlanDraft {
   graph: { nodes: GraphNode[]; edges: GraphEdge[] }
   executionChecklist: string[]
   plannerMeta?: TeamPlanPlannerMeta
+  reuseSummary?: {
+    reuseRecommendations?: string[]
+    conflicts?: Array<{ agentName: string; existingAgentId?: string; reason: string }>
+    existingAgentRefs?: Array<string | null>
+    proposedNewAgents?: string[]
+  }
   result?: {
     teamId: string
     coordinatorId: string
     specialistIds: string[]
     activatedAt: string
   } | null
+}
+
+export interface AgentOverlapMatch {
+  agentId: string
+  agentName: string
+  agentRole: AgentRole
+  score: number
+  classification: "safe" | "warning" | "conflict"
+  reason: string
+  recommendation: "safe_to_create" | "refine_scope" | "reuse_existing"
+}
+
+export interface AgentOverlapReview {
+  id?: string
+  workspaceId?: string
+  draftAgent: Partial<Agent> & { name: string; role: AgentRole }
+  matches: AgentOverlapMatch[]
+  decision: "allow" | "review" | "block" | "reuse_existing"
+  summary: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AgentPlanDraft {
+  id: string
+  status: "draft" | "ready" | "executing" | "executed" | "blocked" | "failed"
+  request: {
+    objective: string
+    context?: string
+    expectedOutcome?: string
+    role?: AgentRole
+    category?: string
+    skills?: string[]
+    boundaries?: string[]
+    exclusions?: string[]
+  }
+  draftAgent: Partial<Agent> & { name: string; role: AgentRole }
+  overlapReview?: AgentOverlapReview | null
+  decision: "create_new" | "reuse_existing" | "split_scope" | "blocked"
+  notes: string[]
+  result?: {
+    createdAgentId?: string | null
+    createdAgentName?: string | null
+    reusedAgentId?: string | null
+    reusedAgentName?: string | null
+  } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RunStepRecord {
+  id: string
+  runId: string
+  stepIndex: number
+  stepType: string
+  agentId?: string
+  toolName?: string
+  status: string
+  summary: string
+  startedAt?: string
+  finishedAt?: string
+}
+
+export interface TeamRunRecord {
+  id: string
+  runId: string
+  teamId: string
+  coordinatorAgentId: string
+  trigger: string
+  source: "manual" | "inbound" | "planner"
+  channel?: string
+  status: "running" | "completed" | "failed"
+  correlationId?: string
+  startedAt: string
+  finishedAt?: string
+  externalResponse?: TeamRunExternalResponse | null
+  error?: { code?: string; message?: string; status?: number } | null
+  steps?: RunStepRecord[]
+}
+
+export interface RunEventRecord {
+  id: string
+  runId: string
+  seq: number
+  type: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
+export type GovernanceOverlapMode = "blocking" | "warning"
+
+export interface GovernanceFeatureFlags {
+  overlapMode: GovernanceOverlapMode
+  agentWizardDefaultPath: boolean
+  /** Alertas de auditoria quando a taxa de sucesso fica abaixo do SLO (dedupe diário). */
+  sloAlertsEnabled: boolean
+  /** POST JSON opcional quando o SLO falha (mesmo instante do evento de auditoria). */
+  sloWebhookUrl?: string
+}
+
+export type GovernanceAuditEventType =
+  | "governance.overlap_review"
+  | "governance.agent_blocked"
+  | "governance.overlap_warning_allowed"
+  | "governance.override_applied"
+  | "governance.team_plan_execute"
+  | "governance.team_plan_blocked"
+  | "governance.agent_plan_execute"
+  | "governance.agent_plan_blocked"
+  | "governance.slo_breached"
+
+export interface GovernanceAuditEvent {
+  id: string
+  workspaceId?: string
+  userId?: string
+  correlationId?: string
+  eventType: GovernanceAuditEventType
+  payload: Record<string, unknown>
+  createdAt?: string
+}
+
+/** `meta` de `GET /governance/audit-events` (paginação). */
+export interface GovernanceAuditListMeta {
+  page: number
+  perPage: number
+  total: number
+  totalPages: number
+}
+
+export interface GovernanceOpsSummary {
+  runsFailedTotal: number
+  runsCompletedTotal: number
+  /** Runs com status `running` neste workspace. */
+  runsRunningTotal: number
+  /** Runs concluídos com `startedAt` nos últimos 30 dias. */
+  runsCompletedLast30d: number
+  /** Runs falhos com `startedAt` nos últimos 30 dias. */
+  runsFailedLast30d: number
+  /** Entre runs terminados (ok+falha) nos últimos 30 dias; `null` se não houver nenhum. */
+  runsFailureRateLast30d: number | null
+  overlapReviewsBlockedLast30d: number
+  /** Contagem de eventos de auditoria criados nos últimos 30 dias. */
+  governanceAuditEventsLast30d: number
+  recentGovernanceEvents: GovernanceAuditEvent[]
+}
+
+/** Série diária UTC de runs terminados (`GET /governance/runs-trend`). */
+export interface GovernanceRunsTrendPoint {
+  date: string
+  completed: number
+  failed: number
+}
+
+export interface GovernanceRunsTrend {
+  kind: "runs"
+  days: number
+  since: string
+  until: string
+  series: GovernanceRunsTrendPoint[]
+}
+
+/** Série diária UTC de eventos de auditoria (`GET /governance/audit-trend`). */
+export interface GovernanceAuditTrendPoint {
+  date: string
+  count: number
+}
+
+export interface GovernanceAuditTrend {
+  kind: "audit"
+  days: number
+  since: string
+  until: string
+  series: GovernanceAuditTrendPoint[]
+}
+
+/** Percentis de duração (startedAt → finishedAt) em runs terminados com `finishedAt`. */
+export interface GovernanceLatencyMsPercentiles {
+  p50Ms: number | null
+  p90Ms: number | null
+  p95Ms: number | null
+  p99Ms: number | null
+  sampleCount: number
+}
+
+/** SLO por time: taxa de sucesso entre runs terminados na janela rolante (`GET /governance/team-slos`). */
+export interface GovernanceTeamSloRow {
+  teamId: string
+  teamName: string
+  completed: number
+  failed: number
+  terminalRuns: number
+  successRate: number | null
+  meetsSlo: boolean | null
+  latencyMsPercentiles: GovernanceLatencyMsPercentiles | null
+}
+
+export interface GovernanceTeamSlos {
+  windowDays: number
+  sloTargetPercent: number
+  since: string
+  /** Agregado do workspace (todos os times na janela). */
+  workspaceLatencyMsPercentiles: GovernanceLatencyMsPercentiles | null
+  teams: GovernanceTeamSloRow[]
+  /** Quantos eventos `governance.slo_breached` foram criados neste pedido (dedupe evita repetição no mesmo dia). */
+  sloBreachesEmitted: number
 }
 
 /** Tools de catalogo com execucao real vêm de GET /settings/workspace/integrations → operationalCatalogTools */

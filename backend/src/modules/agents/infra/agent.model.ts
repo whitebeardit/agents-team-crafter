@@ -1,5 +1,17 @@
 import mongoose, { Schema } from 'mongoose';
 
+const AgentDomainSchema = new Schema(
+  {
+    summary: { type: String, default: '' },
+    keywords: [{ type: String }],
+    inputDescription: { type: String, default: '' },
+    outputDescription: { type: String, default: '' },
+    boundaries: [{ type: String }],
+    exclusions: [{ type: String }],
+  },
+  { _id: false },
+);
+
 const AgentSchema = new Schema(
   {
     workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
@@ -15,6 +27,11 @@ const AgentSchema = new Schema(
     status: { type: String, enum: ['draft', 'active', 'archived'], default: 'active' },
     goal: { type: String },
     responsibilities: [{ type: String }],
+    domain: { type: AgentDomainSchema, default: {} },
+    qualityCriteria: [{ type: String }],
+    reuseHints: [{ type: String }],
+    platformManaged: { type: Boolean, default: false },
+    systemRole: { type: String, enum: ['team-crafter', 'agent-crafter', 'domain-guard', null], default: null },
     systemInstruction: { type: String },
     capabilities: { type: Schema.Types.Mixed },
     knowledge: { type: Schema.Types.Mixed },

@@ -15,6 +15,19 @@ export const knowledgeSchema = z.object({
   fixedContext: z.string().optional(),
 });
 
+export const agentDomainSchema = z.object({
+  summary: z.string().optional(),
+  keywords: z.array(z.string()).optional(),
+  inputDescription: z.string().optional(),
+  outputDescription: z.string().optional(),
+  boundaries: z.array(z.string()).optional(),
+  exclusions: z.array(z.string()).optional(),
+});
+
+export const qualityCriteriaSchema = z.array(z.string()).optional();
+
+export const systemRoleSchema = z.enum(['team-crafter', 'agent-crafter', 'domain-guard']).nullable().optional();
+
 const mongoId = z.string().regex(/^[a-f0-9]{24}$/i, 'ObjectId invalido');
 
 export const toolsSchema = z.object({

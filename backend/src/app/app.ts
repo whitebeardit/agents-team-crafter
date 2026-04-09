@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import type { IEnv } from '../config/env.js';
 import { createDeps } from '../config/container.js';
+import { disconnectRedisAppClient } from '../infrastructure/redis-app.js';
 import loggerPlugin from './plugins/logger.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
 import observabilityPlugin from './plugins/observability.js';
@@ -35,6 +36,10 @@ export async function buildApp(env: IEnv) {
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
   await registerRoutes(app, env, deps);
+
+  app.addHook('onClose', async () => {
+    disconnectRedisAppClient(deps.redis);
+  });
 
   return app;
 }

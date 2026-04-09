@@ -44,6 +44,19 @@ export function validateTeamGraph(
     for (const e of userEdges) {
       const src = nodeById.get(e.source);
       const tgt = nodeById.get(e.target);
+      const srcIsAgent = src?.type === 'coordinator' || src?.type === 'specialist';
+      const tgtIsAgent = tgt?.type === 'coordinator' || tgt?.type === 'specialist';
+      if (srcIsAgent && tgtIsAgent) {
+        const srcIsCoordinator = src?.type === 'coordinator';
+        const tgtIsCoordinator = tgt?.type === 'coordinator';
+        if (!srcIsCoordinator && !tgtIsCoordinator) {
+          errors.push({
+            code: 'AGENT_EDGE_INVALID',
+            message:
+              'Arestas persistidas entre especialistas nao sao permitidas. O runtime real usa coordenador central e especialistas como tools.',
+          });
+        }
+      }
       const srcIsChannel = src?.type === 'channel';
       const tgtIsChannel = tgt?.type === 'channel';
       if (!srcIsChannel && !tgtIsChannel) continue;

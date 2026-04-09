@@ -12,6 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Gavel,
+  History,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { cn } from "@/lib/utils"
@@ -54,6 +56,16 @@ const navigation = [
     name: "Tools",
     href: "/tool-definitions",
     icon: Wrench,
+  },
+  {
+    name: "Governança",
+    href: "/governance",
+    icon: Gavel,
+  },
+  {
+    name: "Execuções",
+    href: "/runs",
+    icon: History,
   },
 ]
 
