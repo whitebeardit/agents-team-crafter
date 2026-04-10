@@ -27,6 +27,13 @@ const envSchema = z
      * Normalizados em minusculas; util para contas antigas ou JWT emitido antes do flag.
      */
     PLATFORM_ADMIN_EMAILS: z.string().optional(),
+    /**
+     * Quando `1`, ao executar `team-plans/:id/execute` cria/atualiza `WorkspaceToolDefinition` (internal_action)
+     * e associa `customToolDefinitionIds` aos agentes novos do plano a partir de `requiredTools` / `requiredPacks`.
+     * Default `0` (seguro).
+     */
+    /** Opcional nos testes; em `loadEnv` normaliza para `0`. */
+    TEAM_PLAN_AUTO_BIND_TOOLS: z.enum(['0', '1']).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== 'production') return;
@@ -75,6 +82,7 @@ export function loadEnv(): IEnv {
   const data = parsed.data;
   return {
     ...data,
+    TEAM_PLAN_AUTO_BIND_TOOLS: data.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0',
     platformAdminEmails: parsePlatformAdminEmails(data.PLATFORM_ADMIN_EMAILS),
   };
 }

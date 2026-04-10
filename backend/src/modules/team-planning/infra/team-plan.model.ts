@@ -37,6 +37,8 @@ const TeamPlanSchema = new Schema(
     agents: { type: [TeamPlanAgentSchema], default: [] },
     graph: { type: Schema.Types.Mixed, default: { nodes: [], edges: [] } },
     executionChecklist: [{ type: String }],
+    requiredPacks: [{ type: String }],
+    requiredTools: [{ type: String }],
     plannerMeta: { type: Schema.Types.Mixed, default: {} },
     reuseSummary: { type: Schema.Types.Mixed, default: {} },
     result: { type: Schema.Types.Mixed, default: null },

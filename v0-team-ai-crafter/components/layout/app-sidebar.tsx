@@ -14,6 +14,8 @@ import {
   Plus,
   Gavel,
   History,
+  CalendarDays,
+  Activity,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { cn } from "@/lib/utils"
@@ -53,6 +55,11 @@ const navigation = [
     icon: Radio,
   },
   {
+    name: "Agenda",
+    href: "/schedule",
+    icon: CalendarDays,
+  },
+  {
     name: "Tools",
     href: "/tool-definitions",
     icon: Wrench,
@@ -66,6 +73,11 @@ const navigation = [
     name: "Execuções",
     href: "/runs",
     icon: History,
+  },
+  {
+    name: "Observabilidade",
+    href: "/observability",
+    icon: Activity,
   },
 ]
 

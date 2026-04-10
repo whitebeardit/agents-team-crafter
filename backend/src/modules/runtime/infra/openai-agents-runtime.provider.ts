@@ -57,7 +57,9 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       meta,
     ) as Tool[];
     const mcpTools = buildMcpSdkTools(config.mcpToolSpecs, meta) as Tool[];
-    const customTools = buildWorkspaceCustomTools(config.customToolDefinitions ?? [], meta) as Tool[];
+    const customTools = buildWorkspaceCustomTools(config.customToolDefinitions ?? [], meta, {
+      businessToolRuntime: config.businessToolRuntime,
+    }) as Tool[];
     const sdkTools = [...catalogTools, ...mcpTools, ...customTools];
 
     const agent = new Agent({

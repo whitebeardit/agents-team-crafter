@@ -138,7 +138,10 @@ export interface ITeamLiveStreamHandlers extends ITeamRunStreamHandlers {
 }
 
 export interface ITeamPlanExecuteStreamHandlers<T> {
-  onPhase?: (e: { phase: "creating_agents" | "creating_team" | "graph" | "activate"; detail?: string }) => void
+  onPhase?: (e: {
+    phase: "creating_agents" | "binding_tools" | "creating_team" | "graph" | "activate"
+    detail?: string
+  }) => void
   onComplete?: (data: T) => void
   onError?: (e: { code?: string; message: string; status?: number }) => void
 }

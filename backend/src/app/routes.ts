@@ -21,6 +21,9 @@ import { registerAgentPlanRoutes } from '../modules/agent-planning/interfaces/ag
 import { registerRunRoutes } from '../modules/runs/interfaces/run.routes.js';
 import { registerPlatformAgentRoutes } from '../modules/platform-agents/interfaces/platform-agent.routes.js';
 import { registerGovernanceRoutes } from '../modules/governance/interfaces/governance.routes.js';
+import { registerSchedulingRoutes } from '../modules/scheduling/interfaces/scheduling.routes.js';
+import { registerPartyRoutes } from '../modules/crm/interfaces/party.routes.js';
+import { registerObservabilityRoutes } from '../modules/observability/interfaces/observability.routes.js';
 
 export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDeps?: IAppDeps) {
   const resolvedDeps = injectedDeps ?? createDeps(env);
@@ -45,6 +48,9 @@ export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDe
       await registerRunRoutes(r, resolvedDeps);
       await registerPlatformAgentRoutes(r, resolvedDeps);
       await registerGovernanceRoutes(r, resolvedDeps);
+      await registerSchedulingRoutes(r, resolvedDeps);
+      await registerPartyRoutes(r, resolvedDeps);
+      await registerObservabilityRoutes(r, resolvedDeps);
       await registerChatWebhookRoutes(r, env, resolvedDeps);
     },
     { prefix: '/api/v1' },

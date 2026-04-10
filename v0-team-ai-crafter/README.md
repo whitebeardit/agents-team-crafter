@@ -57,6 +57,22 @@ npm start
 
 No **backend** (BFF), com MongoDB no ar, rode `npm run seed` para criar dados de demo. Depois faça login no app com **admin@whitebeard.dev** / **Admin123!** (somente desenvolvimento).
 
+### Testes E2E (Playwright)
+
+- Instalar browser uma vez: `npm run test:e2e:install`
+- Com **BFF** (`:3001`) e **Next** (`:3000`) no ar, e o mesmo utilizador com workspace (ex.: seed acima):
+
+```bash
+E2E_API_URL=http://127.0.0.1:3001/api/v1 \
+E2E_USER_EMAIL=admin@whitebeard.dev \
+E2E_USER_PASSWORD='Admin123!' \
+E2E_BASE_URL=http://127.0.0.1:3000 \
+npm run test:e2e
+```
+
+- Sem `E2E_API_URL` / email / password, a suíte **marca os testes como skipped** (exit 0), para não bloquear CI ou o gate local.
+- O `global-setup` grava `e2e/.auth/storageState.json` (gitignored) com o estado Zustand (`teamagents-workspace`) após login na API.
+
 ## Variaveis de Ambiente
 
 O produto e **multi-tenant**: credenciais de clientes (OpenAI, SMTP, Slack, etc.) ficam no **workspace**, cifradas no MongoDB (`ENCRYPTION_MASTER_KEY` no BFF). Ver [docs/MULTI_TENANT.md](../docs/MULTI_TENANT.md).

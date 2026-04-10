@@ -5,15 +5,29 @@ import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { requireAdmin } from '../../../config/container.js';
 
-const createSchema = z.object({
+const toolDefinitionBody = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
-  kind: z.enum(['builtin_ref', 'http_webhook', 'mcp_ref']),
+  kind: z.enum(['builtin_ref', 'http_webhook', 'mcp_ref', 'internal_action']),
   jsonSchema: z.record(z.string(), z.unknown()).optional(),
   config: z.record(z.string(), z.unknown()).optional(),
 });
 
-const updateSchema = createSchema.partial();
+function refineInternalAction(data: { kind?: string; config?: Record<string, unknown> }, ctx: z.RefinementCtx) {
+  if (data.kind === 'internal_action') {
+    const actionId = data.config?.actionId;
+    if (typeof actionId !== 'string' || !actionId.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'internal_action requer config.actionId (string nao vazia)',
+      });
+    }
+  }
+}
+
+const createSchema = toolDefinitionBody.superRefine(refineInternalAction);
+
+const updateSchema = toolDefinitionBody.partial().superRefine(refineInternalAction);
 
 export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: IAppDeps) {
   const tenant = [deps.authenticate, deps.requireTenant];

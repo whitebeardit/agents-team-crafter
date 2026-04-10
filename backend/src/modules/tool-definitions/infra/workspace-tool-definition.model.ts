@@ -7,7 +7,7 @@ const WorkspaceToolDefinitionSchema = new Schema(
     slug: { type: String, required: true },
     kind: {
       type: String,
-      enum: ['builtin_ref', 'http_webhook', 'mcp_ref'],
+      enum: ['builtin_ref', 'http_webhook', 'mcp_ref', 'internal_action'],
       required: true,
     },
     jsonSchema: { type: Schema.Types.Mixed, default: {} },

@@ -12,6 +12,7 @@ import type {
   GovernanceOverlapMode,
   TeamPlanAgentDraft,
   TeamPlanDraft,
+  TeamPlanExecuteMeta,
 } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { createOperationId } from "@/lib/utils/operation-id"
+import { plannerPackLabelPt } from "@/lib/planner-pack-labels"
 import { ReactFlow, type Node, type Edge } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { nodeTypes as graphNodeTypes } from "@/components/graph/graph-node"
@@ -116,7 +118,9 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const [isExecuting, setIsExecuting] = useState(false)
   const [plan, setPlan] = useState<TeamPlanDraft | null>(null)
   const [operationId] = useState(() => createOperationId())
-  const [executionPhase, setExecutionPhase] = useState<null | "creating_agents" | "creating_team" | "graph" | "activate">(null)
+  const [executionPhase, setExecutionPhase] = useState<
+    null | "creating_agents" | "binding_tools" | "creating_team" | "graph" | "activate"
+  >(null)
   const [executionDetail, setExecutionDetail] = useState<string>("")
   const [openaiKeyConfiguredInWorkspace, setOpenaiKeyConfiguredInWorkspace] = useState<boolean | null>(null)
   const [overlapMode, setOverlapMode] = useState<GovernanceOverlapMode>("blocking")
@@ -207,11 +211,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             setExecutionDetail(e.detail ?? "")
           },
           onComplete: (payload) => {
-            const p = payload as { data?: TeamPlanDraft; meta?: Record<string, unknown> } | TeamPlanDraft
+            const p = payload as { data?: TeamPlanDraft; meta?: TeamPlanExecuteMeta } | TeamPlanDraft
             const data =
               p && typeof p === "object" && "data" in p && p.data ? p.data : (p as TeamPlanDraft)
             const meta =
-              p && typeof p === "object" && "meta" in p ? (p as { meta?: Record<string, unknown> }).meta : undefined
+              p && typeof p === "object" && "meta" in p ? (p as { meta?: TeamPlanExecuteMeta }).meta : undefined
             setPlan(data)
             const teamId = data.result?.teamId
             if (meta?.governanceWarning) {
@@ -220,6 +224,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
               )
             } else {
               toast.success("Time criado e configurado com sucesso")
+            }
+            if (meta?.autoBindActionsTruncated) {
+              toast.warning(
+                "Algumas capabilities sugeridas foram ignoradas: limite de 64 actionIds por execução no servidor.",
+              )
             }
             if (teamId) router.push(`/teams/${teamId}`)
           },
@@ -306,6 +315,43 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 <AlertTitle>Plano em modo template</AlertTitle>
                 <AlertDescription>
                   A resposta do planner caiu em fallback. Revise cuidadosamente antes de executar.
+                </AlertDescription>
+              </Alert>
+            )}
+            {((plan.requiredPacks?.length ?? 0) > 0 || (plan.requiredTools?.length ?? 0) > 0) && (
+              <Alert>
+                <Sparkles className="h-4 w-4" />
+                <AlertTitle>Capabilities sugeridas pelo planner</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p className="text-muted-foreground">
+                    Revise antes de executar. O backend só cria definitions e faz bind automático nos agentes
+                    novos se <code className="text-xs bg-muted px-1 rounded">TEAM_PLAN_AUTO_BIND_TOOLS=1</code>{" "}
+                    estiver definido no servidor.
+                  </p>
+                  {(plan.requiredPacks?.length ?? 0) > 0 && (
+                    <div>
+                      <span className="font-medium">Packs: </span>
+                      <span className="flex flex-wrap gap-1 mt-1">
+                        {plan.requiredPacks!.map((p) => (
+                          <Badge key={p} variant="secondary" title={p}>
+                            {plannerPackLabelPt(p)}
+                          </Badge>
+                        ))}
+                      </span>
+                    </div>
+                  )}
+                  {(plan.requiredTools?.length ?? 0) > 0 && (
+                    <div>
+                      <span className="font-medium">Tools (actionIds): </span>
+                      <ul className="list-disc list-inside text-sm mt-1 text-muted-foreground">
+                        {plan.requiredTools!.map((t) => (
+                          <li key={t}>
+                            <code className="text-xs">{t}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </AlertDescription>
               </Alert>
             )}

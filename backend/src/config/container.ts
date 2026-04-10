@@ -24,6 +24,19 @@ import {
   type TeamLiveBroadcaster,
 } from '../modules/teams/infrastructure/team-live-broadcaster.js';
 import { WorkspaceToolDefinitionRepository } from '../modules/tool-definitions/infra/workspace-tool-definition.repository.js';
+import { BusinessToolRegistry } from '../modules/business-tools/application/business-tool-registry.js';
+import { BusinessToolAuditRepository } from '../modules/business-tools/infra/business-tool-audit.repository.js';
+import { BusinessToolRuntime } from '../modules/business-tools/application/business-tool-runtime.js';
+import { registerCoreBusinessActions } from '../modules/business-tools/application/register-core-business-actions.js';
+import { registerAllBusinessPacks } from '../modules/business-tools/application/register-all-business-packs.js';
+import { PartyRepository } from '../modules/crm/infra/party.repository.js';
+import { CareSubjectRepository } from '../modules/care/infra/care-subject.repository.js';
+import { ServiceCatalogRepository } from '../modules/services-sales/infra/service-catalog.repository.js';
+import { ServiceOrderRepository } from '../modules/services-sales/infra/service-order.repository.js';
+import { PackageSaleRepository } from '../modules/packages-encounters/infra/package-sale.repository.js';
+import { EncounterRepository } from '../modules/packages-encounters/infra/encounter.repository.js';
+import { FinanceRepository } from '../modules/finance/infra/finance.repository.js';
+import { ReminderRepository } from '../modules/reminders/infra/reminder.repository.js';
 import { ChannelSecretsService } from '../modules/channels/application/channel-secrets.service.js';
 import { WorkspaceIntegrationsService } from '../modules/settings/application/workspace-integrations.service.js';
 import { AgentOverlapReviewRepository } from '../modules/agent-governance/infra/agent-overlap-review.repository.js';
@@ -31,6 +44,8 @@ import { DomainGuardService } from '../modules/agent-governance/application/doma
 import { RunRepository } from '../modules/runs/infra/run.repository.js';
 import { RunRecorderService } from '../modules/runs/application/run-recorder.service.js';
 import { GovernanceAuditEventRepository } from '../modules/governance/infra/governance-audit-event.repository.js';
+import { AppointmentRepository } from '../modules/scheduling/infra/appointment.repository.js';
+import { AvailabilitySlotRepository } from '../modules/scheduling/infra/availability-slot.repository.js';
 import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
 import type { FastifyRequest } from 'fastify';
 import type { preHandlerHookHandler } from 'fastify';
@@ -62,6 +77,8 @@ export interface IAppDeps {
   workspaceIntegrationsService: WorkspaceIntegrationsService;
   auditLogRepo: AuditLogRepository;
   workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository;
+  businessToolRegistry: BusinessToolRegistry;
+  businessToolRuntime: BusinessToolRuntime;
   agentOverlapReviewRepo: AgentOverlapReviewRepository;
   domainGuardService: DomainGuardService;
   runRepo: RunRepository;
@@ -76,6 +93,7 @@ export interface IAppDeps {
    * Criado em `createRedisAppClient` quando `REDIS_URL` está definido.
    */
   redis: Redis | null;
+  partyRepo: PartyRepository;
 }
 
 export function createDeps(env: IEnv): IAppDeps {
@@ -100,6 +118,33 @@ export function createDeps(env: IEnv): IAppDeps {
   const workspaceIntegrationsService = new WorkspaceIntegrationsService(env, workspaceRepo);
   const auditLogRepo = new AuditLogRepository();
   const workspaceToolDefinitionRepo = new WorkspaceToolDefinitionRepository();
+  const businessToolRegistry = new BusinessToolRegistry();
+  registerCoreBusinessActions(businessToolRegistry);
+  const partyRepo = new PartyRepository();
+  const careSubjectRepo = new CareSubjectRepository();
+  const serviceCatalogRepo = new ServiceCatalogRepository();
+  const serviceOrderRepo = new ServiceOrderRepository();
+  const packageSaleRepo = new PackageSaleRepository();
+  const encounterRepo = new EncounterRepository();
+  const financeRepo = new FinanceRepository();
+  const reminderRepo = new ReminderRepository();
+  const appointmentRepo = new AppointmentRepository();
+  const availabilitySlotRepo = new AvailabilitySlotRepository();
+  registerAllBusinessPacks({
+    registry: businessToolRegistry,
+    partyRepo,
+    careSubjectRepo,
+    serviceCatalogRepo,
+    serviceOrderRepo,
+    packageSaleRepo,
+    encounterRepo,
+    financeRepo,
+    reminderRepo,
+    appointmentRepo,
+    availabilitySlotRepo,
+  });
+  const businessToolAuditRepo = new BusinessToolAuditRepository();
+  const businessToolRuntime = new BusinessToolRuntime(businessToolRegistry, businessToolAuditRepo);
   const agentOverlapReviewRepo = new AgentOverlapReviewRepository();
   const domainGuardService = new DomainGuardService(agentRepo);
   const runRepo = new RunRepository();
@@ -117,6 +162,7 @@ export function createDeps(env: IEnv): IAppDeps {
     mcpRepo,
     knowledgeSourceRepo,
     workspaceToolDefinitionRepo,
+    businessToolRuntime,
   );
   const redis = createRedisAppClient(env.REDIS_URL);
   const teamLiveBroadcaster = createTeamLiveBroadcaster(redis);
@@ -148,6 +194,8 @@ export function createDeps(env: IEnv): IAppDeps {
     workspaceIntegrationsService,
     auditLogRepo,
     workspaceToolDefinitionRepo,
+    businessToolRegistry,
+    businessToolRuntime,
     agentOverlapReviewRepo,
     domainGuardService,
     runRepo,
@@ -158,6 +206,7 @@ export function createDeps(env: IEnv): IAppDeps {
     coordinatorOrchestrator,
     teamLiveBroadcaster,
     redis,
+    partyRepo,
   };
 }
 

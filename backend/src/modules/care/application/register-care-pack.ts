@@ -1,0 +1,54 @@
+import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
+import type { CareSubjectRepository } from '../infra/care-subject.repository.js';
+
+const kinds = new Set(['human', 'animal', 'psych']);
+
+export function registerCarePack(registry: BusinessToolRegistry, care: CareSubjectRepository): void {
+  registry.register('care_create_subject', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
+    const name = typeof data.name === 'string' ? data.name : '';
+    const sk = typeof data.subjectKind === 'string' ? data.subjectKind : '';
+    if (!partyId || !name.trim()) throw new Error('partyId e name obrigatorios');
+    if (!kinds.has(sk)) throw new Error('subjectKind deve ser human, animal ou psych');
+    return care.create(workspaceId, {
+      partyId,
+      name: name.trim(),
+      subjectKind: sk as 'human' | 'animal' | 'psych',
+      notes: typeof data.notes === 'string' ? data.notes : undefined,
+    });
+  });
+
+  registry.register('care_update_subject', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const subjectId = typeof data.subjectId === 'string' ? data.subjectId : '';
+    if (!subjectId) throw new Error('subjectId obrigatorio');
+    const patch: Parameters<CareSubjectRepository['update']>[2] = {};
+    if (typeof data.name === 'string') patch.name = data.name;
+    if (typeof data.subjectKind === 'string' && kinds.has(data.subjectKind)) {
+      patch.subjectKind = data.subjectKind as 'human' | 'animal' | 'psych';
+    }
+    if (typeof data.notes === 'string') patch.notes = data.notes;
+    const u = await care.update(workspaceId, subjectId, patch);
+    if (!u) throw new Error('Subject nao encontrado');
+    return u;
+  });
+
+  registry.register('care_find_subject', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const subjectId = typeof data.subjectId === 'string' ? data.subjectId : '';
+    if (!subjectId) throw new Error('subjectId obrigatorio');
+    const s = await care.findById(workspaceId, subjectId);
+    if (!s) throw new Error('Subject nao encontrado');
+    return s;
+  });
+
+  registry.register('care_get_subject_summary', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const subjectId = typeof data.subjectId === 'string' ? data.subjectId : '';
+    if (!subjectId) throw new Error('subjectId obrigatorio');
+    const s = await care.findById(workspaceId, subjectId);
+    if (!s) throw new Error('Subject nao encontrado');
+    return { summary: s };
+  });
+}

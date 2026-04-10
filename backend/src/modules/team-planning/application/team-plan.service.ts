@@ -11,8 +11,14 @@ import { fetchTeamPlanJsonCompletion, teamPlanModelFromEnv } from './team-plan-j
 import { TEAM_PLANNER_SYSTEM_PROMPT, buildTeamPlannerUserMessage } from './team-plan-planner-prompt.js';
 import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
+import { collectPlannerActionIds } from './planner-pack-presets.js';
+import { ensureInternalActionDefinitions } from './ensure-planner-tool-definitions.js';
+import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../../../app/metrics.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
+
+/** Limite de actionIds processados por execução (evita abuso / payloads enormes). */
+const TEAM_PLAN_AUTO_BIND_MAX_ACTIONS = 64;
 
 /** Metadados persistidos em plannerMeta (API). */
 export interface ITeamPlannerMeta {
@@ -56,6 +62,10 @@ const plannerOutputSchema = z.object({
     })
     .default({ nodes: [], edges: [] }),
   executionChecklist: z.array(z.string()).default([]),
+  /** Packs de negocio sugeridos (ETAPA 8 / Loop 26). */
+  requiredPacks: z.array(z.string()).default([]),
+  /** actionIds de business tools sugeridos para bind aos agentes. */
+  requiredTools: z.array(z.string()).default([]),
 });
 
 type TPlannerOutput = z.infer<typeof plannerOutputSchema>;
@@ -107,6 +117,8 @@ export class TeamPlanService {
         'Confirmar coordenador e especialistas',
         'Revisar canais e objetivo',
       ],
+      requiredPacks: [],
+      requiredTools: [],
     };
   }
 
@@ -326,6 +338,8 @@ export class TeamPlanService {
       agents: reuse.agents.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
       graph,
       executionChecklist: raw.executionChecklist,
+      requiredPacks: raw.requiredPacks,
+      requiredTools: raw.requiredTools,
       plannerMeta: {
         ...(plannerMeta as unknown as Record<string, unknown>),
         platformAssistant: 'team-crafter',
@@ -349,6 +363,8 @@ export class TeamPlanService {
     const parsed = plannerOutputSchema.parse({
       ...next,
       executionChecklist: current.executionChecklist ?? [],
+      requiredPacks: current.requiredPacks ?? [],
+      requiredTools: current.requiredTools ?? [],
     });
     const reuse = await this.annotateAgentsWithReuse(workspaceId, parsed.agents);
     const updated = await this.repo.update(workspaceId, id, {
@@ -367,7 +383,10 @@ export class TeamPlanService {
     id: string,
     operationId?: string,
     opts?: {
-      onPhase?: (phase: 'creating_agents' | 'creating_team' | 'graph' | 'activate', detail?: string) => void;
+      onPhase?: (
+        phase: 'creating_agents' | 'binding_tools' | 'creating_team' | 'graph' | 'activate',
+        detail?: string,
+      ) => void;
       actorUserId?: string;
       correlationId?: string;
     },
@@ -376,9 +395,12 @@ export class TeamPlanService {
     responseMeta: Record<string, unknown>;
   }> {
     const onPhase = opts?.onPhase;
+    const autoBind = (this.deps.env.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0') === '1';
+    const executeMetrics = startTeamPlanExecuteMetrics(autoBind);
     const plan = await this.repo.findById(workspaceId, id);
     if (!plan) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
     if (operationId && plan.lastOperationId && plan.lastOperationId === operationId && plan.result) {
+      executeMetrics.observeResult('idempotent');
       return { plan, responseMeta: {} };
     }
     const parsed = plannerOutputSchema.parse({
@@ -386,6 +408,8 @@ export class TeamPlanService {
       agents: plan.agents,
       graph: plan.graph,
       executionChecklist: plan.executionChecklist ?? [],
+      requiredPacks: plan.requiredPacks ?? [],
+      requiredTools: plan.requiredTools ?? [],
     });
     const coordinator = parsed.agents.find((a) => a.role === 'coordinator');
     if (!coordinator) throw new AppError('VALIDATION_ERROR', 'Plano precisa de um coordenador', 400);
@@ -471,6 +495,55 @@ export class TeamPlanService {
         throw new AppError('VALIDATION_ERROR', 'Plano precisa resolver um coordenador valido', 400);
       }
 
+      const actionIdsFull = collectPlannerActionIds(parsed.requiredTools, parsed.requiredPacks);
+      const actionIdsTruncated = actionIdsFull.length > TEAM_PLAN_AUTO_BIND_MAX_ACTIONS;
+      const actionIds = actionIdsFull.slice(0, TEAM_PLAN_AUTO_BIND_MAX_ACTIONS);
+      let boundToolDefinitionIds: string[] = [];
+      if (autoBind && actionIds.length > 0) {
+        onPhase?.('binding_tools', `Vinculando ${actionIds.length} acao(oes) de negocio aos agentes novos`);
+        boundToolDefinitionIds = await ensureInternalActionDefinitions(
+          workspaceId,
+          actionIds,
+          this.deps.workspaceToolDefinitionRepo,
+        );
+        for (const row of createdAgents) {
+          if (row.reused) continue;
+          const agentRow = await this.deps.agentRepo.findById(workspaceId, row.id);
+          if (!agentRow) continue;
+          const cap = (agentRow.capabilities as Record<string, unknown> | undefined) ?? {};
+          const prev = Array.isArray(cap['customToolDefinitionIds'])
+            ? (cap['customToolDefinitionIds'] as unknown[]).filter((x): x is string => typeof x === 'string')
+            : [];
+          const merged = [...new Set([...prev, ...boundToolDefinitionIds])];
+          await this.deps.agentRepo.update(workspaceId, row.id, {
+            capabilities: { ...cap, customToolDefinitionIds: merged },
+          });
+        }
+      }
+
+      if (actionIdsFull.length > 0) {
+        const summary = {
+          event: 'team_plan.auto_bind_summary' as const,
+          workspaceId,
+          teamPlanId: id,
+          correlationId: opts?.correlationId,
+          autoBindEnabled: autoBind,
+          actionsRequested: actionIdsFull.length,
+          actionsAfterCap: actionIds.length,
+          actionsTruncated: actionIdsTruncated,
+          boundToolDefinitionCount: boundToolDefinitionIds.length,
+          newAgentsUpdated: createdAgents.filter((a) => !a.reused).length,
+        };
+        if (actionIdsTruncated) {
+          log.warn(
+            { ...summary, cap: TEAM_PLAN_AUTO_BIND_MAX_ACTIONS },
+            'team plan: requiredTools/requiredPacks list truncated to cap before bind',
+          );
+        } else {
+          log.info(summary, 'team plan: auto-bind summary');
+        }
+      }
+
       const specialistIds = createdAgents.filter((a) => a.role === 'specialist').map((a) => a.id);
 
       onPhase?.('creating_team', 'Criando time (draft)');
@@ -551,10 +624,31 @@ export class TeamPlanService {
           teamId: result.teamId,
           reusedAgents: reusedCount,
           newAgents: newCount,
+          requiredPacks: parsed.requiredPacks,
+          requiredTools: parsed.requiredTools,
+          autoBindEnabled: autoBind,
+          boundToolDefinitionIds,
+          autoBindActionsRequested: actionIdsFull.length,
+          autoBindActionsTruncated: actionIdsTruncated,
         },
       });
+      recordTeamPlanAutoBindMetrics({
+        autoBindEnabled: autoBind,
+        requested: actionIdsFull.length,
+        applied: autoBind ? actionIds.length : 0,
+        truncated: actionIdsTruncated,
+      });
+      responseMeta.requiredPacks = parsed.requiredPacks;
+      responseMeta.requiredTools = parsed.requiredTools;
+      responseMeta.autoBindEnabled = autoBind;
+      responseMeta.boundToolDefinitionIds = boundToolDefinitionIds;
+      responseMeta.autoBindActionsRequested = actionIdsFull.length;
+      responseMeta.autoBindActionsApplied = autoBind ? actionIds.length : 0;
+      responseMeta.autoBindActionsTruncated = actionIdsTruncated;
+      executeMetrics.observeResult('success');
       return { plan: updated, responseMeta };
     } catch (err) {
+      executeMetrics.observeResult('error');
       const message = err instanceof Error ? err.message : String(err);
       await this.repo.update(workspaceId, id, { status: 'failed', result: { error: message }, lastOperationId: operationId });
       throw err;

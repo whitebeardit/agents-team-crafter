@@ -1,4 +1,5 @@
 import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
+import type { IBusinessToolRuntime } from '../../business-tools/application/business-tool-runtime.js';
 
 /**
  * Configuracao executavel agregada para o runtime de agentes (Fase 15).
@@ -20,7 +21,7 @@ export interface IWorkspaceCustomToolDefinition {
   id: string;
   name: string;
   slug: string;
-  kind: 'builtin_ref' | 'http_webhook' | 'mcp_ref';
+  kind: 'builtin_ref' | 'http_webhook' | 'mcp_ref' | 'internal_action';
   jsonSchema: Record<string, unknown>;
   config: Record<string, unknown>;
 }
@@ -38,6 +39,8 @@ export interface IExecutableAgentConfig {
   toolIntegrationContext?: IToolIntegrationContext;
   /** Definicoes dinamicas do workspace (webhook, etc.). */
   customToolDefinitions?: IWorkspaceCustomToolDefinition[];
+  /** Execucao de tools `internal_action` (business tools platform). */
+  businessToolRuntime?: IBusinessToolRuntime;
   /** Quando a execucao e no contexto de um time (ex.: especialista no orquestrador). */
   teamContext?: { teamId: string; teamName: string };
 }

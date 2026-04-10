@@ -2,6 +2,10 @@
  * Instrucoes do sistema para o Whitebeard AI Planner (saida JSON estruturada).
  */
 
+import { PLANNER_PACK_IDS } from './planner-pack-presets.js';
+
+const PLANNER_PACK_IDS_PROMPT = PLANNER_PACK_IDS.map((p) => `"${p}"`).join(', ');
+
 export const TEAM_PLANNER_SYSTEM_PROMPT = `Voce e o Whitebeard AI Planner. Sua tarefa e propor um TIME DE AGENTES (coordenador + especialistas) e um objetivo de time alinhados ao PROBLEMA e ao CONTEXTO do usuario.
 
 Regras obrigatorias:
@@ -18,6 +22,8 @@ Regras obrigatorias:
 - Se o problema envolver criacao de imagens, arte social, capas ou posts visuais: inclua um especialista cujo objective e responsibilities mencionem brief visual (tema, texto na imagem se houver, estilo, publico). Nota para o runtime: geracao com DALL-E 3 no produto usa tamanhos fixos 1024x1024 (quadrado), 1792x1024 ou 1024x1792; pedidos como "400x400" devem ser mapeados para quadrado 1024x1024 na missao (redimensionar depois se necessario).
 - graph: sempre envie "graph": { "nodes": [], "edges": [] }. O backend monta posicoes; nao envie coordenadas de nos.
 - executionChecklist: lista de passos concretos para colocar o plano em pratica.
+- requiredPacks: lista de identificadores de packs de negocio sugeridos quando o problema claramente exigir capabilities de dominio; use APENAS estes valores (strings exatas): ${PLANNER_PACK_IDS_PROMPT}. Use [] se nao aplicavel.
+- requiredTools: lista de actionIds de business tools internas sugeridas (ex.: "crm_create_party", "sales_create_service_order") alinhadas ao problema; use [] se nao aplicavel.
 
 Estrutura JSON exata das chaves de nivel superior:
 {
@@ -41,7 +47,9 @@ Estrutura JSON exata das chaves de nivel superior:
     }
   ],
   "graph": { "nodes": [], "edges": [] },
-  "executionChecklist": string[]
+  "executionChecklist": string[],
+  "requiredPacks": string[],
+  "requiredTools": string[]
 }
 
 Exemplo de FORMA (nao copie conteudos; adapte ao problema real):

@@ -31,12 +31,20 @@ export class WorkspaceToolDefinitionRepository {
     return doc ? this.toPublic(doc as WorkspaceToolDefinitionDoc) : null;
   }
 
+  async findBySlug(workspaceId: string, slug: string) {
+    const doc = await WorkspaceToolDefinitionModel.findOne({
+      workspaceId: new Types.ObjectId(workspaceId),
+      slug: slug.trim().toLowerCase(),
+    }).exec();
+    return doc ? this.toPublic(doc as WorkspaceToolDefinitionDoc) : null;
+  }
+
   async create(
     workspaceId: string,
     input: {
       name: string;
       slug: string;
-      kind: 'builtin_ref' | 'http_webhook' | 'mcp_ref';
+      kind: 'builtin_ref' | 'http_webhook' | 'mcp_ref' | 'internal_action';
       jsonSchema?: Record<string, unknown>;
       config?: Record<string, unknown>;
     },
@@ -59,7 +67,7 @@ export class WorkspaceToolDefinitionRepository {
     input: Partial<{
       name: string;
       slug: string;
-      kind: 'builtin_ref' | 'http_webhook' | 'mcp_ref';
+      kind: 'builtin_ref' | 'http_webhook' | 'mcp_ref' | 'internal_action';
       jsonSchema: Record<string, unknown>;
       config: Record<string, unknown>;
       enabled: boolean;

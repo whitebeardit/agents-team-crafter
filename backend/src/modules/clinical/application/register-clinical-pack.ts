@@ -1,0 +1,60 @@
+import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
+import type { ClinicalRepository } from '../infra/clinical.repository.js';
+
+export function registerClinicalPack(registry: BusinessToolRegistry, clinical: ClinicalRepository): void {
+  registry.register('clinical_create_anamnesis', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
+    if (!careSubjectId) throw new Error('careSubjectId obrigatorio');
+    return clinical.createAnamnesis(workspaceId, {
+      careSubjectId,
+      template: typeof data.template === 'string' ? data.template : undefined,
+      content: data.content ?? {},
+    });
+  });
+
+  registry.register('clinical_add_evolution_note', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
+    const body = typeof data.body === 'string' ? data.body : '';
+    if (!careSubjectId || !body.trim()) throw new Error('careSubjectId e body obrigatorios');
+    return clinical.addEvolutionNote(workspaceId, { careSubjectId, body });
+  });
+
+  registry.register('clinical_list_subject_history', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
+    if (!careSubjectId) throw new Error('careSubjectId obrigatorio');
+    return clinical.listSubjectHistory(workspaceId, careSubjectId);
+  });
+
+  registry.register('clinical_get_latest_evolution', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
+    if (!careSubjectId) throw new Error('careSubjectId obrigatorio');
+    const r = await clinical.getLatestEvolution(workspaceId, careSubjectId);
+    if (!r) return { latest: null };
+    return { latest: r };
+  });
+
+  registry.register('clinical_open_encounter', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
+    const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
+    if (!partyId || !careSubjectId) throw new Error('partyId e careSubjectId obrigatorios');
+    return clinical.openClinicalEncounter(workspaceId, {
+      partyId,
+      careSubjectId,
+      notes: typeof data.notes === 'string' ? data.notes : undefined,
+    });
+  });
+
+  registry.register('clinical_close_encounter', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const encounterId = typeof data.encounterId === 'string' ? data.encounterId : '';
+    if (!encounterId) throw new Error('encounterId obrigatorio');
+    const r = await clinical.closeClinicalEncounter(workspaceId, encounterId);
+    if (!r) throw new Error('Encontro nao encontrado');
+    return r;
+  });
+}

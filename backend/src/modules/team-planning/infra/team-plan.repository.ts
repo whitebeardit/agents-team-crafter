@@ -12,6 +12,8 @@ function toPublic(doc: TeamPlanDoc) {
     agents: doc.agents ?? [],
     graph: doc.graph ?? { nodes: [], edges: [] },
     executionChecklist: doc.executionChecklist ?? [],
+    requiredPacks: doc.requiredPacks ?? [],
+    requiredTools: doc.requiredTools ?? [],
     plannerMeta: doc.plannerMeta ?? {},
     reuseSummary: doc.reuseSummary ?? {},
     result: doc.result ?? null,
@@ -32,6 +34,8 @@ export class TeamPlanRepository {
       agents: unknown[];
       graph: Record<string, unknown>;
       executionChecklist: string[];
+      requiredPacks?: string[];
+      requiredTools?: string[];
       plannerMeta?: Record<string, unknown>;
       reuseSummary?: Record<string, unknown>;
     },

@@ -385,6 +385,21 @@ export interface TeamPlanPlannerMeta {
   parseErrorSummary?: string
 }
 
+/** Meta do envelope em `POST /team-plans/:id/execute` e evento SSE `complete`. */
+export interface TeamPlanExecuteMeta {
+  autoBindEnabled?: boolean
+  boundToolDefinitionIds?: string[]
+  /** Quantidade de actionIds pedidos pelo planner (antes do cap). */
+  autoBindActionsRequested?: number
+  /** Quantidade considerada para bind (0 se política desligada). */
+  autoBindActionsApplied?: number
+  /** `true` se a lista excedeu o teto do servidor (64). */
+  autoBindActionsTruncated?: boolean
+  requiredPacks?: string[]
+  requiredTools?: string[]
+  governanceWarning?: unknown
+}
+
 export interface TeamPlanDraft {
   id: string
   problem: string
@@ -400,6 +415,10 @@ export interface TeamPlanDraft {
   agents: TeamPlanAgentDraft[]
   graph: { nodes: GraphNode[]; edges: GraphEdge[] }
   executionChecklist: string[]
+  /** Packs de negócio sugeridos pelo planner (Loop 26+). */
+  requiredPacks?: string[]
+  /** actionIds de business tools sugeridos (Loop 26+). */
+  requiredTools?: string[]
   plannerMeta?: TeamPlanPlannerMeta
   reuseSummary?: {
     reuseRecommendations?: string[]
@@ -625,4 +644,102 @@ export type OperationalCatalogTool = {
   id: string
   name: string
   description: string
+}
+
+/** Scheduling API (`GET /schedule/agenda`, `GET /schedule/appointments`) — alinhado ao pack `scheduling`. */
+export type ScheduleAppointmentStatus =
+  | "scheduled"
+  | "confirmed"
+  | "cancelled"
+  | "no_show"
+  | "completed"
+
+export interface ScheduleAppointment {
+  id: string
+  partyId: string
+  title: string
+  startsAt: string
+  endsAt: string
+  notes?: string
+  status: ScheduleAppointmentStatus | string
+  careSubjectId?: string
+  serviceOrderId?: string
+  packageSaleId?: string
+  encounterId?: string
+  reminderId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ScheduleAvailabilitySlotDef {
+  id: string
+  startsAt: string
+  endsAt: string
+  slotMinutes: number
+  label?: string
+}
+
+export interface ScheduleAvailabilityWindow {
+  slotId: string
+  startsAt: string
+  endsAt: string
+  available: boolean
+}
+
+/** Corpo de `GET /schedule/agenda?date=YYYY-MM-DD` */
+export interface ScheduleAgendaResponse {
+  availability: ScheduleAvailabilityWindow[]
+  slots: ScheduleAvailabilitySlotDef[]
+  appointments: ScheduleAppointment[]
+}
+
+/** Corpo de `GET /schedule/appointments?date=...` */
+export interface ScheduleAppointmentsDayResponse {
+  appointments: ScheduleAppointment[]
+}
+
+/** CRM: contato comercial (`GET /parties`, `GET /parties/:id`). */
+export interface CrmParty {
+  id: string
+  displayName: string
+  roles?: string[]
+  email?: string
+  phone?: string
+  notes?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** KPIs derivados no BFF a partir das séries `agents_team_crafter_*`. */
+export interface TeamPlanMetricsKpis {
+  teamPlanExecute: {
+    total: number
+    byOutcome: { success: number; error: number; idempotent: number }
+  }
+  autoBindTruncations: {
+    total: number
+    whenAutoBindOn: number
+    whenAutoBindOff: number
+  }
+  executeDuration: {
+    observationCount: number
+    sumSeconds: number
+    avgSeconds: number | null
+  }
+  autoBindActions: {
+    requested: { observationCount: number; sum: number; avg: number | null }
+    applied: { observationCount: number; sum: number; avg: number | null }
+  }
+}
+
+/** `GET /observability/metrics-summary` — métricas `agents_team_crafter_*` (Prometheus JSON) + `kpis`. */
+export interface ObservabilityMetricsSummary {
+  collectedAt: string
+  kpis: TeamPlanMetricsKpis
+  metrics: Array<{
+    name: string
+    help?: string
+    type?: string
+    values?: unknown[]
+  }>
 }

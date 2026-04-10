@@ -7,6 +7,7 @@ import { disconnectRedisAppClient } from '../infrastructure/redis-app.js';
 import loggerPlugin from './plugins/logger.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
 import observabilityPlugin from './plugins/observability.js';
+import { metricsRegistry } from './metrics.js';
 import { registerRoutes } from './routes.js';
 
 export async function buildApp(env: IEnv) {
@@ -34,6 +35,10 @@ export async function buildApp(env: IEnv) {
   await app.register(observabilityPlugin, { auditLogRepo: deps.auditLogRepo });
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/metrics', async (_req, reply) => {
+    reply.header('Content-Type', metricsRegistry.contentType);
+    return metricsRegistry.metrics();
+  });
 
   await registerRoutes(app, env, deps);
 

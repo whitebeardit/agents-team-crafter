@@ -26,3 +26,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright E2E (estado de sessão gerado em runtime)
+e2e/.auth/
+playwright-report/
+test-results/

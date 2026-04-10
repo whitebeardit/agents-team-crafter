@@ -9,6 +9,7 @@ import type {
   IWorkspaceCustomToolDefinition,
   TRuntimeEvent,
 } from '../../runtime/ports/agent-runtime.provider.js';
+import type { IBusinessToolRuntime } from '../../business-tools/application/business-tool-runtime.js';
 import type { WorkspaceToolDefinitionRepository } from '../../tool-definitions/infra/workspace-tool-definition.repository.js';
 import { composeExecutableAgentConfig } from '../../runtime/application/compose-executable-config.js';
 import { buildSpecialistSystemInstruction } from '../../runtime/application/build-specialist-system-instruction.js';
@@ -81,6 +82,7 @@ export class CoordinatorOrchestratorService {
     private readonly mcpRepo: McpConnectionRepository,
     private readonly knowledgeSourceRepo: KnowledgeSourceRepository,
     private readonly workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository,
+    private readonly businessToolRuntime: IBusinessToolRuntime,
   ) {}
 
   async execute(
@@ -212,6 +214,7 @@ export class CoordinatorOrchestratorService {
         mcpToolSpecs,
         toolIntegrationContext,
         customToolDefinitions,
+        businessToolRuntime: this.businessToolRuntime,
         teamContext: { teamId: teamRow.id, teamName: teamRow.name },
       });
       await this.agentRuntime.compile(config);
