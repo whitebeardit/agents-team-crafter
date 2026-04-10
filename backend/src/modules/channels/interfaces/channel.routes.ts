@@ -52,13 +52,13 @@ const putSecretsBody = z
   })
   .passthrough();
 
-export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerChannelRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/channels', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = listQuery.parse(req.query);
-    const rows = await d.channelRepo.list(ws, q);
+    const rows = await deps.channelRepo.list(ws, q);
     const data = rows.map((row) => {
       const prov = row.provider;
       const plat = row.platform;
@@ -75,22 +75,22 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
     const ws = req.workspaceId!;
     const body = createBody.parse(req.body);
     if (body.teamId) {
-      const team = await d.teamRepo.findById(ws, body.teamId);
+      const team = await deps.teamRepo.findById(ws, body.teamId);
       if (!team) throw new AppError('VALIDATION_ERROR', 'Time invalido', 400);
     }
-    const data = await d.channelRepo.create(ws, body);
+    const data = await deps.channelRepo.create(ws, body);
     return reply.code(201).send(successEnvelope(data));
   });
 
   app.get('/channels/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const doc = await d.channelRepo.findById(ws, id);
+    const doc = await deps.channelRepo.findById(ws, id);
     if (!doc) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
 
     let team: { id: string; name: string } | undefined;
     if (doc.teamId) {
-      const t = await d.teamRepo.findById(ws, String(doc.teamId));
+      const t = await deps.teamRepo.findById(ws, String(doc.teamId));
       if (t) team = { id: t.id, name: t.name };
     }
 
@@ -107,7 +107,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
       prov === 'chat_sdk' && plat
         ? buildChatSdkWebhookUrl(req, ws, plat, doc._id.toString())
         : undefined;
-    const secretsMasked = d.channelSecretsService.secretsPreview(doc);
+    const secretsMasked = deps.channelSecretsService.secretsPreview(doc);
     return reply.send(
       successEnvelope({
         id: doc._id.toString(),
@@ -131,10 +131,10 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = updateBody.parse(req.body);
-    const existing = await d.channelRepo.findById(ws, id);
+    const existing = await deps.channelRepo.findById(ws, id);
     if (!existing) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
     if (body.teamId) {
-      const team = await d.teamRepo.findById(ws, body.teamId);
+      const team = await deps.teamRepo.findById(ws, body.teamId);
       if (!team) throw new AppError('VALIDATION_ERROR', 'Time invalido', 400);
     }
     const mergedConfig =
@@ -144,7 +144,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
             ...body.config,
           }
         : undefined;
-    const data = await d.channelRepo.update(ws, id, {
+    const data = await deps.channelRepo.update(ws, id, {
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.teamId !== undefined ? { teamId: body.teamId } : {}),
       ...(body.provider !== undefined ? { provider: body.provider } : {}),
@@ -160,7 +160,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
     const id = (req.params as { id: string }).id;
     const raw = putSecretsBody.parse(req.body);
     const { platform, ...rest } = raw;
-    const doc = await d.channelRepo.findById(ws, id);
+    const doc = await deps.channelRepo.findById(ws, id);
     if (!doc) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
     const prov = (doc as { provider?: string }).provider;
     const plat = (doc as { platform?: string }).platform;
@@ -168,14 +168,14 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
       throw new AppError('VALIDATION_ERROR', 'Plataforma do corpo deve coincidir com o canal chat_sdk', 400);
     }
     const payload = parseChatSdkSecretsBody(platform, { ...rest, platform });
-    const encrypted = d.channelSecretsService.encryptPayload(payload);
-    const updated = await d.channelRepo.setSecretsEncrypted(ws, id, encrypted);
+    const encrypted = deps.channelSecretsService.encryptPayload(payload);
+    const updated = await deps.channelRepo.setSecretsEncrypted(ws, id, encrypted);
     if (!updated) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
     return reply.send(
       successEnvelope({
         id: updated._id.toString(),
         message: 'Segredos armazenados (cifrados)',
-        secretsMasked: d.channelSecretsService.secretsPreview(updated),
+        secretsMasked: deps.channelSecretsService.secretsPreview(updated),
       }),
     );
   });
@@ -186,7 +186,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
     async (req, reply) => {
       const ws = req.workspaceId!;
       const id = (req.params as { id: string }).id;
-      const doc = await d.channelRepo.findById(ws, id);
+      const doc = await deps.channelRepo.findById(ws, id);
       if (!doc) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
       const prov = (doc as { provider?: string }).provider;
       const plat = (doc as { platform?: string }).platform;
@@ -197,7 +197,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
           400,
         );
       }
-      const plain = d.channelSecretsService.decryptPayload(doc);
+      const plain = deps.channelSecretsService.decryptPayload(doc);
       if (!plain || plain.platform !== 'telegram') {
         throw new AppError(
           'VALIDATION_ERROR',
@@ -232,7 +232,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
   app.delete('/channels/:id', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const teams = await d.teamRepo.findTeamsWithChannelId(ws, id);
+    const teams = await deps.teamRepo.findTeamsWithChannelId(ws, id);
     if (teams.length > 0) {
       throw new AppError(
         'CONFLICT',
@@ -241,7 +241,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
         { teams },
       );
     }
-    const ok = await d.channelRepo.delete(ws, id);
+    const ok = await deps.channelRepo.delete(ws, id);
     if (!ok) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
     return reply.send(successEnvelope({ message: 'Canal removido com sucesso' }));
   });
@@ -249,11 +249,11 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/channels/:id/connect', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const doc = await d.channelRepo.findById(ws, id);
+    const doc = await deps.channelRepo.findById(ws, id);
     if (!doc) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
     const data = mockChannelConnect(doc.type);
     if (doc.type !== 'whatsapp') {
-      await d.channelRepo.markConnected(ws, id);
+      await deps.channelRepo.markConnected(ws, id);
     }
     return reply.send(successEnvelope(data));
   });
@@ -261,7 +261,7 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/channels/:id/disconnect', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const data = await d.channelRepo.disconnect(ws, id);
+    const data = await deps.channelRepo.disconnect(ws, id);
     if (!data) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
     return reply.send(successEnvelope(data));
   });
@@ -269,12 +269,12 @@ export async function registerChannelRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/channels/:id/test', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const doc = await d.channelRepo.findById(ws, id);
+    const doc = await deps.channelRepo.findById(ws, id);
     if (!doc) throw new AppError('NOT_FOUND', 'Canal nao encontrado', 404);
     if (doc.status === 'disconnected') {
       throw new AppError('VALIDATION_ERROR', 'Canal desconectado', 400);
     }
-    await d.channelRepo.markConnected(ws, id);
+    await deps.channelRepo.markConnected(ws, id);
     return reply.send(successEnvelope(mockChannelTest()));
   });
 }

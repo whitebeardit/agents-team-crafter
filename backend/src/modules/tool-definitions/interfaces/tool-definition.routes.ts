@@ -15,19 +15,19 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
-export async function registerToolDefinitionRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/tool-definitions', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
-    const data = await d.workspaceToolDefinitionRepo.list(ws);
+    const data = await deps.workspaceToolDefinitionRepo.list(ws);
     return reply.send(successEnvelope(data));
   });
 
   app.get('/tool-definitions/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const data = await d.workspaceToolDefinitionRepo.findById(ws, id);
+    const data = await deps.workspaceToolDefinitionRepo.findById(ws, id);
     if (!data) throw new AppError('NOT_FOUND', 'Tool nao encontrada', 404);
     return reply.send(successEnvelope(data));
   });
@@ -36,7 +36,7 @@ export async function registerToolDefinitionRoutes(app: FastifyInstance, d: IApp
     const ws = req.workspaceId!;
     const body = createSchema.parse(req.body);
     try {
-      const data = await d.workspaceToolDefinitionRepo.create(ws, body);
+      const data = await deps.workspaceToolDefinitionRepo.create(ws, body);
       return reply.code(201).send(successEnvelope(data));
     } catch (e: unknown) {
       const msg = e && typeof e === 'object' && 'code' in e && (e as { code?: number }).code === 11000;
@@ -49,7 +49,7 @@ export async function registerToolDefinitionRoutes(app: FastifyInstance, d: IApp
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = updateSchema.parse(req.body);
-    const data = await d.workspaceToolDefinitionRepo.update(ws, id, body);
+    const data = await deps.workspaceToolDefinitionRepo.update(ws, id, body);
     if (!data) throw new AppError('NOT_FOUND', 'Tool nao encontrada', 404);
     return reply.send(successEnvelope(data));
   });
@@ -57,7 +57,7 @@ export async function registerToolDefinitionRoutes(app: FastifyInstance, d: IApp
   app.delete('/tool-definitions/:id', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const ok = await d.workspaceToolDefinitionRepo.delete(ws, id);
+    const ok = await deps.workspaceToolDefinitionRepo.delete(ws, id);
     if (!ok) throw new AppError('NOT_FOUND', 'Tool nao encontrada', 404);
     return reply.send(successEnvelope({ deleted: true }));
   });

@@ -57,7 +57,7 @@ async function handleChatSdkByChannelId(
   req: FastifyRequest,
   reply: FastifyReply,
   env: IEnv,
-  d: IAppDeps,
+  deps: IAppDeps,
   workspaceId: string,
   platform: (typeof PLATFORMS_WITH_CHANNEL_ID)[number],
   channelId: string,
@@ -69,7 +69,7 @@ async function handleChatSdkByChannelId(
     return reply.status(400).send({ error: 'raw body ausente' });
   }
 
-  const channelDoc = await d.channelRepo.findById(workspaceId, channelId);
+  const channelDoc = await deps.channelRepo.findById(workspaceId, channelId);
   if (!channelDoc) {
     return reply.status(404).send({ error: 'canal nao encontrado' });
   }
@@ -79,13 +79,13 @@ async function handleChatSdkByChannelId(
     return reply.status(404).send({ error: 'canal incompativel' });
   }
 
-  const plain = d.channelSecretsService.decryptPayload(channelDoc);
+  const plain = deps.channelSecretsService.decryptPayload(channelDoc);
   if (!plain || plain.platform !== platform) {
     req.log.warn({ workspaceId, channelId, platform }, 'segredos ausentes ou plataforma divergente');
     return reply.status(503).send({ error: 'segredos nao configurados para este canal' });
   }
 
-  const chat = buildChatFromDecryptedSecrets(d, env, workspaceId, channelDoc, plain);
+  const chat = buildChatFromDecryptedSecrets(deps, env, workspaceId, channelDoc, plain);
   const bodyBuf =
     req.method === 'GET' || req.method === 'HEAD' ? Buffer.alloc(0) : (rawBody as Buffer);
   const webReq = toWebRequest(req, bodyBuf);
@@ -114,7 +114,7 @@ async function invokePlatformWebhook(
 export async function registerChatWebhookRoutes(
   scoped: FastifyInstance<RawServerDefault>,
   env: IEnv,
-  d: IAppDeps,
+  deps: IAppDeps,
 ) {
   await scoped.register(
     async (instance) => {
@@ -145,7 +145,7 @@ export async function registerChatWebhookRoutes(
         }
 
         const workspaceSlackFallback =
-          await d.workspaceIntegrationsService.getPlainSlackWorkspace(workspaceId);
+          await deps.workspaceIntegrationsService.getPlainSlackWorkspace(workspaceId);
 
         const skipVerify = env.CHAT_SDK_SKIP_SIGNATURE_VERIFY === '1' && env.NODE_ENV === 'test';
         const payload = req.body as Record<string, unknown>;
@@ -171,7 +171,7 @@ export async function registerChatWebhookRoutes(
             });
             return forwardWebResponse(res, reply);
           }
-          const slackChannels = await d.channelRepo.listChatSdkByPlatform(workspaceId, 'slack');
+          const slackChannels = await deps.channelRepo.listChatSdkByPlatform(workspaceId, 'slack');
           if (workspaceSlackFallback) {
             const res = await tryVerification(workspaceSlackFallback);
             if (res.status < 400) {
@@ -182,7 +182,7 @@ export async function registerChatWebhookRoutes(
             const s = resolveSlackSecretsForChannel(
               ch,
               env,
-              d.channelSecretsService,
+              deps.channelSecretsService,
               workspaceSlackFallback,
             );
             if (!s) continue;
@@ -198,11 +198,11 @@ export async function registerChatWebhookRoutes(
         if (!skipVerify && !env.SLACK_SIGNING_SECRET) {
           const hasAny =
             Boolean(workspaceSlackFallback) ||
-            (await d.channelRepo.listChatSdkByPlatform(workspaceId, 'slack')).some((ch) =>
+            (await deps.channelRepo.listChatSdkByPlatform(workspaceId, 'slack')).some((ch) =>
               resolveSlackSecretsForChannel(
                 ch,
                 env,
-                d.channelSecretsService,
+                deps.channelSecretsService,
                 workspaceSlackFallback,
               ),
             );
@@ -217,7 +217,7 @@ export async function registerChatWebhookRoutes(
           if (!teamId) {
             return reply.status(200).send();
           }
-          const channelDoc = await d.channelRepo.findByWorkspaceAndSlackTeamId(workspaceId, teamId);
+          const channelDoc = await deps.channelRepo.findByWorkspaceAndSlackTeamId(workspaceId, teamId);
           if (!channelDoc) {
             req.log.warn({ workspaceId, teamId }, 'slack: sem Channel com config.slackTeamId');
             return reply.status(200).send();
@@ -228,7 +228,7 @@ export async function registerChatWebhookRoutes(
             : resolveSlackSecretsForChannel(
                 channelDoc,
                 env,
-                d.channelSecretsService,
+                deps.channelSecretsService,
                 workspaceSlackFallback,
               );
           if (!slackSecrets) {
@@ -237,7 +237,7 @@ export async function registerChatWebhookRoutes(
           }
 
           const { createSlackChatFromSecrets } = await import('../infra/workspace-chats.js');
-          const chat = createSlackChatFromSecrets(d, env, workspaceId, channelDoc, slackSecrets);
+          const chat = createSlackChatFromSecrets(deps, env, workspaceId, channelDoc, slackSecrets);
           const webReq = toWebRequest(req, rawBody);
           const res = await chat.webhooks.slack(webReq);
           return forwardWebResponse(res, reply);
@@ -252,7 +252,7 @@ export async function registerChatWebhookRoutes(
           const res = await tryVerification(fallbackSecrets);
           return forwardWebResponse(res, reply);
         }
-        const slackChannels = await d.channelRepo.listChatSdkByPlatform(workspaceId, 'slack');
+        const slackChannels = await deps.channelRepo.listChatSdkByPlatform(workspaceId, 'slack');
         if (workspaceSlackFallback) {
           const res = await tryVerification(workspaceSlackFallback);
           if (res.status < 400) return forwardWebResponse(res, reply);
@@ -261,7 +261,7 @@ export async function registerChatWebhookRoutes(
           const s = resolveSlackSecretsForChannel(
             ch,
             env,
-            d.channelSecretsService,
+            deps.channelSecretsService,
             workspaceSlackFallback,
           );
           if (!s) continue;
@@ -286,7 +286,7 @@ export async function registerChatWebhookRoutes(
             if (!isPlatformWithChannelId(platform)) {
               return reply.status(400).send({ error: 'plataforma invalida' });
             }
-            return handleChatSdkByChannelId(req, reply, env, d, workspaceId, platform, channelId);
+            return handleChatSdkByChannelId(req, reply, env, deps, workspaceId, platform, channelId);
           },
         });
       }

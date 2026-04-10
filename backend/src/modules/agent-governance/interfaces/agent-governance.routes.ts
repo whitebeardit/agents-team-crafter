@@ -31,17 +31,17 @@ const reviewSchema = z.object({
   systemRole: z.enum(['team-crafter', 'agent-crafter', 'domain-guard']).nullable().optional(),
 });
 
-export async function registerAgentGovernanceRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerAgentGovernanceRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.post('/agent-overlap-reviews', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = reviewSchema.parse(req.body);
-    const review = await d.domainGuardService.review(ws, {
+    const review = await deps.domainGuardService.review(ws, {
       ...body,
       category: normalizeAgentCategory(body.category ?? 'geral'),
     });
-    const persisted = await d.agentOverlapReviewRepo.create(ws, {
+    const persisted = await deps.agentOverlapReviewRepo.create(ws, {
       draftAgent: review.draftAgent,
       matches: review.matches,
       decision: review.decision,
@@ -52,7 +52,7 @@ export async function registerAgentGovernanceRoutes(app: FastifyInstance, d: IAp
 
   app.get('/agent-overlap-reviews', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
-    const reviews = await d.agentOverlapReviewRepo.listRecent(ws);
+    const reviews = await deps.agentOverlapReviewRepo.listRecent(ws);
     return reply.send(successEnvelope(reviews));
   });
 }

@@ -65,8 +65,8 @@ function asRec(a: unknown): Record<string, unknown> {
   return a as Record<string, unknown>;
 }
 
-async function loadAgent(d: IAppDeps, ws: string, id: string) {
-  const a = await d.agentRepo.findById(ws, id);
+async function loadAgent(deps: IAppDeps, ws: string, id: string) {
+  const a = await deps.agentRepo.findById(ws, id);
   if (!a) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
   return asRec(a);
 }
@@ -87,19 +87,19 @@ function assertCoordinatorForChannels(a: Record<string, unknown>) {
   }
 }
 
-export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/agents/categories', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
-    const cats = await d.agentRepo.distinctCategories(ws);
+    const cats = await deps.agentRepo.distinctCategories(ws);
     return reply.send(successEnvelope(cats));
   });
 
   app.get('/agents', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = listQuerySchema.parse(req.query);
-    const { items, total } = await d.agentRepo.list(
+    const { items, total } = await deps.agentRepo.list(
       ws,
       {
         origin: q.origin,
@@ -124,7 +124,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
         400,
       );
     }
-    const governanceReview = await d.domainGuardService.review(ws, {
+    const governanceReview = await deps.domainGuardService.review(ws, {
       name: body.name,
       description: body.description,
       role: body.role,
@@ -138,13 +138,13 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       platformManaged: body.platformManaged,
       systemRole: body.systemRole,
     });
-    await d.agentOverlapReviewRepo.create(ws, {
+    await deps.agentOverlapReviewRepo.create(ws, {
       draftAgent: governanceReview.draftAgent,
       matches: governanceReview.matches,
       decision: governanceReview.decision,
       summary: governanceReview.summary,
     });
-    await d.governanceAuditRepo.append({
+    await deps.governanceAuditRepo.append({
       workspaceId: ws,
       userId: req.user!.sub,
       correlationId: req.requestId,
@@ -156,13 +156,13 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
         decision: governanceReview.decision,
       },
     });
-    const overlapMode = await getWorkspaceOverlapMode(d, ws);
+    const overlapMode = await getWorkspaceOverlapMode(deps, ws);
     const wouldBlockCreate =
       body.role === 'specialist'
       && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
       && body.allowConflictOverride !== true;
     if (wouldBlockCreate && overlapMode === 'blocking') {
-      await d.governanceAuditRepo.append({
+      await deps.governanceAuditRepo.append({
         workspaceId: ws,
         userId: req.user!.sub,
         correlationId: req.requestId,
@@ -172,7 +172,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       throw new AppError('CONFLICT', governanceReview.summary, 409, { review: governanceReview });
     }
     if (wouldBlockCreate && overlapMode === 'warning') {
-      await d.governanceAuditRepo.append({
+      await deps.governanceAuditRepo.append({
         workspaceId: ws,
         userId: req.user!.sub,
         correlationId: req.requestId,
@@ -181,7 +181,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       });
     }
     const normalizedCategory = normalizeAgentCategory(body.category ?? 'Geral');
-    const created = await d.agentRepo.create(ws, {
+    const created = await deps.agentRepo.create(ws, {
       name: body.name,
       description: body.description ?? '',
       role: body.role,
@@ -204,7 +204,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
       && body.allowConflictOverride === true;
     if (overrideOnCreate) {
-      await d.governanceAuditRepo.append({
+      await deps.governanceAuditRepo.append({
         workspaceId: ws,
         userId: req.user!.sub,
         correlationId: req.requestId,
@@ -228,14 +228,14 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
   app.get('/agents/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const a = await loadAgent(d, ws, id);
+    const a = await loadAgent(deps, ws, id);
     return reply.send(successEnvelope(a));
   });
 
   app.put('/agents/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     const body = updateAgentSchema.parse(req.body);
     const current = cur as Record<string, unknown>;
@@ -272,14 +272,14 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
         patch.systemRole
         ?? ((current['systemRole'] as 'team-crafter' | 'agent-crafter' | 'domain-guard' | null | undefined) ?? null),
     };
-    const governanceReview = await d.domainGuardService.review(ws, draftForReview);
-    await d.agentOverlapReviewRepo.create(ws, {
+    const governanceReview = await deps.domainGuardService.review(ws, draftForReview);
+    await deps.agentOverlapReviewRepo.create(ws, {
       draftAgent: governanceReview.draftAgent,
       matches: governanceReview.matches,
       decision: governanceReview.decision,
       summary: governanceReview.summary,
     });
-    await d.governanceAuditRepo.append({
+    await deps.governanceAuditRepo.append({
       workspaceId: ws,
       userId: req.user!.sub,
       correlationId: req.requestId,
@@ -292,13 +292,13 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
         decision: governanceReview.decision,
       },
     });
-    const overlapModeUpdate = await getWorkspaceOverlapMode(d, ws);
+    const overlapModeUpdate = await getWorkspaceOverlapMode(deps, ws);
     const wouldBlockUpdate =
       draftForReview.role === 'specialist'
       && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
       && body.allowConflictOverride !== true;
     if (wouldBlockUpdate && overlapModeUpdate === 'blocking') {
-      await d.governanceAuditRepo.append({
+      await deps.governanceAuditRepo.append({
         workspaceId: ws,
         userId: req.user!.sub,
         correlationId: req.requestId,
@@ -308,7 +308,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       throw new AppError('CONFLICT', governanceReview.summary, 409, { review: governanceReview });
     }
     if (wouldBlockUpdate && overlapModeUpdate === 'warning') {
-      await d.governanceAuditRepo.append({
+      await deps.governanceAuditRepo.append({
         workspaceId: ws,
         userId: req.user!.sub,
         correlationId: req.requestId,
@@ -317,13 +317,13 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       });
     }
     delete patch.allowConflictOverride;
-    const updated = await d.agentRepo.update(ws, id, patch);
+    const updated = await deps.agentRepo.update(ws, id, patch);
     const overrideOnUpdate =
       draftForReview.role === 'specialist'
       && (governanceReview.decision === 'block' || governanceReview.decision === 'reuse_existing')
       && body.allowConflictOverride === true;
     if (overrideOnUpdate) {
-      await d.governanceAuditRepo.append({
+      await deps.governanceAuditRepo.append({
         workspaceId: ws,
         userId: req.user!.sub,
         correlationId: req.requestId,
@@ -347,9 +347,9 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
   app.delete('/agents/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
-    const teams = await d.teamRepo.findTeamsReferencingAgent(ws, id);
+    const teams = await deps.teamRepo.findTeamsReferencingAgent(ws, id);
     if (teams.length > 0) {
       const hasCoord = teams.some((t) => t.asCoordinator);
       const hasMember = teams.some((t) => !t.asCoordinator);
@@ -363,16 +363,16 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
       }
       throw new AppError('CONFLICT', msg, 409, { teams });
     }
-    await d.agentRepo.softDelete(ws, id);
+    await deps.agentRepo.softDelete(ws, id);
     return reply.send(successEnvelope({ message: 'Agente removido com sucesso' }));
   });
 
   app.post('/agents/:id/archive', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
-    const updated = await d.agentRepo.update(ws, id, { status: 'archived' });
+    const updated = await deps.agentRepo.update(ws, id, { status: 'archived' });
     return reply.send(
       successEnvelope({
         id,
@@ -386,9 +386,9 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/agents/:id/activate', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
-    await d.agentRepo.update(ws, id, { status: 'active' });
+    await deps.agentRepo.update(ws, id, { status: 'active' });
     return reply.send(
       successEnvelope({
         id,
@@ -401,7 +401,7 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
   app.get('/agents/:id/config', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const a = await loadAgent(d, ws, id);
+    const a = await loadAgent(deps, ws, id);
     return reply.send(
       successEnvelope({
         id: a['id'],
@@ -424,11 +424,11 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
   app.put('/agents/:id/config', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     const body = z.record(z.string(), z.unknown()).parse(req.body);
     delete body['handoff'];
-    await d.agentRepo.update(ws, id, body);
+    await deps.agentRepo.update(ws, id, body);
     return reply.send(
       successEnvelope({
         message: 'Configuracao do agente atualizada com sucesso',
@@ -440,33 +440,33 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
   app.put('/agents/:id/mission', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     const body = missionSchema.parse(req.body);
-    await d.agentRepo.update(ws, id, body);
+    await deps.agentRepo.update(ws, id, body);
     return reply.send(successEnvelope(body));
   });
 
   app.put('/agents/:id/knowledge', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     const body = knowledgeSchema.parse(req.body);
-    await d.agentRepo.update(ws, id, { knowledge: body });
+    await deps.agentRepo.update(ws, id, { knowledge: body });
     return reply.send(successEnvelope(body));
   });
 
   app.put('/agents/:id/tools', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     const body = toolsSchema.parse(req.body);
     const cap = { ...(asRec(cur)['capabilities'] as Record<string, unknown> | undefined) };
     delete cap['canDelegate'];
     delete cap['canReceiveHandoff'];
-    await d.agentRepo.update(ws, id, {
+    await deps.agentRepo.update(ws, id, {
       capabilities: {
         ...cap,
         tools: body.tools,
@@ -481,21 +481,21 @@ export async function registerAgentRoutes(app: FastifyInstance, d: IAppDeps) {
   app.put('/agents/:id/channels', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     assertCoordinatorForChannels(cur);
     const body = channelsCfgSchema.parse(req.body);
-    await d.agentRepo.update(ws, id, { channelConfig: body });
+    await deps.agentRepo.update(ws, id, { channelConfig: body });
     return reply.send(successEnvelope(body));
   });
 
   app.put('/agents/:id/security', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const cur = await loadAgent(d, ws, id);
+    const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     const body = securitySchema.parse(req.body);
-    await d.agentRepo.update(ws, id, { security: body });
+    await deps.agentRepo.update(ws, id, { security: body });
     return reply.send(successEnvelope(body));
   });
 

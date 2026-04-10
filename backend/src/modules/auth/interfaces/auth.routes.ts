@@ -22,27 +22,27 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
-export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
+export async function registerAuthRoutes(app: FastifyInstance, deps: IAppDeps) {
   app.post('/auth/register', async (req, reply) => {
     const body = registerSchema.parse(req.body);
-    const existing = await d.userRepo.findByEmail(body.email);
+    const existing = await deps.userRepo.findByEmail(body.email);
     if (existing) {
       throw new AppError('EMAIL_TAKEN', 'Este email ja esta cadastrado', 409);
     }
     const passwordHash = await bcrypt.hash(body.password, 10);
-    const user = await d.userRepo.create({
+    const user = await deps.userRepo.create({
       email: body.email,
       passwordHash,
       name: body.name,
     });
-    const access = d.jwt.signAccess({
+    const access = deps.jwt.signAccess({
       id: user.id,
       email: user.email,
       name: user.name,
       isPlatformAdmin: user.isPlatformAdmin,
     });
     const refresh = generateRefreshToken();
-    await d.userRepo.updateRefreshToken(user.id, hashToken(refresh));
+    await deps.userRepo.updateRefreshToken(user.id, hashToken(refresh));
     const decoded = jwt.decode(access) as { exp: number };
     return reply.send(
       successEnvelope({
@@ -63,18 +63,18 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
 
   app.post('/auth/login', async (req, reply) => {
     const body = loginSchema.parse(req.body);
-    const user = await d.userRepo.findByEmail(body.email);
+    const user = await deps.userRepo.findByEmail(body.email);
     if (!user || !(await bcrypt.compare(body.password, user.passwordHash))) {
       throw new AppError('INVALID_CREDENTIALS', 'Email ou senha invalidos', 401);
     }
-    const access = d.jwt.signAccess({
+    const access = deps.jwt.signAccess({
       id: user.id,
       email: user.email,
       name: user.name,
       isPlatformAdmin: user.isPlatformAdmin,
     });
     const refresh = generateRefreshToken();
-    await d.userRepo.updateRefreshToken(user.id, hashToken(refresh));
+    await deps.userRepo.updateRefreshToken(user.id, hashToken(refresh));
     const decoded = jwt.decode(access) as { exp: number };
     return reply.send(
       successEnvelope({
@@ -93,13 +93,13 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
     );
   });
 
-  app.post('/auth/logout', { preHandler: [d.authenticate] }, async (req, reply) => {
-    await d.userRepo.updateRefreshToken(req.user!.sub, null);
+  app.post('/auth/logout', { preHandler: [deps.authenticate] }, async (req, reply) => {
+    await deps.userRepo.updateRefreshToken(req.user!.sub, null);
     return reply.send(successEnvelope({ message: 'Logout realizado com sucesso' }));
   });
 
-  app.get('/auth/me', { preHandler: [d.authenticate] }, async (req, reply) => {
-    const user = await d.userRepo.findById(req.user!.sub);
+  app.get('/auth/me', { preHandler: [deps.authenticate] }, async (req, reply) => {
+    const user = await deps.userRepo.findById(req.user!.sub);
     if (!user) throw new AppError('UNAUTHORIZED', 'Usuario nao encontrado', 401);
     return reply.send(
       successEnvelope({
@@ -115,16 +115,16 @@ export async function registerAuthRoutes(app: FastifyInstance, d: IAppDeps) {
 
   app.post('/auth/refresh', async (req, reply) => {
     const body = refreshSchema.parse(req.body);
-    const user = await d.userRepo.findByRefreshTokenHash(hashToken(body.refreshToken));
+    const user = await deps.userRepo.findByRefreshTokenHash(hashToken(body.refreshToken));
     if (!user) throw new AppError('UNAUTHORIZED', 'Refresh token invalido', 401);
-    const access = d.jwt.signAccess({
+    const access = deps.jwt.signAccess({
       id: user.id,
       email: user.email,
       name: user.name,
       isPlatformAdmin: user.isPlatformAdmin,
     });
     const refresh = generateRefreshToken();
-    await d.userRepo.updateRefreshToken(user.id, hashToken(refresh));
+    await deps.userRepo.updateRefreshToken(user.id, hashToken(refresh));
     const decoded = jwt.decode(access) as { exp: number };
     return reply.send(
       successEnvelope({

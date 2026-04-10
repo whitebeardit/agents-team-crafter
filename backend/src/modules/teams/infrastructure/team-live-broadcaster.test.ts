@@ -3,7 +3,7 @@ import { TeamLiveBroadcaster } from './team-live-broadcaster.js';
 
 describe('TeamLiveBroadcaster (memory)', () => {
   it('publish/subscribe delivers envelopes for the same team key', async () => {
-    const b = new TeamLiveBroadcaster(undefined);
+    const b = new TeamLiveBroadcaster(null);
     const received: unknown[] = [];
     const unsub = await b.subscribe('ws1', 'teamA', (env) => {
       received.push(env);
@@ -26,7 +26,7 @@ describe('TeamLiveBroadcaster (memory)', () => {
   });
 
   it('does not cross workspaces', async () => {
-    const b = new TeamLiveBroadcaster(undefined);
+    const b = new TeamLiveBroadcaster(null);
     const received: unknown[] = [];
     await b.subscribe('ws1', 'teamA', (env) => received.push(env));
     b.publishAgentStatus('ws2', 'teamA', 'inbound', {
@@ -40,7 +40,7 @@ describe('TeamLiveBroadcaster (memory)', () => {
   });
 
   it('publish does not throw when envelope data is not JSON-serializable', () => {
-    const b = new TeamLiveBroadcaster(undefined);
+    const b = new TeamLiveBroadcaster(null);
     const circular: Record<string, unknown> = { a: 1 };
     circular.self = circular;
     expect(() =>
@@ -54,7 +54,7 @@ describe('TeamLiveBroadcaster (memory)', () => {
   });
 
   it('publish does not throw when memory subscriber throws', async () => {
-    const b = new TeamLiveBroadcaster(undefined);
+    const b = new TeamLiveBroadcaster(null);
     await b.subscribe('ws1', 'teamA', () => {
       throw new Error('listener boom');
     });

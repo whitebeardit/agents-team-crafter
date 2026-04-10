@@ -161,7 +161,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     })
     void (async () => {
       try {
-        const [a, m, b, ks, t, td, int] = await Promise.all([
+        const [agentRes, mcpsRes, bindingsRes, knowledgeRes, teamsRes, toolDefsRes, integrationsRes] =
+          await Promise.all([
           api.get<Agent>(`/agents/${id}`),
           api.get<MCPConnection[]>("/mcps"),
           api.get<AgentMCPBinding[]>(`/agents/${id}/mcp-bindings`),
@@ -183,16 +184,16 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               meta: {},
             })),
         ])
-        const opTools = int.data.operationalCatalogTools ?? []
+        const opTools = integrationsRes.data.operationalCatalogTools ?? []
         setOperationalCatalogTools(opTools)
-        const opIds = new Set(opTools.map((x) => x.id))
-        applyAgentPayload(a.data, { operationalCatalogToolIds: opIds })
-        setWorkspaceOpenAiConfigured(int.data.secretsMasked.openaiApiKeyConfigured)
-        setMcps(m.data)
-        setBindings(b.data)
-        setKnowledgeSources(ks.data)
-        setTeams(t.data)
-        setWorkspaceToolDefs(td.data.filter((x) => x.enabled))
+        const opIds = new Set(opTools.map((tool) => tool.id))
+        applyAgentPayload(agentRes.data, { operationalCatalogToolIds: opIds })
+        setWorkspaceOpenAiConfigured(integrationsRes.data.secretsMasked.openaiApiKeyConfigured)
+        setMcps(mcpsRes.data)
+        setBindings(bindingsRes.data)
+        setKnowledgeSources(knowledgeRes.data)
+        setTeams(teamsRes.data)
+        setWorkspaceToolDefs(toolDefsRes.data.filter((toolDef) => toolDef.enabled))
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Falha ao carregar agente"
         toast.error(msg)
@@ -341,18 +342,18 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       }
 
       toast.success("Alteracoes salvas com sucesso")
-      const [fresh, intFresh] = await Promise.all([
+      const [agentFreshRes, integrationsFreshRes] = await Promise.all([
         api.get<Agent>(`/agents/${id}`),
         api.get<{
           secretsMasked: { openaiApiKeyConfigured: boolean }
           operationalCatalogTools: OperationalCatalogTool[]
         }>("/settings/workspace/integrations"),
       ])
-      const opTools = intFresh.data.operationalCatalogTools ?? []
+      const opTools = integrationsFreshRes.data.operationalCatalogTools ?? []
       setOperationalCatalogTools(opTools)
-      const opIds = new Set(opTools.map((x) => x.id))
-      applyAgentPayload(fresh.data, { operationalCatalogToolIds: opIds })
-      setWorkspaceOpenAiConfigured(intFresh.data.secretsMasked.openaiApiKeyConfigured)
+      const opIds = new Set(opTools.map((tool) => tool.id))
+      applyAgentPayload(agentFreshRes.data, { operationalCatalogToolIds: opIds })
+      setWorkspaceOpenAiConfigured(integrationsFreshRes.data.secretsMasked.openaiApiKeyConfigured)
     } catch (e) {
       const msg = e instanceof ApiError ? `${e.message} (${e.code})` : "Falha ao salvar"
       toast.error(msg)

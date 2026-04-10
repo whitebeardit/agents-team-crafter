@@ -23,20 +23,20 @@ const saveBody = z.object({
   category: z.string().default('Geral'),
 });
 
-export async function registerTemplateRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerTemplateRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/templates', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = listQuery.parse(req.query);
-    const data = await d.templateRepo.list(ws, q);
+    const data = await deps.templateRepo.list(ws, q);
     return reply.send(successEnvelope(data));
   });
 
   app.get('/templates/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const data = await d.templateRepo.findById(ws, id);
+    const data = await deps.templateRepo.findById(ws, id);
     if (!data) throw new AppError('NOT_FOUND', 'Template nao encontrado', 404);
     return reply.send(successEnvelope(data));
   });
@@ -45,9 +45,9 @@ export async function registerTemplateRoutes(app: FastifyInstance, d: IAppDeps) 
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = applyBody.parse(req.body);
-    const chOk = await d.channelRepo.existsAll(ws, body.channelIds);
+    const chOk = await deps.channelRepo.existsAll(ws, body.channelIds);
     if (!chOk) throw new AppError('VALIDATION_ERROR', 'Canal invalido', 400);
-    const result = await d.templateRepo.apply(ws, id, body);
+    const result = await deps.templateRepo.apply(ws, id, body);
     if (!result) throw new AppError('NOT_FOUND', 'Template nao encontrado', 404);
     return reply.code(201).send(successEnvelope(result));
   });
@@ -55,7 +55,7 @@ export async function registerTemplateRoutes(app: FastifyInstance, d: IAppDeps) 
   app.post('/templates', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = saveBody.parse(req.body);
-    const created = await d.templateRepo.saveFromTeam(ws, body);
+    const created = await deps.templateRepo.saveFromTeam(ws, body);
     if (!created) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     return reply.code(201).send(successEnvelope(created));
   });
@@ -63,12 +63,12 @@ export async function registerTemplateRoutes(app: FastifyInstance, d: IAppDeps) 
   app.delete('/templates/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const tpl = await d.templateRepo.findById(ws, id);
+    const tpl = await deps.templateRepo.findById(ws, id);
     if (!tpl) throw new AppError('NOT_FOUND', 'Template nao encontrado', 404);
     if (tpl.origin === 'whitebeard') {
       throw new AppError('FORBIDDEN', 'Template catalogo somente leitura', 403);
     }
-    const ok = await d.templateRepo.deleteCompany(ws, id);
+    const ok = await deps.templateRepo.deleteCompany(ws, id);
     if (!ok) throw new AppError('NOT_FOUND', 'Template nao encontrado', 404);
     return reply.send(successEnvelope({ message: 'Template removido com sucesso' }));
   });

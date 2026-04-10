@@ -33,7 +33,7 @@ function createStateAdapter(workspaceId: string, env: IEnv) {
 
 function bindInbound(
   chat: Chat,
-  d: IAppDeps,
+  deps: IAppDeps,
   workspaceId: string,
   channelDoc: ChannelDoc,
   agentChannelLabel: string,
@@ -41,7 +41,7 @@ function bindInbound(
   const channelIdStr = channelDoc._id.toString();
   const runInbound = async (text: string, thread: Thread) => {
     const { coordinatorId, teamId } = await requireCoordinatorForChannelInstance(
-      d.teamRepo,
+      deps.teamRepo,
       workspaceId,
       channelIdStr,
     );
@@ -58,7 +58,7 @@ function bindInbound(
     let streamRunId: string | undefined;
     const startedAt = new Date();
     try {
-      d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+      deps.teamLiveBroadcaster.publish(workspaceId, teamId, {
         source: 'inbound',
         runId: randomUUID(),
         event: 'inboundUserMessage',
@@ -70,17 +70,17 @@ function bindInbound(
           workspaceId,
         },
       });
-      const result = await invokeTeam(d.coordinatorOrchestrator, invocation, {
+      const result = await invokeTeam(deps.coordinatorOrchestrator, invocation, {
         onProgress: (e) => {
           streamRunId = e.runId;
-          d.teamLiveBroadcaster.publishAgentStatus(workspaceId, teamId, 'inbound', e);
+          deps.teamLiveBroadcaster.publishAgentStatus(workspaceId, teamId, 'inbound', e);
           telegramStatusDebouncer?.notifyFromProgress(e);
         },
         streamCoordinatorText: true,
         onCoordinatorTextDelta: (deltaText) => {
           if (!streamRunId) return;
           const payload = { text: deltaText, runId: streamRunId };
-          d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+          deps.teamLiveBroadcaster.publish(workspaceId, teamId, {
             source: 'inbound',
             runId: streamRunId,
             event: 'coordinatorDelta',
@@ -88,7 +88,7 @@ function bindInbound(
           });
         },
       });
-      d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+      deps.teamLiveBroadcaster.publish(workspaceId, teamId, {
         source: 'inbound',
         runId: result.runId,
         event: 'runComplete',
@@ -101,7 +101,7 @@ function bindInbound(
           events: result.events,
         },
       });
-      await d.runRecorderService.recordCompleted({
+      await deps.runRecorderService.recordCompleted({
         workspaceId,
         teamId,
         trigger: 'channel_inbound',
@@ -117,7 +117,7 @@ function bindInbound(
       const message = err instanceof Error ? err.message : String(err);
       const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
       const status = err instanceof AppError ? err.httpStatus : 500;
-      await d.runRecorderService.recordFailed({
+      await deps.runRecorderService.recordFailed({
         workspaceId,
         teamId,
         runId: streamRunId ?? randomUUID(),
@@ -130,7 +130,7 @@ function bindInbound(
         startedAt,
         error: { code, message, status },
       });
-      d.teamLiveBroadcaster.publish(workspaceId, teamId, {
+      deps.teamLiveBroadcaster.publish(workspaceId, teamId, {
         source: 'inbound',
         runId: randomUUID(),
         event: 'error',
@@ -178,7 +178,7 @@ function bindInbound(
 }
 
 export function createSlackChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -195,7 +195,7 @@ export function createSlackChatFromSecrets(
     adapters: { slack: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'slack');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'slack');
   return chat;
 }
 
@@ -213,7 +213,7 @@ export function createSlackVerificationChatFromSecrets(secrets: { signingSecret:
 }
 
 export function createDiscordChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -231,12 +231,12 @@ export function createDiscordChatFromSecrets(
     adapters: { discord: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'discord');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'discord');
   return chat;
 }
 
 export function createTeamsChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -255,12 +255,12 @@ export function createTeamsChatFromSecrets(
     adapters: { teams: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'teams');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'teams');
   return chat;
 }
 
 export function createTelegramChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -278,12 +278,12 @@ export function createTelegramChatFromSecrets(
     adapters: { telegram: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'telegram');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'telegram');
   return chat;
 }
 
 export function createGchatChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -308,12 +308,12 @@ export function createGchatChatFromSecrets(
     adapters: { gchat: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'gchat');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'gchat');
   return chat;
 }
 
 export function createGithubChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -352,12 +352,12 @@ export function createGithubChatFromSecrets(
     adapters: { github: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'github');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'github');
   return chat;
 }
 
 export function createLinearChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -384,12 +384,12 @@ export function createLinearChatFromSecrets(
     adapters: { linear: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'linear');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'linear');
   return chat;
 }
 
 export function createWhatsappChatFromSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -410,12 +410,12 @@ export function createWhatsappChatFromSecrets(
     adapters: { whatsapp: adapter },
     state: createStateAdapter(workspaceId, env),
   });
-  bindInbound(chat, d, workspaceId, channelDoc, 'whatsapp');
+  bindInbound(chat, deps, workspaceId, channelDoc, 'whatsapp');
   return chat;
 }
 
 export function buildChatFromDecryptedSecrets(
-  d: IAppDeps,
+  deps: IAppDeps,
   env: IEnv,
   workspaceId: string,
   channelDoc: ChannelDoc,
@@ -424,24 +424,24 @@ export function buildChatFromDecryptedSecrets(
   const cfg = (channelDoc.config as Record<string, unknown>) ?? {};
   switch (plain.platform) {
     case 'slack':
-      return createSlackChatFromSecrets(d, env, workspaceId, channelDoc, plain);
+      return createSlackChatFromSecrets(deps, env, workspaceId, channelDoc, plain);
     case 'discord':
-      return createDiscordChatFromSecrets(d, env, workspaceId, channelDoc, plain);
+      return createDiscordChatFromSecrets(deps, env, workspaceId, channelDoc, plain);
     case 'teams':
-      return createTeamsChatFromSecrets(d, env, workspaceId, channelDoc, plain);
+      return createTeamsChatFromSecrets(deps, env, workspaceId, channelDoc, plain);
     case 'telegram':
-      return createTelegramChatFromSecrets(d, env, workspaceId, channelDoc, plain);
+      return createTelegramChatFromSecrets(deps, env, workspaceId, channelDoc, plain);
     case 'gchat':
-      return createGchatChatFromSecrets(d, env, workspaceId, channelDoc, plain);
+      return createGchatChatFromSecrets(deps, env, workspaceId, channelDoc, plain);
     case 'github':
-      return createGithubChatFromSecrets(d, env, workspaceId, channelDoc, plain);
+      return createGithubChatFromSecrets(deps, env, workspaceId, channelDoc, plain);
     case 'linear':
-      return createLinearChatFromSecrets(d, env, workspaceId, channelDoc, plain);
+      return createLinearChatFromSecrets(deps, env, workspaceId, channelDoc, plain);
     case 'whatsapp': {
       const pid =
         typeof cfg.whatsappPhoneNumberId === 'string' ? cfg.whatsappPhoneNumberId : '';
       if (!pid) throw new Error('config.whatsappPhoneNumberId obrigatorio para WhatsApp');
-      return createWhatsappChatFromSecrets(d, env, workspaceId, channelDoc, plain, pid);
+      return createWhatsappChatFromSecrets(deps, env, workspaceId, channelDoc, plain, pid);
     }
     default: {
       const _e: never = plain;

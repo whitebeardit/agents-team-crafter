@@ -19,30 +19,30 @@ const updateBinding = z
     message: 'Informe allowedTools ou requiresApproval',
   });
 
-export async function registerAgentMcpBindingRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerAgentMcpBindingRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/agents/:id/mcp-bindings', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const agentId = (req.params as { id: string }).id;
-    const agent = await d.agentRepo.findById(ws, agentId);
+    const agent = await deps.agentRepo.findById(ws, agentId);
     if (!agent) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
-    const data = await d.agentMcpBindingRepo.listByAgent(ws, agentId);
+    const data = await deps.agentMcpBindingRepo.listByAgent(ws, agentId);
     return reply.send(successEnvelope(data));
   });
 
   app.post('/agents/:id/mcp-bindings', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const agentId = (req.params as { id: string }).id;
-    const cur = await d.agentRepo.findById(ws, agentId);
+    const cur = await deps.agentRepo.findById(ws, agentId);
     if (!cur) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
     if ((cur as { origin?: string }).origin === 'whitebeard') {
       throw new AppError('FORBIDDEN', 'Agente catalogo somente leitura', 403);
     }
     const body = createBinding.parse(req.body);
-    const mcpExists = await d.mcpRepo.findById(ws, body.mcpConnectionId, false);
+    const mcpExists = await deps.mcpRepo.findById(ws, body.mcpConnectionId, false);
     if (!mcpExists) throw new AppError('VALIDATION_ERROR', 'MCP invalido', 400);
-    const result = await d.agentMcpBindingRepo.create(ws, agentId, body);
+    const result = await deps.agentMcpBindingRepo.create(ws, agentId, body);
     if ('error' in result) {
       throw new AppError(
         'VALIDATION_ERROR',
@@ -57,13 +57,13 @@ export async function registerAgentMcpBindingRoutes(app: FastifyInstance, d: IAp
     const ws = req.workspaceId!;
     const agentId = (req.params as { id: string }).id;
     const bindingId = (req.params as { bindingId: string }).bindingId;
-    const cur = await d.agentRepo.findById(ws, agentId);
+    const cur = await deps.agentRepo.findById(ws, agentId);
     if (!cur) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
     if ((cur as { origin?: string }).origin === 'whitebeard') {
       throw new AppError('FORBIDDEN', 'Agente catalogo somente leitura', 403);
     }
     const body = updateBinding.parse(req.body);
-    const result = await d.agentMcpBindingRepo.update(ws, agentId, bindingId, body);
+    const result = await deps.agentMcpBindingRepo.update(ws, agentId, bindingId, body);
     if (!result) throw new AppError('NOT_FOUND', 'Vinculo nao encontrado', 404);
     if ('error' in result) {
       throw new AppError(
@@ -79,12 +79,12 @@ export async function registerAgentMcpBindingRoutes(app: FastifyInstance, d: IAp
     const ws = req.workspaceId!;
     const agentId = (req.params as { id: string }).id;
     const bindingId = (req.params as { bindingId: string }).bindingId;
-    const cur = await d.agentRepo.findById(ws, agentId);
+    const cur = await deps.agentRepo.findById(ws, agentId);
     if (!cur) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
     if ((cur as { origin?: string }).origin === 'whitebeard') {
       throw new AppError('FORBIDDEN', 'Agente catalogo somente leitura', 403);
     }
-    const ok = await d.agentMcpBindingRepo.delete(ws, agentId, bindingId);
+    const ok = await deps.agentMcpBindingRepo.delete(ws, agentId, bindingId);
     if (!ok) throw new AppError('NOT_FOUND', 'Vinculo nao encontrado', 404);
     return reply.send(successEnvelope({ message: 'Vinculo MCP removido com sucesso' }));
   });

@@ -39,10 +39,10 @@ const updateSchema = z.object({
     .optional(),
 });
 
-export async function registerAgentPlanRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerAgentPlanRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
   const repo = new AgentPlanRepository();
-  const service = new AgentPlanService(d, repo);
+  const service = new AgentPlanService(deps, repo);
 
   app.post('/agent-plans', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;

@@ -21,20 +21,20 @@ const updateBody = z.object({
   description: z.string().optional(),
 });
 
-export async function registerMcpRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerMcpRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/mcps', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = listQuery.parse(req.query);
-    const data = await d.mcpRepo.list(ws, q);
+    const data = await deps.mcpRepo.list(ws, q);
     return reply.send(successEnvelope(data));
   });
 
   app.get('/mcps/:id/tools', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const doc = await d.mcpRepo.findById(ws, id, false);
+    const doc = await deps.mcpRepo.findById(ws, id, false);
     if (!doc) throw new AppError('NOT_FOUND', 'MCP nao encontrado', 404);
     return reply.send(successEnvelope((doc as { tools: unknown }).tools ?? []));
   });
@@ -42,7 +42,7 @@ export async function registerMcpRoutes(app: FastifyInstance, d: IAppDeps) {
   app.get('/mcps/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const data = await d.mcpRepo.findById(ws, id, true);
+    const data = await deps.mcpRepo.findById(ws, id, true);
     if (!data) throw new AppError('NOT_FOUND', 'MCP nao encontrado', 404);
     return reply.send(successEnvelope(data));
   });
@@ -50,7 +50,7 @@ export async function registerMcpRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/mcps', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = createBody.parse(req.body);
-    const data = await d.mcpRepo.create(ws, body);
+    const data = await deps.mcpRepo.create(ws, body);
     return reply.code(201).send(successEnvelope(data));
   });
 
@@ -58,7 +58,7 @@ export async function registerMcpRoutes(app: FastifyInstance, d: IAppDeps) {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = updateBody.parse(req.body);
-    const data = await d.mcpRepo.update(ws, id, body);
+    const data = await deps.mcpRepo.update(ws, id, body);
     if (!data) throw new AppError('NOT_FOUND', 'MCP nao encontrado', 404);
     return reply.send(successEnvelope(data));
   });
@@ -66,7 +66,7 @@ export async function registerMcpRoutes(app: FastifyInstance, d: IAppDeps) {
   app.delete('/mcps/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const ok = await d.mcpRepo.delete(ws, id);
+    const ok = await deps.mcpRepo.delete(ws, id);
     if (!ok) throw new AppError('NOT_FOUND', 'MCP nao encontrado', 404);
     return reply.send(successEnvelope({ message: 'Conexao MCP removida com sucesso' }));
   });
@@ -74,16 +74,16 @@ export async function registerMcpRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/mcps/:id/connect', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const exists = await d.mcpRepo.findById(ws, id, false);
+    const exists = await deps.mcpRepo.findById(ws, id, false);
     if (!exists) throw new AppError('NOT_FOUND', 'MCP nao encontrado', 404);
-    const data = await d.mcpRepo.connect(ws, id);
+    const data = await deps.mcpRepo.connect(ws, id);
     return reply.send(successEnvelope(data));
   });
 
   app.post('/mcps/:id/disconnect', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const data = await d.mcpRepo.disconnect(ws, id);
+    const data = await deps.mcpRepo.disconnect(ws, id);
     if (!data) throw new AppError('NOT_FOUND', 'MCP nao encontrado', 404);
     return reply.send(successEnvelope(data));
   });
@@ -91,9 +91,9 @@ export async function registerMcpRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/mcps/:id/sync-tools', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const exists = await d.mcpRepo.findById(ws, id, false);
+    const exists = await deps.mcpRepo.findById(ws, id, false);
     if (!exists) throw new AppError('NOT_FOUND', 'MCP nao encontrado', 404);
-    const data = await d.mcpRepo.syncTools(ws, id);
+    const data = await deps.mcpRepo.syncTools(ws, id);
     return reply.send(successEnvelope(data));
   });
 }

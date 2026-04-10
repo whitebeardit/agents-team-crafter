@@ -7,7 +7,7 @@ import { getWorkspaceOverlapMode } from '../../governance/application/workspace-
 
 export class AgentPlanService {
   constructor(
-    private readonly d: IAppDeps,
+    private readonly deps: IAppDeps,
     private readonly repo: AgentPlanRepository,
   ) {}
 
@@ -54,7 +54,9 @@ export class AgentPlanService {
     };
   }
 
-  private decide(review: Awaited<ReturnType<typeof this.d.domainGuardService.review>>) {
+  private mapOverlapReviewToPlanDecision(
+    review: Awaited<ReturnType<typeof this.deps.domainGuardService.review>>,
+  ) {
     if (review.decision === 'reuse_existing') return 'reuse_existing' as const;
     if (review.decision === 'block') return 'blocked' as const;
     if (review.decision === 'review') return 'split_scope' as const;
@@ -75,8 +77,8 @@ export class AgentPlanService {
     },
   ) {
     const draftAgent = this.buildDraft(input);
-    const overlapReview = await this.d.domainGuardService.review(workspaceId, draftAgent);
-    const decision = this.decide(overlapReview);
+    const overlapReview = await this.deps.domainGuardService.review(workspaceId, draftAgent);
+    const decision = this.mapOverlapReviewToPlanDecision(overlapReview);
     const notes = [
       overlapReview.summary,
       decision === 'reuse_existing'
@@ -111,8 +113,8 @@ export class AgentPlanService {
       throw new AppError('CONFLICT', 'Plano ja foi executado', 409);
     }
     const draftAgent = (patch.draftAgent ?? current.draftAgent) as IAgentGovernanceDraft;
-    const overlapReview = await this.d.domainGuardService.review(workspaceId, draftAgent);
-    const decision = this.decide(overlapReview);
+    const overlapReview = await this.deps.domainGuardService.review(workspaceId, draftAgent);
+    const decision = this.mapOverlapReviewToPlanDecision(overlapReview);
     const updated = await this.repo.update(workspaceId, id, {
       request: patch.request ?? current.request,
       draftAgent,
@@ -145,12 +147,12 @@ export class AgentPlanService {
       return { plan, responseMeta: {} };
     }
 
-    const overlapMode = await getWorkspaceOverlapMode(this.d, workspaceId);
+    const overlapMode = await getWorkspaceOverlapMode(this.deps, workspaceId);
     const responseMeta: Record<string, unknown> = {};
 
     if (plan.decision === 'blocked') {
       if (overlapMode === 'blocking') {
-        await this.d.governanceAuditRepo.append({
+        await this.deps.governanceAuditRepo.append({
           workspaceId,
           userId: opts?.actorUserId,
           correlationId: opts?.correlationId,
@@ -161,7 +163,7 @@ export class AgentPlanService {
           review: plan.overlapReview,
         });
       }
-      await this.d.governanceAuditRepo.append({
+      await this.deps.governanceAuditRepo.append({
         workspaceId,
         userId: opts?.actorUserId,
         correlationId: opts?.correlationId,
@@ -184,7 +186,7 @@ export class AgentPlanService {
         result: { reusedAgentId: top?.agentId ?? null, reusedAgentName: top?.agentName ?? null },
       });
       if (!updated) throw new AppError('NOT_FOUND', 'Plano de agente nao encontrado', 404);
-      await this.d.governanceAuditRepo.append({
+      await this.deps.governanceAuditRepo.append({
         workspaceId,
         userId: opts?.actorUserId,
         correlationId: opts?.correlationId,
@@ -200,7 +202,7 @@ export class AgentPlanService {
     }
 
     const draftAgent = plan.draftAgent as IAgentGovernanceDraft;
-    const created = await this.d.agentRepo.create(workspaceId, {
+    const created = await this.deps.agentRepo.create(workspaceId, {
       name: draftAgent.name,
       description: draftAgent.description ?? '',
       role: draftAgent.role,
@@ -223,7 +225,7 @@ export class AgentPlanService {
       result: { createdAgentId: created.id, createdAgentName: created.name },
     });
     if (!updated) throw new AppError('NOT_FOUND', 'Plano de agente nao encontrado', 404);
-    await this.d.governanceAuditRepo.append({
+    await this.deps.governanceAuditRepo.append({
       workspaceId,
       userId: opts?.actorUserId,
       correlationId: opts?.correlationId,

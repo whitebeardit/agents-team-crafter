@@ -28,16 +28,16 @@ const sloQuerySchema = z.object({
 });
 
 async function applyGovernanceAuditRateLimit(
-  d: IAppDeps,
+  deps: IAppDeps,
   workspaceId: string,
   userId: string,
 ): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
   const key = `gov-audit:${workspaceId}:${userId}`;
   const max = 240;
   const windowSec = 60;
-  if (d.redis) {
+  if (deps.redis) {
     try {
-      return await takeRedisFixedWindowRateLimit(d.redis, key, max, windowSec);
+      return await takeRedisFixedWindowRateLimit(deps.redis, key, max, windowSec);
     } catch {
       /* fallback abaixo */
     }
@@ -53,12 +53,12 @@ async function applyGovernanceAuditRateLimit(
   return { ok: true };
 }
 
-export async function registerGovernanceRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerGovernanceRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/governance/feature-flags', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
-    const record = await d.workspaceRepo.findById(ws);
+    const record = await deps.workspaceRepo.findById(ws);
     if (!record) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
     const flags = mergeGovernanceFlags(record.settings as Record<string, unknown>);
     return reply.send(successEnvelope(flags));
@@ -67,7 +67,7 @@ export async function registerGovernanceRoutes(app: FastifyInstance, d: IAppDeps
   app.put('/governance/feature-flags', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = governanceFlagsPatchSchema.parse(req.body ?? {});
-    const record = await d.workspaceRepo.findById(ws);
+    const record = await deps.workspaceRepo.findById(ws);
     if (!record) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
     const settings = { ...(record.settings as Record<string, unknown>) };
     const prev = mergeGovernanceFlags(settings);
@@ -84,33 +84,33 @@ export async function registerGovernanceRoutes(app: FastifyInstance, d: IAppDeps
       ...(webhook ? { sloWebhookUrl: webhook } : {}),
     };
     settings['governance'] = nextGov;
-    const updated = await d.workspaceRepo.updateWorkspace(ws, { settings });
+    const updated = await deps.workspaceRepo.updateWorkspace(ws, { settings });
     if (!updated) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
     return reply.send(successEnvelope(mergeGovernanceFlags(updated.settings as Record<string, unknown>)));
   });
 
   app.get('/governance/ops-summary', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
-    const data = await buildGovernanceOpsSummary(ws, {
-      runRepo: d.runRepo,
-      agentOverlapReviewRepo: d.agentOverlapReviewRepo,
-      governanceAuditRepo: d.governanceAuditRepo,
+    const opsSummary = await buildGovernanceOpsSummary(ws, {
+      runRepo: deps.runRepo,
+      agentOverlapReviewRepo: deps.agentOverlapReviewRepo,
+      governanceAuditRepo: deps.governanceAuditRepo,
     });
-    return reply.send(successEnvelope(data));
+    return reply.send(successEnvelope(opsSummary));
   });
 
   app.get('/governance/runs-trend', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = trendDaysQuerySchema.parse(req.query);
-    const data = await buildGovernanceRunsTrend(ws, d.runRepo, q.days);
-    return reply.send(successEnvelope(data));
+    const runsTrend = await buildGovernanceRunsTrend(ws, deps.runRepo, q.days);
+    return reply.send(successEnvelope(runsTrend));
   });
 
   app.get('/governance/audit-trend', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = trendDaysQuerySchema.parse(req.query);
-    const data = await buildGovernanceAuditTrend(ws, d.governanceAuditRepo, q.days);
-    return reply.send(successEnvelope(data));
+    const auditTrend = await buildGovernanceAuditTrend(ws, deps.governanceAuditRepo, q.days);
+    return reply.send(successEnvelope(auditTrend));
   });
 
   app.get('/governance/team-slos', { preHandler: tenant }, async (req, reply) => {
@@ -119,30 +119,30 @@ export async function registerGovernanceRoutes(app: FastifyInstance, d: IAppDeps
     const recordAlertsRaw = (req.query as Record<string, string | undefined>)['recordAlerts'];
     const recordAlerts =
       recordAlertsRaw === 'false' || recordAlertsRaw === '0' ? false : true;
-    const record = await d.workspaceRepo.findById(ws);
+    const record = await deps.workspaceRepo.findById(ws);
     if (!record) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
     const gov = mergeGovernanceFlags(record.settings as Record<string, unknown>);
     const emitSloBreaches = recordAlerts && gov.sloAlertsEnabled;
-    const data = await buildGovernanceTeamSlos(
+    const teamSlos = await buildGovernanceTeamSlos(
       ws,
       {
-        runRepo: d.runRepo,
-        teamRepo: d.teamRepo,
-        governanceAuditRepo: d.governanceAuditRepo,
-        redis: d.redis,
+        runRepo: deps.runRepo,
+        teamRepo: deps.teamRepo,
+        governanceAuditRepo: deps.governanceAuditRepo,
+        redis: deps.redis,
         emitSloBreaches,
         sloWebhookUrl: gov.sloWebhookUrl,
       },
       q.days,
       q.sloTargetPercent,
     );
-    return reply.send(successEnvelope(data));
+    return reply.send(successEnvelope(teamSlos));
   });
 
   app.get('/governance/audit-events', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
     const ws = req.workspaceId!;
     const userId = req.user?.sub ?? 'anon';
-    const rl = await applyGovernanceAuditRateLimit(d, ws, userId);
+    const rl = await applyGovernanceAuditRateLimit(deps, ws, userId);
     if (!rl.ok) {
       return reply
         .header('Retry-After', String(rl.retryAfterSec))
@@ -156,7 +156,7 @@ export async function registerGovernanceRoutes(app: FastifyInstance, d: IAppDeps
         );
     }
     const q = paginationQuerySchema.parse(req.query);
-    const { items, total } = await d.governanceAuditRepo.listPaged(ws, {
+    const { items, total } = await deps.governanceAuditRepo.listPaged(ws, {
       page: q.page,
       perPage: q.perPage,
     });

@@ -189,7 +189,7 @@ export default function SettingsPage() {
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const [ws, me, keys, int] = await Promise.all([
+      const [workspaceRes, profileRes, apiKeysRes, integrationsRes] = await Promise.all([
         api.get<SettingsWorkspaceState>("/settings/workspace"),
         api.get<{ name: string; email: string }>("/settings/profile", { tenant: false }),
         api.get<Array<{ id: string; name: string; prefix: string; createdAt?: string }>>("/settings/api-keys"),
@@ -202,29 +202,29 @@ export default function SettingsPage() {
           },
         })),
       ])
-      setWorkspace(ws.data)
-      setProfile(me.data)
-      setApiKeys(keys.data)
-      setIntegrations(int.data.secretsMasked)
-      const igm = int.data.secretsMasked.imageGenerationModel
+      setWorkspace(workspaceRes.data)
+      setProfile(profileRes.data)
+      setApiKeys(apiKeysRes.data)
+      setIntegrations(integrationsRes.data.secretsMasked)
+      const igm = integrationsRes.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
-      setSmtpTestTo(me.data.email ?? "")
-      const sm = int.data.secretsMasked.smtp
+      setSmtpTestTo(profileRes.data.email ?? "")
+      const sm = integrationsRes.data.secretsMasked.smtp
       if (sm) {
         setSmtpHost(sm.host ?? "")
         setSmtpPort(String(sm.port ?? 587))
         setSmtpSecure(Boolean(sm.secure))
         setSmtpFrom(sm.from ?? "")
       }
-      const tm = int.data.secretsMasked
+      const tm = integrationsRes.data.secretsMasked
       setToolDbPostgresUrl("")
       setToolCrmRestBase(tm.toolCrm?.restBaseUrl ?? "")
       setToolCrmBearer("")
       setToolCalRestBase(tm.toolCalendar?.restBaseUrl ?? "")
       setToolCalAuthHeader("")
-      setWorkspaceName(ws.data.name ?? "")
-      setUserName(me.data.name ?? "")
-      setUserEmail(me.data.email ?? "")
+      setWorkspaceName(workspaceRes.data.name ?? "")
+      setUserName(profileRes.data.name ?? "")
+      setUserEmail(profileRes.data.email ?? "")
     })()
   }, [token, refreshToken, currentWorkspace])
 

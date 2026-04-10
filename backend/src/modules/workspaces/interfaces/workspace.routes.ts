@@ -27,42 +27,42 @@ const patchMemberSchema = z.object({
 });
 
 async function getWorkspaceIfAllowed(
-  d: IAppDeps,
+  deps: IAppDeps,
   user: { sub: string; isPlatformAdmin?: boolean },
   workspaceId: string,
 ): Promise<IWorkspaceRecord> {
   if (user.isPlatformAdmin) {
-    const ws = await d.workspaceRepo.findById(workspaceId);
+    const ws = await deps.workspaceRepo.findById(workspaceId);
     if (!ws) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
     return ws;
   }
-  const ws = await d.workspaceRepo.findByIdForUser(workspaceId, user.sub);
+  const ws = await deps.workspaceRepo.findByIdForUser(workspaceId, user.sub);
   if (!ws) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
   return ws;
 }
 
 async function assertCanInviteToWorkspace(
-  d: IAppDeps,
+  deps: IAppDeps,
   userId: string,
   isPlatformAdmin: boolean | undefined,
   workspaceId: string,
 ): Promise<void> {
   if (isPlatformAdmin) {
-    const ws = await d.workspaceRepo.findById(workspaceId);
+    const ws = await deps.workspaceRepo.findById(workspaceId);
     if (!ws) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
     return;
   }
-  const role = await d.memberRepo.findRole(userId, workspaceId);
+  const role = await deps.memberRepo.findRole(userId, workspaceId);
   if (!role || !['owner', 'admin'].includes(role)) {
     throw new AppError('FORBIDDEN', 'Sem permissao para convidar', 403);
   }
 }
 
-export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps) {
-  app.get('/workspaces', { preHandler: [d.authenticate] }, async (req, reply) => {
+export async function registerWorkspaceRoutes(app: FastifyInstance, deps: IAppDeps) {
+  app.get('/workspaces', { preHandler: [deps.authenticate] }, async (req, reply) => {
     const list = req.user!.isPlatformAdmin
-      ? await d.workspaceRepo.listAll()
-      : await d.workspaceRepo.listByUserId(req.user!.sub);
+      ? await deps.workspaceRepo.listAll()
+      : await deps.workspaceRepo.listByUserId(req.user!.sub);
     return reply.send(
       successEnvelope(
         list.map((w) => ({
@@ -77,16 +77,16 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
 
   app.post(
     '/workspaces',
-    { preHandler: [d.authenticate, d.requirePlatformAdmin] },
+    { preHandler: [deps.authenticate, deps.requirePlatformAdmin] },
     async (req, reply) => {
       const body = createWorkspaceSchema.parse(req.body);
-      const ws = await d.workspaceRepo.createWorkspace({
+      const ws = await deps.workspaceRepo.createWorkspace({
         name: body.name,
         logo: body.logo,
         plan: body.plan,
       });
-      await d.memberRepo.addMember(ws.id, req.user!.sub, 'owner');
-      await d.userRepo.addWorkspaceId(req.user!.sub, ws.id);
+      await deps.memberRepo.addMember(ws.id, req.user!.sub, 'owner');
+      await deps.userRepo.addWorkspaceId(req.user!.sub, ws.id);
       return reply.code(201).send(
         successEnvelope({
           id: ws.id,
@@ -101,10 +101,10 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
 
   app.post(
     '/workspaces/invites/:inviteId/accept',
-    { preHandler: [d.authenticate] },
+    { preHandler: [deps.authenticate] },
     async (req, reply) => {
       const inviteId = (req.params as { inviteId: string }).inviteId;
-      const inv = await d.inviteRepo.findValidById(inviteId);
+      const inv = await deps.inviteRepo.findValidById(inviteId);
       if (!inv) throw new AppError('NOT_FOUND', 'Convite nao encontrado', 404);
       if (inv.consumedAt) {
         throw new AppError('VALIDATION_ERROR', 'Convite ja utilizado', 400);
@@ -115,23 +115,23 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
       if (inv.expiresAt.getTime() < Date.now()) {
         throw new AppError('VALIDATION_ERROR', 'Convite expirado', 400);
       }
-      const user = await d.userRepo.findById(req.user!.sub);
+      const user = await deps.userRepo.findById(req.user!.sub);
       if (!user) throw new AppError('UNAUTHORIZED', 'Usuario nao encontrado', 401);
       if (user.email.toLowerCase() !== inv.email.toLowerCase()) {
         throw new AppError('FORBIDDEN', 'Este convite nao e para o seu email', 403);
       }
-      const existing = await d.memberRepo.findRole(user.id, inv.workspaceId);
+      const existing = await deps.memberRepo.findRole(user.id, inv.workspaceId);
       if (existing) {
-        await d.inviteRepo.markConsumed(inviteId);
+        await deps.inviteRepo.markConsumed(inviteId);
         return reply.send(successEnvelope({ ok: true, workspaceId: inv.workspaceId, alreadyMember: true }));
       }
-      await d.memberRepo.addMember(
+      await deps.memberRepo.addMember(
         inv.workspaceId,
         user.id,
         inv.role === 'admin' ? 'admin' : 'member',
       );
-      await d.userRepo.addWorkspaceId(user.id, inv.workspaceId);
-      await d.inviteRepo.markConsumed(inviteId);
+      await deps.userRepo.addWorkspaceId(user.id, inv.workspaceId);
+      await deps.inviteRepo.markConsumed(inviteId);
       return reply.send(
         successEnvelope({
           ok: true,
@@ -143,9 +143,9 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
     },
   );
 
-  app.get('/workspaces/:id', { preHandler: [d.authenticate] }, async (req, reply) => {
+  app.get('/workspaces/:id', { preHandler: [deps.authenticate] }, async (req, reply) => {
     const id = (req.params as { id: string }).id;
-    const ws = await getWorkspaceIfAllowed(d, req.user!, id);
+    const ws = await getWorkspaceIfAllowed(deps, req.user!, id);
     return reply.send(
       successEnvelope({
         id: ws.id,
@@ -160,15 +160,15 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
 
   app.put(
     '/workspaces/:id',
-    { preHandler: [d.authenticate] },
+    { preHandler: [deps.authenticate] },
     async (req, reply) => {
       const id = (req.params as { id: string }).id;
-      const role = await d.memberRepo.findRole(req.user!.sub, id);
+      const role = await deps.memberRepo.findRole(req.user!.sub, id);
       if (!role || !['owner', 'admin'].includes(role)) {
         throw new AppError('FORBIDDEN', 'Sem permissao para atualizar workspace', 403);
       }
       const body = putWsSchema.parse(req.body);
-      const ws = await d.workspaceRepo.updateWorkspace(id, body);
+      const ws = await deps.workspaceRepo.updateWorkspace(id, body);
       if (!ws) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
       return reply.send(
         successEnvelope({
@@ -182,10 +182,10 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
     },
   );
 
-  app.get('/workspaces/:id/members', { preHandler: [d.authenticate] }, async (req, reply) => {
+  app.get('/workspaces/:id/members', { preHandler: [deps.authenticate] }, async (req, reply) => {
     const id = (req.params as { id: string }).id;
-    await getWorkspaceIfAllowed(d, req.user!, id);
-    const members = await d.memberRepo.listMembers(id);
+    await getWorkspaceIfAllowed(deps, req.user!, id);
+    const members = await deps.memberRepo.listMembers(id);
     return reply.send(
       successEnvelope(
         members.map((m) => ({
@@ -202,14 +202,14 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
 
   app.post(
     '/workspaces/:id/members/invite',
-    { preHandler: [d.authenticate] },
+    { preHandler: [deps.authenticate] },
     async (req, reply) => {
       const id = (req.params as { id: string }).id;
-      await assertCanInviteToWorkspace(d, req.user!.sub, req.user!.isPlatformAdmin, id);
+      await assertCanInviteToWorkspace(deps, req.user!.sub, req.user!.isPlatformAdmin, id);
       const body = inviteSchema.parse(req.body);
       const expires = new Date();
       expires.setDate(expires.getDate() + 7);
-      const inv = await d.inviteRepo.create({
+      const inv = await deps.inviteRepo.create({
         workspaceId: id,
         email: body.email,
         role: body.role,
@@ -221,25 +221,25 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
 
   app.get(
     '/workspaces/:id/invites',
-    { preHandler: [d.authenticate] },
+    { preHandler: [deps.authenticate] },
     async (req, reply) => {
       const id = (req.params as { id: string }).id;
-      await getWorkspaceIfAllowed(d, req.user!, id);
-      await assertCanInviteToWorkspace(d, req.user!.sub, req.user!.isPlatformAdmin, id);
-      const list = await d.inviteRepo.listByWorkspace(id);
+      await getWorkspaceIfAllowed(deps, req.user!, id);
+      await assertCanInviteToWorkspace(deps, req.user!.sub, req.user!.isPlatformAdmin, id);
+      const list = await deps.inviteRepo.listByWorkspace(id);
       return reply.send(successEnvelope(list));
     },
   );
 
   app.post(
     '/workspaces/:id/invites/:inviteId/revoke',
-    { preHandler: [d.authenticate] },
+    { preHandler: [deps.authenticate] },
     async (req, reply) => {
       const id = (req.params as { id: string }).id;
       const inviteId = (req.params as { inviteId: string }).inviteId;
-      await getWorkspaceIfAllowed(d, req.user!, id);
-      await assertCanInviteToWorkspace(d, req.user!.sub, req.user!.isPlatformAdmin, id);
-      const existing = await d.inviteRepo.findOneInWorkspace(inviteId, id);
+      await getWorkspaceIfAllowed(deps, req.user!, id);
+      await assertCanInviteToWorkspace(deps, req.user!.sub, req.user!.isPlatformAdmin, id);
+      const existing = await deps.inviteRepo.findOneInWorkspace(inviteId, id);
       if (!existing) {
         throw new AppError('NOT_FOUND', 'Convite nao encontrado', 404);
       }
@@ -249,7 +249,7 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
       if (existing.revokedAt) {
         throw new AppError('VALIDATION_ERROR', 'Convite ja revogado', 400);
       }
-      const ok = await d.inviteRepo.revoke(inviteId, id);
+      const ok = await deps.inviteRepo.revoke(inviteId, id);
       if (!ok) {
         throw new AppError('VALIDATION_ERROR', 'Nao foi possivel revogar o convite', 400);
       }
@@ -259,13 +259,13 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
 
   app.delete(
     '/workspaces/:id/invites/:inviteId',
-    { preHandler: [d.authenticate] },
+    { preHandler: [deps.authenticate] },
     async (req, reply) => {
       const id = (req.params as { id: string }).id;
       const inviteId = (req.params as { inviteId: string }).inviteId;
-      await getWorkspaceIfAllowed(d, req.user!, id);
-      await assertCanInviteToWorkspace(d, req.user!.sub, req.user!.isPlatformAdmin, id);
-      const ok = await d.inviteRepo.deletePermanently(inviteId, id);
+      await getWorkspaceIfAllowed(deps, req.user!, id);
+      await assertCanInviteToWorkspace(deps, req.user!.sub, req.user!.isPlatformAdmin, id);
+      const ok = await deps.inviteRepo.deletePermanently(inviteId, id);
       if (!ok) {
         throw new AppError('NOT_FOUND', 'Convite nao encontrado', 404);
       }
@@ -275,20 +275,20 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, d: IAppDeps)
 
   app.patch(
     '/workspaces/:id/members/:userId',
-    { preHandler: [d.authenticate] },
+    { preHandler: [deps.authenticate] },
     async (req, reply) => {
       const workspaceId = (req.params as { id: string }).id;
       const targetUserId = (req.params as { userId: string }).userId;
       patchMemberSchema.parse(req.body);
-      const actorRole = await d.memberRepo.findRole(req.user!.sub, workspaceId);
+      const actorRole = await deps.memberRepo.findRole(req.user!.sub, workspaceId);
       if (!actorRole || !['owner', 'admin'].includes(actorRole)) {
         throw new AppError('FORBIDDEN', 'Sem permissao', 403);
       }
-      const targetRole = await d.memberRepo.findRole(targetUserId, workspaceId);
+      const targetRole = await deps.memberRepo.findRole(targetUserId, workspaceId);
       if (!targetRole || targetRole !== 'member') {
         throw new AppError('VALIDATION_ERROR', 'So e possivel promover membros a admin', 400);
       }
-      await d.memberRepo.updateMemberRole(workspaceId, targetUserId, 'admin');
+      await deps.memberRepo.updateMemberRole(workspaceId, targetUserId, 'admin');
       return reply.send(successEnvelope({ ok: true }));
     },
   );

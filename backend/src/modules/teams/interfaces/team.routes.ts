@@ -59,8 +59,8 @@ const graphBodySchema = z.object({
   edges: z.array(z.unknown()),
 });
 
-async function assertCoordinatorRole(d: IAppDeps, workspaceId: string, agentId: string): Promise<void> {
-  const row = await d.agentRepo.findById(workspaceId, agentId);
+async function assertCoordinatorRole(deps: IAppDeps, workspaceId: string, agentId: string): Promise<void> {
+  const row = await deps.agentRepo.findById(workspaceId, agentId);
   if (!row) throw new AppError('VALIDATION_ERROR', 'Coordenador invalido', 400);
   const role = (row as Record<string, unknown>)['role'];
   if (role !== 'coordinator') {
@@ -87,13 +87,13 @@ function toTeamAgentDigest(a: Record<string, unknown>) {
   };
 }
 
-export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/teams', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = listTeamsQuery.parse(req.query);
-    const { items, total } = await d.teamRepo.list(
+    const { items, total } = await deps.teamRepo.list(
       ws,
       { status: q.status, search: q.search },
       q.page,
@@ -105,14 +105,14 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/teams', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = createTeamSchema.parse(req.body);
-    const coordOk = await d.agentRepo.existsAll(ws, [body.coordinatorId]);
+    const coordOk = await deps.agentRepo.existsAll(ws, [body.coordinatorId]);
     if (!coordOk) throw new AppError('VALIDATION_ERROR', 'Coordenador invalido', 400);
-    await assertCoordinatorRole(d, ws, body.coordinatorId);
-    const agentsOk = await d.agentRepo.existsAll(ws, body.agentIds);
+    await assertCoordinatorRole(deps, ws, body.coordinatorId);
+    const agentsOk = await deps.agentRepo.existsAll(ws, body.agentIds);
     if (!agentsOk) throw new AppError('VALIDATION_ERROR', 'Agente invalido no time', 400);
-    const chOk = await d.channelRepo.existsAll(ws, body.channelIds);
+    const chOk = await deps.channelRepo.existsAll(ws, body.channelIds);
     if (!chOk) throw new AppError('VALIDATION_ERROR', 'Canal invalido no time', 400);
-    const created = await d.teamRepo.create(ws, {
+    const created = await deps.teamRepo.create(ws, {
       name: body.name,
       description: body.description ?? '',
       objective: body.objective,
@@ -128,16 +128,16 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.get('/teams/:id/graph', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
-    const g = await d.teamGraphRepo.get(ws, teamId);
+    const g = await deps.teamGraphRepo.get(ws, teamId);
     const enrichTeam = {
       coordinatorId: team.coordinatorId,
       agentIds: team.agentIds,
       channelIds: team.channelIds,
     };
     const normalizedNodes = normalizeGraphNodesEntityFields(g.nodes, enrichTeam);
-    const workspaceAgentIds = await d.agentRepo.listAllIds(ws);
+    const workspaceAgentIds = await deps.agentRepo.listAllIds(ws);
     const cleanEdges = stripDerivedGraphEdges(g.edges);
     const { edges: persistedFixed, changed } = normalizePersistedChannelEdgesToCoordinator(
       normalizedNodes as IGraphNode[],
@@ -146,7 +146,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
       { agentIds: workspaceAgentIds },
     );
     if (changed) {
-      await d.teamGraphRepo.upsert(ws, teamId, normalizedNodes, persistedFixed);
+      await deps.teamGraphRepo.upsert(ws, teamId, normalizedNodes, persistedFixed);
     }
     const payload = enrichTeamGraphPayload(normalizedNodes, persistedFixed, enrichTeam);
     return reply.send(successEnvelope({ nodes: payload.nodes, edges: payload.edges }));
@@ -155,7 +155,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.put('/teams/:id/graph', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const body = graphBodySchema.parse(req.body);
     const enrichTeam = {
@@ -165,8 +165,8 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     };
     const normalizedNodes = normalizeGraphNodesEntityFields(body.nodes, enrichTeam);
     const cleanEdges = stripDerivedGraphEdges(body.edges);
-    const agentIds = await d.agentRepo.listAllIds(ws);
-    const channelIds = await d.channelRepo.listAllIds(ws);
+    const agentIds = await deps.agentRepo.listAllIds(ws);
+    const channelIds = await deps.channelRepo.listAllIds(ws);
     const { edges: edgesToPersist } = normalizePersistedChannelEdgesToCoordinator(
       normalizedNodes as IGraphNode[],
       cleanEdges,
@@ -187,7 +187,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
         400,
       );
     }
-    await d.teamGraphRepo.upsert(ws, teamId, normalizedNodes, edgesToPersist);
+    await deps.teamGraphRepo.upsert(ws, teamId, normalizedNodes, edgesToPersist);
     return reply.send(
       successEnvelope({
         message: 'Grafo atualizado com sucesso',
@@ -199,11 +199,11 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/teams/:id/graph/validate', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const body = graphBodySchema.parse(req.body);
-    const agentIds = await d.agentRepo.listAllIds(ws);
-    const channelIds = await d.channelRepo.listAllIds(ws);
+    const agentIds = await deps.agentRepo.listAllIds(ws);
+    const channelIds = await deps.channelRepo.listAllIds(ws);
     const enrichTeam = {
       coordinatorId: team.coordinatorId,
       agentIds: team.agentIds,
@@ -227,7 +227,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.get('/teams/:id/gallery', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const name = String((team as Record<string, unknown>)['name'] ?? '');
     const albums = await gallerySvc.listAlbums(ws, teamId, name);
@@ -238,7 +238,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
     const subjectRaw = (req.params as { subject: string }).subject;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const name = String((team as Record<string, unknown>)['name'] ?? '');
     let subject: string;
@@ -256,7 +256,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     const teamId = (req.params as { id: string }).id;
     const subjectRaw = (req.params as { subject: string }).subject;
     const filenameRaw = (req.params as { filename: string }).filename;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const name = String((team as Record<string, unknown>)['name'] ?? '');
     let subject: string;
@@ -281,7 +281,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     const teamId = (req.params as { id: string }).id;
     const subjectRaw = (req.params as { subject: string }).subject;
     const filenameRaw = (req.params as { filename: string }).filename;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const name = String((team as Record<string, unknown>)['name'] ?? '');
     let subject: string;
@@ -301,19 +301,19 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.get('/teams/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, id);
+    const team = await deps.teamRepo.findById(ws, id);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const t = team as Record<string, unknown>;
     const coordId = String(t['coordinatorId']);
     const agentIds = (t['agentIds'] as string[]) ?? [];
     const channelIds = (t['channelIds'] as string[]) ?? [];
-    const coordinator = await d.agentRepo.findById(ws, coordId);
+    const coordinator = await deps.agentRepo.findById(ws, coordId);
     const agents = [];
     for (const aid of agentIds) {
-      const ag = await d.agentRepo.findById(ws, aid);
+      const ag = await deps.agentRepo.findById(ws, aid);
       if (ag) agents.push(ag);
     }
-    const chRows = await d.channelRepo.listByIds(ws, channelIds);
+    const chRows = await deps.channelRepo.listByIds(ws, channelIds);
     const channels = chRows.map((c: Record<string, unknown>) => ({
       id: c['_id']!.toString(),
       type: c['type'],
@@ -340,27 +340,27 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     const id = (req.params as { id: string }).id;
     const body = updateTeamSchema.parse(req.body);
     if (body.coordinatorId) {
-      const ok = await d.agentRepo.existsAll(ws, [body.coordinatorId]);
+      const ok = await deps.agentRepo.existsAll(ws, [body.coordinatorId]);
       if (!ok) throw new AppError('VALIDATION_ERROR', 'Coordenador invalido', 400);
-      await assertCoordinatorRole(d, ws, body.coordinatorId);
+      await assertCoordinatorRole(deps, ws, body.coordinatorId);
     }
     if (body.agentIds) {
-      const ok = await d.agentRepo.existsAll(ws, body.agentIds);
+      const ok = await deps.agentRepo.existsAll(ws, body.agentIds);
       if (!ok) throw new AppError('VALIDATION_ERROR', 'Agente invalido', 400);
     }
     if (body.channelIds) {
-      const ok = await d.channelRepo.existsAll(ws, body.channelIds);
+      const ok = await deps.channelRepo.existsAll(ws, body.channelIds);
       if (!ok) throw new AppError('VALIDATION_ERROR', 'Canal invalido', 400);
     }
-    const current = await d.teamRepo.findById(ws, id);
+    const current = await deps.teamRepo.findById(ws, id);
     if (!current) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const cur = current as Record<string, unknown>;
     const nextStatus = body.status ?? (cur['status'] as string);
     const nextChannelIds = (body.channelIds ?? (cur['channelIds'] as string[])) as string[];
     if (nextStatus === 'active') {
-      await assertActiveChannelBindingUnique(d.teamRepo, ws, nextChannelIds, id);
+      await assertActiveChannelBindingUnique(deps.teamRepo, ws, nextChannelIds, id);
     }
-    const updated = await d.teamRepo.update(ws, id, body as Record<string, unknown>);
+    const updated = await deps.teamRepo.update(ws, id, body as Record<string, unknown>);
     if (!updated) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     return reply.send(successEnvelope(updated));
   });
@@ -368,18 +368,18 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.delete('/teams/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    await d.teamRepo.delete(ws, id);
+    await deps.teamRepo.delete(ws, id);
     return reply.send(successEnvelope({ message: 'Time removido com sucesso' }));
   });
 
   app.post('/teams/:id/activate', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, id);
+    const team = await deps.teamRepo.findById(ws, id);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const chIds = ((team as Record<string, unknown>)['channelIds'] as string[]) ?? [];
-    await assertActiveChannelBindingUnique(d.teamRepo, ws, chIds, id);
-    const updated = await d.teamRepo.update(ws, id, { status: 'active' });
+    await assertActiveChannelBindingUnique(deps.teamRepo, ws, chIds, id);
+    const updated = await deps.teamRepo.update(ws, id, { status: 'active' });
     if (!updated) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     return reply.send(
       successEnvelope({
@@ -393,7 +393,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/teams/:id/deactivate', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const updated = await d.teamRepo.update(ws, id, { status: 'inactive' });
+    const updated = await deps.teamRepo.update(ws, id, { status: 'inactive' });
     if (!updated) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     return reply.send(
       successEnvelope({
@@ -408,7 +408,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = duplicateSchema.parse(req.body);
-    const dup = await d.teamRepo.duplicate(ws, id, body.name);
+    const dup = await deps.teamRepo.duplicate(ws, id, body.name);
     if (!dup) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     return reply.code(201).send(successEnvelope(dup));
   });
@@ -416,7 +416,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/teams/:id/run', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
@@ -429,8 +429,8 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
       req.requestId,
     );
     try {
-      const result = await invokeTeam(d.coordinatorOrchestrator, invocation);
-      await d.runRecorderService.recordCompleted({
+      const result = await invokeTeam(deps.coordinatorOrchestrator, invocation);
+      await deps.runRecorderService.recordCompleted({
         workspaceId: ws,
         teamId,
         trigger: 'manual_http',
@@ -451,7 +451,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
         }),
       );
     } catch (err) {
-      await d.runRecorderService.recordFailed({
+      await deps.runRecorderService.recordFailed({
         workspaceId: ws,
         teamId,
         runId: randomUUID(),
@@ -477,7 +477,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.get('/teams/:id/live', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
 
     const stream = new PassThrough();
@@ -502,7 +502,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
       }
     };
 
-    const unsub = await d.teamLiveBroadcaster.subscribe(ws, teamId, (env) => {
+    const unsub = await deps.teamLiveBroadcaster.subscribe(ws, teamId, (env) => {
       try {
         if (env.event === 'agentStatus') writeSse('agentStatus', env.data);
         else if (env.event === 'coordinatorDelta') {
@@ -551,7 +551,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
   app.post('/teams/:id/run/stream', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const team = await d.teamRepo.findById(ws, teamId);
+    const team = await deps.teamRepo.findById(ws, teamId);
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
@@ -580,18 +580,18 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
 
     void (async () => {
       try {
-        const result = await invokeTeam(d.coordinatorOrchestrator, invocation, {
+        const result = await invokeTeam(deps.coordinatorOrchestrator, invocation, {
           onProgress: (e) => {
             streamRunId = e.runId;
             writeSse('agentStatus', e);
-            d.teamLiveBroadcaster.publishAgentStatus(ws, teamId, 'manual', e);
+            deps.teamLiveBroadcaster.publishAgentStatus(ws, teamId, 'manual', e);
           },
           streamCoordinatorText: true,
           onCoordinatorTextDelta: (text) => {
             const payload = { text, runId: streamRunId, source: 'manual' as const };
             writeSse('coordinatorDelta', payload);
             if (streamRunId) {
-              d.teamLiveBroadcaster.publish(ws, teamId, {
+              deps.teamLiveBroadcaster.publish(ws, teamId, {
                 source: 'manual',
                 runId: streamRunId,
                 event: 'coordinatorDelta',
@@ -609,7 +609,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
           events: result.events,
         };
         writeSse('runComplete', complete);
-        await d.runRecorderService.recordCompleted({
+        await deps.runRecorderService.recordCompleted({
           workspaceId: ws,
           teamId,
           trigger: 'manual_stream',
@@ -619,7 +619,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
           startedAt,
           result,
         });
-        d.teamLiveBroadcaster.publish(ws, teamId, {
+        deps.teamLiveBroadcaster.publish(ws, teamId, {
           source: 'manual',
           runId: result.runId,
           event: 'runComplete',
@@ -631,7 +631,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
         const status = err instanceof AppError ? err.httpStatus : 500;
         const errPayload = { code, message: errMsg, status };
         writeSse('error', errPayload);
-        await d.runRecorderService.recordFailed({
+        await deps.runRecorderService.recordFailed({
           workspaceId: ws,
           teamId,
           runId: streamRunId ?? randomUUID(),
@@ -643,7 +643,7 @@ export async function registerTeamRoutes(app: FastifyInstance, d: IAppDeps) {
           startedAt,
           error: errPayload,
         });
-        d.teamLiveBroadcaster.publish(ws, teamId, {
+        deps.teamLiveBroadcaster.publish(ws, teamId, {
           source: 'manual',
           runId: streamRunId ?? randomUUID(),
           event: 'error',

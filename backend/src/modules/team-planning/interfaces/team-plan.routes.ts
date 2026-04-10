@@ -22,10 +22,10 @@ const executeSchema = z.object({
   operationId: z.string().min(8).optional(),
 });
 
-export async function registerTeamPlanRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
   const repo = new TeamPlanRepository();
-  const service = new TeamPlanService(d, repo);
+  const service = new TeamPlanService(deps, repo);
 
   app.post('/team-plans', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;

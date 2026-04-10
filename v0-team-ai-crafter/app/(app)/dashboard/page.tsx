@@ -108,16 +108,16 @@ export default function DashboardPage() {
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const [m, rt, a, g] = await Promise.all([
+      const [metricsRes, recentTeamsRes, alertsRes, govOpsRes] = await Promise.all([
         api.get<Metrics>("/dashboard/metrics"),
         api.get<RecentTeam[]>("/dashboard/recent-teams"),
         api.get<DashboardAlert[]>("/dashboard/alerts"),
         api.get<GovernanceOpsSummary>("/governance/ops-summary").catch(() => null),
       ])
-      setMetrics(m.data)
-      setRecentTeams(rt.data.slice(0, 3))
-      setAlerts(a.data)
-      setGovOps(g?.data ?? null)
+      setMetrics(metricsRes.data)
+      setRecentTeams(recentTeamsRes.data.slice(0, 3))
+      setAlerts(alertsRes.data)
+      setGovOps(govOpsRes?.data ?? null)
       setGovOpsLoaded(true)
     })()
   }, [token, refreshToken, currentWorkspace])

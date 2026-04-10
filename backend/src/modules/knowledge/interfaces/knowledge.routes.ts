@@ -21,20 +21,20 @@ const updateBody = z.object({
   description: z.string().optional(),
 });
 
-export async function registerKnowledgeRoutes(app: FastifyInstance, d: IAppDeps) {
-  const tenant = [d.authenticate, d.requireTenant];
+export async function registerKnowledgeRoutes(app: FastifyInstance, deps: IAppDeps) {
+  const tenant = [deps.authenticate, deps.requireTenant];
 
   app.get('/knowledge-sources', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = listQuery.parse(req.query);
-    const data = await d.knowledgeSourceRepo.list(ws, q);
+    const data = await deps.knowledgeSourceRepo.list(ws, q);
     return reply.send(successEnvelope(data));
   });
 
   app.get('/knowledge-sources/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const data = await d.knowledgeSourceRepo.findById(ws, id);
+    const data = await deps.knowledgeSourceRepo.findById(ws, id);
     if (!data) throw new AppError('NOT_FOUND', 'Fonte nao encontrada', 404);
     return reply.send(successEnvelope(data));
   });
@@ -42,7 +42,7 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, d: IAppDeps)
   app.post('/knowledge-sources', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = createBody.parse(req.body);
-    const data = await d.knowledgeSourceRepo.create(ws, body);
+    const data = await deps.knowledgeSourceRepo.create(ws, body);
     return reply.code(201).send(successEnvelope(data));
   });
 
@@ -50,7 +50,7 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, d: IAppDeps)
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = updateBody.parse(req.body);
-    const data = await d.knowledgeSourceRepo.update(ws, id, body);
+    const data = await deps.knowledgeSourceRepo.update(ws, id, body);
     if (!data) throw new AppError('NOT_FOUND', 'Fonte nao encontrada', 404);
     return reply.send(successEnvelope(data));
   });
@@ -58,7 +58,7 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, d: IAppDeps)
   app.delete('/knowledge-sources/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const ok = await d.knowledgeSourceRepo.delete(ws, id);
+    const ok = await deps.knowledgeSourceRepo.delete(ws, id);
     if (!ok) throw new AppError('NOT_FOUND', 'Fonte nao encontrada', 404);
     return reply.send(successEnvelope({ message: 'Fonte de conhecimento removida com sucesso' }));
   });
@@ -66,7 +66,7 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, d: IAppDeps)
   app.post('/knowledge-sources/:id/sync', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    const data = await d.knowledgeSourceRepo.startSync(ws, id);
+    const data = await deps.knowledgeSourceRepo.startSync(ws, id);
     if (!data) throw new AppError('NOT_FOUND', 'Fonte nao encontrada', 404);
     return reply.send(successEnvelope(data));
   });

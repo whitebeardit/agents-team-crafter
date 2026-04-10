@@ -22,30 +22,30 @@ import { registerRunRoutes } from '../modules/runs/interfaces/run.routes.js';
 import { registerPlatformAgentRoutes } from '../modules/platform-agents/interfaces/platform-agent.routes.js';
 import { registerGovernanceRoutes } from '../modules/governance/interfaces/governance.routes.js';
 
-export async function registerRoutes(app: FastifyInstance, env: IEnv, deps?: IAppDeps) {
-  const d = deps ?? createDeps(env);
+export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDeps?: IAppDeps) {
+  const resolvedDeps = injectedDeps ?? createDeps(env);
   await app.register(
     async (r) => {
-      await registerAuthRoutes(r, d);
-      await registerWorkspaceRoutes(r, d);
-      await registerAgentRoutes(r, d);
-      await registerAgentGovernanceRoutes(r, d);
-      await registerAgentMcpBindingRoutes(r, d);
-      await registerMcpRoutes(r, d);
-      await registerTeamRoutes(r, d);
-      await registerTemplateRoutes(r, d);
-      await registerChannelRoutes(r, d);
-      await registerKnowledgeRoutes(r, d);
-      await registerDashboardRoutes(r, d);
-      await registerSettingsRoutes(r, d);
-      await registerAuditRoutes(r, d);
-      await registerToolDefinitionRoutes(r, d);
-      await registerAgentPlanRoutes(r, d);
-      await registerTeamPlanRoutes(r, d);
-      await registerRunRoutes(r, d);
-      await registerPlatformAgentRoutes(r, d);
-      await registerGovernanceRoutes(r, d);
-      await registerChatWebhookRoutes(r, env, d);
+      await registerAuthRoutes(r, resolvedDeps);
+      await registerWorkspaceRoutes(r, resolvedDeps);
+      await registerAgentRoutes(r, resolvedDeps);
+      await registerAgentGovernanceRoutes(r, resolvedDeps);
+      await registerAgentMcpBindingRoutes(r, resolvedDeps);
+      await registerMcpRoutes(r, resolvedDeps);
+      await registerTeamRoutes(r, resolvedDeps);
+      await registerTemplateRoutes(r, resolvedDeps);
+      await registerChannelRoutes(r, resolvedDeps);
+      await registerKnowledgeRoutes(r, resolvedDeps);
+      await registerDashboardRoutes(r, resolvedDeps);
+      await registerSettingsRoutes(r, resolvedDeps);
+      await registerAuditRoutes(r, resolvedDeps);
+      await registerToolDefinitionRoutes(r, resolvedDeps);
+      await registerAgentPlanRoutes(r, resolvedDeps);
+      await registerTeamPlanRoutes(r, resolvedDeps);
+      await registerRunRoutes(r, resolvedDeps);
+      await registerPlatformAgentRoutes(r, resolvedDeps);
+      await registerGovernanceRoutes(r, resolvedDeps);
+      await registerChatWebhookRoutes(r, env, resolvedDeps);
     },
     { prefix: '/api/v1' },
   );

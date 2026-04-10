@@ -62,20 +62,20 @@ type TPlannerOutput = z.infer<typeof plannerOutputSchema>;
 
 export class TeamPlanService {
   constructor(
-    private readonly d: IAppDeps,
+    private readonly deps: IAppDeps,
     private readonly repo: TeamPlanRepository,
   ) {}
 
   private buildFallback(problem: string, context?: string): TPlannerOutput {
-    const short = problem.slice(0, 80);
+    const problemPreview = problem.slice(0, 80);
     const objective = context?.trim()
       ? `${problem.trim()} Contexto: ${context.trim()}`
       : `${problem.trim()} Resolver com fluxo coordenado e previsivel.`;
     return {
       team: {
-        name: `Time ${short}`.slice(0, 60),
+        name: `Time ${problemPreview}`.slice(0, 60),
         objective,
-        description: `Plano gerado para: ${short}`,
+        description: `Plano gerado para: ${problemPreview}`,
         primaryChannel: 'api',
         channelIds: [],
       },
@@ -170,7 +170,7 @@ export class TeamPlanService {
     const conflicts: Array<{ agentName: string; existingAgentId?: string; reason: string }> = [];
 
     for (const agent of agents) {
-      const review = await this.d.domainGuardService.review(workspaceId, {
+      const review = await this.deps.domainGuardService.review(workspaceId, {
         name: agent.name,
         description: agent.description,
         role: agent.role,
@@ -246,7 +246,7 @@ export class TeamPlanService {
   }
 
   async createPlan(workspaceId: string, input: { problem: string; context?: string }) {
-    const keyResolution = await this.d.workspaceIntegrationsService.resolveOpenAiApiKeyWithSource(workspaceId);
+    const keyResolution = await this.deps.workspaceIntegrationsService.resolveOpenAiApiKeyWithSource(workspaceId);
     const apiKey = keyResolution.apiKey;
     const openaiResolvedFromEnv = keyResolution.source === 'environment';
 
@@ -393,9 +393,9 @@ export class TeamPlanService {
     let responseMeta: Record<string, unknown> = {};
     const conflictAgents = parsed.agents.filter((agent) => agent.planningMode === 'conflict');
     if (conflictAgents.length > 0) {
-      const overlapMode = await getWorkspaceOverlapMode(this.d, workspaceId);
+      const overlapMode = await getWorkspaceOverlapMode(this.deps, workspaceId);
       if (overlapMode === 'blocking') {
-        await this.d.governanceAuditRepo.append({
+        await this.deps.governanceAuditRepo.append({
           workspaceId,
           userId: opts?.actorUserId,
           correlationId: opts?.correlationId,
@@ -404,7 +404,7 @@ export class TeamPlanService {
         });
         throw new AppError('CONFLICT', 'Plano contem conflitos de reuso/overlap; ajuste antes de executar', 409);
       }
-      await this.d.governanceAuditRepo.append({
+      await this.deps.governanceAuditRepo.append({
         workspaceId,
         userId: opts?.actorUserId,
         correlationId: opts?.correlationId,
@@ -431,7 +431,7 @@ export class TeamPlanService {
         | undefined;
       for (const plannedAgent of parsed.agents) {
         if (plannedAgent.planningMode === 'existing' && plannedAgent.existingAgentId) {
-          const existing = await this.d.agentRepo.findById(workspaceId, plannedAgent.existingAgentId);
+          const existing = await this.deps.agentRepo.findById(workspaceId, plannedAgent.existingAgentId);
           if (!existing) {
             throw new AppError('VALIDATION_ERROR', `Agente reutilizado nao encontrado: ${plannedAgent.existingAgentId}`, 400);
           }
@@ -445,7 +445,7 @@ export class TeamPlanService {
           if (plannedAgent.role === 'coordinator') createdCoordinator = reused;
           continue;
         }
-        const created = await this.d.agentRepo.create(workspaceId, {
+        const created = await this.deps.agentRepo.create(workspaceId, {
           name: plannedAgent.name,
           description: plannedAgent.description ?? '',
           role: plannedAgent.role,
@@ -474,7 +474,7 @@ export class TeamPlanService {
       const specialistIds = createdAgents.filter((a) => a.role === 'specialist').map((a) => a.id);
 
       onPhase?.('creating_team', 'Criando time (draft)');
-      const team = await this.d.teamRepo.create(workspaceId, {
+      const team = await this.deps.teamRepo.create(workspaceId, {
         name: parsed.team.name,
         description: parsed.team.description ?? '',
         objective: parsed.team.objective,
@@ -506,8 +506,8 @@ export class TeamPlanService {
         graphNodes as IGraphNode[],
         parsed.graph.edges as Array<{ id: string; source: string; target: string }>,
         {
-          agentIds: await this.d.agentRepo.listAllIds(workspaceId),
-          channelIds: await this.d.channelRepo.listAllIds(workspaceId),
+          agentIds: await this.deps.agentRepo.listAllIds(workspaceId),
+          channelIds: await this.deps.channelRepo.listAllIds(workspaceId),
         },
         {
           team: {
@@ -520,11 +520,11 @@ export class TeamPlanService {
       if (!graphValidation.valid) {
         throw new AppError('VALIDATION_ERROR', graphValidation.errors.map((e) => e.message).join(' '), 400);
       }
-      await this.d.teamGraphRepo.upsert(workspaceId, String(team.id), graphNodes, parsed.graph.edges);
+      await this.deps.teamGraphRepo.upsert(workspaceId, String(team.id), graphNodes, parsed.graph.edges);
 
       onPhase?.('activate', 'Ativando time');
-      await assertActiveChannelBindingUnique(this.d.teamRepo, workspaceId, parsed.team.channelIds, String(team.id));
-      await this.d.teamRepo.update(workspaceId, String(team.id), { status: 'active' });
+      await assertActiveChannelBindingUnique(this.deps.teamRepo, workspaceId, parsed.team.channelIds, String(team.id));
+      await this.deps.teamRepo.update(workspaceId, String(team.id), { status: 'active' });
 
       const result = {
         teamId: String(team.id),
@@ -541,7 +541,7 @@ export class TeamPlanService {
       if (!updated) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
       const reusedCount = createdAgents.filter((a) => a.reused).length;
       const newCount = createdAgents.filter((a) => !a.reused).length;
-      await this.d.governanceAuditRepo.append({
+      await this.deps.governanceAuditRepo.append({
         workspaceId,
         userId: opts?.actorUserId,
         correlationId: opts?.correlationId,
