@@ -18,7 +18,9 @@ import type {
   TeamPlanAgentDraft,
   TeamPlanDraft,
   TeamPlanExecuteMeta,
+  TeamPlanPlannerMeta,
 } from "@/lib/types"
+import { getPlannerFallbackCopy } from "@/lib/planner-fallback-messages"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -282,6 +284,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     [bindPreview],
   )
 
+  const plannerFallbackCopy = useMemo(() => {
+    if (!plan?.plannerMeta?.usedFallback) return null
+    return getPlannerFallbackCopy(plan.plannerMeta as TeamPlanPlannerMeta)
+  }, [plan])
+
   const api = useMemo(() => {
     if (!token || !currentWorkspace) return null
     return createApiClient({
@@ -459,9 +466,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       if ((res.data.requiredPacks?.length ?? 0) > 0 || (res.data.requiredTools?.length ?? 0) > 0) {
         void refreshBindPreview(res.data.id)
       }
-      const meta = res.data.plannerMeta
-      if (meta?.usedFallback) toast.warning("Plano gerado em modo template")
-      else toast.success("Plano criado. Revise e ajuste se necessário.")
+      const meta = res.data.plannerMeta as TeamPlanPlannerMeta | undefined
+      if (meta?.usedFallback) {
+        const copy = getPlannerFallbackCopy(meta)
+        toast.warning(copy.toastTitle, copy.toastDescription ? { description: copy.toastDescription } : undefined)
+      } else toast.success("Plano criado. Revise e ajuste se necessário.")
     } catch (e) {
       const message = e instanceof ApiError ? e.message : "Falha ao gerar plano"
       toast.error(message)
@@ -644,15 +653,28 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             <CardDescription>Edite o plano e confirme reuso, novos agentes e conflitos antes de executar.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {plan.plannerMeta?.usedFallback && (
+            {plannerFallbackCopy ? (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Plano em modo template</AlertTitle>
-                <AlertDescription>
-                  A resposta do planner caiu em fallback. Revise cuidadosamente antes de executar.
+                <AlertDescription className="space-y-2">
+                  <p className="text-destructive-foreground/95">{plannerFallbackCopy.alertExplanation}</p>
+                  {plannerFallbackCopy.reasonCode ? (
+                    <p className="text-xs font-mono text-muted-foreground">
+                      Codigo: <span className="break-all">{plannerFallbackCopy.reasonCode}</span>
+                    </p>
+                  ) : null}
+                  {plannerFallbackCopy.technicalDetail ? (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5 mt-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Detalhe tecnico (suporte)</p>
+                      <code className="text-[11px] leading-snug break-words whitespace-pre-wrap block text-muted-foreground">
+                        {plannerFallbackCopy.technicalDetail}
+                      </code>
+                    </div>
+                  ) : null}
                 </AlertDescription>
               </Alert>
-            )}
+            ) : null}
             {((plan.requiredPacks?.length ?? 0) > 0 || (plan.requiredTools?.length ?? 0) > 0) && (
               <Alert>
                 <Sparkles className="h-4 w-4" />

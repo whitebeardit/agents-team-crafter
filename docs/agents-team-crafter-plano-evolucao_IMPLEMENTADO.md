@@ -630,6 +630,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 59   | Catálogo `internal_action` (presets + API + UI guiada)   | entregue (ver [Loop 59](#loop-59-fechado))                                                      |
 | 60   | Remover CRM HTTP do catálogo (ambiguidade vs CRM interno) | entregue (ver [Loop 60](#loop-60-fechado))                                                      |
 | 61   | Criação em lote de `internal_action` na página Tools (UX) | entregue (ver [Loop 61](#loop-61-fechado))                                                     |
+| 62   | Transparência do fallback do team planner (AI Builder)   | entregue (ver [Loop 62](#loop-62-fechado))                                                     |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -638,12 +639,12 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 61** — criação em lote de `internal_action` na página Tools (ver [Loop 61](#loop-61-fechado)).
+**Último slice numerado fechado:** **Loop 62** — transparência do fallback do team planner no AI Builder (ver [Loop 62](#loop-62-fechado)).
 
 **Próximo slice:** definir no plano mestre (`agents-team-crafter-plano-evolucao.md`) quando houver nova macro-tarefa; candidatos incluem evoluções da ETAPA 9 (ex.: admin global — listagem de utilizadores / delete em cascata) ou novas frentes de produto.
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** pode continuar com slices adicionais para além do Loop 60.
+A **ETAPA 9 — Paridade de produção, configurações e operação** pode continuar com slices adicionais para além do Loop 62.
 
 ---
 
@@ -1178,6 +1179,17 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** pode cont
 ### Relação com o Loop 59 (fechado)
 
 O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 substitui o combobox **single-select** por **lista com selecção múltipla** para `internal_action` na mesma página.
+
+## Loop 62 (fechado)
+
+- etapa/prioridade: ETAPA 9 (UX AI Builder / team plan) / alta
+- objetivo do slice: quando `plannerMeta.usedFallback` é verdadeiro, a UI deve mostrar **a razão** (`fallbackReason`) e o **detalhe técnico** opcional (`parseErrorSummary`) já devolvidos pelo backend, em PT-BR, no toast e no alerta «Plano em modo template» — sem obrigar o utilizador a inspecionar a rede.
+- **entregue no repositório:**
+  - [`planner-fallback-messages.ts`](../v0-team-ai-crafter/lib/planner-fallback-messages.ts): mapa de mensagens por `fallbackReason` + `parseErrorSummary`
+  - [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx): toast com título/descrição; alerta com explicação, código e bloco «Detalhe tecnico (suporte)»
+- critério de saída: causas `no_openai_key`, `openai_request_failed`, `json_extract_failed`, `schema_validation_failed` identificáveis na revisão do plano.
+- Gate: `npm run build` em `v0-team-ai-crafter` (sem alteração de backend obrigatória para este slice).
+- **referência no plano mestre:** [Loop 62](agents-team-crafter-plano-evolucao.md#loop-62--transparência-do-fallback-do-team-planner-ai-builder)
 
 ---
 
