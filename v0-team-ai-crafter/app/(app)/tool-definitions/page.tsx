@@ -101,14 +101,19 @@ export default function ToolDefinitionsPage() {
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [selectedInternalActionId, setSelectedInternalActionId] = useState("")
 
-  const api = token && currentWorkspace
-    ? createApiClient({
-        getAuth: () => ({ token, refreshToken }),
-        setAuth: () => {},
-        clearAuth: () => {},
-        getWorkspaceId: () => currentWorkspace.id,
-      })
-    : null
+  /** Referência estável: sem isso, cada render recria o client e o efeito de `loadCatalog` volta a correr em loop. */
+  const api = useMemo(
+    () =>
+      token && currentWorkspace
+        ? createApiClient({
+            getAuth: () => ({ token, refreshToken }),
+            setAuth: () => {},
+            clearAuth: () => {},
+            getWorkspaceId: () => currentWorkspace.id,
+          })
+        : null,
+    [token, refreshToken, currentWorkspace?.id],
+  )
 
   const load = async () => {
     if (!api) return
