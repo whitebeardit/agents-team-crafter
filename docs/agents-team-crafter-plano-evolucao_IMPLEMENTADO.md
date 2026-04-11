@@ -665,6 +665,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 66   | Responsividade das telas críticas                          | entregue (ver [Loop 66](#loop-66-fechado))                                                      |
 | 67   | Onboarding contextual e tour por tela                      | entregue (ver [Loop 67](#loop-67-fechado))                                                      |
 | 68   | Expansão de tours contextuais (listagens)                    | entregue (ver [Loop 68](#loop-68-fechado))                                                      |
+| 69   | Tours contextuais — governança e observabilidade             | candidato mapeado (ver [candidato Loop 69](#candidato-loop-69))                                 |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -675,7 +676,30 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Último slice numerado fechado:** **Loop 68** — expansão de tours contextuais nas listagens (ver [Loop 68](#loop-68-fechado)).
 
-**Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (ETAPA 9 continua aberta a temas como admin global cross-tenant, novas integrações e paridade produto/runtime).
+**Próximo slice numerado recomendado:** **Loop 69** — ver [candidato Loop 69](#candidato-loop-69) abaixo.
+
+Macro-temas adicionais (fora do escopo imediato do 69): admin global cross-tenant, billing, 2FA dedicado — ver [plano mestre secção 14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+
+<a id="candidato-loop-69"></a>
+
+### Candidato Loop 69 — tours contextuais (governança e observabilidade)
+
+**Objetivo:** continuar o rollout dos Loops 67–68 com a **mesma infraestrutura** (`ContextualTourHost`, `contextual-tours-catalog`, persistência em `user.preferences.contextualTours`), cobrindo rotas de **compliance / operações** ainda sem tour.
+
+**Foco mínimo (MVP do slice):**
+
+- Novos `screenKey` + copy `version: 1` para **`/governance`** e **`/observability`**.
+- Integração de `ContextualTourHost` + `ContextualTourManualTrigger` nos cabeçalhos destas páginas (padrão dos loops anteriores).
+
+**Extensão opcional (se sobra tempo no mesmo slice):**
+
+- Fichas de detalhe **`/agents/[id]`** e/ou **`/teams/[id]`** — maior superfície; pode ficar para Loop 70 se o esforço crescer.
+
+**Critério de saída:**
+
+- Auto-tour e «Ver tour desta tela» nas rotas do MVP, com as mesmas regras de reentrada do Loop 67 (snooze de sessão, versão por ecrã, `PUT /settings/profile`).
+- Gate Ralph com frontend: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- Ledger: secção **Loop 69 (fechado)** com tabela `screenKey` ↔ rota.
 
 ---
 
