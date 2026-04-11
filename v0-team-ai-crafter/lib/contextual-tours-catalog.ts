@@ -161,4 +161,36 @@ export const CONTEXTUAL_TOUR_CATALOG: Record<ContextualTourScreenKey, Contextual
       },
     ],
   },
+  governance_workspace: {
+    version: 1,
+    dialogTitle: "Tour — Governança",
+    steps: [
+      {
+        title: "Resumo operacional",
+        description:
+          "Veja contagens de execuções, overlap e tendências. As políticas de feature flag afetam comportamento do runtime — altere com cuidado e perfil adequado.",
+      },
+      {
+        title: "Auditoria e exportação",
+        description:
+          "A tabela de auditoria regista eventos relevantes do workspace. Exporte CSV quando precisar de arquivo ou análise externa; respeite cooldown e permissões de administrador.",
+      },
+    ],
+  },
+  observability_metrics: {
+    version: 1,
+    dialogTitle: "Tour — Observabilidade",
+    steps: [
+      {
+        title: "KPIs agregados",
+        description:
+          "Estes números vêm de métricas internas (estilo Prometheus) sobre execuções de team-plan: totais, duração média e auto-bind de tools. São indicadores de processo, não substituem logs de aplicação.",
+      },
+      {
+        title: "Acesso e atualização",
+        description:
+          "A página pode estar limitada a administradores do workspace. Use Atualizar para recarregar; se vir «Sem permissão», o resumo UI não está disponível para o seu papel.",
+      },
+    ],
+  },
 }

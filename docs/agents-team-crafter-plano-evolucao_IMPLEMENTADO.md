@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–68) | Loops 52–68 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–69) | Loops 52–69 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
 
 
 ---
@@ -665,7 +665,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 66   | Responsividade das telas críticas                          | entregue (ver [Loop 66](#loop-66-fechado))                                                      |
 | 67   | Onboarding contextual e tour por tela                      | entregue (ver [Loop 67](#loop-67-fechado))                                                      |
 | 68   | Expansão de tours contextuais (listagens)                    | entregue (ver [Loop 68](#loop-68-fechado))                                                      |
-| 69   | Tours contextuais — governança e observabilidade             | candidato mapeado (ver [candidato Loop 69](#candidato-loop-69))                                 |
+| 69   | Tours contextuais — governança e observabilidade             | entregue (ver [Loop 69](#loop-69-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -674,32 +674,9 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 68** — expansão de tours contextuais nas listagens (ver [Loop 68](#loop-68-fechado)).
+**Último slice numerado fechado:** **Loop 69** — tours contextuais em governança e observabilidade (ver [Loop 69](#loop-69-fechado)).
 
-**Próximo slice numerado recomendado:** **Loop 69** — ver [candidato Loop 69](#candidato-loop-69) abaixo.
-
-Macro-temas adicionais (fora do escopo imediato do 69): admin global cross-tenant, billing, 2FA dedicado — ver [plano mestre secção 14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
-
-<a id="candidato-loop-69"></a>
-
-### Candidato Loop 69 — tours contextuais (governança e observabilidade)
-
-**Objetivo:** continuar o rollout dos Loops 67–68 com a **mesma infraestrutura** (`ContextualTourHost`, `contextual-tours-catalog`, persistência em `user.preferences.contextualTours`), cobrindo rotas de **compliance / operações** ainda sem tour.
-
-**Foco mínimo (MVP do slice):**
-
-- Novos `screenKey` + copy `version: 1` para **`/governance`** e **`/observability`**.
-- Integração de `ContextualTourHost` + `ContextualTourManualTrigger` nos cabeçalhos destas páginas (padrão dos loops anteriores).
-
-**Extensão opcional (se sobra tempo no mesmo slice):**
-
-- Fichas de detalhe **`/agents/[id]`** e/ou **`/teams/[id]`** — maior superfície; pode ficar para Loop 70 se o esforço crescer.
-
-**Critério de saída:**
-
-- Auto-tour e «Ver tour desta tela» nas rotas do MVP, com as mesmas regras de reentrada do Loop 67 (snooze de sessão, versão por ecrã, `PUT /settings/profile`).
-- Gate Ralph com frontend: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
-- Ledger: secção **Loop 69 (fechado)** com tabela `screenKey` ↔ rota.
+**Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (candidatos: tours em fichas `/agents/[id]` / `/teams/[id]`, spotlight DOM, tabelas densas mobile — ver secção 14.8).
 
 ---
 
@@ -1360,6 +1337,21 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (backend + `next build`).
 - **referência no plano mestre:** [Loop 68](agents-team-crafter-plano-evolucao.md#loop-68--expansão-dos-tours-contextuais-listagens)
+
+## Loop 69 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual — fase 3) / média-alta
+- objetivo do slice: mesma infraestrutura dos Loops 67–68; novos `screenKey` para **`/governance`** e **`/observability`**.
+
+| `screenKey` | Rota |
+| --- | --- |
+| `governance_workspace` | `/governance` |
+| `observability_metrics` | `/observability` |
+
+- **Extensão adiada:** tours nas fichas `/agents/[id]` e `/teams/[id]` — candidato a **Loop 70** ou slice dedicado.
+- **entregue no repositório:** extensão de [`contextual-tours.ts`](../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts); [`governance/page.tsx`](../v0-team-ai-crafter/app/(app)/governance/page.tsx), [`observability/page.tsx`](../v0-team-ai-crafter/app/(app)/observability/page.tsx).
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- **referência no plano mestre:** [Loop 69](agents-team-crafter-plano-evolucao.md#loop-69--tours-contextuais-governança-e-observabilidade)
 
 ---
 

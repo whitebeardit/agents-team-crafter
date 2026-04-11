@@ -1142,12 +1142,12 @@ Fechar a lacuna de onboarding nas rotas que apoiam **governança** e **observabi
 - **`/observability`** — explicar métricas/listagens expostas e ligação ao runtime (sem prometer integrações ainda não implementadas).
 
 ### Extensão opcional
-- Tours nas fichas **`/agents/[id]`** e **`/teams/[id]`** no mesmo slice, ou adiar a um loop seguinte se o escopo crescer.
+- Tours nas fichas **`/agents/[id]`** e **`/teams/[id]`** — adiado (candidato Loop 70 ou slice dedicado).
 
 ### Critério de saída
 - Mesmas regras de persistência e reentrada do Loop 67; gate com frontend; ledger com **Loop 69 (fechado)**.
 
-**Estado (ledger):** candidato mapeado — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) **candidato Loop 69**; passa a **entregue** quando o slice for implementado e fechado.
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 69 (fechado)** (`governance_workspace`, `observability_metrics`).
 
 ## 14.6 Ordem recomendada
 1. Loop 52
@@ -1169,7 +1169,7 @@ Fechar a lacuna de onboarding nas rotas que apoiam **governança** e **observabi
 15. **Loop 66** — responsividade das telas críticas (entregue no ledger).
 16. **Loop 67** — onboarding contextual e tour reexecutável por tela (entregue no ledger).
 17. **Loop 68** — expansão dos tours às listagens `/agents`, `/teams`, `/runs`, `/templates` (entregue no ledger).
-18. **Loop 69** — tours em `/governance` e `/observability` (candidato no ledger; ver [Loop 69](#loop-69--tours-contextuais-governança-e-observabilidade)).
+18. **Loop 69** — tours em `/governance` e `/observability` (entregue no ledger; ver [Loop 69](#loop-69--tours-contextuais-governança-e-observabilidade)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1186,7 +1186,7 @@ Fechar a lacuna de onboarding nas rotas que apoiam **governança** e **observabi
 - **Loop 66:** atacar as superfícies com maior atrito operacional em tablet e celular
 - **Loop 67:** explicar a plataforma com onboarding contextual progressivo, sem impor tour global repetitivo
 - **Loop 68:** alargar o mesmo padrão às listagens operacionais sem mudar persistência
-- **Loop 69:** cobrir governança e observabilidade antes de fichas de detalhe ou spotlight DOM
+- **Loop 69:** cobrir governança e observabilidade antes de fichas de detalhe ou spotlight DOM (entregue: `/governance`, `/observability`)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.

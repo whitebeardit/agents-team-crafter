@@ -15,6 +15,8 @@ export type ContextualTourScreenKey =
   | "teams_list"
   | "runs_list"
   | "templates_catalog"
+  | "governance_workspace"
+  | "observability_metrics"
 
 export interface IContextualToursPreferences {
   /** Por workspace: por chave de ecrã, última versão do conteúdo vista/concluída */

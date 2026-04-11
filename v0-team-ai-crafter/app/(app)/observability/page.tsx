@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 
 function formatMaybeSeconds(value: number | null): string {
   if (value === null) return "—"
@@ -144,6 +145,7 @@ export default function ObservabilityPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
+      <ContextualTourHost screenKey="observability_metrics" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
@@ -155,10 +157,13 @@ export default function ObservabilityPage() {
             administradores do workspace.
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={() => void load()} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          <span className="ml-2">Atualizar</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ContextualTourManualTrigger screenKey="observability_metrics" />
+          <Button type="button" variant="outline" onClick={() => void load()} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <span className="ml-2">Atualizar</span>
+          </Button>
+        </div>
       </div>
 
       {forbidden && (

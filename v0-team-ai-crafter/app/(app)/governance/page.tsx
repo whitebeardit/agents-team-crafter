@@ -58,6 +58,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { toast } from "sonner"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import {
   governanceAuditEventsToCsv,
   triggerTextDownload,
@@ -313,6 +314,7 @@ export default function GovernancePage() {
 
   return (
     <div className="space-y-8 max-w-6xl">
+      <ContextualTourHost screenKey="governance_workspace" />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
@@ -324,6 +326,7 @@ export default function GovernancePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ContextualTourManualTrigger screenKey="governance_workspace" />
           <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard">
               <ArrowLeft className="w-4 h-4 mr-2" />
