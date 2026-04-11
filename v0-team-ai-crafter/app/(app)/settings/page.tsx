@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { WORKSPACE_DEFAULT_LOGO } from "@/lib/constants/workspace"
@@ -24,16 +25,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Building2,
   User,
@@ -177,8 +175,10 @@ function toastApiRequestError(err: unknown, fallback: string) {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const { token, refreshToken, currentWorkspace, bootstrap, refreshSessionUser } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, bootstrap, refreshSessionUser, logout, user } =
+    useWorkspaceStore()
   const logoFileInputRef = useRef<HTMLInputElement>(null)
   const avatarFileInputRef = useRef<HTMLInputElement>(null)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -240,6 +240,12 @@ export default function SettingsPage() {
     defaultNotificationPrefs(),
   )
   const [notifSaving, setNotifSaving] = useState(false)
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [currentPwd, setCurrentPwd] = useState("")
+  const [newPwd, setNewPwd] = useState("")
+  const [confirmPwd, setConfirmPwd] = useState("")
+  const [pwdBusy, setPwdBusy] = useState(false)
+  const [revokeBusy, setRevokeBusy] = useState(false)
   const currentPlan = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
 
   useEffect(() => {
@@ -308,6 +314,12 @@ export default function SettingsPage() {
       setNotificationPrefs(parseNotificationPrefs(prefs as Record<string, unknown>))
     })()
   }, [token, refreshToken, currentWorkspace])
+
+  useEffect(() => {
+    if (defaultTab === "security" && token) {
+      void refreshSessionUser()
+    }
+  }, [defaultTab, token, refreshSessionUser])
 
   const handleWorkspaceLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target
@@ -474,6 +486,63 @@ export default function SettingsPage() {
       toastApiRequestError(err, "Falha ao guardar notificacoes")
     } finally {
       setNotifSaving(false)
+    }
+  }
+
+  const submitChangePassword = async () => {
+    if (!token) return
+    if (newPwd.length < 8) {
+      toast.error("Nova senha: minimo 8 caracteres.")
+      return
+    }
+    if (newPwd !== confirmPwd) {
+      toast.error("A confirmacao nao coincide com a nova senha.")
+      return
+    }
+    setPwdBusy(true)
+    try {
+      const api = createApiClient({
+        getAuth: () => ({ token, refreshToken }),
+        setAuth: () => {},
+        clearAuth: () => {},
+        getWorkspaceId: () => currentWorkspace?.id,
+      })
+      await api.post(
+        "/auth/change-password",
+        { currentPassword: currentPwd, newPassword: newPwd },
+        { tenant: false },
+      )
+      toast.success("Senha atualizada. O token de renovacao foi invalidado; outros dispositivos precisam de novo login.")
+      setPasswordDialogOpen(false)
+      setCurrentPwd("")
+      setNewPwd("")
+      setConfirmPwd("")
+      await refreshSessionUser()
+    } catch (err) {
+      toastApiRequestError(err, "Nao foi possivel alterar a senha")
+    } finally {
+      setPwdBusy(false)
+    }
+  }
+
+  const revokeAllSessions = async () => {
+    if (!token) return
+    setRevokeBusy(true)
+    try {
+      const api = createApiClient({
+        getAuth: () => ({ token, refreshToken }),
+        setAuth: () => {},
+        clearAuth: () => {},
+        getWorkspaceId: () => currentWorkspace?.id,
+      })
+      await api.post("/auth/revoke-sessions", {}, { tenant: false })
+      toast.success("Renovacao invalidada. A iniciar sessao novamente...")
+      await logout()
+      router.push("/login")
+    } catch (err) {
+      toastApiRequestError(err, "Falha ao invalidar sessoes")
+    } finally {
+      setRevokeBusy(false)
     }
   }
 
@@ -1771,94 +1840,93 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Autenticacao</CardTitle>
               <CardDescription>
-                Gerencie suas opcoes de seguranca.
+                Palavra-passe e protecoes da conta.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Key className="h-5 w-5 text-muted-foreground" />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <Key className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium">Alterar Senha</p>
+                    <p className="font-medium">Alterar senha</p>
                     <p className="text-sm text-muted-foreground">
-                      Ultima alteracao ha 3 meses
+                      Apos alterar, o token de renovacao e invalidado (outros dispositivos perdem a sessao de longa duracao).
                     </p>
                   </div>
                 </div>
-                <Button variant="outline">Alterar</Button>
+                <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(true)}>
+                  Alterar
+                </Button>
               </div>
               <Separator />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">Autenticacao em Dois Fatores</p>
-                    <p className="text-sm text-muted-foreground">
-                      Adicione uma camada extra de seguranca
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline">Configurar</Button>
-              </div>
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertTitle>Autenticacao em dois fatores (2FA)</AlertTitle>
+                <AlertDescription>
+                  Ainda nao esta disponivel nesta versao do produto. Quando existir backend TOTP/WebAuthn, esta secao
+                  passara a permitir configuracao.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Sessoes Ativas</CardTitle>
+              <CardTitle>Sessao e renovacao de tokens</CardTitle>
               <CardDescription>
-                Gerencie suas sessoes em diferentes dispositivos.
+                O servidor guarda um refresh token por conta (renovacao da sessao). Nao ha lista multi-dispositivo
+                neste MVP.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
                 <div>
-                  <p className="font-medium">Chrome - macOS</p>
+                  <p className="font-medium">Renovacao de sessao</p>
                   <p className="text-sm text-muted-foreground">
-                    Sao Paulo, Brasil - Sessao atual
+                    Estado no servidor apos o ultimo login ou renovacao bem-sucedida.
                   </p>
                 </div>
-                <Badge variant="outline" className="text-green-500 border-green-500/50">
-                  Ativa
+                <Badge
+                  variant="outline"
+                  className={
+                    user?.session?.hasRefreshToken
+                      ? "text-green-600 border-green-600/50"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {user?.session?.hasRefreshToken ? "Ativa" : "Sem refresh"}
                 </Badge>
               </div>
-              <Button variant="outline" className="w-full text-destructive">
-                Encerrar Todas as Outras Sessoes
+              <p className="text-xs text-muted-foreground">
+                Para sair apenas neste browser, use <strong>Sair</strong> no menu. Para forcar novo login em todos os
+                sitios que guardaram a renovacao, use o botao abaixo (termina a sessao atual tambem).
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full text-destructive border-destructive/40 hover:bg-destructive/10"
+                disabled={revokeBusy}
+                onClick={() => void revokeAllSessions()}
+              >
+                {revokeBusy ? "A invalidar..." : "Invalidar renovacao em todos os dispositivos"}
               </Button>
             </CardContent>
           </Card>
 
           <Card className="border-destructive/50">
             <CardHeader>
-              <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
-              <CardDescription>
-                Acoes irreversiveis. Tenha cuidado.
-              </CardDescription>
+              <CardTitle className="text-destructive">Conta</CardTitle>
+              <CardDescription>Exclusao automatica de conta nao esta disponivel.</CardDescription>
             </CardHeader>
             <CardContent>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir Conta
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Voce tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acao nao pode ser desfeita. Todos os seus dados, times,
-                      agentes e configuracoes serao permanentemente excluidos.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Excluir Conta
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Alert variant="destructive" className="border-destructive/40 bg-destructive/5">
+                <Trash2 className="h-4 w-4" />
+                <AlertTitle>Exclusao de conta</AlertTitle>
+                <AlertDescription>
+                  Nao existe endpoint de apagar conta nesta versao. Para pedidos de encerramento, contacte o
+                  administrador da sua organizacao ou suporte da plataforma.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1961,6 +2029,57 @@ export default function SettingsPage() {
           {saving ? "Salvando..." : "Salvar Alteracoes"}
         </Button>
       </div>
+
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Alterar senha</DialogTitle>
+            <DialogDescription>
+              Minimo 8 caracteres. A renovacao de sessao sera invalidada apos guardar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="pwd-current">Senha atual</Label>
+              <Input
+                id="pwd-current"
+                type="password"
+                autoComplete="current-password"
+                value={currentPwd}
+                onChange={(e) => setCurrentPwd(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pwd-new">Nova senha</Label>
+              <Input
+                id="pwd-new"
+                type="password"
+                autoComplete="new-password"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pwd-confirm">Confirmar nova senha</Label>
+              <Input
+                id="pwd-confirm"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPwd}
+                onChange={(e) => setConfirmPwd(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => void submitChangePassword()} disabled={pwdBusy}>
+              {pwdBusy ? "A guardar..." : "Guardar senha"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -110,10 +110,11 @@ describe('auth + tenant', () => {
     });
     expect(res.statusCode).toBe(200);
     const me = JSON.parse(res.body) as {
-      data: { preferences?: Record<string, unknown>; email: string };
+      data: { preferences?: Record<string, unknown>; email: string; session?: { hasRefreshToken?: boolean } };
     };
     expect(me.data.email).toBe('u@test.com');
     expect(me.data.preferences).toEqual({});
+    expect(me.data.session?.hasRefreshToken).toBe(true);
   });
 
   it('GET /settings/profile and PUT preferences + avatar data URL', async () => {
@@ -231,6 +232,77 @@ describe('auth + tenant', () => {
     });
     const meParsed = JSON.parse(me.body) as { data: { avatar?: string } };
     expect(meParsed.data.avatar).toBeUndefined();
+  });
+
+  it('POST /auth/change-password rejects wrong current password', async () => {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'u@test.com', password: 'secret' },
+    });
+    const { data } = JSON.parse(login.body) as { data: { token: string } };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/change-password',
+      headers: { authorization: `Bearer ${data.token}` },
+      payload: { currentPassword: 'wrong', newPassword: 'newpass00' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('POST /auth/change-password updates password and clears refresh', async () => {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'u@test.com', password: 'secret' },
+    });
+    const { data } = JSON.parse(login.body) as { data: { token: string; refreshToken: string } };
+    const change = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/change-password',
+      headers: { authorization: `Bearer ${data.token}` },
+      payload: { currentPassword: 'secret', newPassword: 'newpass00' },
+    });
+    expect(change.statusCode).toBe(200);
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'u@test.com', password: 'secret' },
+    });
+    expect(bad.statusCode).toBe(401);
+    const good = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'u@test.com', password: 'newpass00' },
+    });
+    expect(good.statusCode).toBe(200);
+    const u = await UserModel.findOne({ email: 'u@test.com' });
+    if (!u) throw new Error('user missing');
+    u.passwordHash = await bcrypt.hash('secret', 10);
+    u.refreshTokenHash = undefined;
+    await u.save();
+  });
+
+  it('POST /auth/revoke-sessions invalidates refresh token', async () => {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'u@test.com', password: 'secret' },
+    });
+    const { data } = JSON.parse(login.body) as { data: { token: string; refreshToken: string } };
+    const revoke = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/revoke-sessions',
+      headers: { authorization: `Bearer ${data.token}` },
+      payload: {},
+    });
+    expect(revoke.statusCode).toBe(200);
+    const refresh = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: { refreshToken: data.refreshToken },
+    });
+    expect(refresh.statusCode).toBe(401);
   });
 
   it('tenant 403 without membership', async () => {

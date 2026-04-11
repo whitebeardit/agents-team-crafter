@@ -191,6 +191,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             preferences?: IUserPreferences & Record<string, unknown>
             workspaceIds: string[]
             isPlatformAdmin?: boolean
+            session?: { hasRefreshToken?: boolean }
           }>("/auth/me", { tenant: false }),
         ])
         const workspaces = wsRes.data as unknown as Workspace[]
@@ -225,6 +226,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           preferences?: IUserPreferences & Record<string, unknown>
           workspaceIds: string[]
           isPlatformAdmin?: boolean
+          session?: { hasRefreshToken?: boolean }
         }>("/auth/me", { tenant: false })
         set({ user: res.data as unknown as User })
       },

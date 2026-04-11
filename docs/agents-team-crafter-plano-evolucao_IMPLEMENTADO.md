@@ -45,7 +45,7 @@ Regras de uso:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso     | **Loops 52–53 entregues**; Loops 54–58 pendentes                                                |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso     | **Loops 52–54 entregues**; Loops 55–58 pendentes                                                |
 
 
 ---
@@ -595,8 +595,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 51   | Ativação inline de tool definitions inativas no preview  | entregue (reativar no execute + `POST .../bind-enable-definitions` + UI; ver [Loop 51](#loop-51-fechado)) |
 | 52   | Settings de perfil e preferências com backend real       | entregue (perfil, avatar data URL, prefs, tema; ver [Loop 52](#loop-52-fechado))                |
 | 53   | Notificações, canais e explicações operacionais         | entregue (prefs notif. + copy settings/canais; ver [Loop 53](#loop-53-fechado))                 |
-| 54   | Segurança e autenticação de conta                        | **próximo (ETAPA 9)** — ver [Loop 54](#loop-54)                                                |
-| 55   | Faturamento, upgrade e enforcement de quotas             | planejado (ETAPA 9; quotas reais + jornada de upgrade)                                         |
+| 54   | Segurança e autenticação de conta                        | entregue (senha, revoke sessões, 2FA honesto; ver [Loop 54](#loop-54-fechado))                 |
+| 55   | Faturamento, upgrade e enforcement de quotas             | **próximo (ETAPA 9)** — ver [Loop 55](#loop-55)                                                |
 | 56   | Templates e tools com curadoria real de produção         | planejado (ETAPA 9; catálogo confiável, exemplos e dependências explícitas)                    |
 | 57   | Governança limpa e agenda operacional                    | planejado (ETAPA 9; apagar compromisso e purge de auditoria com RBAC)                          |
 | 58   | Danger Zone administrativa e reset de fábrica            | planejado (ETAPA 9; operação restrita a platform admin com guardrails fortes)                  |
@@ -608,10 +608,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Loop 54** — Segurança de conta (senha, sessões, 2FA honesto). Ver [Loop 54](#loop-54).
+**Loop 55** — Faturamento, quotas e upgrade honesto. Ver [Loop 55](#loop-55).
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 54–58 (Loops 52–53 fechados).
+A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 55–58 (Loops 52–54 fechados).
 
 ---
 
@@ -1019,7 +1019,9 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - `[backend/src/__tests__/auth.integration.test.ts](../backend/src/__tests__/auth.integration.test.ts)`: merge de `preferences.notifications`
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
-## Loop 54
+---
+
+## Loop 54 (fechado)
 
 - etapa/prioridade: ETAPA 9 / altíssima
 - objetivo do slice: entregar o mínimo de segurança de conta esperado para produção
@@ -1028,12 +1030,14 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - gestão mínima de sessões
   - decisão honesta sobre 2FA: implementar MVP ou ocultar CTA até existir backend real
   - alinhar a danger zone de conta com ações reais
-- arquivos-alvo (indicativos):
-  - `backend/src/modules/auth/interfaces/auth.routes.ts`
-  - `backend/src/modules/settings/interfaces/settings.routes.ts`
-  - `v0-team-ai-crafter/app/(app)/settings/page.tsx`
 - critério de saída:
   - não existir mais botão crítico de segurança sem endpoint correspondente
+- **entregue no repositório:**
+  - `[backend/src/modules/auth/interfaces/auth.routes.ts](../backend/src/modules/auth/interfaces/auth.routes.ts)`: `POST /auth/change-password`, `POST /auth/revoke-sessions`; `GET /auth/me` inclui `session.hasRefreshToken`
+  - `[backend/src/modules/users/infra/user.repository.ts](../backend/src/modules/users/infra/user.repository.ts)`: `updatePasswordHash` (invalida refresh)
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: dialog alterar senha; sessão/renovação honesta; 2FA como indisponível; remover exclusão de conta falsa
+  - `[backend/src/__tests__/auth.integration.test.ts](../backend/src/__tests__/auth.integration.test.ts)`: alteração de senha e revoke
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
 ## Loop 55
 

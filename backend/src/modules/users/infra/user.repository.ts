@@ -59,6 +59,10 @@ export class UserRepository implements IUserRepository {
     await UserModel.findByIdAndUpdate(userId, { $set: { workspaceIds } });
   }
 
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await UserModel.findByIdAndUpdate(id, { $set: { passwordHash, refreshTokenHash: null } });
+  }
+
   async updateProfile(
     id: string,
     patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string | null },

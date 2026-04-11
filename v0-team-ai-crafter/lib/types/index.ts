@@ -318,6 +318,8 @@ export interface User {
   workspaceIds: string[]
   /** Admin global: cria workspaces e convida em qualquer tenant */
   isPlatformAdmin?: boolean
+  /** De `GET /auth/me`: existe refresh token no servidor para este utilizador */
+  session?: { hasRefreshToken?: boolean }
 }
 
 // Graph Node types for React Flow

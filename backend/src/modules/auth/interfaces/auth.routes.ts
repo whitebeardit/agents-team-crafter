@@ -22,6 +22,11 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Senha atual obrigatoria'),
+  newPassword: z.string().min(8, 'Nova senha deve ter no minimo 8 caracteres'),
+});
+
 export async function registerAuthRoutes(app: FastifyInstance, deps: IAppDeps) {
   app.post('/auth/register', async (req, reply) => {
     const body = registerSchema.parse(req.body);
@@ -100,9 +105,37 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: IAppDeps) {
     return reply.send(successEnvelope({ message: 'Logout realizado com sucesso' }));
   });
 
+  app.post('/auth/change-password', { preHandler: [deps.authenticate] }, async (req, reply) => {
+    const body = changePasswordSchema.parse(req.body);
+    const user = await deps.userRepo.findById(req.user!.sub);
+    if (!user) throw new AppError('UNAUTHORIZED', 'Usuario nao encontrado', 401);
+    if (!(await bcrypt.compare(body.currentPassword, user.passwordHash))) {
+      throw new AppError('INVALID_CREDENTIALS', 'Senha atual incorreta', 400);
+    }
+    const passwordHash = await bcrypt.hash(body.newPassword, 10);
+    await deps.userRepo.updatePasswordHash(user.id, passwordHash);
+    return reply.send(
+      successEnvelope({
+        message:
+          'Senha atualizada. Sessoes de renovacao em outros dispositivos deixam de funcionar; este token de acesso expira no tempo habitual.',
+      }),
+    );
+  });
+
+  /** Invalida o refresh token guardado (logout remoto em todos os sitios que usam renovacao). */
+  app.post('/auth/revoke-sessions', { preHandler: [deps.authenticate] }, async (req, reply) => {
+    await deps.userRepo.updateRefreshToken(req.user!.sub, null);
+    return reply.send(
+      successEnvelope({
+        message: 'Renovacao de sessao invalidada. Volte a iniciar sessao para obter novos tokens.',
+      }),
+    );
+  });
+
   app.get('/auth/me', { preHandler: [deps.authenticate] }, async (req, reply) => {
     const user = await deps.userRepo.findById(req.user!.sub);
     if (!user) throw new AppError('UNAUTHORIZED', 'Usuario nao encontrado', 401);
+    const hasRefreshSession = Boolean(user.refreshTokenHash);
     return reply.send(
       successEnvelope({
         id: user.id,
@@ -112,6 +145,9 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: IAppDeps) {
         preferences: user.preferences ?? {},
         workspaceIds: user.workspaceIds,
         isPlatformAdmin: user.isPlatformAdmin,
+        session: {
+          hasRefreshToken: hasRefreshSession,
+        },
       }),
     );
   });

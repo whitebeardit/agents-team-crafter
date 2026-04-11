@@ -23,5 +23,7 @@ export interface IUserRepository {
     id: string,
     patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string | null },
   ): Promise<void>;
+  /** Atualiza hash da senha e invalida refresh token (todas as sessões de renovação). */
+  updatePasswordHash(id: string, passwordHash: string): Promise<void>;
   addWorkspaceId(userId: string, workspaceId: string): Promise<void>;
 }
