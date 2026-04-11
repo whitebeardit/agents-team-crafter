@@ -15,6 +15,11 @@ function notDeleted() {
 
 function toListItem(doc: TemplateDoc) {
   const tc = (doc.teamConfig as Record<string, unknown>) ?? {};
+  const d = doc as TemplateDoc & {
+    vertical?: string;
+    prerequisites?: string[];
+    applyBehavior?: string;
+  };
   return {
     id: doc._id.toString(),
     name: doc.name,
@@ -23,6 +28,9 @@ function toListItem(doc: TemplateDoc) {
     origin: doc.origin,
     category: doc.category,
     agentCount: doc.agentCount,
+    vertical: typeof d.vertical === 'string' ? d.vertical : '',
+    prerequisites: Array.isArray(d.prerequisites) ? d.prerequisites : [],
+    applyBehavior: typeof d.applyBehavior === 'string' ? d.applyBehavior : '',
     teamConfig: {
       name: tc['name'] ?? doc.name,
       description: tc['description'] ?? doc.description,
@@ -52,7 +60,11 @@ export class TemplateRepository {
       workspaceId: new Types.ObjectId(workspaceId),
     }).exec();
     if (!doc) return null;
-    const d = doc as TemplateDoc;
+    const d = doc as TemplateDoc & {
+      vertical?: string;
+      prerequisites?: string[];
+      applyBehavior?: string;
+    };
     const tc = (d.teamConfig as Record<string, unknown>) ?? {};
     const agents = (d.agentsSnapshot as Array<{ id?: string; name?: string; role?: string }>) ?? [];
     return {
@@ -63,6 +75,9 @@ export class TemplateRepository {
       origin: d.origin,
       category: d.category,
       agentCount: d.agentCount,
+      vertical: typeof d.vertical === 'string' ? d.vertical : '',
+      prerequisites: Array.isArray(d.prerequisites) ? d.prerequisites : [],
+      applyBehavior: typeof d.applyBehavior === 'string' ? d.applyBehavior : '',
       teamConfig: {
         name: tc['name'] ?? d.name,
         description: tc['description'] ?? d.description,

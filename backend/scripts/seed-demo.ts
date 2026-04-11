@@ -142,6 +142,19 @@ async function main() {
     status: 'active',
   });
 
+  const psychSpecialist = await mkAgent(w1, {
+    name: 'Especialista Saude Mental',
+    description: 'Triagem e encaminhamento em contexto clinico (demo seed).',
+    role: 'specialist',
+    origin: 'company',
+    skills: ['escuta', 'triage'],
+    version: '1.0.0',
+    category: 'saude',
+    channels: [],
+    status: 'active',
+  });
+  void psychSpecialist;
+
   const c1 = await ChannelModel.create({
     workspaceId: w1._id,
     type: 'whatsapp',
@@ -199,10 +212,19 @@ async function main() {
       workspaceId: w1._id,
       origin: 'whitebeard',
       name: 'Atendimento Omnichannel',
-      description: 'Template completo para atendimento ao cliente em multiplos canais.',
-      version: '2.0.0',
+      description:
+        'Base para um time de atendimento. O `aplicar` cria um time em rascunho e reutiliza agentes ja existentes no workspace cujos nomes coincidem com o modelo (nao cria agentes novos automaticamente).',
+      version: '2.1.0',
       category: 'atendimento',
-      agentCount: 4,
+      vertical: 'atendimento',
+      agentCount: 1,
+      prerequisites: [
+        'Pelo menos um agente coordenador no workspace (o primeiro por ordem alfabetica e usado como lider do novo time).',
+        'Agentes listados no modelo devem existir com o mesmo nome para serem associados ao time.',
+        'Canais opcionais: seleccione canais ja ligados ao workspace para anexar ao novo time.',
+      ],
+      applyBehavior:
+        'Cria `Team` em estado rascunho, copia o grafo guardado no template e associa IDs de agentes encontrados por nome. Nao provisiona canais nem MCPs.',
       teamConfig: {
         name: 'Atendimento Omnichannel',
         description: 'Time de atendimento multicanal',
@@ -222,12 +244,43 @@ async function main() {
     },
     {
       workspaceId: w1._id,
+      origin: 'whitebeard',
+      name: 'Clinica Psicologia — triagem',
+      description:
+        'Exemplo curado para consultorio: coordenador + especialista de saude mental no mesmo workspace. Demonstra vertical saude com agentes de seed reutilizaveis.',
+      version: '1.0.0',
+      category: 'saude',
+      vertical: 'saude',
+      agentCount: 2,
+      prerequisites: [
+        'Agentes de seed `Atlas Coordinator` e `Especialista Saude Mental` presentes (nomes iguais aos do modelo).',
+        'O coordenador efectivo do novo time e o primeiro coordenador do workspace por nome — neste demo e o Atlas.',
+        'Ligar canais depois em Configuracoes ou no proprio time.',
+      ],
+      applyBehavior:
+        'Cria time rascunho; associa o coordenador por regra do servidor e inclui o especialista se o nome existir. Revise o grafo no editor de times apos aplicar.',
+      teamConfig: {
+        name: 'Clinica — triagem',
+        description: 'Fluxo de triagem e encaminhamento (demo)',
+      },
+      graph: { nodes: [], edges: [] },
+      agentsSnapshot: [
+        { id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' },
+        { name: 'Especialista Saude Mental', role: 'specialist' },
+      ],
+    },
+    {
+      workspaceId: w1._id,
       origin: 'company',
-      name: 'Template do time Atendimento',
-      description: 'Salvo a partir do time seed',
+      name: 'Template do time Atendimento WhatsApp',
+      description:
+        'Template guardado a partir do time seed `Atendimento WhatsApp` (mesma estrutura de agentes/canais do demo).',
       version: '1.0.0',
       category: 'geral',
+      vertical: 'atendimento',
       agentCount: 1,
+      prerequisites: ['Mesmos agentes e nomes que no momento em que o template foi gravado.'],
+      applyBehavior: 'Equivalente aos outros templates de empresa: reaproveita agentes por nome.',
       teamConfig: { name: team.name, description: team.description },
       graph: { nodes: [], edges: [] },
       agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],

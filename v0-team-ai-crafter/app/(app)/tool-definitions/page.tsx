@@ -61,6 +61,21 @@ function describeToolConfig(tool: ToolDef): string {
   return "Sem configuracao adicional"
 }
 
+function describeToolDependencies(tool: ToolDef): string {
+  switch (tool.kind) {
+    case "internal_action":
+      return "Pode depender de integracoes de negocio (CRM, calendario, etc.). Verifique Configuracoes > Integracoes e packs de accoes activos."
+    case "http_webhook":
+      return "O runtime faz HTTP para o URL indicado; o seu servico deve estar acessivel e validar autenticacao."
+    case "builtin_ref":
+      return "Usa recurso builtin do ambiente (sem webhook proprio)."
+    case "mcp_ref":
+      return "Requer MCP ligado no workspace e permissoes na ferramenta remota."
+    default:
+      return ""
+  }
+}
+
 export default function ToolDefinitionsPage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [items, setItems] = useState<ToolDef[]>([])
@@ -158,8 +173,10 @@ export default function ToolDefinitionsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Tools do workspace</h1>
           <p className="text-sm text-muted-foreground">
-            Definicoes do workspace associaveis aos agentes na aba Ferramentas, incluindo `internal_action`
-            auto-criadas pelo planner.
+            Definicoes associaveis aos agentes (aba Ferramentas). Tipos: <code className="text-xs">internal_action</code>{" "}
+            (accoes de negocio), <code className="text-xs">http_webhook</code>, <code className="text-xs">builtin_ref</code>,{" "}
+            <code className="text-xs">mcp_ref</code>. O planner pode criar <code className="text-xs">internal_action</code>{" "}
+            ao fazer bind — continuam a precisar de estar activas aqui.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -246,11 +263,20 @@ export default function ToolDefinitionsPage() {
 
       <Alert>
         <Wrench className="h-4 w-4" />
-        <AlertTitle>Como a habilitacao funciona</AlertTitle>
-        <AlertDescription>
-          Uma tool precisa estar <strong>ativa</strong> nesta tela para aparecer na ficha do agente. Depois disso,
-          ela ainda precisa ser marcada na aba <strong>Ferramentas</strong> do agente. `internal_action` pode surgir
-          automaticamente quando o planner fizer bind, mas continua seguindo a mesma regra de visibilidade.
+        <AlertTitle>Dependencias, integracoes e habilitacao</AlertTitle>
+        <AlertDescription className="space-y-2">
+          <p>
+            <code className="text-xs">internal_action</code> frequentemente depende de integracoes em{" "}
+            <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
+              Configuracoes &gt; Integracoes
+            </Link>
+            . Webhooks precisam de URL acessivel. A definicao deve estar <strong>activa</strong> aqui e depois na aba{" "}
+            <strong>Ferramentas</strong> do agente.
+          </p>
+          <p>
+            O planner pode criar <code className="text-xs">internal_action</code> ao fazer bind; a entrada continua
+            obrigatoria nesta lista.
+          </p>
         </AlertDescription>
       </Alert>
 
@@ -281,6 +307,9 @@ export default function ToolDefinitionsPage() {
                     </div>
                     <p className="text-xs text-muted-foreground font-mono">{t.slug}</p>
                     <p className="text-xs text-muted-foreground mt-1 break-all">{describeToolConfig(t)}</p>
+                    <p className="text-xs text-muted-foreground mt-1.5 border-l-2 border-primary/30 pl-2">
+                      {describeToolDependencies(t)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="flex items-center gap-2">

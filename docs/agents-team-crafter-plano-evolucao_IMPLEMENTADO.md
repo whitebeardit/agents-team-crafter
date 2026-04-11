@@ -597,8 +597,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 53   | Notificações, canais e explicações operacionais         | entregue (prefs notif. + copy settings/canais; ver [Loop 53](#loop-53-fechado))                 |
 | 54   | Segurança e autenticação de conta                        | entregue (senha, revoke sessões, 2FA honesto; ver [Loop 54](#loop-54-fechado))                 |
 | 55   | Faturamento, upgrade e enforcement de quotas             | entregue (quotas por plano + UI consumo + upgrade honesto; ver [Loop 55](#loop-55-fechado))      |
-| 56   | Templates e tools com curadoria real de produção         | **próximo (ETAPA 9)** — ver [Loop 56](#loop-56)                                              |
-| 57   | Governança limpa e agenda operacional                    | planejado (ETAPA 9; apagar compromisso e purge de auditoria com RBAC)                          |
+| 56   | Templates e tools com curadoria real de produção         | entregue (metadata templates + seed clinica + tools deps; ver [Loop 56](#loop-56-fechado))     |
+| 57   | Governança limpa e agenda operacional                    | **próximo (ETAPA 9)** — ver [Loop 57](#loop-57)                                                |
 | 58   | Danger Zone administrativa e reset de fábrica            | planejado (ETAPA 9; operação restrita a platform admin com guardrails fortes)                  |
 
 
@@ -608,10 +608,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Loop 56** — Templates e tools com curadoria real. Ver [Loop 56](#loop-56).
+**Loop 57** — Governança limpa e agenda operacional. Ver [Loop 57](#loop-57).
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 56–58 (Loops 52–55 fechados).
+A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 57–58 (Loops 52–56 fechados).
 
 ---
 
@@ -1053,22 +1053,19 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - Testes de team-plan com workspace `enterprise` onde o fluxo cria muitos recursos (`team-plan-auto-bind`, `team-plans`) para não colidir com quotas de teste
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
-## Loop 56
+## Loop 56 (fechado)
 
 - etapa/prioridade: ETAPA 9 / alta
 - objetivo do slice: fazer `Templates` e `Tools` entregarem valor concreto para uso produtivo
-- foco:
-  - revisar o catálogo seedado e corrigir templates enganosos
-  - criar templates curados por vertical real, como clínica psicológica
-  - melhorar explicação e descoberta de tools reais, builtins e exemplos
-  - mostrar dependências e configurações antes de aplicar template ou tool
-- arquivos-alvo (indicativos):
-  - `v0-team-ai-crafter/app/(app)/templates/page.tsx`
-  - `v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx`
-  - `backend/scripts/seed-demo.ts`
-  - módulos de templates/tool-definitions relacionados
-- critério de saída:
-  - templates publicados passam a ser exemplos confiáveis e demonstráveis
+- critério de saída: templates seed honestos + vertical saude; UI mostra requisitos antes de aplicar; tools explicam dependências
+- **entregue no repositório:**
+  - `[backend/src/modules/templates/infra/template.model.ts](../backend/src/modules/templates/infra/template.model.ts)`: `vertical`, `prerequisites[]`, `applyBehavior`
+  - `[backend/src/modules/templates/infra/template.repository.ts](../backend/src/modules/templates/infra/template.repository.ts)`: expõe campos em listagem e `GET /templates/:id`
+  - `[backend/scripts/seed-demo.ts](../backend/scripts/seed-demo.ts)`: template omnichannel corrigido (sem prometer 4 agentes inexistentes); novo agente `Especialista Saude Mental`; template **Clinica Psicologia — triagem**; copy honesta nos três templates
+  - `[v0-team-ai-crafter/app/(app)/templates/page.tsx](../v0-team-ai-crafter/app/(app)/templates/page.tsx)`: modal com requisitos, comportamento real e agentes referenciados (`GET` detalhe)
+  - `[v0-team-ai-crafter/components/templates/template-card.tsx](../v0-team-ai-crafter/components/templates/template-card.tsx)`: vertical + primeiro requisito; label "no modelo"
+  - `[v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx](../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx)`: tipos de tool no cabeçalho; dependências por `kind`; link para Integrações
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
 ## Loop 57
 

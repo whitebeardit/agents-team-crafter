@@ -22,6 +22,12 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Info } from "lucide-react"
+
+type TemplateApplyDetail = Template & {
+  agents?: Array<{ id?: string; name?: string; role?: string }>
+}
 
 export default function TemplatesPage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
@@ -29,6 +35,8 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [channels, setChannels] = useState<Channel[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
+  const [applyDetail, setApplyDetail] = useState<TemplateApplyDetail | null>(null)
+  const [applyDetailLoading, setApplyDetailLoading] = useState(false)
   const [teamName, setTeamName] = useState("")
   const [teamDescription, setTeamDescription] = useState("")
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([])
@@ -54,6 +62,35 @@ export default function TemplatesPage() {
     })()
   }, [token, refreshToken, currentWorkspace, originFilter])
 
+  useEffect(() => {
+    if (!token || !currentWorkspace || !selectedTemplate) {
+      setApplyDetail(null)
+      return
+    }
+    const api = createApiClient({
+      getAuth: () => ({ token, refreshToken }),
+      setAuth: () => {},
+      clearAuth: () => {},
+      getWorkspaceId: () => currentWorkspace.id,
+    })
+    let cancelled = false
+    setApplyDetailLoading(true)
+    setApplyDetail(null)
+    void (async () => {
+      try {
+        const r = await api.get<TemplateApplyDetail>(`/templates/${selectedTemplate.id}`)
+        if (!cancelled) setApplyDetail(r.data)
+      } catch {
+        if (!cancelled) setApplyDetail(null)
+      } finally {
+        if (!cancelled) setApplyDetailLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [token, refreshToken, currentWorkspace, selectedTemplate?.id])
+
   const filteredTemplates =
     originFilter === "all"
       ? templates
@@ -66,6 +103,7 @@ export default function TemplatesPage() {
 
   const resetApplyModal = () => {
     setSelectedTemplate(null)
+    setApplyDetail(null)
     setTeamName("")
     setTeamDescription("")
     setSelectedChannelIds([])
@@ -112,7 +150,7 @@ export default function TemplatesPage() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Templates</h1>
         <p className="text-muted-foreground mt-1">
-          Use templates prontos para criar times rapidamente
+          Catalogo alinhado ao seed: cada modelo indica quantos agentes referencia e os requisitos antes de aplicar.
         </p>
       </div>
 
@@ -168,15 +206,60 @@ export default function TemplatesPage() {
       )}
 
       <Dialog open={Boolean(selectedTemplate)} onOpenChange={(open) => !open && resetApplyModal()}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Aplicar template</DialogTitle>
             <DialogDescription>
-              Crie um novo time a partir de <strong>{selectedTemplate?.name}</strong>.
+              Crie um novo time a partir de <strong>{selectedTemplate?.name}</strong>. Leia os requisitos antes de
+              confirmar.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {applyDetailLoading ? (
+              <p className="text-sm text-muted-foreground">A carregar detalhes do template...</p>
+            ) : null}
+
+            {applyDetail?.prerequisites && applyDetail.prerequisites.length > 0 ? (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Requisitos</AlertTitle>
+                <AlertDescription asChild>
+                  <ul className="list-disc pl-4 text-sm space-y-1 mt-2">
+                    {applyDetail.prerequisites.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {applyDetail?.applyBehavior ? (
+              <Alert variant="default" className="border-muted">
+                <AlertTitle className="text-sm">O que acontece ao aplicar</AlertTitle>
+                <AlertDescription className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {applyDetail.applyBehavior}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {applyDetail?.agents && applyDetail.agents.length > 0 ? (
+              <div className="rounded-md border border-border p-3 space-y-1">
+                <p className="text-sm font-medium">Agentes referenciados no modelo</p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  {applyDetail.agents.map((a, i) => (
+                    <li key={i}>
+                      {a.name ?? "—"} {a.role ? <span className="text-foreground">({a.role})</span> : null}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted-foreground pt-1">
+                  O servidor associa por nome; o coordenador efectivo segue a regra do backend (primeiro coordenador
+                  do workspace).
+                </p>
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <Label htmlFor="template-team-name">Nome do time</Label>
               <Input
@@ -226,7 +309,7 @@ export default function TemplatesPage() {
             </Button>
             <Button
               onClick={handleApplyTemplate}
-              disabled={isApplying || !teamName.trim()}
+              disabled={isApplying || !teamName.trim() || applyDetailLoading}
             >
               {isApplying ? "Aplicando..." : "Aplicar template"}
             </Button>

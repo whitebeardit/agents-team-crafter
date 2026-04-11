@@ -248,6 +248,12 @@ export interface Template {
   category: string
   agentCount: number
   teamConfig: Partial<Team>
+  /** Vertical de negocio (ex.: saude, atendimento) quando curado no seed */
+  vertical?: string
+  /** Requisitos mostrados antes de aplicar */
+  prerequisites?: string[]
+  /** O que o backend faz ao aplicar (comportamento real, nao marketing) */
+  applyBehavior?: string
 }
 
 // Channel types

@@ -49,14 +49,27 @@ export function TemplateCard({ template, onImport, onShare }: TemplateCardProps)
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
+        <p className="text-sm text-muted-foreground mt-3 line-clamp-3">
           {template.description}
         </p>
+
+        {template.vertical ? (
+          <p className="text-xs text-muted-foreground mt-2">
+            <span className="font-medium text-foreground">Vertical:</span> {template.vertical}
+          </p>
+        ) : null}
+
+        {template.prerequisites && template.prerequisites.length > 0 ? (
+          <p className="text-xs text-amber-600 dark:text-amber-500 mt-2 line-clamp-2">
+            Requisito: {template.prerequisites[0]}
+            {template.prerequisites.length > 1 ? " …" : ""}
+          </p>
+        ) : null}
 
         <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
             <AgentWhitebeardIcon className="w-4 h-4" />
-            {template.agentCount} agentes
+            {template.agentCount} no modelo
           </span>
           <Badge variant="secondary" className="text-xs">
             {template.category}

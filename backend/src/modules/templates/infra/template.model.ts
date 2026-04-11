@@ -15,6 +15,12 @@ const TemplateSchema = new Schema(
       edges: { type: Schema.Types.Mixed, default: [] },
     },
     agentsSnapshot: { type: Schema.Types.Mixed, default: [] },
+    /** Vertical de negocio (ex.: saude, atendimento) para curadoria e filtro na UI */
+    vertical: { type: String, default: '' },
+    /** Bullets mostrados antes de aplicar o template */
+    prerequisites: [{ type: String }],
+    /** Texto honesto sobre o que `apply` faz de facto (nao marketing) */
+    applyBehavior: { type: String, default: '' },
   },
   { timestamps: true },
 );
