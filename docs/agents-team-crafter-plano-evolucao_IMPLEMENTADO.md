@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–66) | Loops 52–66 no ledger; próximo slice: ver secção **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–67) | Loops 52–67 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
 
 
 ---
@@ -663,7 +663,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 64   | Builtins por domínio (criação de time e AI Builder)        | entregue (ver [Loop 64](#loop-64-fechado))                                                      |
 | 65   | Foundation responsiva multi-device                         | entregue (ver [Loop 65](#loop-65-fechado))                                                      |
 | 66   | Responsividade das telas críticas                          | entregue (ver [Loop 66](#loop-66-fechado))                                                      |
-| 67   | Onboarding contextual e tour por tela                      | candidato mapeado (ver **Próximo loop oficial**)                                                |
+| 67   | Onboarding contextual e tour por tela                      | entregue (ver [Loop 67](#loop-67-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -672,35 +672,9 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 66** — responsividade das telas críticas (ver [Loop 66](#loop-66-fechado)).
+**Último slice numerado fechado:** **Loop 67** — onboarding contextual e tour por tela (ver [Loop 67](#loop-67-fechado)).
 
-**Próximo slice numerado recomendado:** **Loop 67** — ver [candidato Loop 67](#candidato-loop-67) abaixo.
-
-Macro-temas adicionais, como admin global cross-tenant, continuam possíveis após estes slices.
-
-<a id="candidato-loop-67"></a>
-
-### Candidato Loop 67 — onboarding contextual e tour reexecutável por tela
-
-**Objetivo:** apresentar ao utilizador como a plataforma funciona de forma **fácil, fluida e contextual**, guiando a primeira utilização de cada tela sem transformar ajuda em ruído recorrente.
-
-**Decisão explícita de UX (melhor prática):**
-
-- **não** usar tour global, longo e obrigatório em todo login;
-- usar **onboarding contextual progressivo por tela**;
-- auto-disparar o tour apenas no **primeiro acesso** à tela (ou quando `tourVersion` mudar);
-- permitir **reabertura manual** por CTA previsível, como “Ver tour desta tela”.
-
-**Foco sugerido:**
-
-- **Persistência:** guardar estado por `userId` + `workspaceId` + `screenKey` + `tourVersion`.
-- **Conteúdo:** passos curtos, ancorados à UI real, com variação por viewport e RBAC; se o elemento não existir naquele contexto, adaptar ou omitir o passo.
-- **Rollout Ralph:** começar por lote pequeno de telas críticas (AI Builder, Tools, Settings, Channels, Schedule) e expandir em ciclos seguintes, em vez de prometer “todas as telas” de uma vez.
-- **Critério de saída:** telas cobertas mostram ajuda contextual no primeiro acesso, permitem reabrir o tour manualmente e não repetem o fluxo de forma intrusiva.
-
-### Próximo slice oficial (ETAPA 9)
-
-1. **Loop 67** — onboarding contextual e tour por tela.
+**Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (ETAPA 9 continua aberta a temas como admin global cross-tenant, novas integrações e paridade produto/runtime).
 
 ---
 
@@ -1318,6 +1292,33 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - **entregue no repositório:** [`responsive-table.tsx`](../v0-team-ai-crafter/components/ui/responsive-table.tsx); alterações em [`schedule/page.tsx`](../v0-team-ai-crafter/app/(app)/schedule/page.tsx), [`tool-definitions/page.tsx`](../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx), [`team-creation-hub.tsx`](../v0-team-ai-crafter/components/teams/team-creation-hub.tsx), [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx), [`teams/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx), [`agents/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx), [`channels/page.tsx`](../v0-team-ai-crafter/app/(app)/channels/page.tsx), [`settings/page.tsx`](../v0-team-ai-crafter/app/(app)/settings/page.tsx)
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend; `next build` OK).
 - **referência no plano mestre:** [Loop 66](agents-team-crafter-plano-evolucao.md#loop-66--responsividade-das-telas-críticas)
+
+## Loop 67 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual) / alta
+- objetivo do slice: tours **curtos por ecrã**, sem tour global obrigatório; persistência de versão vista por `userId` + `workspaceId` + `screenKey`; reapresentação quando a **versão de conteúdo** do ecrã sobe no catálogo.
+- **Contrato de persistência:** `user.preferences.contextualTours.byWorkspace[workspaceId][screenKey] = número` (última versão de conteúdo vista ou marcada como “não mostrar”). Merge profundo só no ramo `contextualTours` via `PUT /settings/profile` (já suporta merge de chaves de primeiro nível em `preferences`).
+- **Regras de reentrada:**
+  - **Auto:** ao montar o ecrã, se `seenVersion < catalog[screenKey].version` e não houver snooze de sessão (`sessionStorage`), abre após ~500 ms.
+  - **Mais tarde:** grava snooze de sessão; não persiste versão.
+  - **Não mostrar de novo / Concluir:** persiste `seenVersion = catalog.version`.
+  - **Fechar (ESC/overlay):** snooze de sessão (evita repetir imediatamente no mesmo reload).
+  - **Ver tour desta tela:** abre sempre (manual).
+  - **Reapresentar a todos após alteração de copy:** incrementar `version` em [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts) para esse `screenKey`.
+
+| Ecrã (`screenKey`) | Rota / componente |
+| --- | --- |
+| `dashboard` | `/dashboard` |
+| `ai_builder` | `TeamCreationHub` (`/teams/create`, `/teams/ai-create`) |
+| `tool_definitions` | `/tool-definitions` |
+| `settings` | `/settings` |
+| `channels` | `/channels` |
+| `schedule` | `/schedule` |
+
+- **Fora deste slice:** tours ancorados a seletores DOM (spotlight), RBAC por passo, e cobertura de todas as rotas.
+- **entregue no repositório:** [`contextual-tours.ts`](../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts), [`contextual-tour.tsx`](../v0-team-ai-crafter/components/onboarding/contextual-tour.tsx); integrações nas páginas listadas; tipo `IContextualToursPreferences` em [`lib/types`](../v0-team-ai-crafter/lib/types/index.ts).
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend; `next build` OK).
+- **referência no plano mestre:** [Loop 67](agents-team-crafter-plano-evolucao.md#loop-67--onboarding-contextual-e-tour-reexecutável-por-tela)
 
 ---
 

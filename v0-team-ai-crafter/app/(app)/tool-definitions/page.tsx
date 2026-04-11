@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { Plus, Trash2, Wrench } from "lucide-react"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
@@ -308,6 +309,7 @@ export default function ToolDefinitionsPage() {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-4xl space-y-6 px-4 py-4 sm:p-6">
+      <ContextualTourHost screenKey="tool_definitions" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold sm:text-2xl">Tools do workspace</h1>
@@ -318,6 +320,8 @@ export default function ToolDefinitionsPage() {
             ao fazer bind — continuam a precisar de estar activas aqui.
           </p>
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
+          <ContextualTourManualTrigger screenKey="tool_definitions" className="w-full sm:w-auto" />
         <Dialog
           open={open}
           onOpenChange={(v) => {
@@ -479,6 +483,7 @@ export default function ToolDefinitionsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

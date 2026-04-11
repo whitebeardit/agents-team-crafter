@@ -307,12 +307,19 @@ export interface IUserNotificationPreferences {
   weeklyReport?: boolean
 }
 
+/** Tours contextuais por ecrã (Loop 67) — ver `lib/contextual-tours.ts` */
+export interface IContextualToursPreferences {
+  byWorkspace?: Record<string, Record<string, number>>
+}
+
 /** Preferências persistidas em `PUT /settings/profile` (`preferences` no utilizador) */
 export interface IUserPreferences {
   locale?: "pt-BR" | "en-US" | "es"
   theme?: "light" | "dark" | "system"
   bio?: string
   notifications?: IUserNotificationPreferences
+  /** Versões vistas por workspace e ecrã (`screenKey` → versão) */
+  contextualTours?: IContextualToursPreferences
 }
 
 export interface User {

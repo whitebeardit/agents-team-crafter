@@ -18,6 +18,7 @@ import {
   History,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import type { GovernanceOpsSummary } from "@/lib/types"
@@ -161,12 +162,16 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      <ContextualTourHost screenKey="dashboard" />
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Visão geral dos seus times de agentes de IA
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Visão geral dos seus times de agentes de IA
+          </p>
+        </div>
+        <ContextualTourManualTrigger screenKey="dashboard" />
       </div>
 
       {/* Metrics */}

@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -189,8 +190,9 @@ export default function SchedulePage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
+      <ContextualTourHost screenKey="schedule" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
             <CalendarDays className="h-7 w-7 text-primary" />
             Agenda
@@ -199,6 +201,7 @@ export default function SchedulePage() {
             Cancelar mantém o registo (soft); remover definitivamente apaga o documento (apenas admin) para estados
             cancelado ou falta.
           </p>
+          <ContextualTourManualTrigger screenKey="schedule" className="mt-3" />
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">

@@ -1111,6 +1111,8 @@ Adotar **onboarding contextual progressivo por tela** como melhor prática para 
 - a persistência impede repetição intrusiva e permite reapresentar o tour quando `tourVersion` mudar
 - o ledger lista as telas cobertas, o contrato de persistência adotado e as regras de reentrada
 
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 67 (fechado)** (dashboard, AI Builder / hub de criação de times, tools, settings, canais, agenda).
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1128,8 +1130,8 @@ Adotar **onboarding contextual progressivo por tela** como melhor prática para 
 12. **Loop 63** — paridade planner × canais Chat SDK + nativos (ver [secção Loop 63](#loop-63--paridade-planner--canais-chat-sdk--nativos)); entregue no ledger.
 13. **Loop 64** — builtins por domínio na criação de times e AI Builder (entregue no ledger).
 14. **Loop 65** — foundation responsiva multi-device (entregue no ledger).
-15. **Loop 66** — responsividade das telas críticas.
-16. **Loop 67** — onboarding contextual e tour reexecutável por tela.
+15. **Loop 66** — responsividade das telas críticas (entregue no ledger).
+16. **Loop 67** — onboarding contextual e tour reexecutável por tela (entregue no ledger).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`

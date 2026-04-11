@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -975,12 +976,16 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <ContextualTourHost screenKey="settings" />
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Configuracoes</h1>
-        <p className="text-muted-foreground">
-          Gerencie as configuracoes do workspace, perfil e preferencias.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Configuracoes</h1>
+          <p className="text-muted-foreground">
+            Gerencie as configuracoes do workspace, perfil e preferencias.
+          </p>
+        </div>
+        <ContextualTourManualTrigger screenKey="settings" />
       </div>
 
       {/* Tabs */}

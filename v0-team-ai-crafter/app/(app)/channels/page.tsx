@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { channelTypeLabels } from "@/lib/constants/channel-labels"
 import {
@@ -235,13 +236,15 @@ export default function ChannelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <ContextualTourHost screenKey="channels" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Canais</h1>
           <p className="text-muted-foreground mt-1">
             Gerencie os canais de comunicação dos seus times
           </p>
         </div>
+        <ContextualTourManualTrigger screenKey="channels" />
       </div>
 
       <Alert>
