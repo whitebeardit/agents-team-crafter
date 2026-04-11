@@ -44,7 +44,7 @@ Regras de uso:
 | ETAPA 5 - simplificação do grafo                       | alta       | concluído    | hub-and-spoke refletido na UI                                                                            |
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
-| ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | em progresso | Loops 17–51 entregues; próximo slice oficial: **Loop 52** (ETAPA 9)                                       |
+| ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; transição oficial para a **ETAPA 9 / Loop 52**                |
 | ETAPA 9 - Paridade de produção, configurações e operação | altíssima | planejado    | frente documental aprovada; loops 52–58 mapeados para endurecer `/settings` e superfícies adjacentes |
 
 
@@ -591,8 +591,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 47   | Política de bind para agentes `reused`                   | entregue (settings + execute + AI Builder + teste de merge; ver [Loop 47](#loop-47))           |
 | 48   | Pré-visualização/aprovação do bind antes do execute      | entregue (preview backend + AI Builder + aprovação antes do execute; ver [Loop 48](#loop-48))  |
 | 49   | Overrides granulares do bind por agente                  | entregue (persistência + preview/execute + UI; ver [Loop 49](#loop-49))                        |
-| 50   | Ações em lote e reset de overrides do bind               | entregue (ações rápidas globais/por agente/pack + diff final; ver [Loop 50](#loop-50))         |
-| 51   | Ativação inline de tool definitions inativas no preview  | entregue (reativar no execute + `POST .../bind-enable-definitions` + UI; ver [Loop 51](#loop-51)) |
+| 50   | Ações em lote e reset de overrides do bind               | entregue (ações rápidas globais/por agente/pack + diff final; ver [Loop 50](#loop-50-fechado)) |
+| 51   | Ativação inline de tool definitions inativas no preview  | entregue (reativar no execute + `POST .../bind-enable-definitions` + UI; ver [Loop 51](#loop-51-fechado)) |
 | 52   | Settings de perfil e preferências com backend real       | **próximo (ETAPA 9)** — ver [Loop 52](#loop-52)                                                |
 | 53   | Notificações, canais e explicações operacionais         | planejado (ETAPA 9; reduzir ambiguidades e explicar uso prático em produção)                   |
 | 54   | Segurança e autenticação de conta                        | planejado (ETAPA 9; senha, sessões e decisão honesta sobre 2FA)                                |
@@ -933,7 +933,7 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
 
 ---
 
-## Loop 50
+## Loop 50 (fechado)
 
 - etapa/prioridade: ETAPA 8 / média
 - objetivo do slice: reduzir atrito operacional dos overrides com ações em lote e uma leitura final mais clara do delta aprovado
@@ -953,19 +953,7 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
 
 ---
 
-## Loop 50 (fechado)
-
-- Backend: enriquecer o preview com agrupamento por pack e diff resumido entre padrão e decisão final
-- Backend: refletir o diff aprovado em `responseMeta` do execute
-- Frontend: adicionar ações em lote globais (`aplicar tudo`, `limpar tudo`, `resetar política`)
-- Frontend: adicionar ações em lote por agente e por pack sugerido
-- Frontend: mostrar diff final compacto antes do execute e no feedback pós-execução
-- Testes: integração cobrindo `requiredPacks`, diff do preview e diff no execute
-- Gate: backend `npm test -- team-plan-auto-bind.integration.test.ts` + `npm run build`; frontend `npm run build`
-
----
-
-## Loop 51
+## Loop 51 (fechado)
 
 - etapa/prioridade: ETAPA 8 / média
 - objetivo do slice: fechar o último atrito operacional do bind quando o preview encontra `tool definitions` existentes, porém inativas
