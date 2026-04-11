@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
@@ -431,105 +432,107 @@ export function WorkspaceTeamSection() {
                 <p className="text-sm text-muted-foreground">Nenhum convite neste workspace.</p>
               )}
               {invitesLoadState === "ok" && invites.length > 0 && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Papel</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invites.map((row) => {
-                      const st = getInviteUiStatus(row)
-                      const label =
-                        st === "pendente"
-                          ? "Pendente"
-                          : st === "expirado"
-                            ? "Expirado"
-                            : st === "aceite"
-                              ? "Aceite"
-                              : "Revogado"
-                      const isPendente = st === "pendente"
-                      return (
-                        <TableRow key={row.inviteId}>
-                          <TableCell className="font-medium">{row.email}</TableCell>
-                          <TableCell className="capitalize">{row.role}</TableCell>
-                          <TableCell>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-default border-b border-dotted border-muted-foreground">
-                                  {label}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">
-                                  {st === "pendente" ? formatExpiryHint(row.expiresAt) : null}
-                                  {row.expiresAt ? (
-                                    <>
-                                      {st === "pendente" ? <br /> : null}
-                                      Expira (ISO): {new Date(row.expiresAt).toLocaleString("pt-PT")}
-                                    </>
-                                  ) : null}
-                                  {row.consumedAt ? (
-                                    <>
-                                      <br />
-                                      Aceite: {new Date(row.consumedAt).toLocaleString("pt-PT")}
-                                    </>
-                                  ) : null}
-                                  {row.revokedAt ? (
-                                    <>
-                                      <br />
-                                      Revogado: {new Date(row.revokedAt).toLocaleString("pt-PT")}
-                                    </>
-                                  ) : null}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex flex-wrap justify-end gap-1">
-                              {isPendente ? (
-                                <>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    aria-label={`Copiar link do convite para ${row.email}`}
-                                    onClick={() => void copyInviteLink(row.inviteId)}
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    aria-label={`Revogar convite para ${row.email}`}
-                                    onClick={() => setRevokeTarget(row)}
-                                  >
-                                    Revogar
-                                  </Button>
-                                </>
-                              ) : null}
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive hover:text-destructive"
-                                aria-label={`Apagar convite da lista para ${row.email}`}
-                                onClick={() => setDeleteTarget(row)}
-                              >
-                                <Trash2 className="h-4 w-4 sm:mr-1" />
-                                <span className="hidden sm:inline">Apagar</span>
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+                <ResponsiveTableScroll>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>E-mail</TableHead>
+                        <TableHead>Papel</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invites.map((row) => {
+                        const st = getInviteUiStatus(row)
+                        const label =
+                          st === "pendente"
+                            ? "Pendente"
+                            : st === "expirado"
+                              ? "Expirado"
+                              : st === "aceite"
+                                ? "Aceite"
+                                : "Revogado"
+                        const isPendente = st === "pendente"
+                        return (
+                          <TableRow key={row.inviteId}>
+                            <TableCell className="font-medium">{row.email}</TableCell>
+                            <TableCell className="capitalize">{row.role}</TableCell>
+                            <TableCell>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-default border-b border-dotted border-muted-foreground">
+                                    {label}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">
+                                    {st === "pendente" ? formatExpiryHint(row.expiresAt) : null}
+                                    {row.expiresAt ? (
+                                      <>
+                                        {st === "pendente" ? <br /> : null}
+                                        Expira (ISO): {new Date(row.expiresAt).toLocaleString("pt-PT")}
+                                      </>
+                                    ) : null}
+                                    {row.consumedAt ? (
+                                      <>
+                                        <br />
+                                        Aceite: {new Date(row.consumedAt).toLocaleString("pt-PT")}
+                                      </>
+                                    ) : null}
+                                    {row.revokedAt ? (
+                                      <>
+                                        <br />
+                                        Revogado: {new Date(row.revokedAt).toLocaleString("pt-PT")}
+                                      </>
+                                    ) : null}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-wrap justify-end gap-1">
+                                {isPendente ? (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      aria-label={`Copiar link do convite para ${row.email}`}
+                                      onClick={() => void copyInviteLink(row.inviteId)}
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      aria-label={`Revogar convite para ${row.email}`}
+                                      onClick={() => setRevokeTarget(row)}
+                                    >
+                                      Revogar
+                                    </Button>
+                                  </>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-destructive hover:text-destructive"
+                                  aria-label={`Apagar convite da lista para ${row.email}`}
+                                  onClick={() => setDeleteTarget(row)}
+                                >
+                                  <Trash2 className="h-4 w-4 sm:mr-1" />
+                                  <span className="hidden sm:inline">Apagar</span>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableScroll>
               )}
             </div>
           )}

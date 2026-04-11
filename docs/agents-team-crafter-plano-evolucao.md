@@ -1169,6 +1169,29 @@ Completar o rollout de onboarding **por ecrã** nas fichas de **agente** e **tim
 
 **Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 70 (fechado)** (`agent_detail`, `team_detail`).
 
+---
+
+<a id="loop-71-tabelas-scroll"></a>
+
+## Loop 71 — Tabelas densas: scroll horizontal consistente (mobile/tablet)
+
+### Objetivo
+Fechar o gap de **14.8** sobre tabelas densas em viewports estreitas: o utilizador deve poder **deslocar horizontalmente** a grelha com scroll previsível (incl. momentum em iOS), sem partir o layout da página.
+
+### Foco (MVP)
+- reutilizar o componente existente **`ResponsiveTableScroll`** introduzido no Loop 66
+- aplicar às tabelas ainda sem wrapper: **`/runs`**, blocos de tabela em **`/governance`** (SLO, linha do tempo, auditoria), lista de **convites** em Settings (`workspace-team-section`)
+
+### Fora do MVP do Loop 71
+- substituir tabelas por **cards** em `sm`/`md` (slice futuro se necessário)
+- spotlight DOM nos tours
+
+### Critério de saída
+- nenhuma destas tabelas força overflow da página inteira em mobile típico; scroll horizontal fica **no contentor** da tabela
+- gate com frontend; ledger com **Loop 71 (fechado)**
+
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 71 (fechado)**.
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1191,6 +1214,7 @@ Completar o rollout de onboarding **por ecrã** nas fichas de **agente** e **tim
 17. **Loop 68** — expansão dos tours às listagens `/agents`, `/teams`, `/runs`, `/templates` (entregue no ledger).
 18. **Loop 69** — tours em `/governance` e `/observability` (entregue no ledger; ver [Loop 69](#loop-69--tours-contextuais-governança-e-observabilidade)).
 19. **Loop 70** — tours nas fichas `/agents/[id]` e `/teams/[id]` (entregue no ledger; ver [Loop 70](#loop-70--tours-contextuais-fichas-agente-e-time)).
+20. **Loop 71** — `ResponsiveTableScroll` em `/runs`, `/governance` e convites em Settings (entregue no ledger; ver [Loop 71](#loop-71-tabelas-scroll)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1209,6 +1233,7 @@ Completar o rollout de onboarding **por ecrã** nas fichas de **agente** e **tim
 - **Loop 68:** alargar o mesmo padrão às listagens operacionais sem mudar persistência
 - **Loop 69:** cobrir governança e observabilidade antes de fichas de detalhe ou spotlight DOM (entregue: `/governance`, `/observability`)
 - **Loop 70:** fechar onboarding nas fichas de agente e de time (MVP sem spotlight DOM; entregue: `agent_detail`, `team_detail`)
+- **Loop 71:** scroll horizontal consistente para tabelas densas em mobile/tablet (`/runs`, governança, convites)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.

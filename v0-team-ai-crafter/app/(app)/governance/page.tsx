@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { createApiClient, ApiError } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
@@ -604,7 +605,7 @@ export default function GovernancePage() {
                 {!teamSlos?.teams?.length ? (
                   <p className="text-sm text-muted-foreground">Nenhum time com runs terminados nesta janela.</p>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <ResponsiveTableScroll>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -649,7 +650,7 @@ export default function GovernancePage() {
                         ))}
                       </TableBody>
                     </Table>
-                  </div>
+                  </ResponsiveTableScroll>
                 )}
               </CardContent>
             </Card>
@@ -768,35 +769,37 @@ export default function GovernancePage() {
               {!ops?.recentGovernanceEvents?.length ? (
                 <p className="text-sm text-muted-foreground">Nenhum evento ainda.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Evento</TableHead>
-                      <TableHead>Quando</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ops.recentGovernanceEvents.map((ev) => (
-                      <TableRow key={ev.id}>
-                        <TableCell>
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {formatEventType(ev.eventType)}
-                          </Badge>
-                          {Object.keys(ev.payload ?? {}).length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1 truncate max-w-md">
-                              {JSON.stringify(ev.payload)}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                          {ev.createdAt
-                            ? new Date(ev.createdAt).toLocaleString("pt-BR")
-                            : "—"}
-                        </TableCell>
+                <ResponsiveTableScroll>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Evento</TableHead>
+                        <TableHead>Quando</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {ops.recentGovernanceEvents.map((ev) => (
+                        <TableRow key={ev.id}>
+                          <TableCell>
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {formatEventType(ev.eventType)}
+                            </Badge>
+                            {Object.keys(ev.payload ?? {}).length > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1 truncate max-w-md">
+                                {JSON.stringify(ev.payload)}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                            {ev.createdAt
+                              ? new Date(ev.createdAt).toLocaleString("pt-BR")
+                              : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableScroll>
               )}
             </CardContent>
           </Card>
@@ -972,42 +975,44 @@ export default function GovernancePage() {
                       </Button>
                     </div>
                   </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Evento</TableHead>
-                        <TableHead>Payload</TableHead>
-                        <TableHead>Quando</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {auditFull.length === 0 ? (
+                  <ResponsiveTableScroll>
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={3} className="text-muted-foreground text-sm">
-                            Nenhum registro.
-                          </TableCell>
+                          <TableHead>Evento</TableHead>
+                          <TableHead>Payload</TableHead>
+                          <TableHead>Quando</TableHead>
                         </TableRow>
-                      ) : (
-                        auditFull.map((ev) => (
-                          <TableRow key={ev.id}>
-                            <TableCell>
-                              <Badge variant="secondary" className="font-mono text-xs">
-                                {ev.eventType}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs font-mono max-w-md truncate">
-                              {JSON.stringify(ev.payload)}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                              {ev.createdAt
-                                ? new Date(ev.createdAt).toLocaleString("pt-BR")
-                                : "—"}
+                      </TableHeader>
+                      <TableBody>
+                        {auditFull.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-muted-foreground text-sm">
+                              Nenhum registro.
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          auditFull.map((ev) => (
+                            <TableRow key={ev.id}>
+                              <TableCell>
+                                <Badge variant="secondary" className="font-mono text-xs">
+                                  {ev.eventType}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs font-mono max-w-md truncate">
+                                {JSON.stringify(ev.payload)}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                                {ev.createdAt
+                                  ? new Date(ev.createdAt).toLocaleString("pt-BR")
+                                  : "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ResponsiveTableScroll>
                 </div>
               )}
             </CardContent>

@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–70) | Loops 52–70 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–71) | Loops 52–71 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
 
 
 ---
@@ -667,6 +667,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 68   | Expansão de tours contextuais (listagens)                    | entregue (ver [Loop 68](#loop-68-fechado))                                                      |
 | 69   | Tours contextuais — governança e observabilidade             | entregue (ver [Loop 69](#loop-69-fechado))                                                      |
 | 70   | Tours contextuais — fichas agente e time                     | entregue (ver [Loop 70](#loop-70-fechado))                                                      |
+| 71   | Tabelas densas — scroll horizontal (`ResponsiveTableScroll`) | entregue (ver [Loop 71](#loop-71-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -675,9 +676,9 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 70** — tours contextuais nas fichas de agente e de time (ver [Loop 70](#loop-70-fechado)).
+**Último slice numerado fechado:** **Loop 71** — `ResponsiveTableScroll` nas tabelas operacionais restantes (ver [Loop 71](#loop-71-fechado)).
 
-**Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (candidatos: spotlight DOM nos tours, tabelas densas mobile, billing/2FA — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto)).
+**Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (candidatos: spotlight DOM nos tours, cards mobile para listagens muito densas, billing/2FA — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto)).
 
 ---
 
@@ -1368,6 +1369,18 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - **entregue no repositório:** [`contextual-tours.ts`](../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts); [`agents/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx), [`teams/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx).
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
 - **referência no plano mestre:** [Loop 70](agents-team-crafter-plano-evolucao.md#loop-70--tours-contextuais-fichas-agente-e-time)
+
+## Loop 71 (fechado)
+
+- etapa/prioridade: ETAPA 9 (UX responsiva — continuação) / média
+- objetivo do slice: alargar o padrão **`ResponsiveTableScroll`** ([`responsive-table.tsx`](../v0-team-ai-crafter/components/ui/responsive-table.tsx)) às tabelas que ainda causavam **overflow horizontal** ou não tinham **scroll tátil** consistente em viewports estreitas.
+- **Ficheiros tocados:**
+  - [`runs/page.tsx`](../v0-team-ai-crafter/app/(app)/runs/page.tsx) — lista de execuções
+  - [`governance/page.tsx`](../v0-team-ai-crafter/app/(app)/governance/page.tsx) — SLO por time (substitui `div.overflow-x-auto`), linha do tempo, auditoria paginada
+  - [`workspace-team-section.tsx`](../v0-team-ai-crafter/components/workspace/workspace-team-section.tsx) — convites (Settings / equipa)
+- **Fora do escopo:** conversão de tabelas em **cards** por breakpoint; spotlight em tours.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- **referência no plano mestre:** [Loop 71](agents-team-crafter-plano-evolucao.md#loop-71-tabelas-scroll)
 
 ---
 
