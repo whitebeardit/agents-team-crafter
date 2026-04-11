@@ -12,10 +12,6 @@ const META: Record<string, { name: string; description: string }> = {
     name: 'Consulta ao Banco',
     description: 'SQL somente leitura na base Postgres configurada nas integracoes.',
   },
-  crm_access: {
-    name: 'Acesso ao CRM',
-    description: 'Pedidos HTTP ao endpoint CRM configurado nas integracoes.',
-  },
   calendar_access: {
     name: 'Acesso ao Calendario',
     description: 'Pedidos HTTP ao calendario configurado nas integracoes.',
@@ -35,10 +31,6 @@ export function resolveOperationalCatalogTools(ctx: IToolIntegrationContext): IO
   if (ctx.database?.postgresReadOnlyUrl?.trim()) {
     const m = META.database_query;
     out.push({ id: 'database_query', ...m });
-  }
-  if (ctx.crm?.restBaseUrl?.trim()) {
-    const m = META.crm_access;
-    out.push({ id: 'crm_access', ...m });
   }
   if (ctx.calendar?.restBaseUrl?.trim()) {
     const m = META.calendar_access;

@@ -25,6 +25,7 @@ import { registerSchedulingRoutes } from '../modules/scheduling/interfaces/sched
 import { registerPartyRoutes } from '../modules/crm/interfaces/party.routes.js';
 import { registerObservabilityRoutes } from '../modules/observability/interfaces/observability.routes.js';
 import { registerPlatformRoutes } from '../modules/platform/interfaces/platform.routes.js';
+import { registerBusinessActionRoutes } from '../modules/business-tools/interfaces/business-actions.routes.js';
 
 export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDeps?: IAppDeps) {
   const resolvedDeps = injectedDeps ?? createDeps(env);
@@ -44,6 +45,7 @@ export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDe
       await registerSettingsRoutes(r, resolvedDeps);
       await registerAuditRoutes(r, resolvedDeps);
       await registerToolDefinitionRoutes(r, resolvedDeps);
+      await registerBusinessActionRoutes(r, resolvedDeps);
       await registerAgentPlanRoutes(r, resolvedDeps);
       await registerTeamPlanRoutes(r, resolvedDeps);
       await registerRunRoutes(r, resolvedDeps);

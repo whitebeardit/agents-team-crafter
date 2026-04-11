@@ -89,12 +89,28 @@ const knowledgeTypeIcons: Record<string, typeof Database> = {
   website: Globe,
 }
 
-function describeWorkspaceToolConfig(tool: {
-  kind: string
-  config?: Record<string, unknown>
-}): string | null {
+type TBusinessCatalogItem = {
+  actionId: string
+  title: string
+  description: string
+  packId?: string
+}
+
+function describeWorkspaceToolConfig(
+  tool: {
+    kind: string
+    config?: Record<string, unknown>
+  },
+  catalogByActionId?: Record<string, { title: string; packId?: string }>,
+): string | null {
   if (tool.kind === "internal_action") {
-    return typeof tool.config?.actionId === "string" ? String(tool.config.actionId) : "Acao interna do backend"
+    const aid = typeof tool.config?.actionId === "string" ? tool.config.actionId : ""
+    if (!aid) return "Acao interna do backend"
+    const meta = catalogByActionId?.[aid]
+    if (meta) {
+      return `${meta.title} — ${aid}${meta.packId ? ` (pack: ${meta.packId})` : ""}`
+    }
+    return aid
   }
   if (tool.kind === "http_webhook") {
     return typeof tool.config?.url === "string" ? String(tool.config.url) : "Webhook HTTP"
@@ -150,6 +166,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [requiresApproval, setRequiresApproval] = useState(false)
   const [workspaceOpenAiConfigured, setWorkspaceOpenAiConfigured] = useState<boolean | null>(null)
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
+  const [businessActionCatalog, setBusinessActionCatalog] = useState<TBusinessCatalogItem[]>([])
 
   const applyAgentPayload = useCallback(
     (a: Agent, options?: { operationalCatalogToolIds?: Set<string> }) => {
@@ -187,7 +204,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     })
     void (async () => {
       try {
-        const [agentRes, mcpsRes, bindingsRes, knowledgeRes, teamsRes, toolDefsRes, integrationsRes] =
+        const [agentRes, mcpsRes, bindingsRes, knowledgeRes, teamsRes, toolDefsRes, integrationsRes, catalogRes] =
           await Promise.all([
           api.get<Agent>(`/agents/${id}`),
           api.get<MCPConnection[]>("/mcps"),
@@ -218,6 +235,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               },
               meta: {},
             })),
+          api.get<TBusinessCatalogItem[]>("/business-actions/catalog").catch(() => ({ data: [], meta: {} })),
         ])
         const opTools = integrationsRes.data.operationalCatalogTools ?? []
         setOperationalCatalogTools(opTools)
@@ -229,6 +247,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         setKnowledgeSources(knowledgeRes.data)
         setTeams(teamsRes.data)
         setWorkspaceToolDefs(toolDefsRes.data)
+        setBusinessActionCatalog(Array.isArray(catalogRes.data) ? catalogRes.data : [])
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Falha ao carregar agente"
         toast.error(msg)
@@ -245,6 +264,14 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       getWorkspaceId: () => currentWorkspace.id,
     })
   }, [token, refreshToken, currentWorkspace])
+
+  const businessActionCatalogById = useMemo(() => {
+    const m: Record<string, { title: string; packId?: string }> = {}
+    for (const c of businessActionCatalog) {
+      m[c.actionId] = { title: c.title, packId: c.packId }
+    }
+    return m
+  }, [businessActionCatalog])
 
   if (!agent) {
     return (
@@ -264,7 +291,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const activeWorkspaceToolDefs = workspaceToolDefs.filter((toolDef) => toolDef.enabled)
   const inactiveWorkspaceToolDefs = workspaceToolDefs.filter((toolDef) => !toolDef.enabled)
   const selectedWorkspaceToolCount = customToolDefinitionIds.length
-  
+
   const agentTeams = teams.filter((t) => t.coordinatorId === agent.id || t.agentIds.includes(agent.id))
 
   const getInitials = (name: string) => {
@@ -1024,7 +1051,11 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               ) : (
                 activeWorkspaceToolDefs.map((def) => {
                   const checked = customToolDefinitionIds.includes(def.id)
-                  const extraConfig = describeWorkspaceToolConfig(def)
+                  const extraConfig = describeWorkspaceToolConfig(def, businessActionCatalogById)
+                  const internalMeta =
+                    def.kind === "internal_action" && typeof def.config?.actionId === "string"
+                      ? businessActionCatalogById[def.config.actionId]
+                      : undefined
                   return (
                     <div
                       key={def.id}
@@ -1034,8 +1065,17 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium truncate">{def.name}</p>
+                          <p className="font-medium truncate">
+                            {def.kind === "internal_action" && internalMeta?.title
+                              ? internalMeta.title
+                              : def.name}
+                          </p>
                           <Badge variant="outline">{def.kind}</Badge>
+                          {internalMeta?.packId ? (
+                            <Badge variant="outline" className="text-xs">
+                              {internalMeta.packId}
+                            </Badge>
+                          ) : null}
                           {checked ? <Badge variant="secondary">Habilitada neste agente</Badge> : null}
                         </div>
                         <p className="text-sm text-muted-foreground font-mono">{def.slug}</p>

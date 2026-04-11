@@ -49,7 +49,6 @@ import {
   Plug,
   ExternalLink,
   Database,
-  Wrench,
   Loader2,
   AlertTriangle,
 } from "lucide-react"
@@ -153,7 +152,6 @@ type IntegrationsApiData = {
       clientSecretMasked?: string
     }
     toolDatabase?: { postgresReadOnlyUrlConfigured: boolean }
-    toolCrm?: { restBaseUrl?: string; bearerTokenConfigured: boolean }
     toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean }
     /** Padrao workspace para tool catalog_image_generation quando model=default */
     imageGenerationModel?: "dall-e-2" | "dall-e-3"
@@ -231,8 +229,6 @@ export default function SettingsPage() {
   const [smtpTestTo, setSmtpTestTo] = useState("")
 
   const [toolDbPostgresUrl, setToolDbPostgresUrl] = useState("")
-  const [toolCrmRestBase, setToolCrmRestBase] = useState("")
-  const [toolCrmBearer, setToolCrmBearer] = useState("")
   const [toolCalRestBase, setToolCalRestBase] = useState("")
   const [toolCalAuthHeader, setToolCalAuthHeader] = useState("")
   const [teamPlanPolicy, setTeamPlanPolicy] = useState<TeamPlanningPolicy | null>(null)
@@ -322,8 +318,6 @@ export default function SettingsPage() {
       }
       const tm = integrationsRes.data.secretsMasked
       setToolDbPostgresUrl("")
-      setToolCrmRestBase(tm.toolCrm?.restBaseUrl ?? "")
-      setToolCrmBearer("")
       setToolCalRestBase(tm.toolCalendar?.restBaseUrl ?? "")
       setToolCalAuthHeader("")
       setWorkspaceName(workspaceRes.data.name ?? "")
@@ -816,31 +810,6 @@ export default function SettingsPage() {
     }
   }
 
-  const saveToolCrmIntegration = async () => {
-    const api = integrationApi()
-    if (!api) return
-    setIntBusy(true)
-    try {
-      const res = await api.put<{
-        message: string
-        secretsMasked: IntegrationsApiData["secretsMasked"]
-      }>("/settings/workspace/integrations", {
-        toolCrm: {
-          restBaseUrl: toolCrmRestBase || undefined,
-          bearerToken: toolCrmBearer || undefined,
-        },
-      })
-      setIntegrations(res.data.secretsMasked)
-      setToolCrmRestBase(res.data.secretsMasked.toolCrm?.restBaseUrl ?? "")
-      setToolCrmBearer("")
-      toast.success("CRM (REST) guardado")
-    } catch (err) {
-      toastIntegrationRequestError(err, "Falha ao guardar CRM para tools")
-    } finally {
-      setIntBusy(false)
-    }
-  }
-
   const saveToolCalendarIntegration = async () => {
     const api = integrationApi()
     if (!api) return
@@ -1247,8 +1216,11 @@ export default function SettingsPage() {
                 (Chat SDK ou genericos).
               </p>
               <p>
-                <strong className="text-foreground">Tools do catalogo</strong>: ligue Postgres (leitura), CRM REST ou
-                calendario para as <code className="text-xs">internal_action</code> correspondentes nos agentes.
+                <strong className="text-foreground">Tools do catalogo</strong>: ligue Postgres (somente leitura) para{" "}
+                <code className="text-xs">database_query</code> e/ou calendario REST para{" "}
+                <code className="text-xs">calendar_access</code>. CRM persistido no produto e via pack de negocio (
+                <code className="text-xs">internal_action</code> / <code className="text-xs">crm_*</code>), nao por URL
+                generica aqui.
               </p>
             </AlertDescription>
           </Alert>
@@ -1556,45 +1528,6 @@ export default function SettingsPage() {
               </div>
               <Button onClick={() => void saveToolDatabaseIntegration()} disabled={intBusy}>
                 Guardar Postgres
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wrench className="h-5 w-5" />
-                Tools do catalogo — CRM (crm_access)
-              </CardTitle>
-              <CardDescription>
-                API REST base (ex. <code className="text-xs">https://crm.exemplo.com/api</code>). O backend chama{" "}
-                <code className="text-xs">GET ...?q=...</code> com Bearer se configurado.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <Label>REST base URL</Label>
-                  <Input
-                    value={toolCrmRestBase}
-                    onChange={(e) => setToolCrmRestBase(e.target.value)}
-                    placeholder="https://..."
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Bearer token</Label>
-                  <Input
-                    type="password"
-                    value={toolCrmBearer}
-                    onChange={(e) => setToolCrmBearer(e.target.value)}
-                    placeholder={
-                      integrations?.toolCrm?.bearerTokenConfigured ? "(deixe vazio para manter)" : ""
-                    }
-                  />
-                </div>
-              </div>
-              <Button onClick={() => void saveToolCrmIntegration()} disabled={intBusy}>
-                Guardar CRM
               </Button>
             </CardContent>
           </Card>

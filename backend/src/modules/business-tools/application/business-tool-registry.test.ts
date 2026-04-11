@@ -1,0 +1,22 @@
+import { describe, expect, it } from '@jest/globals';
+import { BusinessToolRegistry } from './business-tool-registry.js';
+
+describe('BusinessToolRegistry', () => {
+  it('listCatalog returns sorted items with preset metadata when available', () => {
+    const registry = new BusinessToolRegistry();
+    registry.register('z_last', async () => ({}));
+    registry.register('crm_create_party', async () => ({}));
+
+    const cat = registry.listCatalog();
+    expect(cat.length).toBe(2);
+    const crm = cat.find((x) => x.actionId === 'crm_create_party');
+    expect(crm?.title).toContain('CRM');
+    expect(crm?.packId).toBe('crm');
+    const z = cat.find((x) => x.actionId === 'z_last');
+    expect(z?.title).toBe('z_last');
+    expect(z?.description).toBe('');
+    // pt sort: CRM before z
+    expect(cat[0].actionId).toBe('crm_create_party');
+    expect(cat[1].actionId).toBe('z_last');
+  });
+});

@@ -5,10 +5,6 @@ export interface IToolIntegrationContext {
   database?: {
     postgresReadOnlyUrl?: string;
   };
-  crm?: {
-    restBaseUrl?: string;
-    bearerToken?: string;
-  };
   calendar?: {
     restBaseUrl?: string;
     authHeader?: string;

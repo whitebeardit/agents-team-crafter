@@ -75,6 +75,55 @@ Manter e evoluir.
 ## 2.5 Team planner
 Manter e expandir.
 
+## 2.6 Ferramentas OpenAI Agents SDK: utilizáveis vs apenas habilitadas
+
+O runtime expõe function tools ao modelo via OpenAI Agents SDK (`runStep` do especialista). Na UI, **habilitar** uma ferramenta **não** garante, por si só, execução com efeito real no mundo: é preciso alinhar três eixos (matriz técnica em [`docs/UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md)):
+
+1. **Catálogo no agente** — `capabilities.tools` (IDs canónicos; parte dos IDs só ganha executor real quando existem integrações).
+2. **Tools do workspace** — `capabilities.customToolDefinitionIds` → `WorkspaceToolDefinition` (`http_webhook`, `internal_action`, `mcp_ref`, `builtin_ref`): cada tipo tem pré-condições próprias (URL, `actionId`, MCP HTTP, etc.).
+3. **Integrações do workspace** — segredos e URLs em Configurações que alimentam executores do catálogo (por exemplo Postgres read-only, CRM, calendário, chave OpenAI para imagens).
+
+Fluxo **coordenador → especialista → `internal_action` → MongoDB** e catálogo `GET /business-actions/catalog`: ver subsecção em [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md) (Coordenador vs especialista / Domínio de negócio).
+
+**Regra de produto:** marcar uma tool na UI só produz efeito útil quando as **pré-condições** estão satisfeitas (integração configurada, webhook acessível e autenticado, MCP com endpoint HTTP, ou `internal_action` com `actionId` registado no runtime de negócio). Caso contrário, o utilizador pode ver apenas **stub** ou **placeholder** honesto no output da tool.
+
+**Ralph Loop — critério de aceite ao fechar um loop que toque em ferramentas:** no encerramento do ciclo (e no texto do ledger), declarar explicitamente:
+
+- quais IDs ou tipos de tool ficam **executáveis de verdade** naquele slice;
+- o que permanece **stub** ou **placeholder** (e porquê);
+- se o `backend` ganhou testes que cobrem o ramo feliz ou o comportamento de indisponibilidade explícita.
+
+Esta subsecção é o **contrato de roadmap** para não confundir “checkbox na ficha do agente” com “capacidade de produção”. O **plano de entrega** correspondente na ETAPA 9 continua na [secção 14](#14-etapa-9--paridade-de-produção-configurações-e-operação) (paridade de UX com backend, explicações operacionais sobre catálogo e validação de tools).
+
+Referência de arquitetura do runtime e handoff: [`docs/ADR-0001-agents-runtime-handoff-deterministico.md`](ADR-0001-agents-runtime-handoff-deterministico.md).
+
+```mermaid
+flowchart TB
+  uiEnable[UI_habilita_tool]
+  integrations[Integracoes_workspace]
+  catalog[capabilities.tools]
+  customDefs[customToolDefinitionIds]
+  sdk[OpenAI_Agents_SDK_runStep]
+  uiEnable --> catalog
+  uiEnable --> customDefs
+  integrations --> catalog
+  catalog --> sdk
+  customDefs --> sdk
+```
+
+## 2.7 Admin global da plataforma (RBAC cross-tenant)
+
+**Quem é:** apenas o **admin global da plataforma** — utilizador com `isPlatformAdmin: true` no modelo de utilizador e/ou email listado em `PLATFORM_ADMIN_EMAILS` (ver [`user.model.ts`](../backend/src/modules/users/infra/user.model.ts), [`env.ts`](../backend/src/config/env.ts), enforcement em [`hooks.ts`](../backend/src/app/plugins/hooks.ts)). Não confundir com **owner** ou **admin de workspace** (âmbito de um único `workspaceId`).
+
+**Norma de produto (capacidades exclusivas do admin global):**
+
+1. **Visualização cross-tenant** — poder listar **todos** os utilizadores registados na instalação e **todos** os workspaces criados na plataforma (visão operacional da instalação).
+2. **Remoção em cascata por utilizador** — poder eliminar um utilizador e, em cascata, os workspaces onde é membro (ou de que é dono), convites, membros, e demais dados persistidos no MongoDB associados a essa identidade e a esses tenants, segundo política de integridade definida na implementação.
+
+Estas operações são **sensíveis** e não devem existir para membros normais nem para admins apenas dentro de um workspace.
+
+**Nota de alinhamento com o código:** até existirem rotas e serviços dedicados com testes, tratar listagem global de utilizadores e delete em cascata por utilizador como **requisito de evolução** documentado; o factory reset da zona de perigo (`/platform/danger-zone/factory-reset`) é wipe **de toda** a instalação, não substitui remoção selectiva por utilizador.
+
 ---
 
 # 3. Situação atual após os loops já entregues
@@ -832,6 +881,41 @@ Disponibilizar apenas para admin de plataforma uma operação segura de reset da
 ### Critério de saída
 - existir um fluxo de reset controlado, auditado e impossível de acionar casualmente
 
+---
+
+## Loop 59 — Catálogo de ações de negócio + UX guiada (`internal_action`)
+
+### Objetivo
+Fechar a lacuna entre documentação de runtime (coordenador → especialista → `internal_action` → MongoDB) e configuração na UI: metadados PT-BR por `actionId`, endpoint read-only de catálogo, criação de `WorkspaceToolDefinition` do tipo `internal_action` via select (sem digitar `actionId` à cegas), e rótulos amigáveis na ficha do agente.
+
+### Foco
+- presets canónicos e `BusinessToolRegistry.listCatalog`; `GET /api/v1/business-actions/catalog` (auth por tenant)
+- página Tools: fluxo «Ação interna (negócio)» com combobox; evitar duplicar a mesma ação no workspace
+- `ensureInternalActionDefinitions` (auto-bind / team plan): `name` alinhado aos presets quando existirem
+- [`docs/UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md) (subsecção domínio de negócio) e referência cruzada em [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) deste plano
+
+### Critério de saída
+- catálogo devolve apenas `actionId` com handler registado; gate Ralph com `RALPH_LOOP_INCLUDE_FRONTEND=1` (alterações em `v0-team-ai-crafter`)
+
+---
+
+## Loop 60 — Remover CRM HTTP do catálogo (paridade com CRM interno)
+
+### Objetivo
+Ter **uma única história de CRM** no produto: o domínio persistido no MongoDB via pack `crm` e ações `internal_action` (`crm_*`), sem competir no runtime com uma segunda via “CRM” baseada em HTTP genérico no catálogo Agents SDK.
+
+### Foco
+- retirar o ID `crm_access` do catálogo (`capabilities.tools`) e o ramo correspondente em `buildCapabilityCatalogTools` (executor HTTP + stub)
+- remover `executeCrmAccess` e referências de teste associadas
+- retirar ou deprecar `toolCrm` em schema de integrações, serviço de integrações e UI de Settings (bloco “Tools do catálogo — CRM”)
+- atualizar [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md) e [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts)
+- decidir tratamento para agentes que já persistem `crm_access` em `capabilities.tools` (ignorar no runtime, filtrar na gravação ou migração pontual)
+- ajustar testes (`operational-catalog-tools.test.ts`, etc.)
+
+### Critério de saída
+- não existe function tool `catalog_crm_access` nem configuração de integração de primeira classe para CRM HTTP no catálogo
+- CRM externo, se voltar a ser necessário, documenta-se como caminho explícito (ex.: `http_webhook`, MCP), sem ambiguidade com o pack interno
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -841,11 +925,17 @@ Disponibilizar apenas para admin de plataforma uma operação segura de reset da
 6. Loop 57
 7. Loop 58
 
+### Slices após a sequência 52–58
+8. **Loop 59** — catálogo de ações de negócio + UX guiada `internal_action` (ver [secção Loop 59](#loop-59--catálogo-de-ações-de-negócio--ux-guiada-internal_action)); entregue no ledger.
+9. **Loop 60** — remover CRM HTTP do catálogo (ver [secção Loop 60](#loop-60--remover-crm-http-do-catálogo-paridade-com-crm-interno)); slice independente da ordem original da ETAPA 9, em aberto no ledger.
+
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
 - depois fechar segurança mínima e quotas reais
 - em seguida tornar notificações, integrações, templates e tools mais utilizáveis
 - por fim tratar ações destrutivas e administrativas
+- **Loop 59:** documentação runtime + paridade UX/backend para criar e rotular `internal_action` sem `actionId` manual
+- **Loop 60:** reduzir ambiguidade produto/runtime entre CRM catálogo HTTP e CRM interno (pack)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.

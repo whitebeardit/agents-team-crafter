@@ -12,6 +12,20 @@ import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integr
 import { resolveOperationalCatalogTools } from '../../agents/domain/operational-catalog-tools.js';
 import nodemailer from 'nodemailer';
 
+function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): boolean {
+  return (
+    Boolean(next.openaiApiKey?.trim()) ||
+    Boolean(next.smtp?.host?.trim() && next.smtp?.user?.trim() && next.smtp?.password?.trim()) ||
+    Boolean(
+      next.slack &&
+        Object.values(next.slack).some((v) => typeof v === 'string' && v.trim().length > 0),
+    ) ||
+    Boolean(next.toolDatabase?.postgresReadOnlyUrl?.trim()) ||
+    Boolean(next.toolCalendar?.restBaseUrl?.trim() || next.toolCalendar?.authHeader?.trim()) ||
+    Boolean(next.imageGenerationModel)
+  );
+}
+
 export class WorkspaceIntegrationsService {
   constructor(
     private readonly env: IEnv,
@@ -36,7 +50,21 @@ export class WorkspaceIntegrationsService {
     const k = this.env.ENCRYPTION_MASTER_KEY?.trim();
     if (!k) return null;
     try {
-      return decryptJson<IWorkspaceIntegrationsPayload>(k, enc);
+      const parsed = decryptJson<IWorkspaceIntegrationsPayload & { toolCrm?: unknown }>(k, enc);
+      if (!parsed) return null;
+      if (parsed.toolCrm !== undefined) {
+        delete parsed.toolCrm;
+        const next = parsed as IWorkspaceIntegrationsPayload;
+        if (integrationPayloadHasSecrets(next)) {
+          await this.workspaceRepo.setIntegrationSecretsEncrypted(
+            workspaceId,
+            encryptJson(this.requireMasterKey(), next),
+          );
+        } else {
+          await this.workspaceRepo.setIntegrationSecretsEncrypted(workspaceId, null);
+        }
+      }
+      return parsed as IWorkspaceIntegrationsPayload;
     } catch {
       return null;
     }
@@ -54,17 +82,7 @@ export class WorkspaceIntegrationsService {
   async putPartial(workspaceId: string, patch: IPutWorkspaceIntegrationsBody) {
     const current = (await this.getPlainPayload(workspaceId)) ?? {};
     const next = mergeWorkspaceIntegrationsPayload(current, patch);
-    const hasAny =
-      Boolean(next.openaiApiKey?.trim()) ||
-      Boolean(next.smtp?.host?.trim() && next.smtp?.user?.trim() && next.smtp?.password?.trim()) ||
-      Boolean(
-        next.slack &&
-          Object.values(next.slack).some((v) => typeof v === 'string' && v.trim().length > 0),
-      ) ||
-      Boolean(next.toolDatabase?.postgresReadOnlyUrl?.trim()) ||
-      Boolean(next.toolCrm?.restBaseUrl?.trim() || next.toolCrm?.bearerToken?.trim()) ||
-      Boolean(next.toolCalendar?.restBaseUrl?.trim() || next.toolCalendar?.authHeader?.trim()) ||
-      Boolean(next.imageGenerationModel);
+    const hasAny = integrationPayloadHasSecrets(next);
     if (!hasAny) {
       await this.workspaceRepo.setIntegrationSecretsEncrypted(workspaceId, null);
       return {
@@ -88,12 +106,6 @@ export class WorkspaceIntegrationsService {
     const out: IToolIntegrationContext = {};
     if (p.toolDatabase?.postgresReadOnlyUrl?.trim()) {
       out.database = { postgresReadOnlyUrl: p.toolDatabase.postgresReadOnlyUrl.trim() };
-    }
-    if (p.toolCrm?.restBaseUrl?.trim() || p.toolCrm?.bearerToken?.trim()) {
-      out.crm = {
-        restBaseUrl: p.toolCrm.restBaseUrl?.trim(),
-        bearerToken: p.toolCrm.bearerToken?.trim(),
-      };
     }
     if (p.toolCalendar?.restBaseUrl?.trim() || p.toolCalendar?.authHeader?.trim()) {
       out.calendar = {

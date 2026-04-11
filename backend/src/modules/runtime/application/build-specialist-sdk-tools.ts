@@ -6,7 +6,6 @@ import type { IMcpToolSpec } from '../ports/agent-runtime.provider.js';
 import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
 import {
   executeCalendarAccess,
-  executeCrmAccess,
   executeDatabaseQuery,
   executeImageGeneration,
 } from './tool-builtin-executors.js';
@@ -44,11 +43,6 @@ const CATALOG_STUB: Record<
     description: 'Read or write calendar events via REST integration or stub.',
     stubResult: () =>
       '[catalog_stub] calendar_access: configure toolCalendar.restBaseUrl em Integracoes.',
-  },
-  crm_access: {
-    description: 'Query or update CRM via REST integration or stub.',
-    stubResult: () =>
-      '[catalog_stub] crm_access: configure toolCrm.restBaseUrl em Integracoes.',
   },
   database_query: {
     description: 'Run a read-only SQL query (Postgres) when URL configured, else stub.',
@@ -118,21 +112,6 @@ export function buildCapabilityCatalogTools(
           parameters: catalogArgs,
           execute: async (input) =>
             executeDatabaseQuery(ctx, input as { query?: string }, {
-              workspaceId: meta.workspaceId,
-              correlationId: meta.correlationId,
-            }),
-        }),
-      );
-      continue;
-    }
-    if (bid === 'crm_access' && ctx.crm?.restBaseUrl) {
-      out.push(
-        tool({
-          name: `catalog_${id}`.slice(0, 64),
-          description: 'GET CRM REST base URL with q= parameter from query field.',
-          parameters: catalogArgs,
-          execute: async (input) =>
-            executeCrmAccess(ctx, input as { query?: string }, {
               workspaceId: meta.workspaceId,
               correlationId: meta.correlationId,
             }),

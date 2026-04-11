@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { createApiClient, ApiError } from "@/lib/api/client"
+import { actionIdToToolSlug } from "@/lib/business-action-slug"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -30,6 +31,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+type TBusinessCatalogItem = {
+  actionId: string
+  title: string
+  description: string
+  packId?: string
+}
+
+type ToolKindCreate = "http_webhook" | "builtin_ref" | "internal_action"
+
 type ToolDef = {
   id: string
   name: string
@@ -39,11 +49,12 @@ type ToolDef = {
   config: Record<string, unknown>
 }
 
-function describeToolConfig(tool: ToolDef): string {
+function describeToolConfig(tool: ToolDef, catalogByActionId?: Record<string, TBusinessCatalogItem>): string {
   if (tool.kind === "internal_action") {
-    return typeof tool.config.actionId === "string"
-      ? `Acao interna: ${tool.config.actionId}`
-      : "Acao interna do backend"
+    const aid = typeof tool.config?.actionId === "string" ? tool.config.actionId : ""
+    if (!aid) return "Acao interna do backend"
+    const meta = catalogByActionId?.[aid]
+    return meta ? `${meta.title} — ${aid}` : `Acao interna: ${aid}`
   }
   if (tool.kind === "http_webhook") {
     return typeof tool.config.url === "string" ? tool.config.url : "Webhook HTTP"
@@ -64,11 +75,11 @@ function describeToolConfig(tool: ToolDef): string {
 function describeToolDependencies(tool: ToolDef): string {
   switch (tool.kind) {
     case "internal_action":
-      return "Pode depender de integracoes de negocio (CRM, calendario, etc.). Verifique Configuracoes > Integracoes e packs de accoes activos."
+      return "Executa uma acao registada na plataforma (MongoDB / dominio de negocio). Escolha a acao pelo catalogo ao criar a definicao — nao e necessario digitar o actionId."
     case "http_webhook":
       return "O runtime faz HTTP para o URL indicado; o seu servico deve estar acessivel e validar autenticacao."
     case "builtin_ref":
-      return "Usa recurso builtin do ambiente (sem webhook proprio)."
+      return "Alias no workspace (sem URL nesta definicao). Execucao completa: catalogo no agente + Integracoes."
     case "mcp_ref":
       return "Requer MCP ligado no workspace e permissoes na ferramenta remota."
     default:
@@ -84,8 +95,11 @@ export default function ToolDefinitionsPage() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
-  const [kind, setKind] = useState<"http_webhook" | "builtin_ref">("http_webhook")
+  const [kind, setKind] = useState<ToolKindCreate>("http_webhook")
   const [url, setUrl] = useState("")
+  const [catalog, setCatalog] = useState<TBusinessCatalogItem[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [selectedInternalActionId, setSelectedInternalActionId] = useState("")
 
   const api = token && currentWorkspace
     ? createApiClient({
@@ -114,28 +128,105 @@ export default function ToolDefinitionsPage() {
     void load()
   }, [token, refreshToken, currentWorkspace?.id])
 
-  const handleCreate = async () => {
-    if (!api || !name.trim() || !slug.trim()) return
+  const usedInternalActionIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const t of items) {
+      if (t.kind === "internal_action" && typeof t.config?.actionId === "string") {
+        ids.add(t.config.actionId)
+      }
+    }
+    return ids
+  }, [items])
+
+  const loadCatalog = useCallback(async () => {
+    if (!api) return
+    setCatalogLoading(true)
     try {
-      const config: Record<string, unknown> =
-        kind === "http_webhook" ? { url: url.trim(), method: "POST" } : { builtinId: "web_search" }
-      await api.post("/tool-definitions", {
-        name: name.trim(),
-        slug: slug.trim(),
-        kind,
-        config,
-      })
+      const r = await api.get<TBusinessCatalogItem[]>("/business-actions/catalog")
+      setCatalog(r.data)
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao carregar catalogo de acoes"
+      toast.error(msg)
+      setCatalog([])
+    } finally {
+      setCatalogLoading(false)
+    }
+  }, [api])
+
+  useEffect(() => {
+    if (!api) return
+    void loadCatalog()
+  }, [api, loadCatalog])
+
+  const resetCreateForm = () => {
+    setName("")
+    setSlug("")
+    setUrl("")
+    setKind("http_webhook")
+    setSelectedInternalActionId("")
+  }
+
+  const handleCreate = async () => {
+    if (!api) return
+    try {
+      if (kind === "internal_action") {
+        const entry = catalog.find((c) => c.actionId === selectedInternalActionId)
+        if (!entry) {
+          toast.error("Selecione uma acao interna")
+          return
+        }
+        if (usedInternalActionIds.has(entry.actionId)) {
+          toast.error("Esta acao ja tem uma definicao neste workspace")
+          return
+        }
+        await api.post("/tool-definitions", {
+          name: entry.title,
+          slug: actionIdToToolSlug(entry.actionId),
+          kind: "internal_action",
+          config: { actionId: entry.actionId },
+          jsonSchema: {
+            type: "object",
+            additionalProperties: true,
+            description: `Parametros para a acao interna ${entry.actionId}`,
+          },
+        })
+      } else {
+        if (!name.trim() || !slug.trim()) return
+        const config: Record<string, unknown> =
+          kind === "http_webhook" ? { url: url.trim(), method: "POST" } : { builtinId: "web_search" }
+        await api.post("/tool-definitions", {
+          name: name.trim(),
+          slug: slug.trim(),
+          kind,
+          config,
+        })
+      }
       toast.success("Tool criada")
       setOpen(false)
-      setName("")
-      setSlug("")
-      setUrl("")
+      resetCreateForm()
       void load()
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Falha ao criar"
       toast.error(msg)
     }
   }
+
+  const canSubmitCreate =
+    kind === "internal_action"
+      ? Boolean(selectedInternalActionId) &&
+          !usedInternalActionIds.has(selectedInternalActionId) &&
+          !catalogLoading
+      : Boolean(name.trim() && slug.trim()) && (kind === "http_webhook" ? Boolean(url.trim()) : true)
+
+  const selectedCatalogEntry = catalog.find((c) => c.actionId === selectedInternalActionId)
+
+  const catalogByActionId = useMemo(() => {
+    const m: Record<string, TBusinessCatalogItem> = {}
+    for (const c of catalog) {
+      m[c.actionId] = c
+    }
+    return m
+  }, [catalog])
 
   const handleToggleEnabled = async (item: ToolDef, enabled: boolean) => {
     if (!api) return
@@ -179,7 +270,13 @@ export default function ToolDefinitionsPage() {
             ao fazer bind — continuam a precisar de estar activas aqui.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v)
+            if (!v) resetCreateForm()
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
@@ -188,42 +285,120 @@ export default function ToolDefinitionsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nova tool</DialogTitle>
-              <DialogDescription>Webhook seguro chamado pelo runtime ao invocar a tool.</DialogDescription>
+              <DialogTitle>
+                {kind === "http_webhook"
+                  ? "Nova tool — HTTP webhook"
+                  : kind === "builtin_ref"
+                    ? "Nova tool — Referencia builtin"
+                    : "Nova tool — Acao interna (negocio)"}
+              </DialogTitle>
+              <DialogDescription>
+                {kind === "http_webhook"
+                  ? "O runtime faz um pedido HTTP (POST) para o URL quando o modelo invoca esta tool. O servico deve estar acessivel e validar autenticacao."
+                  : kind === "builtin_ref"
+                    ? "Esta opcao nao pede URL aqui. Integracoes reais (Postgres, CRM, calendario, OpenAI) ficam em Configuracoes > Integracoes; habilite as ferramentas de catalogo na ficha do agente para execucao completa."
+                    : "Escolha uma acao da plataforma (CRM, clinico, financeiro, etc.). O nome e o slug sao gerados automaticamente; nao precisa de digitar o actionId."}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
               <div>
-                <Label>Nome</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label>Slug (unico)</Label>
-                <Input value={slug} onChange={(e) => setSlug(e.target.value)} className="mt-1" placeholder="minha-api" />
-              </div>
-              <div>
                 <Label>Tipo</Label>
-                <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
+                <Select
+                  value={kind}
+                  onValueChange={(v) => {
+                    setKind(v as ToolKindCreate)
+                    setSelectedInternalActionId("")
+                  }}
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="http_webhook">HTTP webhook</SelectItem>
                     <SelectItem value="builtin_ref">Referencia builtin</SelectItem>
+                    <SelectItem value="internal_action">Acao interna (negocio)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {kind === "internal_action" ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label>Acao da plataforma</Label>
+                    <Select
+                      value={selectedInternalActionId || undefined}
+                      onValueChange={setSelectedInternalActionId}
+                      disabled={catalogLoading}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue
+                          placeholder={catalogLoading ? "A carregar catalogo..." : "Escolha uma acao..."}
+                        />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[min(60vh,320px)]">
+                        {catalog.map((c) => {
+                          const taken = usedInternalActionIds.has(c.actionId)
+                          return (
+                            <SelectItem key={c.actionId} value={c.actionId} disabled={taken}>
+                              <span className="font-medium">{c.title}</span>
+                              {taken ? (
+                                <span className="text-muted-foreground"> (ja definida)</span>
+                              ) : null}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedCatalogEntry ? (
+                    <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm space-y-1">
+                      <p className="text-muted-foreground">{selectedCatalogEntry.description}</p>
+                      <p className="text-xs font-mono text-muted-foreground">actionId: {selectedCatalogEntry.actionId}</p>
+                      {selectedCatalogEntry.packId ? (
+                        <p className="text-xs text-muted-foreground">Pack: {selectedCatalogEntry.packId}</p>
+                      ) : null}
+                      <p className="text-xs font-mono pt-1">
+                        slug: {actionIdToToolSlug(selectedCatalogEntry.actionId)}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label>Nome</Label>
+                    <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Slug (unico)</Label>
+                    <Input
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value)}
+                      className="mt-1"
+                      placeholder="minha-api"
+                    />
+                  </div>
+                </>
+              )}
               {kind === "http_webhook" ? (
                 <div>
                   <Label>URL</Label>
                   <Input value={url} onChange={(e) => setUrl(e.target.value)} className="mt-1" placeholder="https://..." />
                 </div>
               ) : null}
+              {kind === "builtin_ref" ? (
+                <p className="text-sm text-muted-foreground rounded-md border border-border bg-muted/40 px-3 py-2">
+                  Sem campo URL: referencias <code className="text-xs">builtin_ref</code> sao aliases no workspace. Para
+                  dados ou APIs internas, prefira <strong>Acao interna</strong> ou as tools de catalogo no agente.
+                </p>
+              ) : null}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => void handleCreate()}>Criar</Button>
+              <Button onClick={() => void handleCreate()} disabled={!canSubmitCreate}>
+                Criar
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -270,8 +445,8 @@ export default function ToolDefinitionsPage() {
             <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
               Configuracoes &gt; Integracoes
             </Link>
-            . Webhooks precisam de URL acessivel. A definicao deve estar <strong>activa</strong> aqui e depois na aba{" "}
-            <strong>Ferramentas</strong> do agente.
+            . Webhooks precisam de URL acessivel; <code className="text-xs">builtin_ref</code> nao. A definicao deve
+            estar <strong>activa</strong> aqui e depois na aba <strong>Ferramentas</strong> do agente.
           </p>
           <p>
             O planner pode criar <code className="text-xs">internal_action</code> ao fazer bind; a entrada continua
@@ -306,7 +481,7 @@ export default function ToolDefinitionsPage() {
                       <Badge variant="outline">{t.kind}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground font-mono">{t.slug}</p>
-                    <p className="text-xs text-muted-foreground mt-1 break-all">{describeToolConfig(t)}</p>
+                    <p className="text-xs text-muted-foreground mt-1 break-all">{describeToolConfig(t, catalogByActionId)}</p>
                     <p className="text-xs text-muted-foreground mt-1.5 border-l-2 border-primary/30 pl-2">
                       {describeToolDependencies(t)}
                     </p>

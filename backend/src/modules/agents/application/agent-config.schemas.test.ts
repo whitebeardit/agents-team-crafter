@@ -23,6 +23,13 @@ describe('toolsSchema', () => {
     ).toThrow();
   });
 
+  it('remove crm_access legado do catálogo (Loop 60)', () => {
+    const parsed = toolsSchema.parse({
+      tools: ['web_search', 'crm_access'],
+    });
+    expect(parsed.tools).toEqual(['web_search']);
+  });
+
   it('aceita customToolDefinitionIds opcionais', () => {
     const parsed = toolsSchema.parse({
       tools: ['web_search'],

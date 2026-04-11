@@ -28,11 +28,6 @@ export interface IWorkspaceIntegrationsPayload {
   toolDatabase?: {
     postgresReadOnlyUrl?: string;
   };
-  /** Base REST para tool catalog_crm_access (GET ?q=) */
-  toolCrm?: {
-    restBaseUrl?: string;
-    bearerToken?: string;
-  };
   /** Base REST para tool catalog_calendar_access (GET path relativo em query) */
   toolCalendar?: {
     restBaseUrl?: string;
@@ -67,12 +62,6 @@ export const putWorkspaceIntegrationsBodySchema = z.object({
       postgresReadOnlyUrl: z.string().optional(),
     })
     .optional(),
-  toolCrm: z
-    .object({
-      restBaseUrl: z.string().optional(),
-      bearerToken: z.string().optional(),
-    })
-    .optional(),
   toolCalendar: z
     .object({
       restBaseUrl: z.string().optional(),
@@ -103,7 +92,6 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
     clientSecretMasked?: string;
   };
   toolDatabase?: { postgresReadOnlyUrlConfigured: boolean };
-  toolCrm?: { restBaseUrl?: string; bearerTokenConfigured: boolean };
   toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean };
   imageGenerationModel?: TImageGenerationModel;
 } {
@@ -147,14 +135,6 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
       ? {
           toolDatabase: {
             postgresReadOnlyUrlConfigured: true,
-          },
-        }
-      : {}),
-    ...(payload.toolCrm?.restBaseUrl?.trim() || payload.toolCrm?.bearerToken?.trim()
-      ? {
-          toolCrm: {
-            restBaseUrl: payload.toolCrm.restBaseUrl?.trim(),
-            bearerTokenConfigured: Boolean(payload.toolCrm.bearerToken?.trim()),
           },
         }
       : {}),
@@ -238,22 +218,6 @@ export function mergeWorkspaceIntegrationsPayload(
     if (merged.postgresReadOnlyUrl?.trim() === '') delete next.toolDatabase;
     else if (merged.postgresReadOnlyUrl?.trim()) {
       next.toolDatabase = { postgresReadOnlyUrl: merged.postgresReadOnlyUrl.trim() };
-    }
-  }
-
-  if (patch.toolCrm !== undefined) {
-    const prev = next.toolCrm ?? {};
-    const merged = {
-      restBaseUrl: patch.toolCrm.restBaseUrl !== undefined ? patch.toolCrm.restBaseUrl : prev.restBaseUrl,
-      bearerToken: patch.toolCrm.bearerToken !== undefined ? patch.toolCrm.bearerToken : prev.bearerToken,
-    };
-    const empty =
-      !merged.restBaseUrl?.trim() && !merged.bearerToken?.trim();
-    if (empty) delete next.toolCrm;
-    else {
-      next.toolCrm = {};
-      if (merged.restBaseUrl?.trim()) next.toolCrm.restBaseUrl = merged.restBaseUrl.trim();
-      if (merged.bearerToken?.trim()) next.toolCrm.bearerToken = merged.bearerToken.trim();
     }
   }
 

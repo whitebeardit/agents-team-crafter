@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isAllowedTool } from '../domain/available-tools.js';
+import { isAllowedTool, stripDeprecatedCatalogToolIds } from '../domain/available-tools.js';
 
 const channelType = z.enum(['whatsapp', 'slack', 'email', 'api']);
 
@@ -31,9 +31,12 @@ export const systemRoleSchema = z.enum(['team-crafter', 'agent-crafter', 'domain
 const mongoId = z.string().regex(/^[a-f0-9]{24}$/i, 'ObjectId invalido');
 
 export const toolsSchema = z.object({
-  tools: z.array(z.string()).refine((arr) => arr.every((t) => isAllowedTool(t)), {
-    message: 'Tool id invalida',
-  }),
+  tools: z
+    .array(z.string())
+    .transform(stripDeprecatedCatalogToolIds)
+    .refine((arr) => arr.every((t) => isAllowedTool(t)), {
+      message: 'Tool id invalida',
+    }),
   customToolDefinitionIds: z.array(mongoId).optional(),
 });
 

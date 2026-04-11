@@ -1,4 +1,5 @@
 import type { WorkspaceToolDefinitionRepository } from '../../tool-definitions/infra/workspace-tool-definition.repository.js';
+import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
 import { actionIdToToolSlug } from './planner-pack-presets.js';
 
 /**
@@ -25,8 +26,10 @@ export async function ensureInternalActionDefinitions(
     }
 
     try {
+      const preset = getBusinessActionPreset(actionId);
+      const displayName = preset?.title?.trim() ? preset.title.trim() : `Negócio: ${actionId}`;
       const created = await repo.create(workspaceId, {
-        name: `Negócio: ${actionId}`,
+        name: displayName,
         slug,
         kind: 'internal_action',
         jsonSchema: {

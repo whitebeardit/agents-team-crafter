@@ -29,6 +29,33 @@ Regras de uso:
 5. Fazer **commit de tudo** e **push** do loop/etapa concluído.
 6. Atualizar este ficheiro: tabela de estado, checklist do loop concluído, definição do **próximo** loop oficial.
 
+### Checklist: ferramentas Agents SDK utilizáveis (após gate verde)
+
+O `./scripts/ralph-loop-gate.sh` (build + testes no `backend/`, e frontend opcional) **não** substitui provar que uma tool faz chamada real a integrações externas. Ao fechar um loop que altere ferramentas, confirmar no texto do ledger que a entrega **não** promove a falsa expectativa de “habilitou na UI = funciona” sem pré-condições.
+
+Verificação mínima quando o slice toca em tools:
+
+- **Catálogo (`capabilities.tools`):** para IDs que o runtime só executa com integração, o loop deve dizer se ficou **operacional** (integração + caminho feliz) ou **stub**; alinhar com [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts) e a matriz em [`docs/UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md).
+- **`http_webhook`:** URL acessível, contrato e autenticação documentados ou cobertos por teste; sem isso, declarar limitação.
+- **`internal_action`:** presets em [`business-action-presets.ts`](../backend/src/modules/business-tools/application/business-action-presets.ts) + catálogo read-only `GET /api/v1/business-actions/catalog`; `actionId` resolvível no registry de negócio e `businessToolRuntime` disponível no compose do agente.
+- **`builtin_ref`:** tratar como **alias/placeholder** no runtime atual (não duplica executores do catálogo); não prometer paridade com as tools de catálogo até haver evolução explícita de produto/código.
+- **Smoke manual** de tool “real” (Postgres, CRM, MCP HTTP, etc.), quando aplicável, fica a cargo do slice e pode exigir ambiente com segredos — **fora** do gate por defeito.
+- O **Loop 60** removeu o `crm_access` HTTP do catálogo e `toolCrm` em Integrações; validar CRM de negócio via pack `crm` / `internal_action` e documentação correspondente.
+
+### Admin global da plataforma: norma vs implementação actual
+
+**Norma (contrato de produto):** apenas o **admin global** (`isPlatformAdmin` no utilizador e/ou `PLATFORM_ADMIN_EMAILS` em [`env.ts`](../backend/src/config/env.ts); enforcement [`hooks.ts`](../backend/src/app/plugins/hooks.ts)) pode realizar operações **cross-tenant** sensíveis: ver **todos** os utilizadores e **todos** os workspaces da instalação; eliminar **em cascata** um utilizador e os dados MongoDB associados (workspaces, membros, convites, etc., segundo política da implementação). Owner/admin **de workspace** não substitui este papel.
+
+**Estado actual no repositório:**
+
+| Capacidade | Situação |
+| ---------- | -------- |
+| Listar **todos os workspaces** (instalação) | **Parcialmente entregue:** `GET /workspaces` retorna [`workspaceRepo.listAll()`](../backend/src/modules/workspaces/interfaces/workspace.routes.ts) quando `req.user.isPlatformAdmin`. |
+| Listar **todos os utilizadores** (instalação) | **Ainda não** há endpoint/API dedicada documentada; tratar como **evolução** até existir rota + serviço + testes. |
+| **Delete em cascata por utilizador** | **Ainda não** implementado como operação selectiva; o [factory reset](../backend/src/modules/platform/interfaces/platform.routes.ts) (`POST /platform/danger-zone/factory-reset`) faz wipe **global** da base — não é equivalente a apagar um só utilizador. |
+
+Alinhamento com o plano mestre: [§2.7 Admin global da plataforma](agents-team-crafter-plano-evolucao.md#27-admin-global-da-plataforma-rbac-cross-tenant).
+
 ---
 
 # Status por etapa do plano
@@ -45,7 +72,7 @@ Regras de uso:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–58) | Roadmap numerado da secção 14.5 entregue; melhorias adicionais passam a slices novos no plano mestre |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–60) | Loops 52–60 no ledger; novos slices: ver plano mestre e secção **Próximo loop oficial** |
 
 
 ---
@@ -600,6 +627,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 56   | Templates e tools com curadoria real de produção         | entregue (metadata templates + seed clinica + tools deps; ver [Loop 56](#loop-56-fechado))     |
 | 57   | Governança limpa e agenda operacional                    | entregue (purge auditoria + agenda cancelados/delete; ver [Loop 57](#loop-57-fechado))        |
 | 58   | Danger Zone administrativa e reset de fábrica            | entregue (ver [Loop 58](#loop-58-fechado))                                                      |
+| 59   | Catálogo `internal_action` (presets + API + UI guiada)   | entregue (ver [Loop 59](#loop-59-fechado))                                                      |
+| 60   | Remover CRM HTTP do catálogo (ambiguidade vs CRM interno) | entregue (ver [Loop 60](#loop-60-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -608,10 +637,12 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Backlog ETAPA 9:** novos slices passam a ser definidos no plano mestre (`agents-team-crafter-plano-evolucao.md`); o último loop numerado fechado no ledger é o **58**.
+**Último slice numerado fechado:** **Loop 60** — remoção de `crm_access` / `toolCrm` (ver [Loop 60](#loop-60-fechado)).
+
+**Próximo slice:** definir no plano mestre (`agents-team-crafter-plano-evolucao.md`) quando houver nova macro-tarefa; candidatos incluem evoluções da ETAPA 9 (ex.: admin global — listagem de utilizadores / delete em cascata) ou novas frentes de produto.
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** pode continuar com slices adicionais fora da numeração 52–58 já fechada.
+A **ETAPA 9 — Paridade de produção, configurações e operação** pode continuar com slices adicionais para além do Loop 60.
 
 ---
 
@@ -1094,6 +1125,41 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** pode cont
   - [`v0-team-ai-crafter/app/(app)/settings/page.tsx`](../v0-team-ai-crafter/app/(app)/settings/page.tsx): cartão “Zona de perigo” no separador Segurança (só platform admin)
   - Testes: [`backend/src/__tests__/platform-factory-reset.integration.test.ts`](../backend/src/__tests__/platform-factory-reset.integration.test.ts)
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+## Loop 59 (fechado)
+
+- etapa/prioridade: ETAPA 9 / altíssima
+- objetivo do slice: documentar o fluxo coordenador → especialista → `internal_action` → MongoDB; expor metadados PT-BR por `actionId` (presets + registry); endpoint read-only de catálogo para a UI; criar `WorkspaceToolDefinition` do tipo `internal_action` via select (sem `actionId` manual); rótulos amigáveis na ficha do agente; alinhar `ensureInternalActionDefinitions` aos presets quando existirem.
+- **entregue no repositório:**
+  - [`business-action-presets.ts`](../backend/src/modules/business-tools/application/business-action-presets.ts): títulos/descrições/`packId` por `actionId`
+  - [`business-tool-registry.ts`](../backend/src/modules/business-tools/application/business-tool-registry.ts): `listCatalog()` (handlers registados + presets)
+  - [`business-actions.routes.ts`](../backend/src/modules/business-tools/interfaces/business-actions.routes.ts): `GET /api/v1/business-actions/catalog` (`preHandler: tenant`)
+  - [`routes.ts`](../backend/src/app/routes.ts): `registerBusinessActionRoutes`
+  - [`ensure-planner-tool-definitions.ts`](../backend/src/modules/team-planning/application/ensure-planner-tool-definitions.ts): `WorkspaceToolDefinition.name` a partir de presets quando existirem
+  - [`business-tool-registry.test.ts`](../backend/src/modules/business-tools/application/business-tool-registry.test.ts): catálogo
+  - [`business-action-slug.ts`](../v0-team-ai-crafter/lib/business-action-slug.ts): `actionIdToToolSlug` alinhado ao planner
+  - [`tool-definitions/page.tsx`](../v0-team-ai-crafter/app/%28app%29/tool-definitions/page.tsx): tipo «Ação interna (negócio)», combobox do catálogo, desduplicação, linhas com título amigável
+  - [`agents/[id]/page.tsx`](../v0-team-ai-crafter/app/%28app%29/agents/%5Bid%5D/page.tsx): rótulos a partir do catálogo + badge de pack quando aplicável
+  - [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md): subsecção domínio de negócio / `internal_action`
+  - [`agents-team-crafter-plano-evolucao.md`](agents-team-crafter-plano-evolucao.md): [§2.6](agents-team-crafter-plano-evolucao.md#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) e [Loop 59](agents-team-crafter-plano-evolucao.md#loop-59--catálogo-de-ações-de-negócio--ux-guiada-internal_action) no plano mestre
+- critério de saída: catálogo só lista `actionId` com handler; gate com frontend porque o slice alterou `v0-team-ai-crafter`
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+## Loop 60 (fechado)
+
+- etapa/prioridade: ETAPA 9 (paridade produto/runtime e integrações) / alta
+- objetivo do slice: eliminar a ferramenta de catálogo **`crm_access`** (integração HTTP `toolCrm` em Configurações) para que o utilizador e o modelo não confundam **CRM externo via GET catalog** com o **CRM interno** persistido no MongoDB (pack `crm`, ações `crm_*`, `PartyRepository`).
+- **entregue no repositório:**
+  - [`available-tools.ts`](../backend/src/modules/agents/domain/available-tools.ts): removido `crm_access` do catálogo; `DEPRECATED_CATALOG_TOOL_IDS` + `stripDeprecatedCatalogToolIds`; runtime ignora ID legado (`isAllowedTool`).
+  - [`agent-config.schemas.ts`](../backend/src/modules/agents/application/agent-config.schemas.ts): `toolsSchema` filtra `crm_access` em PUT.
+  - [`build-specialist-sdk-tools.ts`](../backend/src/modules/runtime/application/build-specialist-sdk-tools.ts), [`tool-builtin-executors.ts`](../backend/src/modules/runtime/application/tool-builtin-executors.ts): removidos executor e stub HTTP CRM.
+  - [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts): sem linha operacional `crm_access`.
+  - [`workspace-integrations.schema.ts`](../backend/src/modules/settings/domain/workspace-integrations.schema.ts), [`workspace-integrations.service.ts`](../backend/src/modules/settings/application/workspace-integrations.service.ts): removido `toolCrm`; migração ao ler payload cifrado (remove `toolCrm` e regrava ou anula segredos).
+  - [`tool-integration.types.ts`](../backend/src/shared/kernel/tool-integration.types.ts): removido `crm` do contexto.
+  - [`settings/page.tsx`](../v0-team-ai-crafter/app/(app)/settings/page.tsx): removido cartão CRM; copy “Leitura rápida” alinhada ao CRM de negócio.
+  - [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md): matriz e integrações atualizadas.
+- critério de saída: sem `catalog_crm_access` nem `toolCrm` de primeira classe; gate verde backend + frontend.
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (203 testes backend no encerramento deste slice).
 
 ---
 

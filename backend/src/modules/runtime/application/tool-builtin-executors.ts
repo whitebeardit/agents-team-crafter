@@ -54,45 +54,6 @@ export async function executeDatabaseQuery(
   }
 }
 
-export async function executeCrmAccess(
-  ctx: IToolIntegrationContext,
-  args: { query?: string },
-  meta: { workspaceId: string; correlationId?: string },
-): Promise<string> {
-  const base = ctx.crm?.restBaseUrl?.trim();
-  const token = ctx.crm?.bearerToken?.trim();
-  if (!base) {
-    return '[tool] crm_access: configure restBaseUrl em Integracoes (ferramentas CRM).';
-  }
-  const q = (args.query ?? '').trim() || '*';
-  try {
-    const url = new URL(base.endsWith('/') ? base.slice(0, -1) : base);
-    url.searchParams.set('q', q);
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(url.toString(), { method: 'GET', headers, signal: AbortSignal.timeout(30_000) });
-    const text = await res.text();
-    logToolInvocation({
-      workspaceId: meta.workspaceId,
-      tool: 'crm_access',
-      ok: res.ok,
-      correlationId: meta.correlationId,
-      detail: { status: res.status },
-    });
-    return text.slice(0, 50_000);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    logToolInvocation({
-      workspaceId: meta.workspaceId,
-      tool: 'crm_access',
-      ok: false,
-      correlationId: meta.correlationId,
-      detail: { error: msg },
-    });
-    return `[tool] crm_access erro: ${msg}`;
-  }
-}
-
 export async function executeCalendarAccess(
   ctx: IToolIntegrationContext,
   args: { query?: string },

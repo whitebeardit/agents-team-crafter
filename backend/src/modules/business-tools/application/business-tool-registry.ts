@@ -1,3 +1,5 @@
+import { getBusinessActionPreset } from './business-action-presets.js';
+
 /**
  * Registry of internal business actions keyed by stable `actionId` (e.g. `business.ping`, `crm_create_party`).
  */
@@ -8,6 +10,14 @@ export type TBusinessActionContext = {
 };
 
 export type TBusinessActionHandler = (ctx: TBusinessActionContext) => Promise<unknown>;
+
+/** Item do catálogo exposto à UI (GET /business-actions/catalog). */
+export interface IBusinessActionCatalogItem {
+  actionId: string;
+  title: string;
+  description: string;
+  packId?: string;
+}
 
 export class BusinessToolRegistry {
   private readonly handlers = new Map<string, TBusinessActionHandler>();
@@ -24,5 +34,23 @@ export class BusinessToolRegistry {
 
   has(actionId: string): boolean {
     return this.handlers.has(actionId.trim());
+  }
+
+  /**
+   * Todas as ações registadas no processo, com metadados PT-BR quando existirem em `business-action-presets.ts`.
+   */
+  listCatalog(): IBusinessActionCatalogItem[] {
+    const items: IBusinessActionCatalogItem[] = [];
+    for (const actionId of this.handlers.keys()) {
+      const preset = getBusinessActionPreset(actionId);
+      items.push({
+        actionId,
+        title: preset?.title ?? actionId,
+        description: preset?.description ?? '',
+        packId: preset?.packId,
+      });
+    }
+    items.sort((a, b) => a.title.localeCompare(b.title, 'pt'));
+    return items;
   }
 }
