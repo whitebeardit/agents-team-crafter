@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useState, type ReactNode } from "react"
+import { useId, useLayoutEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 const SPOTLIGHT_PAD = 8
@@ -54,7 +54,7 @@ function SpotlightMask({ rect, className }: { rect: DOMRect; className?: string 
 export function useTourAnchorRect(target: HTMLElement | null) {
   const [rect, setRect] = useState<DOMRect | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!target || typeof window === "undefined") {
       setRect(null)
       return
