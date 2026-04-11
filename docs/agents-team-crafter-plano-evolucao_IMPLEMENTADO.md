@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–72); candidato 73 planeado | Loops 52–72 entregues; **Loop 73** (cards em listagens densas) detalhado no plano e abaixo; próximo ciclo: ver **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–73); evolução contínua | Loops 52–73 entregues; próximos candidatos de produto (ex.: billing/2FA): ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -669,7 +669,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 70   | Tours contextuais — fichas agente e time                     | entregue (ver [Loop 70](#loop-70-fechado))                                                      |
 | 71   | Tabelas densas — scroll horizontal (`ResponsiveTableScroll`) | entregue (ver [Loop 71](#loop-71-fechado))                                                      |
 | 72   | Tours — spotlight / ancoragem DOM (opcional por passo)       | entregue (ver [Loop 72](#loop-72-fechado))                                                      |
-| 73   | Listagens densas — vista em cards (mobile/tablet)             | planeado — candidato (ver [Loop 73](#loop-73-candidato))                                       |
+| 73   | Listagens densas — vista em cards (mobile/tablet)             | entregue (ver [Loop 73](#loop-73-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -678,15 +678,14 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 72** — spotlight / ancoragem DOM nos tours contextuais (ver [Loop 72](#loop-72-fechado)).
+**Último slice numerado fechado:** **Loop 73** — vista em cards para listagem densa em `/runs` (ver [Loop 73](#loop-73-fechado)).
 
-**Próximo slice numerado (ordem recomendada no plano):** **Loop 73** antes de slices de produto não UX (ex.: billing/2FA), salvo decisão explícita de prioridade.
+**Próximo slice:** não há **Loop 74** numerado no plano; candidatos naturais: **billing/2FA**, **self-service de workspace**, ou expansão de cards a outras listagens — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
-| Ordem | Loop | Tema | Plano mestre |
-| --- | --- | --- | --- |
-| 1 | **73** | Cards para listagens muito densas em viewports estreitas | [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards) |
-
-**Outros candidatos** (fora da sequência 72–73): billing/2FA, self-service de workspace — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+| Ordem | Tema (candidato) | Plano mestre |
+| --- | --- | --- |
+| 1 | Billing / 2FA / operações sensíveis | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| 2 | Mais rotas com vista em cards (além de `/runs`) | [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards) (replicar padrão) |
 
 **Regra Ralph:** um slice coerente por ciclo; fechar com gate (`./scripts/ralph-loop-gate.sh`, com `RALPH_LOOP_INCLUDE_FRONTEND=1` se tocar no Next), commit + push, depois atualizar tabela acima e a secção **Loop N (fechado)** abaixo.
 
@@ -1405,17 +1404,24 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend no encerramento deste slice).
 - **referência no plano mestre:** [Loop 72](agents-team-crafter-plano-evolucao.md#loop-72-spotlight-tours)
 
-## Loop 73 (candidato — detalhe Ralph)
+## Loop 73 (fechado)
 
-- **Estado:** não iniciado; dependência lógica: **Loop 71** entregue (scroll no contentor); **complementa** o 71, não o substitui.
 - **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
-- **objetivo:** em **mobile/tablet**, apresentar **lista em cartões** para rotas com tabelas muito densas, com **prioridade de colunas** documentada e mesmas acções que a vista em tabela.
-- **entregáveis mínimos:**
-  - pelo menos **uma** rota piloto (ledger deve nomear o ficheiro e a política de breakpoint)
-  - tabela **rota ↔ campos do card ↔ CTA primário** neste ficheiro ou no plano mestre
-  - evitar regressões de a11y (botões tocáveis, hierarquia de títulos)
-- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
-- **Ao fechar o loop:** renomear secção para **Loop 73 (fechado)**, actualizar tabela (linha 73 → entregue), **Próximo loop oficial**, e [plano mestre — Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards).
+- **objetivo:** em **viewports estreitas**, lista em **cartões** para uma listagem densa, com paridade de dados e ações face à tabela em `md+`.
+- **Política de breakpoint:** **`md` e acima** (`≥768px`) — tabela dentro de `ResponsiveTableScroll`; **abaixo de `md`** — lista vertical de cartões (`RunsListMobileCards`).
+- **Rota piloto:** `/runs` — ficheiros: [`runs/page.tsx`](../v0-team-ai-crafter/app/(app)/runs/page.tsx), [`runs-list-mobile-cards.tsx`](../v0-team-ai-crafter/components/runs/runs-list-mobile-cards.tsx).
+
+| Coluna (tabela) | Campo no cartão | CTA primário |
+| --- | --- | --- |
+| Estado | `Badge` no topo | — |
+| Início | `time` (canto, `dateTime`) | — |
+| Run | `h3` monoespaçado (ID completo) | — |
+| Time | `dl` / Time | — |
+| Origem | `dl` / Origem (+ canal) | — |
+| (ligações) | — | **Abrir time** → `/teams/[teamId]` (texto + ícone; paridade com ícone na tabela) |
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
+- **referência no plano mestre:** [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards)
 
 ---
 

@@ -1226,7 +1226,7 @@ Evoluir o onboarding **por ecrã** (Loops 67–71) para permitir **passos opcion
 
 <a id="loop-73-listagens-cards"></a>
 
-## Loop 73 — Listagens muito densas: vista em cards em mobile (candidato Ralph)
+## Loop 73 — Listagens muito densas: vista em cards em mobile
 
 ### Objetivo
 Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**, oferecer **vista em cards** (stack vertical) para listagens com muitas colunas ou IDs longos, priorizando **leitura e ações primárias** sem depender só de scroll horizontal contínuo.
@@ -1245,7 +1245,7 @@ Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**
 - documentação no ledger com **tabela rota ↔ colunas priorizadas**
 - gate com **`RALPH_LOOP_INCLUDE_FRONTEND=1`**; ledger com **Loop 73 (fechado)**
 
-**Estado (ledger):** **candidato** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 73 (candidato)**.
+**Estado (ledger):** **entregue** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 73 (fechado)** (piloto `/runs`).
 
 ## 14.6 Ordem recomendada
 1. Loop 52
@@ -1271,7 +1271,7 @@ Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**
 19. **Loop 70** — tours nas fichas `/agents/[id]` e `/teams/[id]` (entregue no ledger; ver [Loop 70](#loop-70--tours-contextuais-fichas-agente-e-time)).
 20. **Loop 71** — `ResponsiveTableScroll` em `/runs`, `/governance` e convites em Settings (entregue no ledger; ver [Loop 71](#loop-71-tabelas-scroll)).
 21. **Loop 72** — tours com **spotlight / ancoragem DOM** opcional por passo (entregue no ledger; ver [Loop 72](#loop-72-spotlight-tours)).
-22. **Loop 73** — listagens densas com **vista em cards** em mobile/tablet (candidato; ver [Loop 73](#loop-73-listagens-cards)).
+22. **Loop 73** — listagens densas com **vista em cards** em mobile/tablet (entregue no ledger, piloto `/runs`; ver [Loop 73](#loop-73-listagens-cards)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`

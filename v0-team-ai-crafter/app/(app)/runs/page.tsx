@@ -20,12 +20,7 @@ import {
 import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
 import { toast } from "sonner"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
-
-function statusVariant(s: TeamRunRecord["status"]) {
-  if (s === "failed") return "destructive" as const
-  if (s === "running") return "secondary" as const
-  return "outline" as const
-}
+import { RunsListMobileCards, runStatusBadgeVariant } from "@/components/runs/runs-list-mobile-cards"
 
 export default function RunsPage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
@@ -105,48 +100,53 @@ export default function RunsPage() {
           ) : runs.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">Nenhuma execução registada ainda.</p>
           ) : (
-            <ResponsiveTableScroll>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Run</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead>Início</TableHead>
-                    <TableHead className="w-[100px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {runs.map((r) => (
-                    <TableRow key={r.runId}>
-                      <TableCell>
-                        <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs max-w-[200px] truncate" title={r.runId}>
-                        {r.runId}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{r.teamId}</TableCell>
-                      <TableCell className="text-sm">
-                        {r.source}
-                        {r.channel ? ` · ${r.channel}` : ""}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                        {r.startedAt ? new Date(r.startedAt).toLocaleString("pt-BR") : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
-                          <Link href={`/teams/${r.teamId}`}>
-                            <span className="sr-only">Abrir time</span>
-                            <ExternalLink className="w-4 h-4" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ResponsiveTableScroll>
+            <>
+              <RunsListMobileCards runs={runs} />
+              <div className="hidden md:block">
+                <ResponsiveTableScroll>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Run</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Origem</TableHead>
+                        <TableHead>Início</TableHead>
+                        <TableHead className="w-[100px]" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {runs.map((r) => (
+                        <TableRow key={r.runId}>
+                          <TableCell>
+                            <Badge variant={runStatusBadgeVariant(r.status)}>{r.status}</Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs max-w-[200px] truncate" title={r.runId}>
+                            {r.runId}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{r.teamId}</TableCell>
+                          <TableCell className="text-sm">
+                            {r.source}
+                            {r.channel ? ` · ${r.channel}` : ""}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                            {r.startedAt ? new Date(r.startedAt).toLocaleString("pt-BR") : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
+                              <Link href={`/teams/${r.teamId}`}>
+                                <span className="sr-only">Abrir time</span>
+                                <ExternalLink className="w-4 h-4" />
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableScroll>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
