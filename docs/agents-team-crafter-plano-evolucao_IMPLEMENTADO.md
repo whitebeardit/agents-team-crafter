@@ -666,6 +666,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 67   | Onboarding contextual e tour por tela                      | entregue (ver [Loop 67](#loop-67-fechado))                                                      |
 | 68   | Expansão de tours contextuais (listagens)                    | entregue (ver [Loop 68](#loop-68-fechado))                                                      |
 | 69   | Tours contextuais — governança e observabilidade             | entregue (ver [Loop 69](#loop-69-fechado))                                                      |
+| 70   | Tours contextuais — fichas agente e time                     | candidato mapeado (ver [candidato Loop 70](#candidato-loop-70))                                 |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -676,7 +677,27 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Último slice numerado fechado:** **Loop 69** — tours contextuais em governança e observabilidade (ver [Loop 69](#loop-69-fechado)).
 
-**Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (candidatos: tours em fichas `/agents/[id]` / `/teams/[id]`, spotlight DOM, tabelas densas mobile — ver secção 14.8).
+**Próximo slice numerado recomendado:** **Loop 70** — ver [candidato Loop 70](#candidato-loop-70) abaixo.
+
+Outros temas para slices futuros: spotlight DOM nos tours, tabelas densas mobile — [plano mestre 14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+
+<a id="candidato-loop-70"></a>
+
+### Candidato Loop 70 — tours contextuais (fichas de agente e de time)
+
+**Objetivo:** estender os Loops 67–69 às **fichas de detalhe** mais usadas: edição e navegação em profundidade em **`/agents/[id]`** e **`/teams/[id]`**, com a **mesma infraestrutura** (`ContextualTourHost`, `contextual-tours-catalog`, `user.preferences.contextualTours`).
+
+**Foco mínimo (MVP):**
+
+- Novos `screenKey` + copy `version: 1` por rota dinâmica (persistência **por ecrã lógico**, não por `id` — o mesmo utilizador vê o tour uma vez por workspace até bump de versão).
+- `ContextualTourHost` + `ContextualTourManualTrigger` nos cabeçalhos das duas páginas (padrão dos loops anteriores).
+- Passos genéricos (abas, modo avançado, ferramentas, consola) sem **spotlight DOM** — spotlight fica para slice futuro se necessário.
+
+**Critério de saída:**
+
+- Auto-tour e «Ver tour desta tela» nas duas fichas, regras de reentrada do Loop 67.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- Ledger: secção **Loop 70 (fechado)** com tabela `screenKey` ↔ rota.
 
 ---
 

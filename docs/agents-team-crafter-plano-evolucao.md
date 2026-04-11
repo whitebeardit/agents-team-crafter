@@ -1142,12 +1142,32 @@ Fechar a lacuna de onboarding nas rotas que apoiam **governança** e **observabi
 - **`/observability`** — explicar métricas/listagens expostas e ligação ao runtime (sem prometer integrações ainda não implementadas).
 
 ### Extensão opcional
-- Tours nas fichas **`/agents/[id]`** e **`/teams/[id]`** — adiado (candidato Loop 70 ou slice dedicado).
+- Tours nas fichas **`/agents/[id]`** e **`/teams/[id]`** — ver **Loop 70** (candidato no ledger).
 
 ### Critério de saída
 - Mesmas regras de persistência e reentrada do Loop 67; gate com frontend; ledger com **Loop 69 (fechado)**.
 
 **Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 69 (fechado)** (`governance_workspace`, `observability_metrics`).
+
+---
+
+## Loop 70 — Tours contextuais (fichas agente e time)
+
+### Objetivo
+Completar o rollout de onboarding **por ecrã** nas fichas de **agente** e **time**, onde o utilizador passa mais tempo a configurar runtime, ferramentas e canais.
+
+### Foco (MVP)
+- **`/agents/[id]`** — passos curtos sobre abas (visão geral, missão, ferramentas, etc.), modo avançado e salvamento; respeitar agente só leitura (catálogo).
+- **`/teams/[id]`** — passos sobre visão geral, agentes, canais e execução / consola conforme a UI atual.
+
+### Fora do MVP do Loop 70
+- Tour com **highlight/spotlight** em elementos específicos do DOM (slice ou ADR separado).
+- Alterações de RBAC além de copy condicional nos passos.
+
+### Critério de saída
+- Mesmas regras de persistência e reentrada do Loop 67; gate com frontend; ledger com **Loop 70 (fechado)**.
+
+**Estado (ledger):** candidato mapeado — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) **candidato Loop 70**.
 
 ## 14.6 Ordem recomendada
 1. Loop 52
@@ -1170,6 +1190,7 @@ Fechar a lacuna de onboarding nas rotas que apoiam **governança** e **observabi
 16. **Loop 67** — onboarding contextual e tour reexecutável por tela (entregue no ledger).
 17. **Loop 68** — expansão dos tours às listagens `/agents`, `/teams`, `/runs`, `/templates` (entregue no ledger).
 18. **Loop 69** — tours em `/governance` e `/observability` (entregue no ledger; ver [Loop 69](#loop-69--tours-contextuais-governança-e-observabilidade)).
+19. **Loop 70** — tours nas fichas `/agents/[id]` e `/teams/[id]` (candidato no ledger; ver [Loop 70](#loop-70--tours-contextuais-fichas-agente-e-time)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1187,6 +1208,7 @@ Fechar a lacuna de onboarding nas rotas que apoiam **governança** e **observabi
 - **Loop 67:** explicar a plataforma com onboarding contextual progressivo, sem impor tour global repetitivo
 - **Loop 68:** alargar o mesmo padrão às listagens operacionais sem mudar persistência
 - **Loop 69:** cobrir governança e observabilidade antes de fichas de detalhe ou spotlight DOM (entregue: `/governance`, `/observability`)
+- **Loop 70:** fechar onboarding nas fichas de agente e de time (MVP sem spotlight DOM)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
