@@ -21,7 +21,7 @@ export interface IUserRepository {
   syncWorkspaceIds(userId: string, workspaceIds: Types.ObjectId[]): Promise<void>;
   updateProfile(
     id: string,
-    patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string },
+    patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string | null },
   ): Promise<void>;
   addWorkspaceId(userId: string, workspaceId: string): Promise<void>;
 }

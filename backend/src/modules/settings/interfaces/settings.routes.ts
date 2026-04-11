@@ -15,8 +15,13 @@ const workspacePut = z.object({
   settings: z.record(z.string(), z.unknown()).optional(),
 });
 
+/** ~1.1MB base64 payload guard (data URLs for avatars) */
+const MAX_AVATAR_CHARS = 1_600_000;
+
 const profilePut = z.object({
-  name: z.string().optional(),
+  name: z.string().min(1).max(120).optional(),
+  /** Data URL (PNG/JPEG/WebP) or empty string to clear */
+  avatar: z.union([z.string().max(MAX_AVATAR_CHARS), z.literal('')]).optional(),
   preferences: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -149,20 +154,31 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
       body.preferences !== undefined
         ? { ...((cur.preferences as Record<string, unknown>) ?? {}), ...body.preferences }
         : undefined;
+    if (body.avatar !== undefined) {
+      const a = body.avatar.trim();
+      if (a.length > 0 && !a.startsWith('data:image/')) {
+        throw new AppError('VALIDATION_ERROR', 'Avatar deve ser uma data URL de imagem (data:image/...)', 400);
+      }
+    }
     await deps.userRepo.updateProfile(req.user!.sub, {
       ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.avatar !== undefined
+        ? { avatar: body.avatar.trim() === '' ? null : body.avatar.trim() }
+        : {}),
       ...(mergedPrefs !== undefined ? { preferences: mergedPrefs } : {}),
     });
-    return reply.send(successEnvelope({ message: 'Perfil atualizado com sucesso' }));
-  });
-
-  app.post('/settings/profile/avatar', { preHandler: [deps.authenticate] }, async (req, reply) => {
-    const file = await req.file();
-    if (!file) throw new AppError('VALIDATION_ERROR', 'Arquivo file obrigatorio', 400);
-    await file.toBuffer();
-    const avatarUrl = `/users/${req.user!.sub}-${Date.now()}.png`;
-    await deps.userRepo.updateProfile(req.user!.sub, { avatar: avatarUrl });
-    return reply.send(successEnvelope({ avatarUrl }));
+    const u = await deps.userRepo.findById(req.user!.sub);
+    if (!u) throw new AppError('NOT_FOUND', 'Usuario nao encontrado', 404);
+    return reply.send(
+      successEnvelope({
+        message: 'Perfil atualizado com sucesso',
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        avatar: u.avatar,
+        preferences: u.preferences ?? {},
+      }),
+    );
   });
 
   app.get('/settings/api-keys', { preHandler: tenant }, async (req, reply) => {

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { AppProviders } from '@/components/providers/app-providers'
 import './globals.css'
 
 const geistSans = Geist({ 
@@ -37,10 +38,12 @@ export default function RootLayout({
   const enableVercelAnalytics = process.env.NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS === "true"
 
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
-        {children}
-        {enableVercelAnalytics ? <Analytics /> : null}
+        <AppProviders>
+          {children}
+          {enableVercelAnalytics ? <Analytics /> : null}
+        </AppProviders>
       </body>
     </html>
   )

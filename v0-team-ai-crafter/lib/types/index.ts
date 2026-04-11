@@ -292,11 +292,19 @@ export interface Workspace {
 }
 
 // User types
+/** Preferências persistidas em `PUT /settings/profile` (`preferences` no utilizador) */
+export interface IUserPreferences {
+  locale?: "pt-BR" | "en-US" | "es"
+  theme?: "light" | "dark" | "system"
+  bio?: string
+}
+
 export interface User {
   id: string
   name: string
   email: string
   avatar?: string
+  preferences?: IUserPreferences & Record<string, unknown>
   workspaceIds: string[]
   /** Admin global: cria workspaces e convida em qualquer tenant */
   isPlatformAdmin?: boolean

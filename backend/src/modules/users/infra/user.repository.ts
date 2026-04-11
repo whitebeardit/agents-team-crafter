@@ -61,9 +61,22 @@ export class UserRepository implements IUserRepository {
 
   async updateProfile(
     id: string,
-    patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string },
+    patch: { name?: string; preferences?: Record<string, unknown>; avatar?: string | null },
   ): Promise<void> {
-    await UserModel.findByIdAndUpdate(id, { $set: patch });
+    const $set: Record<string, unknown> = {};
+    const $unset: Record<string, ''> = {};
+    if (patch.name !== undefined) $set.name = patch.name;
+    if (patch.preferences !== undefined) $set.preferences = patch.preferences;
+    if (patch.avatar === null) {
+      $unset.avatar = '';
+    } else if (patch.avatar !== undefined) {
+      $set.avatar = patch.avatar;
+    }
+    const update: { $set?: Record<string, unknown>; $unset?: Record<string, ''> } = {};
+    if (Object.keys($set).length) update.$set = $set;
+    if (Object.keys($unset).length) update.$unset = $unset;
+    if (!update.$set && !update.$unset) return;
+    await UserModel.findByIdAndUpdate(id, update);
   }
 
   async addWorkspaceId(userId: string, workspaceId: string): Promise<void> {

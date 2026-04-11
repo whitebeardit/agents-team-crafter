@@ -44,8 +44,8 @@ Regras de uso:
 | ETAPA 5 - simplificação do grafo                       | alta       | concluído    | hub-and-spoke refletido na UI                                                                            |
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
-| ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; transição oficial para a **ETAPA 9 / Loop 52**                |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | planejado    | frente documental aprovada; loops 52–58 mapeados para endurecer `/settings` e superfícies adjacentes |
+| ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso     | **Loop 52 entregue**; Loops 53–58 pendentes (`/settings` e adjacentes)                          |
 
 
 ---
@@ -593,8 +593,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 49   | Overrides granulares do bind por agente                  | entregue (persistência + preview/execute + UI; ver [Loop 49](#loop-49))                        |
 | 50   | Ações em lote e reset de overrides do bind               | entregue (ações rápidas globais/por agente/pack + diff final; ver [Loop 50](#loop-50-fechado)) |
 | 51   | Ativação inline de tool definitions inativas no preview  | entregue (reativar no execute + `POST .../bind-enable-definitions` + UI; ver [Loop 51](#loop-51-fechado)) |
-| 52   | Settings de perfil e preferências com backend real       | **próximo (ETAPA 9)** — ver [Loop 52](#loop-52)                                                |
-| 53   | Notificações, canais e explicações operacionais         | planejado (ETAPA 9; reduzir ambiguidades e explicar uso prático em produção)                   |
+| 52   | Settings de perfil e preferências com backend real       | entregue (perfil, avatar data URL, prefs, tema; ver [Loop 52](#loop-52-fechado))                |
+| 53   | Notificações, canais e explicações operacionais         | **próximo (ETAPA 9)** — ver [Loop 53](#loop-53)                                                |
 | 54   | Segurança e autenticação de conta                        | planejado (ETAPA 9; senha, sessões e decisão honesta sobre 2FA)                                |
 | 55   | Faturamento, upgrade e enforcement de quotas             | planejado (ETAPA 9; quotas reais + jornada de upgrade)                                         |
 | 56   | Templates e tools com curadoria real de produção         | planejado (ETAPA 9; catálogo confiável, exemplos e dependências explícitas)                    |
@@ -608,10 +608,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Loop 52** — Paridade de `/settings` (perfil, preferências, tema) com backend real. Ver [Loop 52](#loop-52).
+**Loop 53** — Notificações, canais e explicações operacionais em `/settings` e `/channels`. Ver [Loop 53](#loop-53).
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 52–58.
+A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 53–58 (Loop 52 fechado).
 
 ---
 
@@ -976,7 +976,7 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
 
 ---
 
-## Loop 52
+## Loop 52 (fechado)
 
 - etapa/prioridade: ETAPA 9 / altíssima
 - objetivo do slice: fechar o gap entre o que `/settings` mostra e o que realmente persiste para o utilizador
@@ -986,15 +986,18 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - tema persistido em `preferences` e respeitado no app shell
   - bio e preferências explícitas ou remoção da UI sem backend
   - navegação correta de `Meu Perfil` no menu superior
-- arquivos-alvo (indicativos):
-  - `v0-team-ai-crafter/app/(app)/settings/page.tsx`
-  - `v0-team-ai-crafter/components/layout/app-header.tsx`
-  - `v0-team-ai-crafter/app/layout.tsx`
-  - `v0-team-ai-crafter/components/theme-provider.tsx`
-  - `backend/src/modules/settings/interfaces/settings.routes.ts`
-  - `backend/src/modules/users/infra/user.repository.ts`
 - critério de saída:
   - tudo o que aparece em perfil/preferências salva de verdade ou deixa de ser exibido como funcional
+- **entregue no repositório:**
+  - `[backend/src/modules/settings/interfaces/settings.routes.ts](../backend/src/modules/settings/interfaces/settings.routes.ts)`: `PUT /settings/profile` aceita `avatar` (data URL), devolve perfil completo; removido `POST /settings/profile/avatar` que não persistia ficheiro
+  - `[backend/src/modules/users/infra/user.repository.ts](../backend/src/modules/users/infra/user.repository.ts)`: `updateProfile` com `$unset` para limpar `avatar`
+  - `[backend/src/modules/auth/interfaces/auth.routes.ts](../backend/src/modules/auth/interfaces/auth.routes.ts)`: `preferences` em login/register/`GET /auth/me`
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: tab `?tab=profile`, bio/locale/tema persistidos, email só leitura, upload de avatar
+  - `[v0-team-ai-crafter/components/providers/app-providers.tsx](../v0-team-ai-crafter/components/providers/app-providers.tsx)` + `[user-preferences-sync.tsx](../v0-team-ai-crafter/components/layout/user-preferences-sync.tsx)`: `next-themes` no shell + sync tema/idioma
+  - `[v0-team-ai-crafter/components/layout/app-header.tsx](../v0-team-ai-crafter/components/layout/app-header.tsx)`: avatar + `Meu Perfil` → `/settings?tab=profile`
+  - `[v0-team-ai-crafter/app/layout.tsx](../v0-team-ai-crafter/app/layout.tsx)`: `suppressHydrationWarning`, sem `className="dark"` fixo no `<html>`
+  - `[backend/src/__tests__/auth.integration.test.ts](../backend/src/__tests__/auth.integration.test.ts)`: cobertura de perfil e limpeza de avatar
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
 ## Loop 53
 

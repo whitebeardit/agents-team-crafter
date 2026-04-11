@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ChevronDown, LogOut, User, Bell, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -113,6 +113,9 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2">
               <Avatar className="w-8 h-8">
+                {user?.avatar ? (
+                  <AvatarImage src={user.avatar} alt="" className="object-cover" />
+                ) : null}
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                   {user ? getInitials(user.name) : "U"}
                 </AvatarFallback>
@@ -133,7 +136,10 @@ export function AppHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/settings?tab=profile")}
+            >
               <User className="w-4 h-4 mr-2" />
               Meu Perfil
             </DropdownMenuItem>

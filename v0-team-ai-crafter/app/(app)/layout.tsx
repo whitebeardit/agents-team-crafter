@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { AppHeader } from "@/components/layout/app-header"
-import { Toaster } from "sonner"
+import { Toaster } from "@/components/ui/sonner"
 
 export default function AppLayout({
   children,
@@ -54,7 +54,7 @@ export default function AppLayout({
           {children}
         </main>
       </div>
-      <Toaster position="top-right" theme="dark" />
+      <Toaster position="top-right" />
     </div>
   )
 }

@@ -55,8 +55,19 @@ import {
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { WorkspaceTeamSection } from "@/components/workspace/workspace-team-section"
+import type { IUserPreferences } from "@/lib/types"
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
+const AVATAR_MAX_BYTES = 1024 * 1024
+
+const SETTINGS_TAB_VALUES = [
+  "workspace",
+  "integrations",
+  "profile",
+  "notifications",
+  "security",
+  "billing",
+] as const
 const LOGO_ACCEPT_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/svg+xml"])
 
 type SettingsWorkspaceState = {
@@ -73,6 +84,14 @@ type TeamPlanningPolicy = {
   autoBindEnabled: boolean
   source: "workspace_enabled" | "workspace_disabled" | "environment_default"
   reusedAgentBindMode: "manual" | "merge"
+}
+
+type ProfileApiResponse = {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  preferences?: IUserPreferences & Record<string, unknown>
 }
 
 type IntegrationsApiData = {
@@ -135,11 +154,14 @@ function toastApiRequestError(err: unknown, fallback: string) {
 
 export default function SettingsPage() {
   const searchParams = useSearchParams()
-  const { token, refreshToken, currentWorkspace, bootstrap } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, bootstrap, refreshSessionUser } = useWorkspaceStore()
   const logoFileInputRef = useRef<HTMLInputElement>(null)
+  const avatarFileInputRef = useRef<HTMLInputElement>(null)
   const [logoUploading, setLogoUploading] = useState(false)
   const [workspace, setWorkspace] = useState<SettingsWorkspaceState | null>(null)
-  const [profile, setProfile] = useState<any | null>(null)
+  const [profile, setProfile] = useState<ProfileApiResponse | null>(null)
+  /** `undefined` = não enviar avatar no PUT; string = data URL ou `""` para limpar */
+  const [pendingAvatar, setPendingAvatar] = useState<string | undefined>(undefined)
 
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -176,12 +198,19 @@ export default function SettingsPage() {
   const [teamPlanAutoBindMode, setTeamPlanAutoBindMode] = useState<"inherit" | "enabled" | "disabled">("inherit")
   const [reusedAgentBindMode, setReusedAgentBindMode] = useState<"manual" | "merge">("manual")
 
-  const defaultTab = searchParams.get("tab") === "integrations" ? "integrations" : "workspace"
+  const tabParam = searchParams.get("tab")
+  const defaultTab =
+    tabParam && (SETTINGS_TAB_VALUES as readonly string[]).includes(tabParam)
+      ? tabParam
+      : "workspace"
 
   // Form states
   const [workspaceName, setWorkspaceName] = useState("")
   const [userName, setUserName] = useState("")
   const [userEmail, setUserEmail] = useState("")
+  const [userBio, setUserBio] = useState("")
+  const [prefLocale, setPrefLocale] = useState<IUserPreferences["locale"]>("pt-BR")
+  const [prefTheme, setPrefTheme] = useState<IUserPreferences["theme"]>("dark")
 
   // Notification settings
   const [emailNotifications, setEmailNotifications] = useState(true)
@@ -201,7 +230,7 @@ export default function SettingsPage() {
     void (async () => {
       const [workspaceRes, profileRes, apiKeysRes, integrationsRes, teamPlanPolicyRes] = await Promise.all([
         api.get<SettingsWorkspaceState>("/settings/workspace"),
-        api.get<{ name: string; email: string }>("/settings/profile", { tenant: false }),
+        api.get<ProfileApiResponse>("/settings/profile", { tenant: false }),
         api.get<Array<{ id: string; name: string; prefix: string; createdAt?: string }>>("/settings/api-keys"),
         api.get<IntegrationsApiData>("/settings/workspace/integrations").catch((): { data: IntegrationsApiData } => ({
           data: {
@@ -246,6 +275,13 @@ export default function SettingsPage() {
       setWorkspaceName(workspaceRes.data.name ?? "")
       setUserName(profileRes.data.name ?? "")
       setUserEmail(profileRes.data.email ?? "")
+      setPendingAvatar(undefined)
+      const prefs = profileRes.data.preferences ?? {}
+      setUserBio(typeof prefs.bio === "string" ? prefs.bio : "")
+      const loc = prefs.locale
+      setPrefLocale(loc === "en-US" || loc === "es" || loc === "pt-BR" ? loc : "pt-BR")
+      const th = prefs.theme
+      setPrefTheme(th === "light" || th === "dark" || th === "system" ? th : "dark")
     })()
   }, [token, refreshToken, currentWorkspace])
 
@@ -299,7 +335,41 @@ export default function SettingsPage() {
     reader.readAsDataURL(file)
   }
 
+  const handleProfileAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    const file = input.files?.[0]
+    input.value = ""
+    if (!file || !token) return
+
+    if (!LOGO_ACCEPT_TYPES.has(file.type)) {
+      toast.error("Use PNG ou JPG para o avatar.")
+      return
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error("Arquivo muito grande. Maximo 1MB.")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result
+      if (typeof dataUrl !== "string") return
+      setPendingAvatar(dataUrl)
+      setProfile((prev) => (prev ? { ...prev, avatar: dataUrl } : prev))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveProfileAvatar = () => {
+    setPendingAvatar("")
+    setProfile((prev) => (prev ? { ...prev, avatar: undefined } : prev))
+  }
+
   const handleSave = async () => {
+    if (!userName.trim()) {
+      toast.error("Nome nao pode ficar vazio.")
+      return
+    }
     setSaving(true)
     try {
       if (!token || !currentWorkspace) return
@@ -309,10 +379,38 @@ export default function SettingsPage() {
         clearAuth: () => {},
         getWorkspaceId: () => currentWorkspace.id,
       })
-      await Promise.all([
+      const profileBody: {
+        name: string
+        preferences: IUserPreferences
+        avatar?: string
+      } = {
+        name: userName.trim(),
+        preferences: {
+          locale: prefLocale,
+          theme: prefTheme,
+          bio: userBio.trim() || undefined,
+        },
+      }
+      if (pendingAvatar !== undefined) {
+        profileBody.avatar = pendingAvatar
+      }
+      const [, profilePut] = await Promise.all([
         api.put("/settings/workspace", { name: workspaceName }),
-        api.put("/settings/profile", { name: userName }, { tenant: false }),
+        api.put<ProfileApiResponse & { message: string }>("/settings/profile", profileBody, {
+          tenant: false,
+        }),
       ])
+      const p = profilePut.data
+      setProfile({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        avatar: p.avatar,
+        preferences: p.preferences ?? {},
+      })
+      setPendingAvatar(undefined)
+      await refreshSessionUser()
+      await bootstrap()
       toast.success("Configuracoes salvas com sucesso!")
     } catch (err) {
       toastApiRequestError(err, "Falha ao salvar configuracoes")
@@ -704,7 +802,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue={defaultTab} className="space-y-6">
+      <Tabs key={defaultTab} defaultValue={defaultTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 lg:w-auto lg:inline-grid h-auto gap-1">
           <TabsTrigger value="workspace" className="gap-2">
             <Building2 className="h-4 w-4" />
@@ -1301,18 +1399,38 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src={profile?.avatar} />
+                  <AvatarImage src={profile?.avatar} className="object-cover" />
                   <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                     {(profile?.name ?? userName ?? "U").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Alterar Foto
-                  </Button>
+                  <input
+                    ref={avatarFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    className="sr-only"
+                    onChange={handleProfileAvatarFile}
+                    aria-hidden
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => avatarFileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Alterar Foto
+                    </Button>
+                    {profile?.avatar ? (
+                      <Button type="button" variant="ghost" size="sm" onClick={handleRemoveProfileAvatar}>
+                        Remover foto
+                      </Button>
+                    ) : null}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    PNG ou JPG. Maximo 1MB.
+                    PNG ou JPG. Maximo 1MB. A foto e guardada no servidor (data URL).
                   </p>
                 </div>
               </div>
@@ -1328,12 +1446,10 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="user-email">Email</Label>
-                  <Input
-                    id="user-email"
-                    type="email"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                  />
+                  <Input id="user-email" type="email" value={userEmail} readOnly className="bg-muted/50" />
+                  <p className="text-xs text-muted-foreground">
+                    O email de login nao pode ser alterado aqui.
+                  </p>
                 </div>
               </div>
 
@@ -1343,6 +1459,8 @@ export default function SettingsPage() {
                   id="user-bio"
                   placeholder="Conte um pouco sobre voce..."
                   rows={3}
+                  value={userBio}
+                  onChange={(e) => setUserBio(e.target.value)}
                 />
               </div>
             </CardContent>
@@ -1366,7 +1484,10 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
-                <Select defaultValue="pt-BR">
+                <Select
+                  value={prefLocale}
+                  onValueChange={(v) => setPrefLocale(v as IUserPreferences["locale"])}
+                >
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -1388,7 +1509,10 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
-                <Select defaultValue="dark">
+                <Select
+                  value={prefTheme}
+                  onValueChange={(v) => setPrefTheme(v as IUserPreferences["theme"])}
+                >
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>

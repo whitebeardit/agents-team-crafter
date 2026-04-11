@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { Workspace, User, TeamWizardData } from "@/lib/types"
+import type { Workspace, User, TeamWizardData, IUserPreferences } from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
 
 export type WorkspaceInviteRow = {
@@ -188,6 +188,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             name: string
             email: string
             avatar?: string
+            preferences?: IUserPreferences & Record<string, unknown>
             workspaceIds: string[]
             isPlatformAdmin?: boolean
           }>("/auth/me", { tenant: false }),
@@ -221,6 +222,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           name: string
           email: string
           avatar?: string
+          preferences?: IUserPreferences & Record<string, unknown>
           workspaceIds: string[]
           isPlatformAdmin?: boolean
         }>("/auth/me", { tenant: false })
