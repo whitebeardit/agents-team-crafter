@@ -117,6 +117,8 @@ flowchart TB
   customDefs --> sdk
 ```
 
+<a id="sec-selecao-ferramentas-dominio"></a>
+
 ### Seleção de ferramentas por domínio do agente e defaults na criação de times
 
 **Norma de produto:**
@@ -125,9 +127,44 @@ flowchart TB
 
 2. **Seleção por domínio, não por “template único”** — A escolha de ferramentas é **por domínio de responsabilidade do agente**. Dois especialistas com **papéis ou domínios distintos** não devem, por defeito, partilhar o **mesmo** conjunto de tools só porque estão no mesmo time: cada um recebe o **subconjunto mínimo** coerente com o seu domínio (o que reduz ambiguidade para o modelo e evita expor capacidades irrelevantes).
 
-3. **Um especialista por domínio** — Garantir que **apenas um** especialista **utilize e responda** por aquele domínio dentro do time (alinhado à governança de não-sobreposição já prevista no produto). Evita-se que dois agentes especialistas “disputem” o mesmo tipo de ação ou carreguem ferramentas duplicadas sem necessidade.
+3. **Um especialista por domínio de assunto** — Dentro do mesmo time, **apenas um** especialista **define a resposta** e a **propriedade operacional** sobre um **domínio de assunto** (ex.: CRM, contas a receber, agendamento clínico, GitHub Ops). O coordenador roteia; os especialistas não competem pelo mesmo tema. Isto alinha-se à governança de não-sobreposição já prevista no produto e evita handoffs ambíguos no runtime coordinator-first.
 
-Esta norma complementa [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) (pré-condições de execução) e reforça o objetivo de **especialistas sem sobreposição de função** no [Objetivo](#objetivo).
+4. **Identificar builtins necessárias ao desenhar cada especialista** — Antes de fixar papéis e outputs do plano (incluindo geração por IA), deve ficar explícito **se** e **quais** entradas do catálogo builtin (`capabilities.tools` / `catalogTools` no JSON do planner) cada especialista precisa para cumprir o seu domínio. O modelo gerador **não** deve atribuir tools “por hábito” nem copiar listas entre agentes: para cada especialista, a decisão é **intencional** (lista justificável pelo papel).
+
+5. **Sem duplicação de builtins de negócio entre especialistas** — Duas regras em conjunto:
+   - **Definição operacional:** tratam-se como **builtins de negócio** as ferramentas do catálogo cuja função primária é servir um **domínio de negócio** (ex.: CRM, finanças do workspace, cuidados, operações sobre dados de negócio), em contraste com utilitários genéricos de apoio ao raciocínio ou I/O **quando** estes forem claramente transversais e sem semântica de dono único — a lista canónica evolui com o catálogo; ver [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts) e a matriz em [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md).
+   - **Regra de unicidade:** no mesmo time, **dois especialistas não podem partilhar o mesmo ID** de builtin **de negócio**. Se dois papéis parecerem exigir a mesma tool de negócio, o desenho está errado: fundir responsabilidades num único especialista ou repartir **domínios** de forma que cada tool de negócio fique sob **um** dono (o coordenador continua a ser o único interface externo).
+
+Esta norma complementa [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) (pré-condições de execução) e reforça o objetivo de **especialistas sem sobreposição de função** no [Objetivo](#objetivo). A materialização parcial no código e prompts está no [Loop 64](#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder); o reforço de **prompts, validação e enforcement** está planeado nos [Loops 77–78](#loop-77-planner-prompts-builtin-domain).
+
+<a id="prompts-team-planner-contrato"></a>
+
+#### Prompts do team planner / AI Builder — contrato mínimo para o modelo
+
+Instruções de sistema e exemplos devem deixar explícito que o modelo:
+
+1. **Lista `catalogTools` (ou equivalente) por agente** quando gerar o JSON do plano, **por especialista**, alinhado ao subconjunto mínimo do seu domínio — não omitir a dimensão “ferramentas” quando o papel implica uso de catálogo.
+2. **Nomeia o domínio** de cada especialista numa linha curta (título, `role` ou campo livre coerente com o schema) de forma que não haja dois especialistas com o mesmo âmbito de assunto.
+3. **Proíbe a repetição de IDs de builtin de negócio** entre especialistas: se o utilizador pedir dois “analistas CRM”, o modelo deve **reestruturar** (um especialista CRM, outro papel noutro domínio) ou recusar duplicação na própria estrutura do plano.
+4. **Distingue** “precisa de integração / pack / `requiredPacks`” de “precisa só de builtin de catálogo”, para o utilizador e o backend aplicarem [`requiredTools` / auto-bind](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) com clareza.
+
+<a id="metodologia-ralph-criacao-times-ia"></a>
+
+#### Metodologia Ralph Loop — micro-etapas para evoluir a criação de times por IA
+
+Cada slice que mexer em `team-plan-planner-prompt.ts`, schema do planner ou AI Builder deve considerar o **mesmo** ciclo interno (documentar no ledger o que foi automatizado vs manual):
+
+| Micro-etapa | O quê | Critério de saída do micro-loop |
+| --- | --- | --- |
+| **A — Partição de domínios** | Extrair do pedido do utilizador **quantos** domínios de assunto existem e **um** especialista candidato por domínio. | Matriz “domínio → nome do papel”; **sem** dois papéis no mesmo domínio. |
+| **B — Inventário de builtins** | Por especialista, decidir **se** precisa de builtins; listar IDs **apenas** do catálogo permitido. | Lista por agente; marcação mental (ou campo futuro) de quais são **de negócio**. |
+| **C — Verificação de unicidade** | Conferir que nenhum ID de builtin de negócio aparece em **mais de um** especialista. | Conjunto de IDs de negócio **disjuntos** entre especialistas; interseção vazia. |
+| **D — Geração estruturada** | Emitir JSON válido pelo `plannerOutputSchema` (incl. `catalogTools` normalizado). | `safeParse` verde ou fallback honesto com `plannerMeta` preenchido ([Loop 62](#loop-62--transparência-do-fallback-do-team-planner-ai-builder)). |
+| **E — Gate de engenharia** | `./scripts/ralph-loop-gate.sh` (+ frontend se tocar em `v0-team-ai-crafter`). | Build e testes verdes; commit + push antes de fechar o loop no ledger. |
+
+**Inner loop de correção:** se **C** ou **D** falharem, não “remendar” só na UI: ajustar **prompt**, **schema** ou **normalização no servidor** (`planner-agent-catalog-tools`, etc.) no **mesmo** Ralph Loop, até o critério ficar estável.
+
+**Anti-padrão:** prometer no ledger “duplicatas resolvidas” sem teste que cubra **dois** especialistas com o mesmo ID de negócio (deve falhar ou ser normalizado com regra documentada).
 
 ## 2.7 Admin global da plataforma (RBAC cross-tenant)
 
@@ -1047,6 +1084,8 @@ Cumprir a norma de produto de [seleção de ferramentas por domínio do agente](
 
 **Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) Loop 64.
 
+**Extensão (produto/prompts):** reforço explícito de instruções ao modelo, anti-duplicação de builtins de negócio e enforcement pós-geração — planead nos [Loops 77–78](#loop-77-planner-prompts-builtin-domain).
+
 ---
 
 ## Loop 65 — Foundation responsiva multi-device
@@ -1260,7 +1299,7 @@ Cada slice que expande **cards em listagens densas** deve:
 
 <a id="loop-74-cards-governance"></a>
 
-## Loop 74 — Listagens densas: cards em `/governance` (candidato Ralph)
+## Loop 74 — Listagens densas: cards em `/governance` (entregue no ledger)
 
 ### Objetivo
 
@@ -1277,9 +1316,9 @@ Aplicar vista em **cartões** em viewports estreitas às **tabelas densas** da r
 
 ### Critério de saída
 
-- Matriz **coluna ↔ cartão ↔ CTA** no ledger; paridade funcional; gate com **`RALPH_LOOP_INCLUDE_FRONTEND=1`**; ledger com **Loop 74 (fechado)** quando implementado.
+- Matriz **coluna ↔ cartão ↔ CTA** no ledger; paridade funcional; gate com **`RALPH_LOOP_INCLUDE_FRONTEND=1`**; ledger com **Loop 74 (fechado)**.
 
-**Estado (ledger):** **candidato** — [`Loop 74 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-74-candidato).
+**Estado (ledger):** **entregue** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 74 (fechado)**.
 
 ---
 
@@ -1324,6 +1363,62 @@ Vista em cartões para o **catálogo de templates** em **`/templates`**, preserv
 
 ---
 
+<a id="loop-77-planner-prompts-builtin-domain"></a>
+
+## Loop 77 — Prompts do planner: domínio, builtin e anti-duplicação
+
+### Objetivo
+
+Endurecer **texto de sistema**, **mensagens de utilizador** e **few-shot** do team planner para que a geração de planos reflita a norma de [seleção de ferramentas por domínio](#seleção-de-ferramentas-por-domínio-do-agente-e-defaults-na-criação-de-times): **um especialista = um domínio de assunto**, **inventário explícito de builtins** por especialista e **proibição de duas especialistas carregarem o mesmo ID de builtin de negócio** no mesmo time.
+
+### Foco (MVP)
+
+- [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): secções obrigatórias do prompt alinhadas à tabela de **micro-etapas** (A–D) em [Metodologia Ralph Loop — micro-etapas](#metodologia-ralph-criacao-times-ia).
+- Exemplos JSON (positivo e negativo corrigido) onde dois especialistas **não** partilham IDs de negócio; contra-exemplo comentado quando o utilizador pede papéis sobrepostos.
+- Alinhamento com `plannerOutputSchema` / `catalogTools` e com inferência em [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts) — sem contradizer a normalização já existente ([Loop 64](#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder)).
+- Testes: regressão em [`team-plan-planner-output.schema.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.test.ts) e/ou testes de prompt (fixtures) que assegurem que instruções críticas permanecem presentes após refactors.
+
+### Fora do MVP deste loop
+
+- Enforcement automático pós-geração (fica para o [Loop 78](#loop-78--enforcement-e-ux-plano-sem-ambiguidade-de-builtins-de-negócio)); alterações grandes no AI Builder além de copy/ajuda inline.
+
+### Critério de saída
+
+- Ledger descreve **trechos** do prompt alterados e **comportamento esperado** do modelo face a duplicação de domínio / IDs de negócio.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` se o slice tocar `v0-team-ai-crafter` (copy); caso contrário gate backend.
+
+**Estado (ledger):** **candidato** — [`Loop 77 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-77-candidato).
+
+---
+
+<a id="loop-78-enforcement-builtin-ambiguity"></a>
+
+## Loop 78 — Enforcement e UX: plano sem ambiguidade de builtins de negócio
+
+### Objetivo
+
+Garantir que um plano **não** persista ou **não** avance para execução com **dois especialistas** a partilharem o mesmo **builtin de negócio**, e que o utilizador veja **feedback acionável** (mensagem + sugestão de correção) quando o modelo ou a edição manual violarem a regra.
+
+### Foco (MVP)
+
+- Backend: validação na criação/atualização/execução do team plan (camada a definir no slice: `team-plan.service` e/ou normalização) que detecte colisão de IDs **de negócio** entre especialistas; política explícita para **rejeitar**, **normalizar** (com auditoria) ou **avisar** — escolha documentada no ledger.
+- Catálogo de IDs considerados “negócio” alinhado a [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts) ou lista mantida em código com teste de invariante.
+- Frontend (AI Builder): alerta inline ou bloqueio coerente com o backend; coerência com [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) e checkboxes por agente.
+- Testes unitários/integração cobrindo **colisão** e **caminho feliz** sem colisão.
+
+### Fora do MVP
+
+- Reformulação completa do wizard de times; métricas Prometheus específicas (podem ser slice futuro).
+
+### Critério de saída
+
+- Caso de teste reproduzível: dois especialistas com o mesmo ID de negócio → erro ou normalização traçada no ledger.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+
+**Estado (ledger):** **candidato** — [`Loop 78 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-78-candidato).
+
+---
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1349,9 +1444,11 @@ Vista em cartões para o **catálogo de templates** em **`/templates`**, preserv
 20. **Loop 71** — `ResponsiveTableScroll` em `/runs`, `/governance` e convites em Settings (entregue no ledger; ver [Loop 71](#loop-71-tabelas-scroll)).
 21. **Loop 72** — tours com **spotlight / ancoragem DOM** opcional por passo (entregue no ledger; ver [Loop 72](#loop-72-spotlight-tours)).
 22. **Loop 73** — listagens densas com **vista em cards** em mobile/tablet (entregue no ledger, piloto `/runs`; ver [Loop 73](#loop-73-listagens-cards)).
-23. **Loop 74** — replicar cards em **`/governance`** (candidato; ver [Loop 74](#loop-74-cards-governance)).
+23. **Loop 74** — cards em **`/governance`** (entregue; ver [Loop 74](#loop-74-cards-governance)).
 24. **Loop 75** — replicar cards em **`/tool-definitions`** (candidato; ver [Loop 75](#loop-75-cards-tool-definitions)).
 25. **Loop 76** — replicar cards em **`/templates`** (candidato; ver [Loop 76](#loop-76-cards-templates)).
+26. **Loop 77** — prompts do planner: domínio, builtins e anti-duplicação (candidato; ver [Loop 77](#loop-77-planner-prompts-builtin-domain)).
+27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (candidato; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1374,6 +1471,8 @@ Vista em cartões para o **catálogo de templates** em **`/templates`**, preserv
 - **Loop 72:** elevar tours de “copy em diálogo” para **realce no alvo** quando o DOM for estável, mantendo fallback e `tourVersion`
 - **Loop 73:** quando o scroll horizontal não chega para leitura eficiente, **cards** com prioridade de colunas explícita por rota
 - **Loops 74–76:** expandir o **mesmo padrão** de cards (um Ralph Loop por rota: governança, tools do workspace, templates), mantendo paridade e documentação no ledger
+- **Loop 77:** endurecer instruções e exemplos do **team planner** para builtins por domínio e **sem** duplicação de IDs de negócio entre especialistas ([secção dedicada](#loop-77-planner-prompts-builtin-domain))
+- **Loop 78:** **validação e UX** quando o plano violar unicidade de builtins de negócio — alinhado à [metodologia de micro-etapas](#metodologia-ralph-criacao-times-ia)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1391,3 +1490,4 @@ Ela funciona como a macrofase seguinte para:
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
 - responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
+- criação de times por IA: risco de **ambiguidade** se prompts não obrigarem **domínio único por especialista** e **unicidade de builtins de negócio** — mitigação planead nos **Loops 77–78** (prompts + enforcement); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio) e [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia)

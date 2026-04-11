@@ -64,6 +64,11 @@ import {
   governanceAuditEventsToCsv,
   triggerTextDownload,
 } from "@/lib/governance/audit-export"
+import {
+  GovernanceAuditFullMobileCards,
+  GovernanceTeamSlosMobileCards,
+  GovernanceTimelineMobileCards,
+} from "@/components/governance/governance-dense-lists-mobile-cards"
 
 function formatEventType(t: string) {
   return t.replace(/^governance\./, "").replace(/_/g, " ")
@@ -605,52 +610,57 @@ export default function GovernancePage() {
                 {!teamSlos?.teams?.length ? (
                   <p className="text-sm text-muted-foreground">Nenhum time com runs terminados nesta janela.</p>
                 ) : (
-                  <ResponsiveTableScroll>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Time</TableHead>
-                          <TableHead className="text-right">OK</TableHead>
-                          <TableHead className="text-right">Falha</TableHead>
-                          <TableHead className="text-right">Taxa</TableHead>
-                          <TableHead className="text-right">p50</TableHead>
-                          <TableHead className="text-right">p95</TableHead>
-                          <TableHead>SLO</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {teamSlos.teams.map((row) => (
-                          <TableRow key={row.teamId}>
-                            <TableCell className="font-medium">{row.teamName}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.completed}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.failed}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {row.successRate == null
-                                ? "—"
-                                : `${(row.successRate * 100).toFixed(1)}%`}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-muted-foreground text-sm">
-                              {formatLatencyMs(row.latencyMsPercentiles?.p50Ms)}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-muted-foreground text-sm">
-                              {formatLatencyMs(row.latencyMsPercentiles?.p95Ms)}
-                            </TableCell>
-                            <TableCell>
-                              {row.meetsSlo == null ? (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              ) : row.meetsSlo ? (
-                                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                                  Dentro
-                                </Badge>
-                              ) : (
-                                <Badge variant="destructive">Fora</Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ResponsiveTableScroll>
+                  <>
+                    <GovernanceTeamSlosMobileCards teams={teamSlos.teams} />
+                    <div className="hidden md:block">
+                      <ResponsiveTableScroll>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Time</TableHead>
+                              <TableHead className="text-right">OK</TableHead>
+                              <TableHead className="text-right">Falha</TableHead>
+                              <TableHead className="text-right">Taxa</TableHead>
+                              <TableHead className="text-right">p50</TableHead>
+                              <TableHead className="text-right">p95</TableHead>
+                              <TableHead>SLO</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {teamSlos.teams.map((row) => (
+                              <TableRow key={row.teamId}>
+                                <TableCell className="font-medium">{row.teamName}</TableCell>
+                                <TableCell className="text-right tabular-nums">{row.completed}</TableCell>
+                                <TableCell className="text-right tabular-nums">{row.failed}</TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {row.successRate == null
+                                    ? "—"
+                                    : `${(row.successRate * 100).toFixed(1)}%`}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-muted-foreground text-sm">
+                                  {formatLatencyMs(row.latencyMsPercentiles?.p50Ms)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-muted-foreground text-sm">
+                                  {formatLatencyMs(row.latencyMsPercentiles?.p95Ms)}
+                                </TableCell>
+                                <TableCell>
+                                  {row.meetsSlo == null ? (
+                                    <span className="text-muted-foreground text-sm">—</span>
+                                  ) : row.meetsSlo ? (
+                                    <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+                                      Dentro
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive">Fora</Badge>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </ResponsiveTableScroll>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -769,37 +779,42 @@ export default function GovernancePage() {
               {!ops?.recentGovernanceEvents?.length ? (
                 <p className="text-sm text-muted-foreground">Nenhum evento ainda.</p>
               ) : (
-                <ResponsiveTableScroll>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Evento</TableHead>
-                        <TableHead>Quando</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {ops.recentGovernanceEvents.map((ev) => (
-                        <TableRow key={ev.id}>
-                          <TableCell>
-                            <Badge variant="outline" className="font-mono text-xs">
-                              {formatEventType(ev.eventType)}
-                            </Badge>
-                            {Object.keys(ev.payload ?? {}).length > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1 truncate max-w-md">
-                                {JSON.stringify(ev.payload)}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                            {ev.createdAt
-                              ? new Date(ev.createdAt).toLocaleString("pt-BR")
-                              : "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ResponsiveTableScroll>
+                <>
+                  <GovernanceTimelineMobileCards events={ops.recentGovernanceEvents} />
+                  <div className="hidden md:block">
+                    <ResponsiveTableScroll>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Evento</TableHead>
+                            <TableHead>Quando</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ops.recentGovernanceEvents.map((ev) => (
+                            <TableRow key={ev.id}>
+                              <TableCell>
+                                <Badge variant="outline" className="font-mono text-xs">
+                                  {formatEventType(ev.eventType)}
+                                </Badge>
+                                {Object.keys(ev.payload ?? {}).length > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-1 truncate max-w-md">
+                                    {JSON.stringify(ev.payload)}
+                                  </p>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                                {ev.createdAt
+                                  ? new Date(ev.createdAt).toLocaleString("pt-BR")
+                                  : "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ResponsiveTableScroll>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -975,44 +990,51 @@ export default function GovernancePage() {
                       </Button>
                     </div>
                   </div>
-                  <ResponsiveTableScroll>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Evento</TableHead>
-                          <TableHead>Payload</TableHead>
-                          <TableHead>Quando</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {auditFull.length === 0 ? (
+                  {auditFull.length === 0 ? (
+                    <p className="py-4 text-sm text-muted-foreground md:hidden">Nenhum registro.</p>
+                  ) : (
+                    <GovernanceAuditFullMobileCards events={auditFull} />
+                  )}
+                  <div className="hidden md:block">
+                    <ResponsiveTableScroll>
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={3} className="text-muted-foreground text-sm">
-                              Nenhum registro.
-                            </TableCell>
+                            <TableHead>Evento</TableHead>
+                            <TableHead>Payload</TableHead>
+                            <TableHead>Quando</TableHead>
                           </TableRow>
-                        ) : (
-                          auditFull.map((ev) => (
-                            <TableRow key={ev.id}>
-                              <TableCell>
-                                <Badge variant="secondary" className="font-mono text-xs">
-                                  {ev.eventType}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-xs font-mono max-w-md truncate">
-                                {JSON.stringify(ev.payload)}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                                {ev.createdAt
-                                  ? new Date(ev.createdAt).toLocaleString("pt-BR")
-                                  : "—"}
+                        </TableHeader>
+                        <TableBody>
+                          {auditFull.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-muted-foreground text-sm">
+                                Nenhum registro.
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ResponsiveTableScroll>
+                          ) : (
+                            auditFull.map((ev) => (
+                              <TableRow key={ev.id}>
+                                <TableCell>
+                                  <Badge variant="secondary" className="font-mono text-xs">
+                                    {ev.eventType}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs font-mono max-w-md truncate">
+                                  {JSON.stringify(ev.payload)}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                                  {ev.createdAt
+                                    ? new Date(ev.createdAt).toLocaleString("pt-BR")
+                                    : "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ResponsiveTableScroll>
+                  </div>
                 </div>
               )}
             </CardContent>
