@@ -328,6 +328,13 @@ export interface User {
   session?: { hasRefreshToken?: boolean }
 }
 
+/** `GET /platform/danger-zone/status` — admin global */
+export interface IPlatformDangerZoneStatus {
+  factoryResetAvailable: boolean
+  blockedReason: string | null
+  requiresProductionSafetyPhrase: boolean
+}
+
 // Graph Node types for React Flow
 export type GraphNodeType = "coordinator" | "specialist" | "channel" | "knowledge"
 
@@ -655,6 +662,7 @@ export type GovernanceAuditEventType =
   | "governance.agent_plan_execute"
   | "governance.agent_plan_blocked"
   | "governance.slo_breached"
+  | "governance.audit_purged"
 
 export interface GovernanceAuditEvent {
   id: string

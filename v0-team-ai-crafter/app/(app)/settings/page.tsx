@@ -50,11 +50,14 @@ import {
   ExternalLink,
   Database,
   Wrench,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Checkbox } from "@/components/ui/checkbox"
 import { WorkspaceTeamSection } from "@/components/workspace/workspace-team-section"
-import type { IUserNotificationPreferences, IUserPreferences } from "@/lib/types"
+import type { IPlatformDangerZoneStatus, IUserNotificationPreferences, IUserPreferences } from "@/lib/types"
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const AVATAR_MAX_BYTES = 1024 * 1024
@@ -261,6 +264,13 @@ export default function SettingsPage() {
   const [pwdBusy, setPwdBusy] = useState(false)
   const [revokeBusy, setRevokeBusy] = useState(false)
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
+  const [dangerZoneStatus, setDangerZoneStatus] = useState<IPlatformDangerZoneStatus | null>(null)
+  const [dangerZoneLoading, setDangerZoneLoading] = useState(false)
+  const [factoryResetPhrase, setFactoryResetPhrase] = useState("")
+  const [factoryResetEmail, setFactoryResetEmail] = useState("")
+  const [factoryProdPhrase, setFactoryProdPhrase] = useState("")
+  const [factoryAckIrreversible, setFactoryAckIrreversible] = useState(false)
+  const [factoryBusy, setFactoryBusy] = useState(false)
   const currentPlan = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
 
   useEffect(() => {
@@ -335,6 +345,33 @@ export default function SettingsPage() {
       void refreshSessionUser()
     }
   }, [defaultTab, token, refreshSessionUser])
+
+  useEffect(() => {
+    if (!token || user?.isPlatformAdmin !== true) {
+      setDangerZoneStatus(null)
+      return
+    }
+    setDangerZoneLoading(true)
+    const api = createApiClient({
+      getAuth: () => ({ token, refreshToken }),
+      setAuth: () => {},
+      clearAuth: () => {},
+      getWorkspaceId: () => null,
+    })
+    void (async () => {
+      try {
+        const res = await api.get<IPlatformDangerZoneStatus>("/platform/danger-zone/status", {
+          tenant: false,
+        })
+        setDangerZoneStatus(res.data)
+        setFactoryResetEmail(user.email ?? "")
+      } catch {
+        setDangerZoneStatus(null)
+      } finally {
+        setDangerZoneLoading(false)
+      }
+    })()
+  }, [token, refreshToken, user?.isPlatformAdmin, user?.email])
 
   const handleWorkspaceLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target
@@ -558,6 +595,40 @@ export default function SettingsPage() {
       toastApiRequestError(err, "Falha ao invalidar sessoes")
     } finally {
       setRevokeBusy(false)
+    }
+  }
+
+  const submitFactoryReset = async () => {
+    if (!token || !dangerZoneStatus?.factoryResetAvailable) return
+    setFactoryBusy(true)
+    try {
+      const api = createApiClient({
+        getAuth: () => ({ token, refreshToken }),
+        setAuth: () => {},
+        clearAuth: () => {},
+        getWorkspaceId: () => null,
+      })
+      const body: {
+        confirmPhrase: "RESET_FACTORY_INSTALLATION"
+        confirmEmail: string
+        acknowledgeIrreversible: true
+        productionSafetyPhrase?: "DELETE_ALL_PRODUCTION_DATA"
+      } = {
+        confirmPhrase: "RESET_FACTORY_INSTALLATION",
+        confirmEmail: factoryResetEmail.trim(),
+        acknowledgeIrreversible: true,
+      }
+      if (dangerZoneStatus.requiresProductionSafetyPhrase) {
+        body.productionSafetyPhrase = "DELETE_ALL_PRODUCTION_DATA"
+      }
+      await api.post("/platform/danger-zone/factory-reset", body, { tenant: false })
+      toast.success("Base apagada. Execute o seed no servidor se precisar de dados de demonstracao.")
+      await logout()
+      router.push("/login")
+    } catch (err) {
+      toastApiRequestError(err, "Reset de fabrica falhou")
+    } finally {
+      setFactoryBusy(false)
     }
   }
 
@@ -1944,6 +2015,126 @@ export default function SettingsPage() {
               </Alert>
             </CardContent>
           </Card>
+
+          {user?.isPlatformAdmin === true && (
+            <Card className="border-destructive/60">
+              <CardHeader>
+                <CardTitle className="text-destructive flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Zona de perigo (plataforma)
+                </CardTitle>
+                <CardDescription>
+                  Apenas administrador global. Apaga <strong>todos</strong> os documentos MongoDB da aplicacao
+                  (utilizadores, workspaces, agentes, auditoria, etc.). O servidor deve ter{" "}
+                  <span className="font-mono text-xs">DANGER_ZONE_FACTORY_RESET_ENABLED=1</span>; em producao e
+                  necessario tambem <span className="font-mono text-xs">DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION=1</span>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {dangerZoneLoading ? (
+                  <p className="text-sm text-muted-foreground">A carregar estado...</p>
+                ) : !dangerZoneStatus ? (
+                  <Alert>
+                    <AlertTitle>Indisponivel</AlertTitle>
+                    <AlertDescription>Nao foi possivel obter o estado da zona de perigo.</AlertDescription>
+                  </Alert>
+                ) : !dangerZoneStatus.factoryResetAvailable ? (
+                  <Alert variant="destructive">
+                    <AlertTitle>Reset desactivado</AlertTitle>
+                    <AlertDescription>
+                      {dangerZoneStatus.blockedReason ??
+                        "Configure as variaveis de ambiente no BFF para activar com seguranca."}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <>
+                    <Alert variant="destructive" className="border-destructive/40 bg-destructive/5">
+                      <AlertTitle>Irreversivel</AlertTitle>
+                      <AlertDescription>
+                        Apos o pedido bem-sucedido a sessao actual deixa de corresponder a dados na base; sera
+                        redireccionado para o login. Volte a executar o seed no servidor se precisar de dados de
+                        demonstracao.
+                      </AlertDescription>
+                    </Alert>
+                    {dangerZoneStatus.requiresProductionSafetyPhrase ? (
+                      <div className="space-y-2 max-w-md">
+                        <Label htmlFor="factory-prod-phrase">Confirmacao extra (producao)</Label>
+                        <Input
+                          id="factory-prod-phrase"
+                          value={factoryProdPhrase}
+                          onChange={(e) => setFactoryProdPhrase(e.target.value)}
+                          placeholder="DELETE_ALL_PRODUCTION_DATA"
+                          autoComplete="off"
+                          disabled={factoryBusy}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Escreva exactamente DELETE_ALL_PRODUCTION_DATA para confirmar perda total em producao.
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className="space-y-2 max-w-md">
+                      <Label htmlFor="factory-phrase">Frase de confirmacao</Label>
+                      <Input
+                        id="factory-phrase"
+                        value={factoryResetPhrase}
+                        onChange={(e) => setFactoryResetPhrase(e.target.value)}
+                        placeholder="RESET_FACTORY_INSTALLATION"
+                        autoComplete="off"
+                        disabled={factoryBusy}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <Label htmlFor="factory-email">Email da sessao</Label>
+                      <Input
+                        id="factory-email"
+                        type="email"
+                        value={factoryResetEmail}
+                        onChange={(e) => setFactoryResetEmail(e.target.value)}
+                        autoComplete="off"
+                        disabled={factoryBusy}
+                      />
+                      <p className="text-xs text-muted-foreground">Deve coincidir com o email com que iniciou sessao.</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="factory-ack"
+                        checked={factoryAckIrreversible}
+                        onCheckedChange={(v) => setFactoryAckIrreversible(v === true)}
+                        disabled={factoryBusy}
+                      />
+                      <Label htmlFor="factory-ack" className="text-sm font-normal leading-snug cursor-pointer">
+                        Compreendo que esta operacao apaga permanentemente todos os dados da instalacao.
+                      </Label>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={
+                        factoryBusy ||
+                        factoryResetPhrase !== "RESET_FACTORY_INSTALLATION" ||
+                        !factoryResetEmail.trim() ||
+                        !factoryAckIrreversible ||
+                        (dangerZoneStatus.requiresProductionSafetyPhrase &&
+                          factoryProdPhrase !== "DELETE_ALL_PRODUCTION_DATA")
+                      }
+                      onClick={() => void submitFactoryReset()}
+                    >
+                      {factoryBusy ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          A apagar...
+                        </>
+                      ) : (
+                        "Apagar toda a base (factory reset)"
+                      )}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Billing Settings */}

@@ -102,6 +102,11 @@ export default function GovernancePage() {
   const [auditTrend, setAuditTrend] = useState<GovernanceAuditTrend | null>(null)
   const [teamSlos, setTeamSlos] = useState<GovernanceTeamSlos | null>(null)
   const [webhookDraft, setWebhookDraft] = useState("")
+  const [purgeScope, setPurgeScope] = useState<"all" | "range">("all")
+  const [purgeFrom, setPurgeFrom] = useState("")
+  const [purgeTo, setPurgeTo] = useState("")
+  const [purgePhrase, setPurgePhrase] = useState("")
+  const [purgeBusy, setPurgeBusy] = useState(false)
 
   const load = useCallback(async () => {
     if (!token || !currentWorkspace) return
@@ -210,6 +215,69 @@ export default function GovernancePage() {
       }
     } finally {
       setExportingAudit(false)
+    }
+  }
+
+  const submitAuditPurge = async () => {
+    if (!token || !currentWorkspace) return
+    if (purgePhrase !== "PURGE_GOVERNANCE_AUDIT") {
+      toast.error("Frase de confirmação incorreta.")
+      return
+    }
+    if (purgeScope === "range" && (!purgeFrom.trim() || !purgeTo.trim())) {
+      toast.error("Indique início e fim do intervalo.")
+      return
+    }
+    let rangeFromIso: string | undefined
+    let rangeToIso: string | undefined
+    if (purgeScope === "range") {
+      const a = new Date(purgeFrom)
+      const b = new Date(purgeTo)
+      if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) {
+        toast.error("Datas inválidas.")
+        return
+      }
+      if (a > b) {
+        toast.error("O início deve ser anterior ou igual ao fim.")
+        return
+      }
+      rangeFromIso = a.toISOString()
+      rangeToIso = b.toISOString()
+    }
+    const api = createApiClient({
+      getAuth: () => ({ token, refreshToken }),
+      setAuth: () => {},
+      clearAuth: () => {},
+      getWorkspaceId: () => currentWorkspace.id,
+    })
+    setPurgeBusy(true)
+    try {
+      const payload: {
+        confirmPhrase: "PURGE_GOVERNANCE_AUDIT"
+        scope: "all" | "range"
+        from?: string
+        to?: string
+      } = {
+        confirmPhrase: "PURGE_GOVERNANCE_AUDIT",
+        scope: purgeScope,
+      }
+      if (purgeScope === "range") {
+        payload.from = rangeFromIso
+        payload.to = rangeToIso
+      }
+      const res = await api.post<{ deletedCount: number; scope: string }>(
+        "/governance/audit-events/purge",
+        payload,
+      )
+      toast.success(
+        `Removidos ${res.data.deletedCount} evento(s). Novo registo de auditoria criado.`,
+      )
+      setPurgePhrase("")
+      await load()
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Falha na limpeza")
+    } finally {
+      setPurgeBusy(false)
     }
   }
 
@@ -729,6 +797,87 @@ export default function GovernancePage() {
               )}
             </CardContent>
           </Card>
+
+          {!auditForbidden && (
+            <Card className="border-destructive/30">
+              <CardHeader>
+                <CardTitle className="text-lg">Limpeza de auditoria</CardTitle>
+                <CardDescription>
+                  Elimina eventos persistidos deste workspace (admin). O pedido exige a frase exacta de confirmação.
+                  Após a operação é criado um evento{" "}
+                  <span className="font-mono text-xs">governance.audit_purged</span>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Ambito</span>
+                    <Select
+                      value={purgeScope}
+                      onValueChange={(v) => setPurgeScope(v as "all" | "range")}
+                      disabled={purgeBusy}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os eventos</SelectItem>
+                        <SelectItem value="range">Intervalo (createdAt)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {purgeScope === "range" ? (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">De</Label>
+                        <Input
+                          type="datetime-local"
+                          value={purgeFrom}
+                          onChange={(e) => setPurgeFrom(e.target.value)}
+                          disabled={purgeBusy}
+                          className="w-[200px]"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Até</Label>
+                        <Input
+                          type="datetime-local"
+                          value={purgeTo}
+                          onChange={(e) => setPurgeTo(e.target.value)}
+                          disabled={purgeBusy}
+                          className="w-[200px]"
+                        />
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+                <div className="space-y-2 max-w-md">
+                  <Label htmlFor="purge-confirm">Confirmar escrevendo PURGE_GOVERNANCE_AUDIT</Label>
+                  <Input
+                    id="purge-confirm"
+                    value={purgePhrase}
+                    onChange={(e) => setPurgePhrase(e.target.value)}
+                    placeholder="PURGE_GOVERNANCE_AUDIT"
+                    autoComplete="off"
+                    disabled={purgeBusy}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={
+                    purgeBusy ||
+                    purgePhrase !== "PURGE_GOVERNANCE_AUDIT" ||
+                    (purgeScope === "range" && (!purgeFrom.trim() || !purgeTo.trim()))
+                  }
+                  onClick={() => void submitAuditPurge()}
+                >
+                  {purgeBusy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Executar limpeza
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

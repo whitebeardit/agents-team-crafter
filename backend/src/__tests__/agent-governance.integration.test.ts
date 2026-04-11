@@ -8,6 +8,7 @@ import { UserModel } from '../modules/users/infra/user.model.js';
 import { WorkspaceModel } from '../modules/workspaces/infra/workspace.model.js';
 import { WorkspaceMemberModel } from '../modules/workspaces/infra/workspace-member.model.js';
 import { AgentModel } from '../modules/agents/infra/agent.model.js';
+import { GovernanceAuditEventModel } from '../modules/governance/infra/governance-audit-event.model.js';
 
 describe('agent governance and overlap reviews', () => {
   let mongo: MongoMemoryServer;
@@ -188,6 +189,46 @@ describe('agent governance and overlap reviews', () => {
     const types = auditData.data.map((e) => e.eventType);
     expect(types).toContain('governance.overlap_review');
     expect(types).toContain('governance.agent_blocked');
+  });
+
+  it('purges governance audit events as admin and leaves audit_purged marker', async () => {
+    const headers = await authHeaders();
+    await GovernanceAuditEventModel.insertMany([
+      {
+        workspaceId: new mongoose.Types.ObjectId(workspaceId),
+        eventType: 'governance.overlap_review',
+        payload: { probe: 'purge-test-1' },
+      },
+      {
+        workspaceId: new mongoose.Types.ObjectId(workspaceId),
+        eventType: 'governance.agent_blocked',
+        payload: { probe: 'purge-test-2' },
+      },
+    ]);
+
+    const purge = await app.inject({
+      method: 'POST',
+      url: '/api/v1/governance/audit-events/purge',
+      headers,
+      payload: { confirmPhrase: 'PURGE_GOVERNANCE_AUDIT', scope: 'all' },
+    });
+    expect(purge.statusCode).toBe(200);
+    const purgeBody = JSON.parse(purge.body) as { data: { deletedCount: number; scope: string } };
+    expect(purgeBody.data.scope).toBe('all');
+    expect(purgeBody.data.deletedCount).toBeGreaterThanOrEqual(2);
+
+    const after = await app.inject({
+      method: 'GET',
+      url: '/api/v1/governance/audit-events?page=1&perPage=50',
+      headers,
+    });
+    expect(after.statusCode).toBe(200);
+    const afterBody = JSON.parse(after.body) as {
+      data: Array<{ eventType: string }>;
+      meta: { total: number };
+    };
+    expect(afterBody.data.some((e) => e.eventType === 'governance.audit_purged')).toBe(true);
+    expect(afterBody.meta.total).toBeGreaterThanOrEqual(1);
   });
 
   it('allows conflicting specialist creation when overlapMode is warning', async () => {

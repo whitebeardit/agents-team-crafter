@@ -153,6 +153,23 @@ export function registerSchedulingPack(
     return next;
   });
 
+  registry.register('schedule_delete_appointment', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : '';
+    if (!appointmentId) throw new Error('appointmentId obrigatorio');
+    const current = await appointments.findById(workspaceId, appointmentId);
+    if (!current) throw new Error('appointment nao encontrado');
+    if (current.status !== 'cancelled' && current.status !== 'no_show') {
+      throw new Error(
+        'Apenas compromissos cancelados ou marcados como falta podem ser removidos definitivamente',
+      );
+    }
+    if (current.reminderId) await reminders.cancel(workspaceId, current.reminderId);
+    const ok = await appointments.hardDelete(workspaceId, appointmentId);
+    if (!ok) throw new Error('appointment nao encontrado');
+    return { deleted: true, id: appointmentId };
+  });
+
   registry.register('schedule_confirm_appointment', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
     const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : '';
@@ -216,9 +233,14 @@ export function registerSchedulingPack(
     const data = input as Record<string, unknown>;
     const date = typeof data.date === 'string' ? data.date : '';
     if (!date) throw new Error('date (ISO dia) obrigatorio');
+    const includeCancelled =
+      data.includeCancelled === false || data.includeCancelled === 'false' ? false : true;
     const slots = await availabilitySlots.listByDate(workspaceId, date);
-    const agenda = await appointments.listByDate(workspaceId, date);
-    const blocking = agenda.filter((a) => a.status === 'scheduled' || a.status === 'confirmed');
+    const rawAgenda = await appointments.listByDate(workspaceId, date);
+    const agenda = includeCancelled
+      ? rawAgenda
+      : rawAgenda.filter((a) => a.status !== 'cancelled');
+    const blocking = rawAgenda.filter((a) => a.status === 'scheduled' || a.status === 'confirmed');
 
     const availability = slots.flatMap((slot) => {
       const out: Array<{ startsAt: string; endsAt: string; available: boolean; slotId: string }> = [];

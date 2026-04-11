@@ -38,6 +38,17 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Switch } from "@/components/ui/switch"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { CreatePartyDialog } from "@/components/schedule/create-party-dialog"
 import { EditPartyDialog } from "@/components/schedule/edit-party-dialog"
 function todayDateString() {
@@ -84,9 +95,12 @@ function statusBadgeClass(status: string) {
 export default function SchedulePage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [date, setDate] = useState(todayDateString)
+  const [showCancelled, setShowCancelled] = useState(true)
   const [loading, setLoading] = useState(false)
   const [agenda, setAgenda] = useState<ScheduleAgendaResponse | null>(null)
   const [partiesById, setPartiesById] = useState<Record<string, CrmParty>>({})
+  const [removeAppointmentId, setRemoveAppointmentId] = useState<string | null>(null)
+  const [removeBusy, setRemoveBusy] = useState(false)
 
   const api = useMemo(
     () =>
@@ -103,7 +117,11 @@ export default function SchedulePage() {
     if (!token || !currentWorkspace) return
     setLoading(true)
     try {
-      const res = await api.get<ScheduleAgendaResponse>(`/schedule/agenda?date=${encodeURIComponent(date)}`)
+      const qs = new URLSearchParams({
+        date,
+        includeCancelled: showCancelled ? "true" : "false",
+      })
+      const res = await api.get<ScheduleAgendaResponse>(`/schedule/agenda?${qs.toString()}`)
       setAgenda(res.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar a agenda."
@@ -112,7 +130,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false)
     }
-  }, [api, date, token, currentWorkspace])
+  }, [api, date, showCancelled, token, currentWorkspace])
 
   useEffect(() => {
     void loadAgenda()
@@ -152,6 +170,22 @@ export default function SchedulePage() {
     }
   }
 
+  async function confirmHardRemove() {
+    if (!removeAppointmentId) return
+    setRemoveBusy(true)
+    try {
+      await api.del(`/schedule/appointments/${removeAppointmentId}`)
+      toast.success("Compromisso removido da base")
+      setRemoveAppointmentId(null)
+      await loadAgenda()
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao remover"
+      toast.error(msg)
+    } finally {
+      setRemoveBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-6xl">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -161,7 +195,8 @@ export default function SchedulePage() {
             Agenda
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Vista diária do workspace: compromissos, janelas de disponibilidade e slots livres/ocupados.
+            Cancelar mantém o registo (soft); remover definitivamente apaga o documento (apenas admin) para estados
+            cancelado ou falta.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
@@ -174,6 +209,16 @@ export default function SchedulePage() {
               onChange={(e) => setDate(e.target.value)}
               className="w-[11rem]"
             />
+          </div>
+          <div className="flex items-center gap-2 pt-6">
+            <Switch
+              id="show-cancelled"
+              checked={showCancelled}
+              onCheckedChange={(v) => setShowCancelled(Boolean(v))}
+            />
+            <Label htmlFor="show-cancelled" className="text-sm font-normal cursor-pointer">
+              Mostrar cancelados
+            </Label>
           </div>
           <Button type="button" variant="outline" size="icon" onClick={() => void loadAgenda()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -247,7 +292,11 @@ export default function SchedulePage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <AppointmentActions appointment={a} onAction={(p, b) => runMutation(p, b)} />
+                        <AppointmentActions
+                          appointment={a}
+                          onAction={(p, b) => runMutation(p, b)}
+                          onRequestRemove={(id) => setRemoveAppointmentId(id)}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -309,6 +358,31 @@ export default function SchedulePage() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={Boolean(removeAppointmentId)} onOpenChange={(o) => !o && setRemoveAppointmentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta operação apaga o compromisso da base de dados. Disponível só para administradores do workspace e
+              apenas quando o estado é cancelado ou falta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeBusy}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmHardRemove()
+              }}
+            >
+              {removeBusy ? "A remover..." : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -316,13 +390,29 @@ export default function SchedulePage() {
 function AppointmentActions({
   appointment,
   onAction,
+  onRequestRemove,
 }: {
   appointment: ScheduleAppointment
   onAction: (path: string, body?: unknown) => void
+  onRequestRemove: (id: string) => void
 }) {
   const { id, status } = appointment
-  const busy = status === "cancelled" || status === "completed"
-  if (busy) {
+  if (status === "cancelled" || status === "no_show") {
+    return (
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="destructive"
+          className="h-8 text-xs"
+          type="button"
+          onClick={() => onRequestRemove(id)}
+        >
+          Remover da base
+        </Button>
+      </div>
+    )
+  }
+  if (status === "completed") {
     return <span className="text-xs text-muted-foreground">—</span>
   }
   return (

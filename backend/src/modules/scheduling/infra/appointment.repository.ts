@@ -105,6 +105,17 @@ export class AppointmentRepository {
     return doc ? this.toPublic(doc) : null;
   }
 
+  /**
+   * Remove o documento da base (nao soft-delete). Chamado apenas para estados terminais operacionais.
+   */
+  async hardDelete(workspaceId: string, id: string): Promise<boolean> {
+    const r = await AppointmentModel.deleteOne({
+      _id: id,
+      workspaceId: new Types.ObjectId(workspaceId),
+    }).exec();
+    return r.deletedCount === 1;
+  }
+
   async listByDate(workspaceId: string, dayIso: string) {
     const { start, end } = utcDayRange(dayIso);
     const docs = await AppointmentModel.find({

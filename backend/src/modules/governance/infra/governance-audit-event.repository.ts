@@ -120,4 +120,23 @@ export class GovernanceAuditEventRepository {
     }
     return dayKeysUtc.map((date) => ({ date, count: map.get(date) ?? 0 }));
   }
+
+  /**
+   * Remove eventos de auditoria do workspace. Destinado a administradores (operacao de limpeza).
+   */
+  async purge(
+    workspaceId: string,
+    opts: { scope: 'all' } | { scope: 'range'; from: Date; to: Date },
+  ): Promise<number> {
+    const oid = new Types.ObjectId(workspaceId);
+    if (opts.scope === 'all') {
+      const r = await GovernanceAuditEventModel.deleteMany({ workspaceId: oid });
+      return r.deletedCount ?? 0;
+    }
+    const r = await GovernanceAuditEventModel.deleteMany({
+      workspaceId: oid,
+      createdAt: { $gte: opts.from, $lte: opts.to },
+    });
+    return r.deletedCount ?? 0;
+  }
 }

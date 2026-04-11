@@ -27,6 +27,34 @@ const sloQuerySchema = z.object({
   sloTargetPercent: z.coerce.number().min(50).max(99.99).optional().default(95),
 });
 
+const auditPurgeBodySchema = z
+  .object({
+    confirmPhrase: z.literal('PURGE_GOVERNANCE_AUDIT'),
+    scope: z.enum(['all', 'range']),
+    from: z.string().optional(),
+    to: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.scope === 'range') {
+      if (!data.from?.trim() || !data.to?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'from e to sao obrigatorios quando scope=range',
+        });
+        return;
+      }
+      const a = new Date(data.from);
+      const b = new Date(data.to);
+      if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Datas invalidas' });
+        return;
+      }
+      if (a > b) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'from deve ser anterior ou igual a to' });
+      }
+    }
+  });
+
 async function applyGovernanceAuditRateLimit(
   deps: IAppDeps,
   workspaceId: string,
@@ -137,6 +165,31 @@ export async function registerGovernanceRoutes(app: FastifyInstance, deps: IAppD
       q.sloTargetPercent,
     );
     return reply.send(successEnvelope(teamSlos));
+  });
+
+  app.post('/governance/audit-events/purge', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const body = auditPurgeBodySchema.parse(req.body ?? {});
+    let deletedCount = 0;
+    if (body.scope === 'all') {
+      deletedCount = await deps.governanceAuditRepo.purge(ws, { scope: 'all' });
+    } else {
+      const from = new Date(body.from!);
+      const to = new Date(body.to!);
+      deletedCount = await deps.governanceAuditRepo.purge(ws, { scope: 'range', from, to });
+    }
+    await deps.governanceAuditRepo.append({
+      workspaceId: ws,
+      userId: req.user!.sub,
+      correlationId: req.requestId,
+      eventType: 'governance.audit_purged',
+      payload: {
+        deletedCount,
+        scope: body.scope,
+        ...(body.scope === 'range' ? { from: body.from, to: body.to } : {}),
+      },
+    });
+    return reply.send(successEnvelope({ deletedCount, scope: body.scope }));
   });
 
   app.get('/governance/audit-events', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {

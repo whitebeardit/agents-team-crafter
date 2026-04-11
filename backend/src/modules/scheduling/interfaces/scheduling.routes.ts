@@ -1,11 +1,18 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { IAppDeps } from '../../../config/container.js';
+import { requireAdmin } from '../../../config/container.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 
 const dateQuerySchema = z.object({
   date: z.string().min(1),
+});
+
+const agendaQuerySchema = z.object({
+  date: z.string().min(1),
+  /** Quando `false`, omite compromissos cancelados da lista (cancelamento e soft-delete). */
+  includeCancelled: z.enum(['true', 'false']).optional(),
 });
 
 const availabilityBodySchema = z.object({
@@ -69,12 +76,13 @@ export async function registerSchedulingRoutes(app: FastifyInstance, deps: IAppD
 
   app.get('/schedule/agenda', { preHandler: auth }, async (req, reply) => {
     const workspaceId = req.workspaceId!;
-    const query = dateQuerySchema.parse(req.query);
+    const query = agendaQuerySchema.parse(req.query);
+    const includeCancelled = query.includeCancelled !== 'false';
     const data = await executeBusinessAction(
       deps,
       workspaceId,
       'schedule_get_availability',
-      { date: query.date },
+      { date: query.date, includeCancelled },
       req.requestId,
     );
     return reply.send(successEnvelope(data));
@@ -153,6 +161,19 @@ export async function registerSchedulingRoutes(app: FastifyInstance, deps: IAppD
       deps,
       workspaceId,
       'schedule_cancel_appointment',
+      { appointmentId: params.id },
+      req.requestId,
+    );
+    return reply.send(successEnvelope(data));
+  });
+
+  app.delete('/schedule/appointments/:id', { preHandler: [...auth, requireAdmin()] }, async (req, reply) => {
+    const workspaceId = req.workspaceId!;
+    const params = z.object({ id: z.string().min(1) }).parse(req.params);
+    const data = await executeBusinessAction(
+      deps,
+      workspaceId,
+      'schedule_delete_appointment',
       { appointmentId: params.id },
       req.requestId,
     );

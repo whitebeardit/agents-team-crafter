@@ -245,4 +245,51 @@ describe('registerSchedulingPack', () => {
     expect(visibleReminders).toHaveLength(1);
     expect(visibleReminders[0]?.done).toBe(true);
   });
+
+  it('schedule_delete_appointment hard-deletes cancelled appointments', async () => {
+    const registry = new BusinessToolRegistry();
+    const appointments = new AppointmentRepository();
+    const availability = new AvailabilitySlotRepository();
+    const parties = new PartyRepository();
+    const careSubjects = new CareSubjectRepository();
+    const serviceOrders = new ServiceOrderRepository();
+    const packageSales = new PackageSaleRepository();
+    const reminders = new ReminderRepository();
+    const encounters = new EncounterRepository();
+
+    registerSchedulingPack(
+      registry,
+      appointments,
+      availability,
+      parties,
+      careSubjects,
+      serviceOrders,
+      packageSales,
+      reminders,
+      encounters,
+    );
+
+    const party = await parties.create(workspaceId, { displayName: 'Hard delete' });
+    const created = (await registry.get('schedule_create_appointment')!({
+      workspaceId,
+      input: {
+        partyId: party.id,
+        title: 'Tmp',
+        startsAt: '2026-05-01T10:00:00.000Z',
+        endsAt: '2026-05-01T11:00:00.000Z',
+      },
+    })) as { id: string };
+
+    await registry.get('schedule_cancel_appointment')!({
+      workspaceId,
+      input: { appointmentId: created.id },
+    });
+
+    const del = (await registry.get('schedule_delete_appointment')!({
+      workspaceId,
+      input: { appointmentId: created.id },
+    })) as { deleted: boolean };
+    expect(del.deleted).toBe(true);
+    expect(await appointments.findById(workspaceId, created.id)).toBeNull();
+  });
 });

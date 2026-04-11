@@ -8,4 +8,5 @@ export type TGovernanceAuditEventType =
   | 'governance.team_plan_blocked'
   | 'governance.agent_plan_execute'
   | 'governance.agent_plan_blocked'
-  | 'governance.slo_breached';
+  | 'governance.slo_breached'
+  | 'governance.audit_purged';

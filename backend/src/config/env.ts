@@ -34,6 +34,13 @@ const envSchema = z
      */
     /** Opcional nos testes; em `loadEnv` normaliza para `0`. */
     TEAM_PLAN_AUTO_BIND_TOOLS: z.enum(['0', '1']).optional(),
+    /**
+     * `1` permite o endpoint de reset de fábrica (apenas platform admin). Default `0`.
+     * Mesmo com `1`, em `NODE_ENV=production` exige também DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION=1.
+     */
+    DANGER_ZONE_FACTORY_RESET_ENABLED: z.enum(['0', '1']).optional(),
+    /** `1` permite reset total em produção (além do master switch). Default `0`. */
+    DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION: z.enum(['0', '1']).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== 'production') return;
@@ -61,6 +68,9 @@ type IEnvParsed = z.infer<typeof envSchema>;
 export type IEnv = IEnvParsed & {
   /** Definido por loadEnv; em testes pode omitir (createDeps usa conjunto vazio). */
   platformAdminEmails?: ReadonlySet<string>;
+  /** Normalizado em loadEnv; testes podem omitir (equivalente a `0`). */
+  DANGER_ZONE_FACTORY_RESET_ENABLED?: '0' | '1';
+  DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION?: '0' | '1';
 };
 
 export function parsePlatformAdminEmails(raw: string | undefined): ReadonlySet<string> {
@@ -83,6 +93,8 @@ export function loadEnv(): IEnv {
   return {
     ...data,
     TEAM_PLAN_AUTO_BIND_TOOLS: data.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0',
+    DANGER_ZONE_FACTORY_RESET_ENABLED: data.DANGER_ZONE_FACTORY_RESET_ENABLED ?? '0',
+    DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION: data.DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION ?? '0',
     platformAdminEmails: parsePlatformAdminEmails(data.PLATFORM_ADMIN_EMAILS),
   };
 }

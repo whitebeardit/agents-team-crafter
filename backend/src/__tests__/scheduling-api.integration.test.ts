@@ -192,4 +192,91 @@ describe('scheduling API', () => {
       ]),
     );
   });
+
+  it('hides cancelled appointments from agenda when includeCancelled=false', async () => {
+    const headers = await authHeaders();
+    const parties = new PartyRepository();
+    const party = await parties.create(workspaceId, { displayName: 'Cliente Cancel Filter' });
+
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/schedule/appointments',
+      headers,
+      payload: {
+        partyId: party.id,
+        title: 'Será cancelado',
+        startsAt: '2026-04-20T14:00:00.000Z',
+        endsAt: '2026-04-20T15:00:00.000Z',
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const apptId = (JSON.parse(create.body) as { data: { id: string } }).data.id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/schedule/appointments/${apptId}/cancel`,
+      headers,
+    });
+
+    const withCancelled = await app.inject({
+      method: 'GET',
+      url: '/api/v1/schedule/agenda?date=2026-04-20&includeCancelled=true',
+      headers,
+    });
+    const withBody = JSON.parse(withCancelled.body) as {
+      data: { appointments: Array<{ id: string; status: string }> };
+    };
+    expect(withBody.data.appointments.some((a) => a.id === apptId && a.status === 'cancelled')).toBe(true);
+
+    const withoutCancelled = await app.inject({
+      method: 'GET',
+      url: '/api/v1/schedule/agenda?date=2026-04-20&includeCancelled=false',
+      headers,
+    });
+    const woBody = JSON.parse(withoutCancelled.body) as {
+      data: { appointments: Array<{ id: string }> };
+    };
+    expect(woBody.data.appointments.some((a) => a.id === apptId)).toBe(false);
+  });
+
+  it('DELETE appointment removes cancelled row (admin)', async () => {
+    const headers = await authHeaders();
+    const parties = new PartyRepository();
+    const party = await parties.create(workspaceId, { displayName: 'Cliente Delete' });
+
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/schedule/appointments',
+      headers,
+      payload: {
+        partyId: party.id,
+        title: 'Remover',
+        startsAt: '2026-04-21T16:00:00.000Z',
+        endsAt: '2026-04-21T17:00:00.000Z',
+      },
+    });
+    const apptId = (JSON.parse(create.body) as { data: { id: string } }).data.id;
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/schedule/appointments/${apptId}/cancel`,
+      headers,
+    });
+
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/schedule/appointments/${apptId}`,
+      headers,
+    });
+    expect(del.statusCode).toBe(200);
+
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/v1/schedule/appointments?date=2026-04-21',
+      headers,
+    });
+    const listBody = JSON.parse(list.body) as {
+      data: { appointments: Array<{ id: string }> };
+    };
+    expect(listBody.data.appointments.some((a) => a.id === apptId)).toBe(false);
+  });
 });

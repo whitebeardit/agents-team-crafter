@@ -45,7 +45,7 @@ Regras de uso:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso     | **Loops 52–54 entregues**; Loops 55–58 pendentes                                                |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–58) | Roadmap numerado da secção 14.5 entregue; melhorias adicionais passam a slices novos no plano mestre |
 
 
 ---
@@ -598,8 +598,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 54   | Segurança e autenticação de conta                        | entregue (senha, revoke sessões, 2FA honesto; ver [Loop 54](#loop-54-fechado))                 |
 | 55   | Faturamento, upgrade e enforcement de quotas             | entregue (quotas por plano + UI consumo + upgrade honesto; ver [Loop 55](#loop-55-fechado))      |
 | 56   | Templates e tools com curadoria real de produção         | entregue (metadata templates + seed clinica + tools deps; ver [Loop 56](#loop-56-fechado))     |
-| 57   | Governança limpa e agenda operacional                    | **próximo (ETAPA 9)** — ver [Loop 57](#loop-57)                                                |
-| 58   | Danger Zone administrativa e reset de fábrica            | planejado (ETAPA 9; operação restrita a platform admin com guardrails fortes)                  |
+| 57   | Governança limpa e agenda operacional                    | entregue (purge auditoria + agenda cancelados/delete; ver [Loop 57](#loop-57-fechado))        |
+| 58   | Danger Zone administrativa e reset de fábrica            | entregue (ver [Loop 58](#loop-58-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -608,10 +608,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Loop 57** — Governança limpa e agenda operacional. Ver [Loop 57](#loop-57).
+**Backlog ETAPA 9:** novos slices passam a ser definidos no plano mestre (`agents-team-crafter-plano-evolucao.md`); o último loop numerado fechado no ledger é o **58**.
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 57–58 (Loops 52–56 fechados).
+A **ETAPA 9 — Paridade de produção, configurações e operação** pode continuar com slices adicionais fora da numeração 52–58 já fechada.
 
 ---
 
@@ -1067,36 +1067,33 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - `[v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx](../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx)`: tipos de tool no cabeçalho; dependências por `kind`; link para Integrações
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
-## Loop 57
+## Loop 57 (fechado)
 
 - etapa/prioridade: ETAPA 9 / alta
 - objetivo do slice: fechar pendências operacionais que impactam uso diário e administração
-- foco:
-  - apagar compromisso em `/schedule` ou formalizar claramente soft-delete / cancelamento definitivo
-  - purge de logs de governança por intervalo de data ou total, com RBAC admin e confirmação forte
-- arquivos-alvo (indicativos):
-  - `backend/src/modules/scheduling/interfaces/scheduling.routes.ts`
-  - `backend/src/modules/governance/interfaces/governance.routes.ts`
-  - `backend/src/modules/governance/infra/governance-audit-event.repository.ts`
-  - `v0-team-ai-crafter/app/(app)/schedule/page.tsx`
-  - `v0-team-ai-crafter/app/(app)/governance/page.tsx`
-- critério de saída:
-  - operadores e admins conseguem limpar agenda e auditoria sem recorrer a banco ou scripts manuais
+- critério de saída: limpar auditoria e remover compromissos terminais sem Mongo shell
+- **entregue no repositório:**
+  - Agenda: `GET /schedule/agenda?includeCancelled=false` omite cancelados da lista; `DELETE /schedule/appointments/:id` (admin) remove definitivamente `cancelled` / `no_show`; acção `schedule_delete_appointment` + `AppointmentRepository.hardDelete`
+  - `[v0-team-ai-crafter/app/(app)/schedule/page.tsx](../v0-team-ai-crafter/app/(app)/schedule/page.tsx)`: interruptor “Mostrar cancelados”; botão “Remover da base” com confirmação
+  - Governança: `POST /governance/audit-events/purge` com `confirmPhrase: PURGE_GOVERNANCE_AUDIT` e `scope: all | range`; `GovernanceAuditEventRepository.purge`; evento `governance.audit_purged` após operação
+  - `[v0-team-ai-crafter/app/(app)/governance/page.tsx](../v0-team-ai-crafter/app/(app)/governance/page.tsx)`: cartão de limpeza (admin)
+  - Testes: `scheduling-api`, `register-scheduling-pack`, `agent-governance` (purge)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
-## Loop 58
+## Loop 58 (fechado)
 
 - etapa/prioridade: ETAPA 9 / média-alta
-- objetivo do slice: disponibilizar apenas para admin de plataforma uma operação segura de reset da instalação, se esse requisito continuar válido
-- foco:
-  - definir a semântica exata de `reset total`
-  - restringir a `platform admin`
-  - exigir múltiplas confirmações e guardrails de ambiente
-  - preferir feature flag ou env para impedir uso acidental em ambientes errados
-- arquivos-alvo (indicativos):
-  - backend de administração/governança/workspaces
-  - `v0-team-ai-crafter/app/(app)/settings/page.tsx` ou rota admin dedicada
-- critério de saída:
-  - existir um fluxo de reset controlado, auditado e impossível de acionar casualmente
+- objetivo do slice: operação de reset da instalação apenas para admin de plataforma, com guardrails fortes
+- **Semântica de reset total:** `deleteMany({})` em todas as coleções Mongoose de negócio da aplicação (paridade com o wipe inicial de `scripts/seed-demo.ts` + módulos posteriores — ver `wipe-factory-collections.ts`).
+- **RBAC:** `authenticate` + `requirePlatformAdmin` (sem tenant).
+- **Env:** `DANGER_ZONE_FACTORY_RESET_ENABLED=1` obrigatório; em `NODE_ENV=production` exige também `DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION=1`.
+- **Confirmações:** corpo com `confirmPhrase: RESET_FACTORY_INSTALLATION`, `confirmEmail` igual ao token, `acknowledgeIrreversible: true`; em produção (quando permitido) `productionSafetyPhrase: DELETE_ALL_PRODUCTION_DATA`.
+- **Auditoria:** log estruturado `platform.factory_reset` antes do wipe (a base deixa de conter utilizadores após a operação).
+- **entregue no repositório:**
+  - `GET /platform/danger-zone/status`, `POST /platform/danger-zone/factory-reset` — [`backend/src/modules/platform/interfaces/platform.routes.ts`](../backend/src/modules/platform/interfaces/platform.routes.ts), wipe em [`backend/src/modules/platform/application/wipe-factory-collections.ts`](../backend/src/modules/platform/application/wipe-factory-collections.ts)
+  - [`v0-team-ai-crafter/app/(app)/settings/page.tsx`](../v0-team-ai-crafter/app/(app)/settings/page.tsx): cartão “Zona de perigo” no separador Segurança (só platform admin)
+  - Testes: [`backend/src/__tests__/platform-factory-reset.integration.test.ts`](../backend/src/__tests__/platform-factory-reset.integration.test.ts)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
 ---
 
