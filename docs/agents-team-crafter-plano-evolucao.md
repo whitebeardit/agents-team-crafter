@@ -1192,6 +1192,61 @@ Fechar o gap de **14.8** sobre tabelas densas em viewports estreitas: o utilizad
 
 **Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 71 (fechado)**.
 
+---
+
+<a id="loop-72-spotlight-tours"></a>
+
+## Loop 72 — Tours contextuais: spotlight / ancoragem DOM (candidato Ralph)
+
+### Objetivo
+Evoluir o onboarding **por ecrã** (Loops 67–71) para permitir **passos opcionalmente ancorados** a elementos reais da UI — máscara/spotlight, realce do alvo e copy adjacente — **sem** substituir o modo atual baseado em `Dialog` onde o ancoragem não for segura ou o elemento for condicional.
+
+### Foco (MVP de engenharia)
+- **Contrato de passo:** estender o modelo de tour (ex.: campo opcional `anchor?: { kind: "dataAttr" | "selector"; value: string }` ou `targetId` estável) com **semântica clara** de fallback quando o elemento não existe (omitir passo, ou mostrar só copy no diálogo).
+- **Componente de spotlight:** overlay (portal) com “buraco” ou realce no elemento alvo; **não bloquear** interação crítica por defeito — preferir “Seguinte” explícito ou modo não-modal conforme ADR.
+- **Integração:** `ContextualTourHost` (ou sucessor) capaz de alternar entre **modo diálogo central** (actual) e **modo ancorado** por passo; **subir `tourVersion`** quando o conteúdo ou o comportamento de um `screenKey` mudar.
+- **Piloto:** 1–2 `screenKey` já estáveis (ex.: `dashboard` + uma listagem) antes de reescrever todos os catálogos.
+
+### Fora do MVP do Loop 72
+- animações pesadas ou transições longas entre passos
+- spotlight **obrigatório** em todas as telas (o catálogo pode misturar passos só texto e passos ancorados)
+- substituir a persistência `contextualTours.byWorkspace` (permanece o contrato dos Loops 67+)
+
+### Artefactos recomendados
+- **ADR curta** (1–2 páginas): decisão modal vs semi-modal, acessibilidade (teclado, `aria`, foco), política de `data-*` nos alvos.
+
+### Critério de saída
+- pelo menos **dois** `screenKey` com **pelo menos um** passo ancorado cada, com fallback verificável quando o alvo falha
+- **sem regressão** nos tours puramente dialogados existentes
+- gate com **`RALPH_LOOP_INCLUDE_FRONTEND=1`**; ledger com **Loop 72 (fechado)**
+
+**Estado (ledger):** **candidato** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 72 (candidato)**.
+
+---
+
+<a id="loop-73-listagens-cards"></a>
+
+## Loop 73 — Listagens muito densas: vista em cards em mobile (candidato Ralph)
+
+### Objetivo
+Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**, oferecer **vista em cards** (stack vertical) para listagens com muitas colunas ou IDs longos, priorizando **leitura e ações primárias** sem depender só de scroll horizontal contínuo.
+
+### Foco (MVP)
+- **Matriz por rota:** documentar, por ecrã afetado, **quais colunas viram linhas/labels** no card e qual é o **CTA primário** (ex.: abrir run, abrir time, copiar id).
+- **Implementação:** breakpoint típico `md` abaixo = cards, `md` acima = tabela existente (ou o inverso onde fizer sentido), reutilizando os mesmos dados e handlers das linhas da tabela.
+- **Candidatos naturais de piloto** (a confirmar no slice): `/runs`, auditoria expandida em `/governance`, listas com muitos metadados em `/tool-definitions` ou `/templates` — **não** é obrigatório cobrir todas no mesmo PR; o loop fecha com **pelo menos uma** rota piloto bem definida no ledger.
+
+### Fora do MVP do Loop 73
+- substituir tabelas em **desktop** ou redesenho visual completo
+- infinite scroll ou virtualização (podem ser slices futuros)
+
+### Critério de saída
+- pelo menos **uma** listagem piloto com **paridade funcional** (mesmas ações disponíveis na vista cartão vs tabela no mesmo breakpoint policy)
+- documentação no ledger com **tabela rota ↔ colunas priorizadas**
+- gate com **`RALPH_LOOP_INCLUDE_FRONTEND=1`**; ledger com **Loop 73 (fechado)**
+
+**Estado (ledger):** **candidato** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 73 (candidato)**.
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1215,6 +1270,8 @@ Fechar o gap de **14.8** sobre tabelas densas em viewports estreitas: o utilizad
 18. **Loop 69** — tours em `/governance` e `/observability` (entregue no ledger; ver [Loop 69](#loop-69--tours-contextuais-governança-e-observabilidade)).
 19. **Loop 70** — tours nas fichas `/agents/[id]` e `/teams/[id]` (entregue no ledger; ver [Loop 70](#loop-70--tours-contextuais-fichas-agente-e-time)).
 20. **Loop 71** — `ResponsiveTableScroll` em `/runs`, `/governance` e convites em Settings (entregue no ledger; ver [Loop 71](#loop-71-tabelas-scroll)).
+21. **Loop 72** — tours com **spotlight / ancoragem DOM** opcional por passo (candidato; ver [Loop 72](#loop-72-spotlight-tours)).
+22. **Loop 73** — listagens densas com **vista em cards** em mobile/tablet (candidato; ver [Loop 73](#loop-73-listagens-cards)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1234,6 +1291,8 @@ Fechar o gap de **14.8** sobre tabelas densas em viewports estreitas: o utilizad
 - **Loop 69:** cobrir governança e observabilidade antes de fichas de detalhe ou spotlight DOM (entregue: `/governance`, `/observability`)
 - **Loop 70:** fechar onboarding nas fichas de agente e de time (MVP sem spotlight DOM; entregue: `agent_detail`, `team_detail`)
 - **Loop 71:** scroll horizontal consistente para tabelas densas em mobile/tablet (`/runs`, governança, convites)
+- **Loop 72:** elevar tours de “copy em diálogo” para **realce no alvo** quando o DOM for estável, mantendo fallback e `tourVersion`
+- **Loop 73:** quando o scroll horizontal não chega para leitura eficiente, **cards** com prioridade de colunas explícita por rota
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1249,5 +1308,5 @@ Ela funciona como a macrofase seguinte para:
 - 2FA pode exigir slice próprio, caso o MVP mínimo de conta precise sair antes
 - reset de fábrica deve ser tratado como capacidade de plataforma, não de workspace comum
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
-- tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes
-- responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota
+- tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
+- responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido
