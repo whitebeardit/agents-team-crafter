@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–71); candidatos 72–73 planeados | Loops 52–71 entregues; **Loop 72** (spotlight tours) e **Loop 73** (cards em listagens densas) detalhados no plano e abaixo; próximo ciclo: ver **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–72); candidato 73 planeado | Loops 52–72 entregues; **Loop 73** (cards em listagens densas) detalhado no plano e abaixo; próximo ciclo: ver **Próximo loop oficial** |
 
 
 ---
@@ -668,7 +668,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 69   | Tours contextuais — governança e observabilidade             | entregue (ver [Loop 69](#loop-69-fechado))                                                      |
 | 70   | Tours contextuais — fichas agente e time                     | entregue (ver [Loop 70](#loop-70-fechado))                                                      |
 | 71   | Tabelas densas — scroll horizontal (`ResponsiveTableScroll`) | entregue (ver [Loop 71](#loop-71-fechado))                                                      |
-| 72   | Tours — spotlight / ancoragem DOM (opcional por passo)       | planeado — candidato (ver [Loop 72](#loop-72-candidato))                                       |
+| 72   | Tours — spotlight / ancoragem DOM (opcional por passo)       | entregue (ver [Loop 72](#loop-72-fechado))                                                      |
 | 73   | Listagens densas — vista em cards (mobile/tablet)             | planeado — candidato (ver [Loop 73](#loop-73-candidato))                                       |
 
 
@@ -678,14 +678,13 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 71** — `ResponsiveTableScroll` nas tabelas operacionais restantes (ver [Loop 71](#loop-71-fechado)).
+**Último slice numerado fechado:** **Loop 72** — spotlight / ancoragem DOM nos tours contextuais (ver [Loop 72](#loop-72-fechado)).
 
-**Próximo slice numerado (ordem recomendada no plano):** **Loop 72** → **Loop 73** antes de slices de produto não UX (ex.: billing/2FA), salvo decisão explícita de prioridade.
+**Próximo slice numerado (ordem recomendada no plano):** **Loop 73** antes de slices de produto não UX (ex.: billing/2FA), salvo decisão explícita de prioridade.
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
-| 1 | **72** | Spotlight / ancoragem DOM nos tours contextuais | [Loop 72](agents-team-crafter-plano-evolucao.md#loop-72-spotlight-tours) |
-| 2 | **73** | Cards para listagens muito densas em viewports estreitas | [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards) |
+| 1 | **73** | Cards para listagens muito densas em viewports estreitas | [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards) |
 
 **Outros candidatos** (fora da sequência 72–73): billing/2FA, self-service de workspace — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
@@ -1393,18 +1392,18 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
 - **referência no plano mestre:** [Loop 71](agents-team-crafter-plano-evolucao.md#loop-71-tabelas-scroll)
 
-## Loop 72 (candidato — detalhe Ralph)
+## Loop 72 (fechado)
 
-- **Estado:** não iniciado; **não** alterar a linha da tabela para «entregue» até o gate verde e o plano mestre marcarem **Loop 72 (fechado)**.
 - **etapa/prioridade:** ETAPA 9 (onboarding contextual — fase avançada) / média-alta
-- **objetivo:** permitir **passos de tour ancorados** a elementos da UI (spotlight / realce) com **fallback** quando o alvo não existir, sem quebrar o modo actual por `Dialog` nem o contrato `contextualTours.byWorkspace` + `tourVersion`.
-- **entregáveis mínimos:**
-  - extensão do modelo de passo + integração em [`contextual-tour.tsx`](../v0-team-ai-crafter/components/onboarding/contextual-tour.tsx) / catálogo
-  - componente de overlay/spotlight reutilizável (portal)
-  - **piloto:** ≥ 2 `screenKey` com ≥ 1 passo ancorado cada
-  - **ADR** curta em `docs/adr/` ou nota referenciada no ledger
-- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
-- **Ao fechar o loop:** renomear secção para **Loop 72 (fechado)**; na tabela de estado (capítulo **Loops já executados**), linha 72 → entregue; actualizar **Próximo loop oficial** e o [plano mestre — Loop 72](agents-team-crafter-plano-evolucao.md#loop-72-spotlight-tours).
+- **objetivo:** passos de tour **opcionalmente ancorados** a elementos da UI (spotlight) com **fallback** para o modo `Dialog` quando o alvo não existe; contrato `contextualTours.byWorkspace` + `tourVersion` mantido.
+- **Entregas:**
+  - Modelo [`ContextualTourAnchor`](../v0-team-ai-crafter/lib/contextual-tours.ts) + `resolveContextualTourAnchor`; passos com `anchor` opcional no catálogo.
+  - [`tour-spotlight-overlay.tsx`](../v0-team-ai-crafter/components/onboarding/tour-spotlight-overlay.tsx) — máscara em quatro faixas, `useTourAnchorRect`, `TourSpotlightLayer` (portal).
+  - [`contextual-tour.tsx`](../v0-team-ai-crafter/components/onboarding/contextual-tour.tsx) — alterna dialog / spotlight; `Escape` em spotlight = snooze; polling curto se o DOM do ancoragem aparece tarde.
+  - Piloto: **`dashboard`** e **`runs_list`** — `version` 2; primeiro passo com `dataAttr` → `data-tour-anchor` em [`dashboard/page.tsx`](../v0-team-ai-crafter/app/(app)/dashboard/page.tsx) e [`runs/page.tsx`](../v0-team-ai-crafter/app/(app)/runs/page.tsx); segundo passo sem anchor permanece em dialog.
+  - ADR: [`ADR-2026-04-contextual-tour-spotlight.md`](adr/ADR-2026-04-contextual-tour-spotlight.md)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend no encerramento deste slice).
+- **referência no plano mestre:** [Loop 72](agents-team-crafter-plano-evolucao.md#loop-72-spotlight-tours)
 
 ## Loop 73 (candidato — detalhe Ralph)
 

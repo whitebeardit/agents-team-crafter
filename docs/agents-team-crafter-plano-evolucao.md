@@ -1196,7 +1196,7 @@ Fechar o gap de **14.8** sobre tabelas densas em viewports estreitas: o utilizad
 
 <a id="loop-72-spotlight-tours"></a>
 
-## Loop 72 — Tours contextuais: spotlight / ancoragem DOM (candidato Ralph)
+## Loop 72 — Tours contextuais: spotlight / ancoragem DOM
 
 ### Objetivo
 Evoluir o onboarding **por ecrã** (Loops 67–71) para permitir **passos opcionalmente ancorados** a elementos reais da UI — máscara/spotlight, realce do alvo e copy adjacente — **sem** substituir o modo atual baseado em `Dialog` onde o ancoragem não for segura ou o elemento for condicional.
@@ -1220,7 +1220,7 @@ Evoluir o onboarding **por ecrã** (Loops 67–71) para permitir **passos opcion
 - **sem regressão** nos tours puramente dialogados existentes
 - gate com **`RALPH_LOOP_INCLUDE_FRONTEND=1`**; ledger com **Loop 72 (fechado)**
 
-**Estado (ledger):** **candidato** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 72 (candidato)**.
+**Estado (ledger):** **entregue** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 72 (fechado)**.
 
 ---
 
@@ -1270,7 +1270,7 @@ Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**
 18. **Loop 69** — tours em `/governance` e `/observability` (entregue no ledger; ver [Loop 69](#loop-69--tours-contextuais-governança-e-observabilidade)).
 19. **Loop 70** — tours nas fichas `/agents/[id]` e `/teams/[id]` (entregue no ledger; ver [Loop 70](#loop-70--tours-contextuais-fichas-agente-e-time)).
 20. **Loop 71** — `ResponsiveTableScroll` em `/runs`, `/governance` e convites em Settings (entregue no ledger; ver [Loop 71](#loop-71-tabelas-scroll)).
-21. **Loop 72** — tours com **spotlight / ancoragem DOM** opcional por passo (candidato; ver [Loop 72](#loop-72-spotlight-tours)).
+21. **Loop 72** — tours com **spotlight / ancoragem DOM** opcional por passo (entregue no ledger; ver [Loop 72](#loop-72-spotlight-tours)).
 22. **Loop 73** — listagens densas com **vista em cards** em mobile/tablet (candidato; ver [Loop 73](#loop-73-listagens-cards)).
 
 ### Justificativa

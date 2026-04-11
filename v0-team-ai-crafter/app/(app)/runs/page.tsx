@@ -89,7 +89,7 @@ export default function RunsPage() {
         </div>
       </div>
 
-      <Card>
+      <Card data-tour-anchor="runs-list-recent">
         <CardHeader>
           <CardTitle className="text-lg">Lista recente</CardTitle>
           <CardDescription>

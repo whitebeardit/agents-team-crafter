@@ -10,8 +10,13 @@ import type { ContextualTourScreenKey } from "@/lib/contextual-tours"
 import {
   getSeenTourVersion,
   mergeTourSeenVersion,
+  resolveContextualTourAnchor,
   snoozeSessionKey,
 } from "@/lib/contextual-tours"
+import {
+  TourSpotlightLayer,
+  useTourAnchorRect,
+} from "@/components/onboarding/tour-spotlight-overlay"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -118,76 +123,125 @@ export function ContextualTourHost({ screenKey, autoStart = true }: ContextualTo
   const lastStep = stepIndex >= def.steps.length - 1
   const step = def.steps[stepIndex]
 
+  /** Re-renderiza enquanto o DOM do ancoragem pode aparecer tarde (ex.: dados async). */
+  const [anchorPollTick, setAnchorPollTick] = useState(0)
+  useEffect(() => {
+    if (!open || !step?.anchor) return
+    if (typeof document === "undefined") return
+    if (resolveContextualTourAnchor(step.anchor)) return
+    let n = 0
+    const id = window.setInterval(() => {
+      setAnchorPollTick((t) => t + 1)
+      n += 1
+      if (n >= 20) window.clearInterval(id)
+    }, 48)
+    return () => window.clearInterval(id)
+  }, [open, stepIndex, step?.anchor])
+
+  const anchorEl = useMemo(() => {
+    if (!open || !step?.anchor || typeof document === "undefined") return null
+    return resolveContextualTourAnchor(step.anchor)
+  }, [open, step, stepIndex, anchorPollTick])
+
+  const anchorRect = useTourAnchorRect(anchorEl)
+  const spotlightMode = Boolean(step?.anchor && anchorEl && anchorRect)
+  const dialogOpen = open && !spotlightMode
+
+  useEffect(() => {
+    if (!open || !spotlightMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      if (wsId && typeof window !== "undefined") {
+        sessionStorage.setItem(snoozeSessionKey(wsId, screenKey), "1")
+      }
+      closedAfterPersistRef.current = true
+      setOpen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, spotlightMode, wsId, screenKey])
+
+  const stepLabel = `Passo ${stepIndex + 1} de ${def.steps.length}`
+  const footerNav = (
+    <>
+      <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+        <Button type="button" variant="ghost" size="sm" onClick={handleLater} disabled={saving}>
+          Mais tarde
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={handleDismissForever} disabled={saving}>
+          Não mostrar de novo
+        </Button>
+      </div>
+      <div className="flex w-full justify-end gap-2 sm:w-auto">
+        {stepIndex > 0 ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+            disabled={saving}
+          >
+            Anterior
+          </Button>
+        ) : null}
+        {lastStep ? (
+          <Button type="button" size="sm" onClick={() => void handleFinish()} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Concluir"}
+          </Button>
+        ) : (
+          <Button type="button" size="sm" onClick={() => setStepIndex((i) => i + 1)} disabled={saving}>
+            Seguinte
+          </Button>
+        )}
+      </div>
+    </>
+  )
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) {
-          if (!closedAfterPersistRef.current && wsId && typeof window !== "undefined") {
-            sessionStorage.setItem(snoozeSessionKey(wsId, screenKey), "1")
+    <>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            if (!closedAfterPersistRef.current && wsId && typeof window !== "undefined") {
+              sessionStorage.setItem(snoozeSessionKey(wsId, screenKey), "1")
+            }
+            closedAfterPersistRef.current = false
           }
-          closedAfterPersistRef.current = false
-        }
-        setOpen(o)
-      }}
-    >
-      <DialogContent className="max-h-[min(90vh,560px)] gap-0 overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{def.dialogTitle}</DialogTitle>
-          <DialogDescription className="sr-only">
-            Passo {stepIndex + 1} de {def.steps.length}. Use os botões para navegar ou concluir.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 py-4">
-          <p className="text-xs text-muted-foreground">
-            Passo {stepIndex + 1} de {def.steps.length}
-          </p>
-          {step ? (
-            <>
-              <h3 className="text-base font-semibold leading-snug">{step.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
-            </>
-          ) : null}
-        </div>
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Button type="button" variant="ghost" size="sm" onClick={handleLater} disabled={saving}>
-              Mais tarde
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={handleDismissForever} disabled={saving}>
-              Não mostrar de novo
-            </Button>
-          </div>
-          <div className="flex w-full justify-end gap-2 sm:w-auto">
-            {stepIndex > 0 ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
-                disabled={saving}
-              >
-                Anterior
-              </Button>
+          setOpen(o)
+        }}
+      >
+        <DialogContent className="max-h-[min(90vh,560px)] gap-0 overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{def.dialogTitle}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {stepLabel}. Use os botões para navegar ou concluir.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <p className="text-xs text-muted-foreground">{stepLabel}</p>
+            {step ? (
+              <>
+                <h3 className="text-base font-semibold leading-snug">{step.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
+              </>
             ) : null}
-            {lastStep ? (
-              <Button type="button" size="sm" onClick={() => void handleFinish()} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Concluir"}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setStepIndex((i) => i + 1)}
-                disabled={saving}
-              >
-                Seguinte
-              </Button>
-            )}
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">{footerNav}</DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {open && spotlightMode && anchorRect && step ? (
+        <TourSpotlightLayer
+          rect={anchorRect}
+          title={step.title}
+          description={step.description}
+          stepLabel={stepLabel}
+          dialogTitle={def.dialogTitle}
+        >
+          {footerNav}
+        </TourSpotlightLayer>
+      ) : null}
+    </>
   )
 }
 

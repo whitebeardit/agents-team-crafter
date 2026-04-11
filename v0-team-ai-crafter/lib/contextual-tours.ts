@@ -25,9 +25,35 @@ export interface IContextualToursPreferences {
   byWorkspace?: Record<string, Partial<Record<ContextualTourScreenKey, number>>>
 }
 
+/** Ancoragem DOM opcional por passo (Loop 72). Preferir `dataAttr` com `data-tour-anchor` estável na UI. */
+export type ContextualTourAnchor =
+  | { kind: "dataAttr"; value: string }
+  | { kind: "selector"; value: string }
+
 export type ContextualTourStep = {
   title: string
   description: string
+  /** Se definido, o passo pode renderizar em modo spotlight quando o alvo existir no DOM. */
+  anchor?: ContextualTourAnchor
+}
+
+/**
+ * Resolve o elemento alvo do passo. Em ambiente sem `document`, devolve sempre `null`.
+ */
+export function resolveContextualTourAnchor(anchor: ContextualTourAnchor): HTMLElement | null {
+  if (typeof document === "undefined") return null
+  if (anchor.kind === "dataAttr") {
+    try {
+      return document.querySelector(`[data-tour-anchor="${CSS.escape(anchor.value)}"]`)
+    } catch {
+      return null
+    }
+  }
+  try {
+    return document.querySelector(anchor.value)
+  } catch {
+    return null
+  }
 }
 
 export type ContextualTourDefinition = {

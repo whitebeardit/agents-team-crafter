@@ -2,13 +2,14 @@ import type { ContextualTourDefinition, ContextualTourScreenKey } from "@/lib/co
 
 export const CONTEXTUAL_TOUR_CATALOG: Record<ContextualTourScreenKey, ContextualTourDefinition> = {
   dashboard: {
-    version: 1,
+    version: 2,
     dialogTitle: "Tour — Dashboard",
     steps: [
       {
         title: "Visão geral do workspace",
         description:
           "O dashboard resume times ativos, agentes, canais e templates. Use estes números para perceber rapidamente a saúde operacional do seu workspace.",
+        anchor: { kind: "dataAttr", value: "dashboard-metrics" },
       },
       {
         title: "Governança e atalhos",
@@ -130,13 +131,14 @@ export const CONTEXTUAL_TOUR_CATALOG: Record<ContextualTourScreenKey, Contextual
     ],
   },
   runs_list: {
-    version: 1,
+    version: 2,
     dialogTitle: "Tour — Execuções (runs)",
     steps: [
       {
         title: "Observabilidade",
         description:
           "Esta lista mostra as últimas execuções persistidas do workspace — útil para perceber falhas, duração e ligação ao time.",
+        anchor: { kind: "dataAttr", value: "runs-list-recent" },
       },
       {
         title: "Detalhe e causa raiz",

@@ -174,8 +174,8 @@ export default function DashboardPage() {
         <ContextualTourManualTrigger screenKey="dashboard" />
       </div>
 
-      {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Metrics — data-tour-anchor para spotlight (Loop 72) */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-tour-anchor="dashboard-metrics">
         {metricCards.map((metric) => (
           <Card key={metric.title} className="border-border bg-card">
             <CardContent className="pt-6">
