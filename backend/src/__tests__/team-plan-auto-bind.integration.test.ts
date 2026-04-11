@@ -89,7 +89,7 @@ describe('team-plan execute with TEAM_PLAN_AUTO_BIND_TOOLS=1', () => {
     await mongoose.connect(env.MONGODB_URI);
 
     const passwordHash = await bcrypt.hash('secret', 10);
-    const ws = await WorkspaceModel.create({ name: 'AutoBindWs', plan: 'free' });
+    const ws = await WorkspaceModel.create({ name: 'AutoBindWs', plan: 'enterprise' });
     workspaceId = ws._id.toString();
     const user = await UserModel.create({
       email: 'autobind-planner@test.com',
@@ -265,7 +265,7 @@ describe('team-plan execute with workspace auto-bind policy override', () => {
     await mongoose.connect(env.MONGODB_URI);
 
     const passwordHash = await bcrypt.hash('secret', 10);
-    const ws = await WorkspaceModel.create({ name: 'WorkspacePolicyWs', plan: 'free' });
+    const ws = await WorkspaceModel.create({ name: 'WorkspacePolicyWs', plan: 'enterprise' });
     workspaceId = ws._id.toString();
     const user = await UserModel.create({
       email: 'workspace-policy@test.com',
@@ -1046,7 +1046,7 @@ describe('team-plan Loop 51: reativar definitions inativas no bind', () => {
     await mongoose.connect(env.MONGODB_URI);
 
     const passwordHash = await bcrypt.hash('secret', 10);
-    const ws = await WorkspaceModel.create({ name: 'Loop51Ws', plan: 'free' });
+    const ws = await WorkspaceModel.create({ name: 'Loop51Ws', plan: 'enterprise' });
     workspaceId = ws._id.toString();
     const user = await UserModel.create({
       email: 'loop51-autobind@test.com',

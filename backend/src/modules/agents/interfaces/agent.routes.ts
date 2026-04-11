@@ -16,6 +16,7 @@ import {
 } from '../application/agent-config.schemas.js';
 import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
+import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 
 const listQuerySchema = paginationQuerySchema.merge(
   z.object({
@@ -117,6 +118,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
   app.post('/agents', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = createAgentSchema.parse(req.body);
+    await assertWorkspaceQuota(deps.settingsRepo, ws, 'agents');
     if (body.role === 'specialist' && body.channels.length > 0) {
       throw new AppError(
         'VALIDATION_ERROR',

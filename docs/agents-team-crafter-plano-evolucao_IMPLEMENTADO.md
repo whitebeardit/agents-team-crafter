@@ -596,8 +596,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 52   | Settings de perfil e preferências com backend real       | entregue (perfil, avatar data URL, prefs, tema; ver [Loop 52](#loop-52-fechado))                |
 | 53   | Notificações, canais e explicações operacionais         | entregue (prefs notif. + copy settings/canais; ver [Loop 53](#loop-53-fechado))                 |
 | 54   | Segurança e autenticação de conta                        | entregue (senha, revoke sessões, 2FA honesto; ver [Loop 54](#loop-54-fechado))                 |
-| 55   | Faturamento, upgrade e enforcement de quotas             | **próximo (ETAPA 9)** — ver [Loop 55](#loop-55)                                                |
-| 56   | Templates e tools com curadoria real de produção         | planejado (ETAPA 9; catálogo confiável, exemplos e dependências explícitas)                    |
+| 55   | Faturamento, upgrade e enforcement de quotas             | entregue (quotas por plano + UI consumo + upgrade honesto; ver [Loop 55](#loop-55-fechado))      |
+| 56   | Templates e tools com curadoria real de produção         | **próximo (ETAPA 9)** — ver [Loop 56](#loop-56)                                              |
 | 57   | Governança limpa e agenda operacional                    | planejado (ETAPA 9; apagar compromisso e purge de auditoria com RBAC)                          |
 | 58   | Danger Zone administrativa e reset de fábrica            | planejado (ETAPA 9; operação restrita a platform admin com guardrails fortes)                  |
 
@@ -608,10 +608,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Loop 55** — Faturamento, quotas e upgrade honesto. Ver [Loop 55](#loop-55).
+**Loop 56** — Templates e tools com curadoria real. Ver [Loop 56](#loop-56).
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 55–58 (Loops 52–54 fechados).
+A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 56–58 (Loops 52–55 fechados).
 
 ---
 
@@ -1039,23 +1039,19 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - `[backend/src/__tests__/auth.integration.test.ts](../backend/src/__tests__/auth.integration.test.ts)`: alteração de senha e revoke
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
-## Loop 55
+## Loop 55 (fechado)
 
 - etapa/prioridade: ETAPA 9 / altíssima
 - objetivo do slice: fazer o plano Free / Pro / Enterprise refletir comportamento real do backend
-- foco:
-  - enforcement central de quotas para `teams`, `agents` e, se aplicável, `channels`
-  - exibição do consumo atual usando `limits.used*`
-  - bloqueio de criação acima da quota com mensagem clara
-  - jornada real de `Fazer upgrade` ou sinalização explícita de indisponibilidade
-  - desenho de integração futura com provider de billing, sem bloquear o enforcement
-- arquivos-alvo (indicativos):
-  - `backend/src/modules/settings/infra/settings.repository.ts`
-  - `backend/src/modules/workspaces/interfaces/workspace.routes.ts`
-  - fluxos de criação de `teams`, `agents` e possivelmente `channels`
-  - `v0-team-ai-crafter/app/(app)/settings/page.tsx`
-- critério de saída:
-  - o texto `Free até 2 times e 5 agentes` deixa de ser marketing solto e passa a ser regra aplicada
+- critério de saída: limites por plano aplicados no servidor; UI mostra consumo real; upgrade sem checkout falso
+- **entregue no repositório:**
+  - `[backend/src/modules/workspaces/application/workspace-plan-limits.ts](../backend/src/modules/workspaces/application/workspace-plan-limits.ts)`: defaults por plano (free: 2 / 5 / 10; pro: 10 / 50 / 50; enterprise: ilimitado); `assertWorkspaceQuota` / `assertWorkspaceQuotaDelta`; erro `QUOTA_EXCEEDED` (403)
+  - `[backend/src/modules/settings/infra/settings.repository.ts](../backend/src/modules/settings/infra/settings.repository.ts)`: `getWorkspace` agrega `max*` efectivos (override em `workspace.limits` quando definido)
+  - Rotas: `POST /teams`, `POST /teams/:id/duplicate`, `POST /agents`, `POST /channels`; `team-plan.execute` e `agent-plan.execute` respeitam quotas antes de criar recursos
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: separador Faturamento com `used/max` ou ilimitado; alerta sobre ausência de gateway; dialog “Fazer upgrade” com email e workspace id (sem cartão fictício)
+  - `[backend/src/__tests__/workspace-quota.integration.test.ts](../backend/src/__tests__/workspace-quota.integration.test.ts)`: cobertura GET limits + bloqueio teams/agents/channels
+  - Testes de team-plan com workspace `enterprise` onde o fluxo cria muitos recursos (`team-plan-auto-bind`, `team-plans`) para não colidir com quotas de teste
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
 ## Loop 56
 

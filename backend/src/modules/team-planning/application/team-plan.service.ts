@@ -15,6 +15,7 @@ import { actionIdToToolSlug, collectPlannerActionIds, PLANNER_PACK_TO_ACTION_IDS
 import { ensureInternalActionDefinitions } from './ensure-planner-tool-definitions.js';
 import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../../../app/metrics.js';
 import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
+import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
 
@@ -916,6 +917,14 @@ export class TeamPlanService {
         })),
       };
     }
+
+    const newAgentCreations = parsed.agents.filter(
+      (a) => !(a.planningMode === 'existing' && a.existingAgentId),
+    ).length;
+    await assertWorkspaceQuotaDelta(this.deps.settingsRepo, workspaceId, {
+      agents: newAgentCreations,
+      teams: 1,
+    });
 
     await this.repo.update(workspaceId, id, { status: 'executing', lastOperationId: operationId });
 

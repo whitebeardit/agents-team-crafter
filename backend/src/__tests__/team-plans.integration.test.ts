@@ -85,7 +85,7 @@ describe('team-plans flow', () => {
     await mongoose.connect(env.MONGODB_URI);
 
     const passwordHash = await bcrypt.hash('secret', 10);
-    const ws = await WorkspaceModel.create({ name: 'PlanWs', plan: 'free' });
+    const ws = await WorkspaceModel.create({ name: 'PlanWs', plan: 'enterprise' });
     workspaceId = ws._id.toString();
     const user = await UserModel.create({
       email: 'planner@test.com',

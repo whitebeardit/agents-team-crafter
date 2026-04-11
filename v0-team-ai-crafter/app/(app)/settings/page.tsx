@@ -92,13 +92,27 @@ function parseNotificationPrefs(prefs: Record<string, unknown> | undefined): IUs
   }
 }
 
+type WorkspaceLimits = {
+  maxTeams: number
+  maxAgents: number
+  maxChannels: number
+  usedTeams: number
+  usedAgents: number
+  usedChannels: number
+}
+
 type SettingsWorkspaceState = {
   id: string
   name: string
   logo?: string
   plan?: string
   settings?: Record<string, unknown>
-  limits?: unknown
+  limits?: WorkspaceLimits
+}
+
+function formatQuotaPair(used: number, max: number): string {
+  if (max === -1) return `${used} / ilimitado`
+  return `${used} / ${max}`
 }
 
 type TeamPlanningPolicy = {
@@ -246,6 +260,7 @@ export default function SettingsPage() {
   const [confirmPwd, setConfirmPwd] = useState("")
   const [pwdBusy, setPwdBusy] = useState(false)
   const [revokeBusy, setRevokeBusy] = useState(false)
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
   const currentPlan = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
 
   useEffect(() => {
@@ -1937,11 +1952,11 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Plano Atual</CardTitle>
               <CardDescription>
-                Gerencie sua assinatura e faturamento.
+                Limites efectivos do workspace (API). Checkout e faturas ainda nao estao integrados.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 rounded-lg border bg-primary/5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border bg-primary/5">
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-xl font-bold">{planLabels[currentPlan]}</h3>
@@ -1950,76 +1965,59 @@ export default function SettingsPage() {
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {currentPlan === "free" && "Ate 2 times e 5 agentes"}
-                    {currentPlan === "pro" && "Ate 10 times e 50 agentes"}
-                    {currentPlan === "enterprise" && "Times e agentes ilimitados"}
+                    {workspace?.limits ? (
+                      <>
+                        Times {formatQuotaPair(workspace.limits.usedTeams, workspace.limits.maxTeams)} · Agentes{" "}
+                        {formatQuotaPair(workspace.limits.usedAgents, workspace.limits.maxAgents)} · Canais{" "}
+                        {formatQuotaPair(workspace.limits.usedChannels, workspace.limits.maxChannels)}
+                      </>
+                    ) : (
+                      "Carregando consumo..."
+                    )}
                   </p>
                 </div>
                 {currentPlan !== "enterprise" && (
-                  <Button>Fazer Upgrade</Button>
+                  <Button type="button" onClick={() => setUpgradeDialogOpen(true)}>
+                    Fazer upgrade
+                  </Button>
                 )}
               </div>
 
-              {currentPlan !== "free" && (
-                <>
-                  <Separator />
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Metodo de Pagamento</h4>
-                    <div className="flex items-center justify-between p-3 rounded-lg border">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-12 bg-muted rounded flex items-center justify-center text-xs font-bold">
-                          VISA
-                        </div>
-                        <div>
-                          <p className="font-medium">**** **** **** 4242</p>
-                          <p className="text-sm text-muted-foreground">Expira 12/2025</p>
-                        </div>
-                      </div>
-                      <Button variant="outline" size="sm">Alterar</Button>
-                    </div>
-                  </div>
-                </>
-              )}
+              <Alert>
+                <CreditCard className="h-4 w-4" />
+                <AlertTitle>Pagamentos e historico de faturas</AlertTitle>
+                <AlertDescription>
+                  Nao ha gateway de pagamento ligado nesta versao. Os limites acima reflectem a regra do plano no
+                  servidor; nao e possivel alterar o plano pela UI ate haver integracao de billing.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
 
-          {currentPlan !== "free" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Historico de Faturas</CardTitle>
-                <CardDescription>
-                  Visualize e baixe suas faturas anteriores.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {[
-                    { date: "01/03/2024", amount: "R$ 199,00", status: "Pago" },
-                    { date: "01/02/2024", amount: "R$ 199,00", status: "Pago" },
-                    { date: "01/01/2024", amount: "R$ 199,00", status: "Pago" },
-                  ].map((invoice, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 rounded-lg border"
-                    >
-                      <div>
-                        <p className="font-medium">{invoice.date}</p>
-                        <p className="text-sm text-muted-foreground">{invoice.amount}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-green-500 border-green-500/50">
-                          {invoice.status}
-                        </Badge>
-                        <Button variant="ghost" size="sm">
-                          Baixar
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Upgrade de plano</DialogTitle>
+                <DialogDescription>
+                  O checkout (cartao, Stripe, etc.) ainda nao esta disponivel. Para Pro ou Enterprise, contacte a
+                  equipa de produto ou suporte com o ID do workspace.
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Workspace: <span className="font-mono text-foreground">{workspace?.id ?? "—"}</span>
+              </p>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setUpgradeDialogOpen(false)}>
+                  Fechar
+                </Button>
+                <Button type="button" asChild>
+                  <a href="mailto:suporte@whitebeard.dev?subject=Upgrade%20de%20plano%20agents-team-crafter">
+                    Enviar email
+                  </a>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
 

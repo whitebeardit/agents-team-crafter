@@ -17,6 +17,7 @@ import {
 import { assertActiveChannelBindingUnique } from '../application/assert-active-channel-binding.js';
 import { getTeamGalleryService } from '../application/team-gallery.service.js';
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
+import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import {
   buildManualTeamInvocation,
   teamRunBodySchema,
@@ -105,6 +106,7 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
   app.post('/teams', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = createTeamSchema.parse(req.body);
+    await assertWorkspaceQuota(deps.settingsRepo, ws, 'teams');
     const coordOk = await deps.agentRepo.existsAll(ws, [body.coordinatorId]);
     if (!coordOk) throw new AppError('VALIDATION_ERROR', 'Coordenador invalido', 400);
     await assertCoordinatorRole(deps, ws, body.coordinatorId);
@@ -408,6 +410,7 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
     const body = duplicateSchema.parse(req.body);
+    await assertWorkspaceQuota(deps.settingsRepo, ws, 'teams');
     const dup = await deps.teamRepo.duplicate(ws, id, body.name);
     if (!dup) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     return reply.code(201).send(successEnvelope(dup));

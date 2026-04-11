@@ -4,6 +4,7 @@ import type { WorkspaceDoc } from '../../workspaces/infra/workspace.model.js';
 import { TeamModel } from '../../teams/infra/team.model.js';
 import { AgentModel } from '../../agents/infra/agent.model.js';
 import { ChannelModel } from '../../channels/infra/channel.model.js';
+import { resolveEffectiveMaxLimits } from '../../workspaces/application/workspace-plan-limits.js';
 
 export class SettingsRepository {
   async getWorkspace(workspaceId: string) {
@@ -20,6 +21,7 @@ export class SettingsRepository {
       ChannelModel.countDocuments({ workspaceId: id }),
     ]);
     const limitsRaw = (ws.limits as Record<string, unknown>) ?? {};
+    const effective = resolveEffectiveMaxLimits(ws.plan, limitsRaw);
     return {
       id: workspaceId,
       name: ws.name,
@@ -27,9 +29,9 @@ export class SettingsRepository {
       plan: ws.plan,
       settings: (ws.settings as Record<string, unknown>) ?? {},
       limits: {
-        maxTeams: (limitsRaw['maxTeams'] as number) ?? -1,
-        maxAgents: (limitsRaw['maxAgents'] as number) ?? -1,
-        maxChannels: (limitsRaw['maxChannels'] as number) ?? -1,
+        maxTeams: effective.maxTeams,
+        maxAgents: effective.maxAgents,
+        maxChannels: effective.maxChannels,
         usedTeams,
         usedAgents,
         usedChannels,

@@ -1,6 +1,7 @@
 import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import type { IAppDeps } from '../../../config/container.js';
+import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import type { AgentPlanRepository } from '../infra/agent-plan.repository.js';
 import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
@@ -175,6 +176,10 @@ export class AgentPlanService {
         summary: plan.overlapReview?.summary,
         matches: plan.overlapReview?.matches,
       };
+    }
+
+    if (plan.decision !== 'reuse_existing') {
+      await assertWorkspaceQuota(this.deps.settingsRepo, workspaceId, 'agents');
     }
 
     await this.repo.update(workspaceId, id, { status: 'executing' });

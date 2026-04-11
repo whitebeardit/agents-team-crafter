@@ -9,6 +9,7 @@ import { CHAT_SDK_PLATFORMS } from '../domain/chat-sdk-platform.js';
 import { parseChatSdkSecretsBody } from '../domain/chat-sdk-secrets.schema.js';
 import { buildChatSdkWebhookUrl } from '../application/build-chat-sdk-webhook-url.js';
 import { registerTelegramWebhookWithTelegramApi } from '../application/register-telegram-webhook.js';
+import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 
 const channelTypeEnum = z.enum([
   'whatsapp',
@@ -74,6 +75,7 @@ export async function registerChannelRoutes(app: FastifyInstance, deps: IAppDeps
   app.post('/channels', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = createBody.parse(req.body);
+    await assertWorkspaceQuota(deps.settingsRepo, ws, 'channels');
     if (body.teamId) {
       const team = await deps.teamRepo.findById(ws, body.teamId);
       if (!team) throw new AppError('VALIDATION_ERROR', 'Time invalido', 400);
