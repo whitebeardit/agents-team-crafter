@@ -97,4 +97,68 @@ export const CONTEXTUAL_TOUR_CATALOG: Record<ContextualTourScreenKey, Contextual
       },
     ],
   },
+  agents_catalog: {
+    version: 1,
+    dialogTitle: "Tour — Catálogo de agentes",
+    steps: [
+      {
+        title: "Filtrar e explorar",
+        description:
+          "Use separadores por origem (Whitebeard vs empresa), filtros e pesquisa para encontrar agentes reutilizáveis. O overlap guard pode bloquear reuso em certos times — o cartão indica quando aplicável.",
+      },
+      {
+        title: "Criar e editar",
+        description:
+          "O wizard cria agentes novos; a ficha abre ao selecionar um cartão. Agentes do catálogo Whitebeard podem ser somente leitura — duplique para personalizar.",
+      },
+    ],
+  },
+  teams_list: {
+    version: 1,
+    dialogTitle: "Tour — Lista de times",
+    steps: [
+      {
+        title: "Estado e composição",
+        description:
+          "Filtre por ativos ou rascunhos. Cada time agrega agentes e canais; abra a ficha para ver grafo, execução e consola de depuração.",
+      },
+      {
+        title: "Criar um time",
+        description:
+          "Use «Criar Time» para a jornada unificada (assistida por IA ou manual). Times inativos podem ser reativados quando precisar.",
+      },
+    ],
+  },
+  runs_list: {
+    version: 1,
+    dialogTitle: "Tour — Execuções (runs)",
+    steps: [
+      {
+        title: "Observabilidade",
+        description:
+          "Esta lista mostra as últimas execuções persistidas do workspace — útil para perceber falhas, duração e ligação ao time.",
+      },
+      {
+        title: "Detalhe e causa raiz",
+        description:
+          "Abra uma execução para eventos e passos. Combine com a consola na ficha do time quando precisar de contexto de runtime.",
+      },
+    ],
+  },
+  templates_catalog: {
+    version: 1,
+    dialogTitle: "Tour — Templates",
+    steps: [
+      {
+        title: "Modelos prontos",
+        description:
+          "Templates descrevem conjuntos de agentes e requisitos. Filtre por origem e leia os requisitos antes de aplicar a um time novo.",
+      },
+      {
+        title: "Aplicar com cuidado",
+        description:
+          "Ao aplicar, escolha canais e nome do time conforme o seu ambiente. Valide integrações em Configurações se o modelo depender delas.",
+      },
+    ],
+  },
 }

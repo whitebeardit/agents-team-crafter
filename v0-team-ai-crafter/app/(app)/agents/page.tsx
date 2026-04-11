@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { Search, Filter, X, Sparkles } from "lucide-react"
 import { AgentCard } from "@/components/agents/agent-card"
 import { AgentDetailsDrawer } from "@/components/agents/agent-details-drawer"
@@ -219,16 +220,20 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
+      <ContextualTourHost screenKey="agents_catalog" />
       {/* Page Header */}
       <div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <h1 className="text-3xl font-bold text-foreground">Catálogo de Agentes</h1>
-          <Button asChild className="gap-2">
-            <Link href="/agents/create">
-              <Sparkles className="w-4 h-4" />
-              Wizard de Agente
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ContextualTourManualTrigger screenKey="agents_catalog" />
+            <Button asChild className="gap-2">
+              <Link href="/agents/create">
+                <Sparkles className="w-4 h-4" />
+                Wizard de Agente
+              </Link>
+            </Button>
+          </div>
         </div>
         <p className="text-muted-foreground mt-1">
           Explore, reutilize e crie agentes com overlap guard no workspace

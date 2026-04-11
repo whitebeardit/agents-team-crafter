@@ -1113,6 +1113,23 @@ Adotar **onboarding contextual progressivo por tela** como melhor prática para 
 
 **Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 67 (fechado)** (dashboard, AI Builder / hub de criação de times, tools, settings, canais, agenda).
 
+---
+
+## Loop 68 — Expansão dos tours contextuais (listagens)
+
+### Objetivo
+Continuar o rollout progressivo do Loop 67 nas rotas de **lista** mais usadas, sem alterar o contrato de persistência.
+
+### Foco
+- novos `screenKey` em `contextual-tours-catalog.ts` com `version: 1` por ecrã
+- integração de `ContextualTourHost` + `ContextualTourManualTrigger` em `/agents`, `/teams`, `/runs`, `/templates`
+
+### Critério de saída
+- utilizador vê tour automático (ou manual) nestas quatro rotas com as mesmas regras de reentrada do Loop 67
+- ledger atualizado com tabela de `screenKey` ↔ rota
+
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 68 (fechado)**.
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1132,6 +1149,7 @@ Adotar **onboarding contextual progressivo por tela** como melhor prática para 
 14. **Loop 65** — foundation responsiva multi-device (entregue no ledger).
 15. **Loop 66** — responsividade das telas críticas (entregue no ledger).
 16. **Loop 67** — onboarding contextual e tour reexecutável por tela (entregue no ledger).
+17. **Loop 68** — expansão dos tours às listagens `/agents`, `/teams`, `/runs`, `/templates` (entregue no ledger).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1147,6 +1165,7 @@ Adotar **onboarding contextual progressivo por tela** como melhor prática para 
 - **Loop 65:** estabelecer a fundação responsiva antes de corrigir dezenas de telas de forma fragmentada
 - **Loop 66:** atacar as superfícies com maior atrito operacional em tablet e celular
 - **Loop 67:** explicar a plataforma com onboarding contextual progressivo, sem impor tour global repetitivo
+- **Loop 68:** alargar o mesmo padrão às listagens operacionais sem mudar persistência
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.

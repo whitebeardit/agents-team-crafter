@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { Info } from "lucide-react"
 
 type TemplateApplyDetail = Template & {
@@ -146,12 +147,16 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-6">
+      <ContextualTourHost screenKey="templates_catalog" />
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Templates</h1>
-        <p className="text-muted-foreground mt-1">
-          Catalogo alinhado ao seed: cada modelo indica quantos agentes referencia e os requisitos antes de aplicar.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Templates</h1>
+          <p className="text-muted-foreground mt-1">
+            Catalogo alinhado ao seed: cada modelo indica quantos agentes referencia e os requisitos antes de aplicar.
+          </p>
+        </div>
+        <ContextualTourManualTrigger screenKey="templates_catalog" />
       </div>
 
       {/* Origin Tabs */}

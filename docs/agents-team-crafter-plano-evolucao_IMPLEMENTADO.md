@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–67) | Loops 52–67 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–68) | Loops 52–68 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
 
 
 ---
@@ -664,6 +664,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 65   | Foundation responsiva multi-device                         | entregue (ver [Loop 65](#loop-65-fechado))                                                      |
 | 66   | Responsividade das telas críticas                          | entregue (ver [Loop 66](#loop-66-fechado))                                                      |
 | 67   | Onboarding contextual e tour por tela                      | entregue (ver [Loop 67](#loop-67-fechado))                                                      |
+| 68   | Expansão de tours contextuais (listagens)                    | entregue (ver [Loop 68](#loop-68-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -672,7 +673,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 67** — onboarding contextual e tour por tela (ver [Loop 67](#loop-67-fechado)).
+**Último slice numerado fechado:** **Loop 68** — expansão de tours contextuais nas listagens (ver [Loop 68](#loop-68-fechado)).
 
 **Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (ETAPA 9 continua aberta a temas como admin global cross-tenant, novas integrações e paridade produto/runtime).
 
@@ -1319,6 +1320,22 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - **entregue no repositório:** [`contextual-tours.ts`](../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts), [`contextual-tour.tsx`](../v0-team-ai-crafter/components/onboarding/contextual-tour.tsx); integrações nas páginas listadas; tipo `IContextualToursPreferences` em [`lib/types`](../v0-team-ai-crafter/lib/types/index.ts).
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend; `next build` OK).
 - **referência no plano mestre:** [Loop 67](agents-team-crafter-plano-evolucao.md#loop-67--onboarding-contextual-e-tour-reexecutável-por-tela)
+
+## Loop 68 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual — fase 2) / média-alta
+- objetivo do slice: **mesma infraestrutura do Loop 67** (`ContextualTourHost` / `ManualTrigger`, persistência `contextualTours.byWorkspace`), com **novos `screenKey`** e copy em [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts) para rotas de lista de alto tráfego ainda sem tour.
+- **Ecrãs adicionados (v1 de conteúdo):**
+
+| `screenKey` | Rota |
+| --- | --- |
+| `agents_catalog` | `/agents` |
+| `teams_list` | `/teams` |
+| `runs_list` | `/runs` |
+| `templates_catalog` | `/templates` |
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (backend + `next build`).
+- **referência no plano mestre:** [Loop 68](agents-team-crafter-plano-evolucao.md#loop-68--expansão-dos-tours-contextuais-listagens)
 
 ---
 

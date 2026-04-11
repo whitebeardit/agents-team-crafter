@@ -11,6 +11,10 @@ export type ContextualTourScreenKey =
   | "settings"
   | "channels"
   | "schedule"
+  | "agents_catalog"
+  | "teams_list"
+  | "runs_list"
+  | "templates_catalog"
 
 export interface IContextualToursPreferences {
   /** Por workspace: por chave de ecrã, última versão do conteúdo vista/concluída */

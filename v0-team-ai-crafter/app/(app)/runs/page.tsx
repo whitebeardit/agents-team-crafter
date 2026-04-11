@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 
 function statusVariant(s: TeamRunRecord["status"]) {
   if (s === "failed") return "destructive" as const
@@ -62,6 +63,7 @@ export default function RunsPage() {
 
   return (
     <div className="space-y-8 max-w-6xl">
+      <ContextualTourHost screenKey="runs_list" />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
@@ -73,6 +75,7 @@ export default function RunsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ContextualTourManualTrigger screenKey="runs_list" />
           <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard">
               <ArrowLeft className="w-4 h-4 mr-2" />

@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { Plus, Users } from "lucide-react"
 import { TeamCard } from "@/components/teams/team-card"
 import { useCallback, useEffect, useState } from "react"
@@ -96,20 +97,24 @@ export default function TeamsPage() {
 
   return (
     <div className="space-y-6">
+      <ContextualTourHost screenKey="teams_list" />
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Times</h1>
           <p className="text-muted-foreground mt-1">
             Gerencie seus times de agentes de IA
           </p>
         </div>
-        <Link href="/teams/create">
-          <Button className="gap-2">
-            <Plus className="w-4 h-4" />
-            Criar Time
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <ContextualTourManualTrigger screenKey="teams_list" />
+          <Link href="/teams/create">
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
+              Criar Time
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Status Tabs */}
