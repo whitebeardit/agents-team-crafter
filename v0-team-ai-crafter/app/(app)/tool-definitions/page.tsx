@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { Plus, Trash2, Wrench } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -99,7 +100,9 @@ export default function ToolDefinitionsPage() {
   const [url, setUrl] = useState("")
   const [catalog, setCatalog] = useState<TBusinessCatalogItem[]>([])
   const [catalogLoading, setCatalogLoading] = useState(false)
-  const [selectedInternalActionId, setSelectedInternalActionId] = useState("")
+  /** actionIds disponíveis escolhidos para criação em lote (Loop 61). */
+  const [selectedInternalActionIds, setSelectedInternalActionIds] = useState<string[]>([])
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
 
   /** Referência estável: sem isso, cada render recria o client e o efeito de `loadCatalog` volta a correr em loop. */
   const api = useMemo(
@@ -168,44 +171,81 @@ export default function ToolDefinitionsPage() {
     setSlug("")
     setUrl("")
     setKind("http_webhook")
-    setSelectedInternalActionId("")
+    setSelectedInternalActionIds([])
+  }
+
+  const availableCatalog = useMemo(
+    () => catalog.filter((c) => !usedInternalActionIds.has(c.actionId)),
+    [catalog, usedInternalActionIds],
+  )
+
+  const toggleInternalActionId = (actionId: string, checked: boolean) => {
+    setSelectedInternalActionIds((prev) => {
+      if (checked) {
+        if (prev.includes(actionId)) return prev
+        return [...prev, actionId]
+      }
+      return prev.filter((id) => id !== actionId)
+    })
+  }
+
+  const selectAllAvailableInternal = () => {
+    setSelectedInternalActionIds(availableCatalog.map((c) => c.actionId))
+  }
+
+  const clearInternalSelection = () => {
+    setSelectedInternalActionIds([])
   }
 
   const handleCreate = async () => {
     if (!api) return
     try {
       if (kind === "internal_action") {
-        const entry = catalog.find((c) => c.actionId === selectedInternalActionId)
-        if (!entry) {
-          toast.error("Selecione uma acao interna")
+        const toCreate = selectedInternalActionIds.filter((id) => !usedInternalActionIds.has(id))
+        if (toCreate.length === 0) {
+          toast.error("Selecione pelo menos uma acao ainda nao definida neste workspace")
           return
         }
-        if (usedInternalActionIds.has(entry.actionId)) {
-          toast.error("Esta acao ja tem uma definicao neste workspace")
-          return
+        setBulkSubmitting(true)
+        type TBulkRes = {
+          created: ToolDef[]
+          skipped: { actionId: string; reason: string }[]
+          errors: { actionId: string; message: string }[]
         }
-        await api.post("/tool-definitions", {
-          name: entry.title,
-          slug: actionIdToToolSlug(entry.actionId),
-          kind: "internal_action",
-          config: { actionId: entry.actionId },
-          jsonSchema: {
-            type: "object",
-            additionalProperties: true,
-            description: `Parametros para a acao interna ${entry.actionId}`,
-          },
+        const r = await api.post<TBulkRes>("/tool-definitions/bulk-internal-actions", {
+          actionIds: toCreate,
         })
-      } else {
-        if (!name.trim() || !slug.trim()) return
-        const config: Record<string, unknown> =
-          kind === "http_webhook" ? { url: url.trim(), method: "POST" } : { builtinId: "web_search" }
-        await api.post("/tool-definitions", {
-          name: name.trim(),
-          slug: slug.trim(),
-          kind,
-          config,
-        })
+        const { created, skipped, errors } = r.data
+        const parts: string[] = []
+        if (created.length) parts.push(`${created.length} criada(s)`)
+        if (skipped.length) parts.push(`${skipped.length} ignorada(s)`)
+        if (errors.length) parts.push(`${errors.length} erro(s)`)
+        if (created.length > 0) {
+          toast.success(parts.join(" · ") || "Concluido")
+        } else if (skipped.length > 0 && errors.length === 0) {
+          toast.message("Nada de novo a criar", {
+            description: skipped.map((s) => `${s.actionId} (${s.reason})`).join("; ") || undefined,
+          })
+        } else {
+          toast.error(errors.map((e) => `${e.actionId}: ${e.message}`).join("; ") || "Falha ao criar")
+        }
+        if (errors.length > 0 && created.length > 0) {
+          toast.error(errors.map((e) => `${e.actionId}: ${e.message}`).join("; "))
+        }
+        setOpen(false)
+        resetCreateForm()
+        void load()
+        return
       }
+      if (!name.trim() || !slug.trim()) return
+      const config: Record<string, unknown> =
+        kind === "http_webhook" ? { url: url.trim(), method: "POST" } : { builtinId: "web_search" }
+      await api.post("/tool-definitions", {
+        name: name.trim(),
+        slug: slug.trim(),
+        kind,
+        config,
+      })
       toast.success("Tool criada")
       setOpen(false)
       resetCreateForm()
@@ -213,17 +253,20 @@ export default function ToolDefinitionsPage() {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Falha ao criar"
       toast.error(msg)
+    } finally {
+      setBulkSubmitting(false)
     }
   }
 
+  const internalSelectedToCreateCount = useMemo(
+    () => selectedInternalActionIds.filter((id) => !usedInternalActionIds.has(id)).length,
+    [selectedInternalActionIds, usedInternalActionIds],
+  )
+
   const canSubmitCreate =
     kind === "internal_action"
-      ? Boolean(selectedInternalActionId) &&
-          !usedInternalActionIds.has(selectedInternalActionId) &&
-          !catalogLoading
+      ? internalSelectedToCreateCount > 0 && !catalogLoading && !bulkSubmitting
       : Boolean(name.trim() && slug.trim()) && (kind === "http_webhook" ? Boolean(url.trim()) : true)
-
-  const selectedCatalogEntry = catalog.find((c) => c.actionId === selectedInternalActionId)
 
   const catalogByActionId = useMemo(() => {
     const m: Record<string, TBusinessCatalogItem> = {}
@@ -302,7 +345,7 @@ export default function ToolDefinitionsPage() {
                   ? "O runtime faz um pedido HTTP (POST) para o URL quando o modelo invoca esta tool. O servico deve estar acessivel e validar autenticacao."
                   : kind === "builtin_ref"
                     ? "Esta opcao nao pede URL aqui. Integracoes reais (Postgres, CRM, calendario, OpenAI) ficam em Configuracoes > Integracoes; habilite as ferramentas de catalogo na ficha do agente para execucao completa."
-                    : "Escolha uma acao da plataforma (CRM, clinico, financeiro, etc.). O nome e o slug sao gerados automaticamente; nao precisa de digitar o actionId."}
+                    : "Seleccione uma ou varias accoes do catalogo. O nome e o slug sao gerados automaticamente; pode adicionar varias de uma vez."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
@@ -312,7 +355,7 @@ export default function ToolDefinitionsPage() {
                   value={kind}
                   onValueChange={(v) => {
                     setKind(v as ToolKindCreate)
-                    setSelectedInternalActionId("")
+                    setSelectedInternalActionIds([])
                   }}
                 >
                   <SelectTrigger className="mt-1">
@@ -327,44 +370,71 @@ export default function ToolDefinitionsPage() {
               </div>
               {kind === "internal_action" ? (
                 <div className="space-y-3">
-                  <div>
-                    <Label>Acao da plataforma</Label>
-                    <Select
-                      value={selectedInternalActionId || undefined}
-                      onValueChange={setSelectedInternalActionId}
-                      disabled={catalogLoading}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue
-                          placeholder={catalogLoading ? "A carregar catalogo..." : "Escolha uma acao..."}
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[min(60vh,320px)]">
-                        {catalog.map((c) => {
-                          const taken = usedInternalActionIds.has(c.actionId)
-                          return (
-                            <SelectItem key={c.actionId} value={c.actionId} disabled={taken}>
-                              <span className="font-medium">{c.title}</span>
-                              {taken ? (
-                                <span className="text-muted-foreground"> (ja definida)</span>
-                              ) : null}
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedCatalogEntry ? (
-                    <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm space-y-1">
-                      <p className="text-muted-foreground">{selectedCatalogEntry.description}</p>
-                      <p className="text-xs font-mono text-muted-foreground">actionId: {selectedCatalogEntry.actionId}</p>
-                      {selectedCatalogEntry.packId ? (
-                        <p className="text-xs text-muted-foreground">Pack: {selectedCatalogEntry.packId}</p>
-                      ) : null}
-                      <p className="text-xs font-mono pt-1">
-                        slug: {actionIdToToolSlug(selectedCatalogEntry.actionId)}
-                      </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label>Accoes da plataforma</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        disabled={catalogLoading || availableCatalog.length === 0}
+                        onClick={() => selectAllAvailableInternal()}
+                      >
+                        Seleccionar todas
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8"
+                        disabled={selectedInternalActionIds.length === 0}
+                        onClick={() => clearInternalSelection()}
+                      >
+                        Limpar
+                      </Button>
                     </div>
+                  </div>
+                  {catalogLoading ? (
+                    <p className="text-sm text-muted-foreground">A carregar catalogo...</p>
+                  ) : (
+                    <div className="rounded-md border border-border max-h-[min(50vh,280px)] overflow-y-auto p-2 space-y-2">
+                      {availableCatalog.length === 0 ? (
+                        <p className="text-sm text-muted-foreground px-1">
+                          Todas as accoes do catalogo ja tem definicao neste workspace, ou o catalogo esta vazio.
+                        </p>
+                      ) : (
+                        availableCatalog.map((c) => {
+                          const checked = selectedInternalActionIds.includes(c.actionId)
+                          return (
+                            <label
+                              key={c.actionId}
+                              className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => toggleInternalActionId(c.actionId, v === true)}
+                                className="mt-0.5"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="font-medium text-sm block">{c.title}</span>
+                                {c.description ? (
+                                  <span className="text-xs text-muted-foreground line-clamp-2">{c.description}</span>
+                                ) : null}
+                                <span className="text-[10px] font-mono text-muted-foreground block mt-0.5">
+                                  {c.actionId} → slug {actionIdToToolSlug(c.actionId)}
+                                </span>
+                              </span>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
+                  )}
+                  {usedInternalActionIds.size > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {usedInternalActionIds.size} accao(oes) ja definida(s) neste workspace — nao aparecem na lista.
+                    </p>
                   ) : null}
                 </div>
               ) : (
@@ -402,7 +472,9 @@ export default function ToolDefinitionsPage() {
                 Cancelar
               </Button>
               <Button onClick={() => void handleCreate()} disabled={!canSubmitCreate}>
-                Criar
+                {kind === "internal_action"
+                  ? `Adicionar${internalSelectedToCreateCount ? ` (${internalSelectedToCreateCount})` : ""}`
+                  : "Criar"}
               </Button>
             </DialogFooter>
           </DialogContent>

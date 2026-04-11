@@ -4,6 +4,9 @@ import type { IAppDeps } from '../../../config/container.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { requireAdmin } from '../../../config/container.js';
+import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
+import { actionIdToToolSlug } from '../../team-planning/application/planner-pack-presets.js';
+import type { WorkspaceToolDefinitionRepository } from '../infra/workspace-tool-definition.repository.js';
 
 const toolDefinitionBody = z.object({
   name: z.string().min(1),
@@ -34,6 +37,10 @@ const updateSchema = toolDefinitionBody
     if (data.kind === 'internal_action') refineInternalAction(data, ctx);
   });
 
+const bulkInternalActionsSchema = z.object({
+  actionIds: z.array(z.string()).min(1).max(64),
+});
+
 export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: IAppDeps) {
   const tenant = [deps.authenticate, deps.requireTenant];
 
@@ -62,6 +69,84 @@ export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: I
       if (msg) throw new AppError('VALIDATION_ERROR', 'Slug ja existe neste workspace', 400);
       throw e;
     }
+  });
+
+  /**
+   * Cria várias `internal_action` de uma vez (Loop 61). Idempotente por `actionId` no workspace:
+   * já definidas ou sem handler no registry entram em `skipped`, não abortam o lote.
+   */
+  app.post('/tool-definitions/bulk-internal-actions', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const { actionIds: raw } = bulkInternalActionsSchema.parse(req.body);
+    const seen = new Set<string>();
+    const uniqueOrdered: string[] = [];
+    for (const rawId of raw) {
+      const id = rawId.trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      uniqueOrdered.push(id);
+    }
+    if (uniqueOrdered.length === 0) {
+      throw new AppError('VALIDATION_ERROR', 'Nenhum actionId valido no pedido', 400);
+    }
+
+    const existing = await deps.workspaceToolDefinitionRepo.list(ws);
+    const usedActionIds = new Set<string>();
+    for (const t of existing) {
+      if (t.kind === 'internal_action' && typeof t.config?.actionId === 'string') {
+        usedActionIds.add(t.config.actionId);
+      }
+    }
+
+    const created: Awaited<ReturnType<WorkspaceToolDefinitionRepository['list']>> = [];
+    type TSkipped = { actionId: string; reason: 'already_defined' | 'not_in_catalog' | 'slug_collision' };
+    const skipped: TSkipped[] = [];
+    const errors: { actionId: string; message: string }[] = [];
+
+    for (const actionId of uniqueOrdered) {
+      if (!deps.businessToolRegistry.has(actionId)) {
+        skipped.push({ actionId, reason: 'not_in_catalog' });
+        continue;
+      }
+      if (usedActionIds.has(actionId)) {
+        skipped.push({ actionId, reason: 'already_defined' });
+        continue;
+      }
+
+      const preset = getBusinessActionPreset(actionId);
+      const name = preset?.title ?? actionId;
+      const slug = actionIdToToolSlug(actionId);
+
+      try {
+        const data = await deps.workspaceToolDefinitionRepo.create(ws, {
+          name,
+          slug,
+          kind: 'internal_action',
+          config: { actionId },
+          jsonSchema: {
+            type: 'object',
+            additionalProperties: true,
+            description: `Parametros para a acao interna ${actionId}`,
+          },
+        });
+        created.push(data);
+        usedActionIds.add(actionId);
+      } catch (e: unknown) {
+        const dup = e && typeof e === 'object' && 'code' in e && (e as { code?: number }).code === 11000;
+        if (dup) {
+          skipped.push({ actionId, reason: 'slug_collision' });
+        } else {
+          errors.push({
+            actionId,
+            message: e instanceof Error ? e.message : 'Erro ao criar definicao',
+          });
+        }
+      }
+    }
+
+    const payload = { created, skipped, errors };
+    const code = created.length > 0 ? 201 : 200;
+    return reply.code(code).send(successEnvelope(payload));
   });
 
   app.put('/tool-definitions/:id', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
