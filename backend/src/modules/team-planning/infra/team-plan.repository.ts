@@ -14,6 +14,7 @@ function toPublic(doc: TeamPlanDoc) {
     executionChecklist: doc.executionChecklist ?? [],
     requiredPacks: doc.requiredPacks ?? [],
     requiredTools: doc.requiredTools ?? [],
+    bindOverrides: doc.bindOverrides ?? { agents: {} },
     plannerMeta: doc.plannerMeta ?? {},
     reuseSummary: doc.reuseSummary ?? {},
     result: doc.result ?? null,
@@ -36,6 +37,7 @@ export class TeamPlanRepository {
       executionChecklist: string[];
       requiredPacks?: string[];
       requiredTools?: string[];
+      bindOverrides?: Record<string, unknown>;
       plannerMeta?: Record<string, unknown>;
       reuseSummary?: Record<string, unknown>;
     },

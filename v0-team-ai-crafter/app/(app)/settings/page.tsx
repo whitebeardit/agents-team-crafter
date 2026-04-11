@@ -68,6 +68,13 @@ type SettingsWorkspaceState = {
   limits?: unknown
 }
 
+type TeamPlanningPolicy = {
+  autoBindMode: "inherit" | "enabled" | "disabled"
+  autoBindEnabled: boolean
+  source: "workspace_enabled" | "workspace_disabled" | "environment_default"
+  reusedAgentBindMode: "manual" | "merge"
+}
+
 type IntegrationsApiData = {
   operationalCatalogTools?: Array<{ id: string; name: string; description: string }>
   secretsMasked: {
@@ -165,6 +172,9 @@ export default function SettingsPage() {
   const [toolCrmBearer, setToolCrmBearer] = useState("")
   const [toolCalRestBase, setToolCalRestBase] = useState("")
   const [toolCalAuthHeader, setToolCalAuthHeader] = useState("")
+  const [teamPlanPolicy, setTeamPlanPolicy] = useState<TeamPlanningPolicy | null>(null)
+  const [teamPlanAutoBindMode, setTeamPlanAutoBindMode] = useState<"inherit" | "enabled" | "disabled">("inherit")
+  const [reusedAgentBindMode, setReusedAgentBindMode] = useState<"manual" | "merge">("manual")
 
   const defaultTab = searchParams.get("tab") === "integrations" ? "integrations" : "workspace"
 
@@ -189,7 +199,7 @@ export default function SettingsPage() {
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const [workspaceRes, profileRes, apiKeysRes, integrationsRes] = await Promise.all([
+      const [workspaceRes, profileRes, apiKeysRes, integrationsRes, teamPlanPolicyRes] = await Promise.all([
         api.get<SettingsWorkspaceState>("/settings/workspace"),
         api.get<{ name: string; email: string }>("/settings/profile", { tenant: false }),
         api.get<Array<{ id: string; name: string; prefix: string; createdAt?: string }>>("/settings/api-keys"),
@@ -201,11 +211,22 @@ export default function SettingsPage() {
             operationalCatalogTools: [],
           },
         })),
+        api.get<TeamPlanningPolicy>("/settings/workspace/team-planning-policy").catch((): { data: TeamPlanningPolicy } => ({
+          data: {
+            autoBindMode: "inherit",
+            autoBindEnabled: false,
+            source: "environment_default",
+            reusedAgentBindMode: "manual",
+          },
+        })),
       ])
       setWorkspace(workspaceRes.data)
       setProfile(profileRes.data)
       setApiKeys(apiKeysRes.data)
       setIntegrations(integrationsRes.data.secretsMasked)
+      setTeamPlanPolicy(teamPlanPolicyRes.data)
+      setTeamPlanAutoBindMode(teamPlanPolicyRes.data.autoBindMode)
+      setReusedAgentBindMode(teamPlanPolicyRes.data.reusedAgentBindMode)
       const igm = integrationsRes.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       setSmtpTestTo(profileRes.data.email ?? "")
@@ -329,6 +350,32 @@ export default function SettingsPage() {
         err,
         "Falha ao guardar (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)",
       )
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const saveTeamPlanPolicy = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<TeamPlanningPolicy & { message: string }>(
+        "/settings/workspace/team-planning-policy",
+        {
+          autoBindMode: teamPlanAutoBindMode,
+          reusedAgentBindMode,
+        },
+      )
+      setTeamPlanPolicy({
+        autoBindMode: res.data.autoBindMode,
+        autoBindEnabled: res.data.autoBindEnabled,
+        source: res.data.source,
+        reusedAgentBindMode: res.data.reusedAgentBindMode,
+      })
+      toast.success("Politica de auto-bind guardada")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar politica de auto-bind")
     } finally {
       setIntBusy(false)
     }
@@ -855,6 +902,80 @@ export default function SettingsPage() {
               <strong>admin</strong> ou <strong>owner</strong> podem guardar alteracoes.
             </AlertDescription>
           </Alert>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Builder e team plans</CardTitle>
+              <CardDescription>
+                Controle como o workspace trata o bind automatico de `requiredPacks` e `requiredTools` sugeridos
+                pelo planner.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={teamPlanPolicy?.autoBindEnabled ? "default" : "secondary"}>
+                  {teamPlanPolicy?.autoBindEnabled ? "Auto-bind efetivo: ligado" : "Auto-bind efetivo: desligado"}
+                </Badge>
+                <Badge variant="outline">
+                  origem:{" "}
+                  {teamPlanPolicy?.source === "workspace_enabled"
+                    ? "workspace ligado"
+                    : teamPlanPolicy?.source === "workspace_disabled"
+                      ? "workspace desligado"
+                      : "padrao do servidor"}
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="team-plan-auto-bind-mode">Politica do workspace</Label>
+                <Select
+                  value={teamPlanAutoBindMode}
+                  onValueChange={(value) =>
+                    setTeamPlanAutoBindMode(value as "inherit" | "enabled" | "disabled")
+                  }
+                >
+                  <SelectTrigger id="team-plan-auto-bind-mode" className="w-[min(100%,320px)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inherit">Herdar padrao do servidor</SelectItem>
+                    <SelectItem value="enabled">Forcar ligado neste workspace</SelectItem>
+                    <SelectItem value="disabled">Forcar desligado neste workspace</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Isto controla apenas o bind automatico durante `team-plans/:id/execute`. Mesmo ligado, agentes
+                reutilizados seguem a politica escolhida abaixo.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="team-plan-reused-mode">Agentes reutilizados (`existing`)</Label>
+                <Select
+                  value={reusedAgentBindMode}
+                  onValueChange={(value) => setReusedAgentBindMode(value as "manual" | "merge")}
+                >
+                  <SelectTrigger id="team-plan-reused-mode" className="w-[min(100%,320px)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual: nao fazer bind automatico</SelectItem>
+                    <SelectItem value="merge">Merge: adicionar tools sugeridas ao agente reutilizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Modo atual para `reused`:{" "}
+                <strong>
+                  {teamPlanPolicy?.reusedAgentBindMode === "merge"
+                    ? "merge controlado"
+                    : "habilitacao manual"}
+                </strong>
+                .
+              </p>
+              <Button onClick={() => void saveTeamPlanPolicy()} disabled={intBusy}>
+                Guardar politica de auto-bind
+              </Button>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

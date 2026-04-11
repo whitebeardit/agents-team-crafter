@@ -3,6 +3,7 @@
 > **Estado atual da implementação:** a fonte oficial de retomada do Ralph Loop continua sendo o ledger `agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`.  
 > Este documento segue como **plano mestre e visão de produto**.  
 > A partir desta revisão, o roadmap passa a incluir explicitamente a nova frente **Business Tools Platform / Packs Multi-tenant**.
+> Regra operacional do Ralph Loop: ao final de cada etapa/loop oficialmente concluído, fazer **commit de tudo** e **push** antes de registrar o encerramento no ledger.
 
 ## Objetivo
 
@@ -609,17 +610,18 @@ A próxima grande evolução é:
 # 12. Próxima ação recomendada
 
 ## Próximo loop recomendado
-Após a entrega dos packs-base e do bind no AI Builder, o próximo loop recomendado é:
+Após a entrega das ações em lote, reset rápido e diff final dos overrides do bind no AI Builder, o próximo loop recomendado é:
 
-### Scheduling / Appointments Pack
-- criar `appointments` e `availability_slots`
-- integrar agenda com `service_orders`, `package_sales`, `encounters` e `reminders`
-- preparar actionIds de agenda para o planner e para o bind automático
+### Ativação inline de `tool definitions` inativas no preview
+- permitir ativar `internal_action` inativas diretamente a partir do preview do bind, sem sair do AI Builder
+- distinguir com clareza o que depende de criação, reuso ou apenas reativação de definition
+- refletir no preview e no feedback final quando uma definition foi reativada para destravar o bind
+- reduzir a ida e volta entre o AI Builder e a tela de `tool-definitions`
 
 ### Justificativa
-- fecha a lacuna entre venda, lembrete e atendimento executado
-- aproveita os packs já entregues (`crm`, `care`, `services_sales`, `packages_encounters`, `clinical`, `reminders`)
-- aumenta o valor operacional real do AI Builder
+- o Loop 50 reduziu a microgestão dos overrides, mas ainda sobra atrito quando o preview aponta definitions existentes porém inativas
+- reativação inline fecha o último gargalo operacional frequente do bind dentro do próprio AI Builder
+- isso torna o preview não só explicativo, mas também resolutivo para o caso mais comum de bloqueio operacional
 
 ---
 
@@ -643,3 +645,219 @@ Após a entrega dos packs-base e do bind no AI Builder, o próximo loop recomend
 - acesso bruto do agente ao banco
 - tool genérica de write
 - terceira fonte oficial de roadmap
+
+---
+
+# 14. ETAPA 9 — Paridade de produção, configurações e operação
+
+## 14.1 Objetivo
+Fazer com que as superfícies administrativas e operacionais mais visíveis do produto passem a refletir apenas capacidades reais de produção.
+
+## 14.2 Problema a resolver
+Hoje o produto já tem uma base forte para runtime, business tools e AI Builder, mas ainda existe um conjunto de telas e ações com desalinhamento entre UX e comportamento real do backend, especialmente em:
+
+- `/settings`
+- menu superior do utilizador
+- faturamento / upgrade
+- segurança de conta
+- templates
+- tools do workspace
+- canais
+- agenda
+- governança administrativa
+
+### Diagnóstico consolidado
+As anotações levantadas continuam válidas em grande parte, com o seguinte recorte:
+
+### Já funcionam hoje
+- `API keys` do workspace
+- integrações do workspace em `/settings` (OpenAI, SMTP, Slack e segredos relacionados a tools)
+- política de auto-bind do planner em `/settings`
+- nome do workspace
+- logo do workspace
+- nome do perfil
+
+### Funcionam apenas parcialmente ou ainda não refletem produção
+- avatar de perfil
+- bio e preferências do perfil
+- idioma
+- tema
+- notificações
+- alterar senha
+- autenticação de dois fatores
+- sessões ativas
+- faturamento
+- upgrade de plano
+- enforcement de quotas do plano Free / Pro / Enterprise
+- `Meu Perfil` no menu superior
+- apagar compromisso em `/schedule`
+- purge de logs em `/governance`
+- reset administrativo de fábrica
+
+### Ainda precisam de melhor explicação operacional
+- para que servem `API keys`
+- como usar integrações na prática
+- como usar tools de catálogo em produção
+- como descobrir, ativar e validar tools reais
+- como diferenciar canais genéricos de plataformas Chat SDK
+- como aplicar templates realmente curados e prontos para uso
+
+## 14.3 Princípios da ETAPA 9
+- nenhuma configuração exibida ao utilizador deve parecer funcional sem backend real ou feedback honesto de indisponibilidade
+- limites de plano devem ser aplicados no backend, e não apenas descritos na UI
+- ações destrutivas e administrativas exigem RBAC explícito, confirmação forte e guardrails de ambiente
+- recursos ainda não entregues devem ser ocultados, despriorizados visualmente ou sinalizados como indisponíveis
+- integrações e tools precisam explicar claramente para que servem, como usar e um exemplo operacional mínimo
+- superfícies de configuração precisam ser coerentes com o runtime real do produto
+
+## 14.4 Resultado esperado
+Ao final da ETAPA 9, o produto deverá:
+
+- ter `/settings` coerente com as capacidades reais do backend
+- ter perfil, preferências e autenticação com comportamento mínimo de produção
+- aplicar quotas reais de plano no backend
+- oferecer uma jornada clara de upgrade ou declarar explicitamente quando ela ainda não existir
+- reduzir UI enganosa em templates, tools, canais e menus de conta
+- dar aos administradores operações seguras para limpeza operacional e gestão avançada
+
+## 14.5 Loops previstos da ETAPA 9
+
+## Loop 52 — Settings de perfil e preferências com backend real
+
+### Objetivo
+Fechar o gap entre o que `/settings` mostra e o que o produto realmente persiste para o utilizador.
+
+### Foco
+- foto/avatar de perfil real
+- idioma persistido em `preferences`
+- tema persistido em `preferences` e respeitado no app shell
+- bio e preferências explícitas ou remoção da UI quando ainda não houver backend
+- navegação correta de `Meu Perfil` no menu superior
+
+### Critério de saída
+- tudo o que aparece em perfil/preferências salva de verdade ou deixa de ser exibido como funcional
+
+---
+
+## Loop 53 — Notificações, canais e explicações operacionais
+
+### Objetivo
+Transformar `/settings` e `/channels` em superfícies compreensíveis e utilizáveis em produção.
+
+### Foco
+- persistência real de preferências de notificação
+- canal adicional de notificação via Discord, se alinhado ao modelo de canais existente
+- explicação prática de OpenAI, `API keys`, integrações e tools de catálogo
+- redução da ambiguidade entre `Chat SDK — plataformas` e `Canais genéricos`
+
+### Critério de saída
+- o utilizador entende para que serve cada configuração e consegue testá-la com poucos cliques
+
+---
+
+## Loop 54 — Segurança e autenticação de conta
+
+### Objetivo
+Entregar o mínimo de segurança de conta esperado para produção.
+
+### Foco
+- alterar senha
+- gestão mínima de sessões
+- decisão honesta sobre 2FA: implementar MVP ou ocultar CTA até existir backend real
+- alinhar a danger zone de conta com ações reais
+
+### Critério de saída
+- não existir mais botão crítico de segurança sem endpoint correspondente
+
+---
+
+## Loop 55 — Faturamento, upgrade e enforcement de quotas
+
+### Objetivo
+Fazer o plano Free / Pro / Enterprise refletir comportamento real do backend.
+
+### Foco
+- enforcement central de quotas para `teams`, `agents` e, se aplicável, `channels`
+- exibição do consumo atual usando `limits.used*`
+- bloqueio de criação acima da quota com mensagem clara
+- jornada real de `Fazer upgrade` ou sinalização explícita de indisponibilidade
+- desenho de integração futura com provider de billing, sem bloquear o enforcement
+
+### Critério de saída
+- o texto `Free até 2 times e 5 agentes` deixa de ser marketing solto e passa a ser regra aplicada
+
+---
+
+## Loop 56 — Templates e tools com curadoria real de produção
+
+### Objetivo
+Fazer `Templates` e `Tools` entregarem valor concreto para uso produtivo.
+
+### Foco
+- revisar o catálogo seedado e corrigir templates enganosos
+- criar templates curados por vertical real, como clínica psicológica
+- melhorar explicação e descoberta de tools reais, builtins e exemplos
+- mostrar dependências e configurações antes de aplicar template ou tool
+
+### Critério de saída
+- templates publicados passam a ser exemplos confiáveis e demonstráveis
+
+---
+
+## Loop 57 — Governança limpa e agenda operacional
+
+### Objetivo
+Fechar pendências operacionais que impactam uso diário e administração.
+
+### Foco
+- apagar compromisso em `/schedule` ou formalizar claramente soft-delete / cancelamento definitivo
+- purge de logs de governança por intervalo de data ou total, com RBAC admin e confirmação forte
+
+### Critério de saída
+- operadores e admins conseguem limpar agenda e auditoria sem recorrer a banco ou scripts manuais
+
+---
+
+## Loop 58 — Danger Zone administrativa e reset de fábrica
+
+### Objetivo
+Disponibilizar apenas para admin de plataforma uma operação segura de reset da instalação, se esse requisito continuar válido.
+
+### Foco
+- definir a semântica exata de `reset total`
+- restringir a `platform admin`
+- exigir múltiplas confirmações e guardrails de ambiente
+- preferir feature flag ou env para impedir uso acidental em ambientes errados
+
+### Critério de saída
+- existir um fluxo de reset controlado, auditado e impossível de acionar casualmente
+
+## 14.6 Ordem recomendada
+1. Loop 52
+2. Loop 54
+3. Loop 55
+4. Loop 53
+5. Loop 56
+6. Loop 57
+7. Loop 58
+
+### Justificativa
+- primeiro corrigir o truthfulness de `/settings`
+- depois fechar segurança mínima e quotas reais
+- em seguida tornar notificações, integrações, templates e tools mais utilizáveis
+- por fim tratar ações destrutivas e administrativas
+
+## 14.7 Recomendação final da ETAPA 9
+Esta etapa não substitui a ETAPA 8.
+
+Ela funciona como a macrofase seguinte para:
+
+- endurecer a superfície de produção
+- reduzir discrepâncias entre UI e backend
+- preparar o produto para uso real com menos atrito operacional
+
+## 14.8 Riscos e decisões em aberto
+- o provider de billing ainda não está decidido
+- 2FA pode exigir slice próprio, caso o MVP mínimo de conta precise sair antes
+- reset de fábrica deve ser tratado como capacidade de plataforma, não de workspace comum
+- a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service

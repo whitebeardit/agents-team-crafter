@@ -388,6 +388,10 @@ export interface TeamPlanPlannerMeta {
 /** Meta do envelope em `POST /team-plans/:id/execute` e evento SSE `complete`. */
 export interface TeamPlanExecuteMeta {
   autoBindEnabled?: boolean
+  effectiveBindEnabled?: boolean
+  autoBindMode?: "inherit" | "enabled" | "disabled"
+  autoBindPolicySource?: "workspace_enabled" | "workspace_disabled" | "environment_default"
+  reusedAgentBindMode?: "manual" | "merge"
   boundToolDefinitionIds?: string[]
   /** Quantidade de actionIds pedidos pelo planner (antes do cap). */
   autoBindActionsRequested?: number
@@ -395,9 +399,89 @@ export interface TeamPlanExecuteMeta {
   autoBindActionsApplied?: number
   /** `true` se a lista excedeu o teto do servidor (64). */
   autoBindActionsTruncated?: boolean
+  bindOverridesApplied?: boolean
+  bindOverrideAgentCount?: number
+  bindOverrideActionCount?: number
+  bindDiffSummary?: TeamPlanBindDiffSummary
+  reusedAgentsUpdated?: number
+  reusedAgentsSkipped?: number
   requiredPacks?: string[]
   requiredTools?: string[]
   governanceWarning?: unknown
+}
+
+export interface TeamPlanBindOverrideEntry {
+  mode: "inherit" | "enabled" | "disabled"
+  excludedActionIds: string[]
+}
+
+export interface TeamPlanBindOverrides {
+  agents: Record<string, TeamPlanBindOverrideEntry>
+}
+
+export interface TeamPlanBindPreviewDefinition {
+  actionId: string
+  slug: string
+  packIds: string[]
+  toolDefinitionId?: string
+  enabled?: boolean
+  currentStatus: "missing" | "existing_enabled" | "existing_disabled"
+  plannedOperation: "create" | "reuse" | "none"
+}
+
+export interface TeamPlanBindPreviewAgent {
+  planAgentKey: string
+  agentName: string
+  role: AgentRole
+  planningMode: "existing" | "new" | "split_required" | "conflict"
+  targetAgentId?: string
+  targetAgentName?: string
+  defaultBindMode: "new_agent" | "reused_merge" | "reused_manual" | "auto_bind_disabled"
+  bindMode: "new_agent" | "reused_merge" | "reused_manual" | "auto_bind_disabled"
+  overrideMode: "inherit" | "enabled" | "disabled"
+  effectiveBindEnabled: boolean
+  actionIdsCandidate: string[]
+  defaultActionIdsToLink: string[]
+  actionIdsToLink: string[]
+  actionIdsAlreadyLinked: string[]
+  actionIdsBlockedByDisabledDefinitions: string[]
+  actionIdsExcludedByOverride: string[]
+  actionIdsAddedByOverride: string[]
+  actionIdsRemovedByOverride: string[]
+}
+
+export interface TeamPlanBindPreviewPack {
+  packId: string
+  actionIds: string[]
+  defaultSelectedActionIds: string[]
+  selectedActionIds: string[]
+  actionIdsAddedByOverride: string[]
+  actionIdsRemovedByOverride: string[]
+}
+
+export interface TeamPlanBindDiffSummary {
+  affectedAgentCount: number
+  addedActionCount: number
+  removedActionCount: number
+}
+
+export interface TeamPlanBindPreview {
+  autoBindEnabled: boolean
+  effectiveBindEnabled: boolean
+  autoBindMode: "inherit" | "enabled" | "disabled"
+  autoBindPolicySource: "workspace_enabled" | "workspace_disabled" | "environment_default"
+  reusedAgentBindMode: "manual" | "merge"
+  autoBindActionsRequested: number
+  autoBindActionsApplied: number
+  autoBindActionsTruncated: boolean
+  bindOverridesApplied: boolean
+  bindOverrideAgentCount: number
+  bindOverrideActionCount: number
+  requiresExplicitApproval: boolean
+  toolDefinitions: TeamPlanBindPreviewDefinition[]
+  suggestedPacks: TeamPlanBindPreviewPack[]
+  diffSummary: TeamPlanBindDiffSummary
+  agents: TeamPlanBindPreviewAgent[]
 }
 
 export interface TeamPlanDraft {
@@ -419,6 +503,7 @@ export interface TeamPlanDraft {
   requiredPacks?: string[]
   /** actionIds de business tools sugeridos (Loop 26+). */
   requiredTools?: string[]
+  bindOverrides?: TeamPlanBindOverrides
   plannerMeta?: TeamPlanPlannerMeta
   reuseSummary?: {
     reuseRecommendations?: string[]

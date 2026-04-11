@@ -10,6 +10,11 @@ import { ApiError, createApiClient } from "@/lib/api/client"
 import type {
   GovernanceFeatureFlags,
   GovernanceOverlapMode,
+  TeamPlanBindOverrideEntry,
+  TeamPlanBindOverrides,
+  TeamPlanBindPreview,
+  TeamPlanBindPreviewAgent,
+  TeamPlanBindPreviewPack,
   TeamPlanAgentDraft,
   TeamPlanDraft,
   TeamPlanExecuteMeta,
@@ -28,6 +33,15 @@ import { nodeTypes as graphNodeTypes } from "@/components/graph/graph-node"
 import { GraphLegendInline } from "@/components/graph/graph-legend"
 import { GraphFlowOverlays } from "@/components/graph/graph-flow-overlays"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
+
+type TeamPlanningPolicy = {
+  autoBindMode: "inherit" | "enabled" | "disabled"
+  autoBindEnabled: boolean
+  source: "workspace_enabled" | "workspace_disabled" | "environment_default"
+  reusedAgentBindMode: "manual" | "merge"
+}
 
 function toNode(value: unknown): Node | null {
   if (!value || typeof value !== "object") return null
@@ -108,6 +122,106 @@ function enrichPreviewNodes(plan: TeamPlanDraft): Node[] {
     .filter((x): x is Node => x !== null)
 }
 
+function bindModeLabel(mode: TeamPlanBindPreview["agents"][number]["bindMode"]): string {
+  switch (mode) {
+    case "new_agent":
+      return "novo agente"
+    case "reused_merge":
+      return "reused com merge"
+    case "reused_manual":
+      return "reused manual"
+    default:
+      return "auto-bind desligado"
+  }
+}
+
+function bindOverrideModeLabel(mode: TeamPlanBindPreview["agents"][number]["overrideMode"]): string {
+  switch (mode) {
+    case "enabled":
+      return "override ligado"
+    case "disabled":
+      return "override desligado"
+    default:
+      return "sem override"
+  }
+}
+
+function normalizeBindOverrides(overrides: TeamPlanBindOverrides): TeamPlanBindOverrides {
+  const agents = Object.fromEntries(
+    Object.entries(overrides.agents ?? {})
+      .map(([agentKey, entry]) => {
+        const excludedActionIds = [...new Set((entry.excludedActionIds ?? []).map((value) => value.trim()).filter(Boolean))]
+        return [agentKey, { mode: entry.mode ?? "inherit", excludedActionIds }]
+      })
+      .filter(([, entry]) => entry.mode !== "inherit" || entry.excludedActionIds.length > 0),
+  )
+  return { agents }
+}
+
+function normalizeStringList(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
+}
+
+function sameStringSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const bSet = new Set(b)
+  return a.every((value) => bSet.has(value))
+}
+
+function deriveBindOverrideEntry(
+  agent: TeamPlanBindPreviewAgent,
+  desiredSelectedActionIds: string[],
+): TeamPlanBindOverrideEntry | null {
+  const candidate = normalizeStringList(agent.actionIdsCandidate)
+  const defaultSelected = normalizeStringList(agent.defaultActionIdsToLink.filter((actionId) => candidate.includes(actionId)))
+  const desired = normalizeStringList(desiredSelectedActionIds.filter((actionId) => candidate.includes(actionId)))
+
+  if (sameStringSet(desired, defaultSelected)) return null
+  if (desired.length === 0) return { mode: "disabled", excludedActionIds: [] }
+
+  const desiredSet = new Set(desired)
+  const defaultSet = new Set(defaultSelected)
+  const addedBeyondDefault = desired.filter((actionId) => !defaultSet.has(actionId))
+  if (addedBeyondDefault.length === 0) {
+    return {
+      mode: "inherit",
+      excludedActionIds: defaultSelected.filter((actionId) => !desiredSet.has(actionId)),
+    }
+  }
+
+  return {
+    mode: "enabled",
+    excludedActionIds: candidate.filter((actionId) => !desiredSet.has(actionId)),
+  }
+}
+
+function buildOverridesFromPreview(
+  preview: TeamPlanBindPreview,
+  mutator: (agent: TeamPlanBindPreviewAgent, currentSelectedActionIds: string[]) => string[],
+): TeamPlanBindOverrides {
+  const agents = Object.fromEntries(
+    preview.agents
+      .map((agent) => {
+        const desired = normalizeStringList(mutator(agent, [...agent.actionIdsToLink]))
+        const entry = deriveBindOverrideEntry(agent, desired)
+        return [agent.planAgentKey, entry] as const
+      })
+      .filter(([, entry]): entry is TeamPlanBindOverrideEntry => entry !== null),
+  )
+  return { agents }
+}
+
+function definitionStatusLabel(status: TeamPlanBindPreview["toolDefinitions"][number]["currentStatus"]): string {
+  switch (status) {
+    case "existing_enabled":
+      return "existente ativa"
+    case "existing_disabled":
+      return "existente inativa"
+    default:
+      return "a criar no execute"
+  }
+}
+
 export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
@@ -122,13 +236,29 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     null | "creating_agents" | "binding_tools" | "creating_team" | "graph" | "activate"
   >(null)
   const [executionDetail, setExecutionDetail] = useState<string>("")
+  const [lastExecutionMeta, setLastExecutionMeta] = useState<TeamPlanExecuteMeta | null>(null)
+  const [bindPreview, setBindPreview] = useState<TeamPlanBindPreview | null>(null)
+  const [isBindPreviewLoading, setIsBindPreviewLoading] = useState(false)
+  const [isBindOverrideSaving, setIsBindOverrideSaving] = useState(false)
+  const [bindPreviewApproved, setBindPreviewApproved] = useState(false)
   const [openaiKeyConfiguredInWorkspace, setOpenaiKeyConfiguredInWorkspace] = useState<boolean | null>(null)
+  const [teamPlanningPolicy, setTeamPlanningPolicy] = useState<TeamPlanningPolicy | null>(null)
   const [overlapMode, setOverlapMode] = useState<GovernanceOverlapMode>("blocking")
 
   const previewGraphNodes = useMemo(() => (plan ? enrichPreviewNodes(plan) : []), [plan])
   const previewGraphEdges = useMemo(
     () => (plan?.graph?.edges ?? []).map(toEdge).filter(Boolean) as Edge[],
     [plan],
+  )
+  const requiredCapabilityCount = (plan?.requiredPacks?.length ?? 0) + (plan?.requiredTools?.length ?? 0)
+  const reusedAgentsCount = plan?.agents.filter((agent) => agent.planningMode === "existing").length ?? 0
+  const requiresBindReview = requiredCapabilityCount > 0
+  const bindDiffAgents = useMemo(
+    () =>
+      bindPreview?.agents.filter(
+        (agent) => agent.actionIdsAddedByOverride.length > 0 || agent.actionIdsRemovedByOverride.length > 0,
+      ) ?? [],
+    [bindPreview],
   )
 
   const api = useMemo(() => {
@@ -143,11 +273,123 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
 
   useEffect(() => {
     if (!api) return
-    void api
-      .get<{ secretsMasked: { openaiApiKeyConfigured: boolean } }>("/settings/workspace/integrations")
-      .then((r) => setOpenaiKeyConfiguredInWorkspace(r.data.secretsMasked.openaiApiKeyConfigured))
-      .catch(() => setOpenaiKeyConfiguredInWorkspace(false))
+    void Promise.all([
+      api
+        .get<{ secretsMasked: { openaiApiKeyConfigured: boolean } }>("/settings/workspace/integrations")
+        .then((r) => setOpenaiKeyConfiguredInWorkspace(r.data.secretsMasked.openaiApiKeyConfigured))
+        .catch(() => setOpenaiKeyConfiguredInWorkspace(false)),
+      api
+        .get<TeamPlanningPolicy>("/settings/workspace/team-planning-policy")
+        .then((r) => setTeamPlanningPolicy(r.data))
+        .catch(() =>
+          setTeamPlanningPolicy({
+            autoBindMode: "inherit",
+            autoBindEnabled: false,
+            source: "environment_default",
+            reusedAgentBindMode: "manual",
+          }),
+        ),
+    ])
   }, [api])
+
+  const refreshBindPreview = async (planId: string) => {
+    if (!api) return
+    setIsBindPreviewLoading(true)
+    setBindPreviewApproved(false)
+    try {
+      const res = await api.get<TeamPlanBindPreview>(`/team-plans/${planId}/bind-preview`)
+      setBindPreview(res.data)
+    } catch (e) {
+      setBindPreview(null)
+      const message = e instanceof ApiError ? e.message : "Falha ao gerar preview de bind"
+      toast.error(message)
+    } finally {
+      setIsBindPreviewLoading(false)
+    }
+  }
+
+  const persistBindOverrides = async (planId: string, bindOverrides: TeamPlanBindOverrides) => {
+    if (!api) return
+    setIsBindOverrideSaving(true)
+    setBindPreviewApproved(false)
+    try {
+      const res = await api.put<{ plan: TeamPlanDraft; preview: TeamPlanBindPreview }>(
+        `/team-plans/${planId}/bind-overrides`,
+        { bindOverrides: normalizeBindOverrides(bindOverrides) },
+      )
+      setPlan(res.data.plan)
+      setBindPreview(res.data.preview)
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Falha ao salvar overrides de bind"
+      toast.error(message)
+    } finally {
+      setIsBindOverrideSaving(false)
+    }
+  }
+
+  const persistPreviewMutation = async (
+    mutator: (agent: TeamPlanBindPreviewAgent, currentSelectedActionIds: string[]) => string[],
+  ) => {
+    if (!plan || !bindPreview) return
+    await persistBindOverrides(plan.id, buildOverridesFromPreview(bindPreview, mutator))
+  }
+
+  const setAgentSelectedActions = async (agent: TeamPlanBindPreviewAgent, selectedActionIds: string[]) => {
+    await persistPreviewMutation((currentAgent, currentSelectedActionIds) =>
+      currentAgent.planAgentKey === agent.planAgentKey ? selectedActionIds : currentSelectedActionIds,
+    )
+  }
+
+  const updateAgentBindOverride = async (agent: TeamPlanBindPreviewAgent, enabled: boolean) => {
+    await setAgentSelectedActions(agent, enabled ? agent.actionIdsCandidate : [])
+  }
+
+  const updateAgentActionOverride = async (agent: TeamPlanBindPreviewAgent, actionId: string, enabled: boolean) => {
+    const current = new Set(agent.actionIdsToLink)
+    if (enabled) current.add(actionId)
+    else current.delete(actionId)
+    await setAgentSelectedActions(agent, [...current])
+  }
+
+  const applyAgentBatchAction = async (
+    agent: TeamPlanBindPreviewAgent,
+    action: "apply_all" | "clear_all" | "reset",
+  ) => {
+    if (action === "apply_all") return setAgentSelectedActions(agent, agent.actionIdsCandidate)
+    if (action === "clear_all") return setAgentSelectedActions(agent, [])
+    return setAgentSelectedActions(agent, agent.defaultActionIdsToLink)
+  }
+
+  const applyGlobalBatchAction = async (action: "apply_all" | "clear_all" | "reset") => {
+    await persistPreviewMutation((agent) => {
+      if (action === "apply_all") return agent.actionIdsCandidate
+      if (action === "clear_all") return []
+      return agent.defaultActionIdsToLink
+    })
+  }
+
+  const applyPackBatchAction = async (pack: TeamPlanBindPreviewPack, action: "apply" | "clear" | "reset") => {
+    await persistPreviewMutation((agent, currentSelectedActionIds) => {
+      const relevantActionIds = pack.actionIds.filter((actionId) => agent.actionIdsCandidate.includes(actionId))
+      if (relevantActionIds.length === 0) return currentSelectedActionIds
+
+      const nextSelected = new Set(currentSelectedActionIds)
+      const defaultSelected = new Set(agent.defaultActionIdsToLink)
+
+      if (action === "apply") {
+        relevantActionIds.forEach((actionId) => nextSelected.add(actionId))
+      } else if (action === "clear") {
+        relevantActionIds.forEach((actionId) => nextSelected.delete(actionId))
+      } else {
+        relevantActionIds.forEach((actionId) => {
+          if (defaultSelected.has(actionId)) nextSelected.add(actionId)
+          else nextSelected.delete(actionId)
+        })
+      }
+
+      return [...nextSelected]
+    })
+  }
 
   useEffect(() => {
     if (!api) return
@@ -165,7 +407,13 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
         problem: problem.trim(),
         context: context.trim() || undefined,
       })
+      setLastExecutionMeta(null)
+      setBindPreview(null)
+      setBindPreviewApproved(false)
       setPlan(res.data)
+      if ((res.data.requiredPacks?.length ?? 0) > 0 || (res.data.requiredTools?.length ?? 0) > 0) {
+        void refreshBindPreview(res.data.id)
+      }
       const meta = res.data.plannerMeta
       if (meta?.usedFallback) toast.warning("Plano gerado em modo template")
       else toast.success("Plano criado. Revise e ajuste se necessário.")
@@ -187,6 +435,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
         graph: plan.graph,
       })
       setPlan(res.data)
+      setBindPreview(null)
+      await refreshBindPreview(res.data.id)
       toast.success("Plano atualizado")
     } catch (e) {
       const message = e instanceof ApiError ? e.message : "Falha ao salvar alterações"
@@ -201,6 +451,12 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     setIsExecuting(true)
     setExecutionPhase(null)
     setExecutionDetail("")
+    setLastExecutionMeta(null)
+    if (requiresBindReview && (!bindPreview || !bindPreviewApproved)) {
+      toast.warning("Revise e aprove o preview de bind antes de executar o plano.")
+      setIsExecuting(false)
+      return
+    }
     try {
       await api.streamTeamPlanExecute<TeamPlanDraft>(
         plan.id,
@@ -217,6 +473,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             const meta =
               p && typeof p === "object" && "meta" in p ? (p as { meta?: TeamPlanExecuteMeta }).meta : undefined
             setPlan(data)
+            setLastExecutionMeta(meta ?? null)
             const teamId = data.result?.teamId
             if (meta?.governanceWarning) {
               toast.warning(
@@ -224,6 +481,34 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
               )
             } else {
               toast.success("Time criado e configurado com sucesso")
+            }
+            if ((meta?.requiredPacks?.length ?? 0) > 0 || (meta?.requiredTools?.length ?? 0) > 0) {
+              if (meta?.effectiveBindEnabled ?? meta?.autoBindEnabled) {
+                const boundCount = meta?.boundToolDefinitionIds?.length ?? 0
+                toast.success(
+                  boundCount > 0
+                    ? `${boundCount} tool definitions resolvidas para bind automatico.`
+                    : "Auto-bind ligado, mas nenhuma tool definition nova precisou ser criada.",
+                )
+              } else {
+                toast.warning(
+                  "Capabilities sugeridas nao foram auto-vinculadas. Revise Tools do workspace e as fichas dos agentes.",
+                )
+              }
+            }
+            if (meta?.bindOverridesApplied) {
+              toast.info("Overrides granulares do bind foram aplicados nesta execução.")
+            }
+            if (reusedAgentsCount > 0 && (meta?.requiredTools?.length ?? 0) > 0) {
+              if (meta?.reusedAgentBindMode === "merge") {
+                toast.success(
+                  `${meta.reusedAgentsUpdated ?? 0} agente(s) reutilizado(s) receberam merge de tools sugeridas.`,
+                )
+              } else {
+                toast.info(
+                  "Agentes reutilizados continuam em modo manual para as tools sugeridas.",
+                )
+              }
             }
             if (meta?.autoBindActionsTruncated) {
               toast.warning(
@@ -324,10 +609,45 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 <AlertTitle>Capabilities sugeridas pelo planner</AlertTitle>
                 <AlertDescription className="space-y-2">
                   <p className="text-muted-foreground">
-                    Revise antes de executar. O backend só cria definitions e faz bind automático nos agentes
-                    novos se <code className="text-xs bg-muted px-1 rounded">TEAM_PLAN_AUTO_BIND_TOOLS=1</code>{" "}
-                    estiver definido no servidor.
+                    Aqui o planner apenas sugere capabilities. O bind automatico efetivo segue a politica atual do
+                    workspace.
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">Sugestoes: {requiredCapabilityCount}</Badge>
+                    <Badge variant="secondary">Agentes reutilizados: {reusedAgentsCount}</Badge>
+                    <Badge variant={teamPlanningPolicy?.autoBindEnabled ? "default" : "secondary"}>
+                      {teamPlanningPolicy?.autoBindEnabled ? "Auto-bind ligado" : "Auto-bind desligado"}
+                    </Badge>
+                    <Badge variant="outline">
+                      reused: {teamPlanningPolicy?.reusedAgentBindMode === "merge" ? "merge" : "manual"}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Politica atual:{" "}
+                    <strong>
+                      {teamPlanningPolicy?.source === "workspace_enabled"
+                        ? "workspace forca bind ligado"
+                        : teamPlanningPolicy?.source === "workspace_disabled"
+                          ? "workspace forca bind desligado"
+                          : "herdando padrao do servidor"}
+                    </strong>
+                    . Ajuste em{" "}
+                    <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
+                      Configuracoes → Integracoes
+                    </Link>
+                    .
+                  </p>
+                  {reusedAgentsCount > 0 ? (
+                    <p className="text-muted-foreground">
+                      Para agentes em modo <code className="text-xs">existing</code>, a politica atual e{" "}
+                      <strong>
+                        {teamPlanningPolicy?.reusedAgentBindMode === "merge"
+                          ? "merge automatico"
+                          : "habilitacao manual"}
+                      </strong>
+                      .
+                    </p>
+                  ) : null}
                   {(plan.requiredPacks?.length ?? 0) > 0 && (
                     <div>
                       <span className="font-medium">Packs: </span>
@@ -352,9 +672,419 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       </ul>
                     </div>
                   )}
+                  <p className="text-muted-foreground">
+                    Se o bind automatico estiver desligado, use{" "}
+                    <Link href="/tool-definitions" className="text-primary underline-offset-4 hover:underline">
+                      Tools
+                    </Link>{" "}
+                    para garantir que as definitions estejam ativas e depois habilite-as nas fichas dos agentes.
+                  </p>
+                  <p className="text-muted-foreground">
+                    O execute fica liberado apos revisar o preview de bind da ultima versao salva do plano.
+                  </p>
                 </AlertDescription>
               </Alert>
             )}
+            {requiresBindReview ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Preview de bind</CardTitle>
+                  <CardDescription>
+                    Mostra o que o backend pretende criar, reutilizar e vincular antes do execute.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={bindPreview?.effectiveBindEnabled ? "default" : "secondary"}>
+                      {bindPreview?.effectiveBindEnabled ? "Bind efetivo" : "Sem bind efetivo"}
+                    </Badge>
+                    <Badge variant="outline">requested {bindPreview?.autoBindActionsRequested ?? 0}</Badge>
+                    <Badge variant="outline">applied {bindPreview?.autoBindActionsApplied ?? 0}</Badge>
+                    <Badge variant="outline">override agentes {bindPreview?.bindOverrideAgentCount ?? 0}</Badge>
+                    <Badge variant="outline">override actions {bindPreview?.bindOverrideActionCount ?? 0}</Badge>
+                    <Badge variant="secondary">definitions {bindPreview?.toolDefinitions.length ?? 0}</Badge>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void (plan ? refreshBindPreview(plan.id) : Promise.resolve())}
+                      disabled={isBindPreviewLoading || isBindOverrideSaving}
+                    >
+                      {isBindPreviewLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Atualizar preview
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void applyGlobalBatchAction("apply_all")}
+                      disabled={!bindPreview || isBindPreviewLoading || isBindOverrideSaving}
+                    >
+                      Aplicar tudo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void applyGlobalBatchAction("clear_all")}
+                      disabled={!bindPreview || isBindPreviewLoading || isBindOverrideSaving}
+                    >
+                      Limpar tudo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void applyGlobalBatchAction("reset")}
+                      disabled={!bindPreview || isBindPreviewLoading || isBindOverrideSaving}
+                    >
+                      Resetar politica
+                    </Button>
+                  </div>
+                  {bindPreview ? (
+                    <>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Tool definitions</p>
+                        {bindPreview.toolDefinitions.map((definition) => (
+                          <div key={definition.actionId} className="rounded-lg border p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <code className="text-xs">{definition.actionId}</code>
+                              {definition.packIds.map((packId) => (
+                                <Badge key={`${definition.actionId}-${packId}`} variant="secondary" title={packId}>
+                                  {plannerPackLabelPt(packId)}
+                                </Badge>
+                              ))}
+                              <Badge variant="outline">{definitionStatusLabel(definition.currentStatus)}</Badge>
+                              <Badge variant={definition.plannedOperation === "create" ? "default" : "secondary"}>
+                                {definition.plannedOperation === "create"
+                                  ? "criar"
+                                  : definition.plannedOperation === "reuse"
+                                    ? "reutilizar"
+                                    : "sem ação automática"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {bindPreview.suggestedPacks.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Acoes em lote por pack sugerido</p>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {bindPreview.suggestedPacks.map((pack) => (
+                              <div key={pack.packId} className="rounded-lg border p-3 space-y-3">
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Badge variant="secondary" title={pack.packId}>
+                                      {plannerPackLabelPt(pack.packId)}
+                                    </Badge>
+                                    <Badge variant="outline">actions {pack.actionIds.length}</Badge>
+                                    <Badge variant="outline">padrao {pack.defaultSelectedActionIds.length}</Badge>
+                                    <Badge variant="outline">final {pack.selectedActionIds.length}</Badge>
+                                  </div>
+                                  {(pack.actionIdsAddedByOverride.length > 0 || pack.actionIdsRemovedByOverride.length > 0) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Delta: +{pack.actionIdsAddedByOverride.length} / -{pack.actionIdsRemovedByOverride.length}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => void applyPackBatchAction(pack, "apply")}
+                                    disabled={isBindPreviewLoading || isBindOverrideSaving}
+                                  >
+                                    Aplicar pack
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => void applyPackBatchAction(pack, "clear")}
+                                    disabled={isBindPreviewLoading || isBindOverrideSaving}
+                                  >
+                                    Limpar pack
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => void applyPackBatchAction(pack, "reset")}
+                                    disabled={isBindPreviewLoading || isBindOverrideSaving}
+                                  >
+                                    Resetar pack
+                                  </Button>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {pack.actionIds.map((actionId) => `\`${actionId}\``).join(", ")}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Diff final do bind</p>
+                        <div className="rounded-lg border p-3 space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">
+                              agentes afetados {bindPreview.diffSummary.affectedAgentCount}
+                            </Badge>
+                            <Badge variant="outline">acoes adicionadas {bindPreview.diffSummary.addedActionCount}</Badge>
+                            <Badge variant="outline">acoes removidas {bindPreview.diffSummary.removedActionCount}</Badge>
+                          </div>
+                          {bindDiffAgents.length > 0 ? (
+                            <div className="space-y-3">
+                              {bindDiffAgents.map((agent) => (
+                                <div key={`diff-${agent.planAgentKey}`} className="rounded-md border p-3">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-medium">{agent.agentName}</span>
+                                    <Badge variant="outline">{agent.planAgentKey}</Badge>
+                                    <Badge variant="secondary">padrao {agent.defaultActionIdsToLink.length}</Badge>
+                                    <Badge variant="secondary">final {agent.actionIdsToLink.length}</Badge>
+                                  </div>
+                                  {agent.actionIdsAddedByOverride.length > 0 ? (
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                      Adicionadas:{" "}
+                                      {agent.actionIdsAddedByOverride.map((actionId) => `\`${actionId}\``).join(", ")}
+                                    </p>
+                                  ) : null}
+                                  {agent.actionIdsRemovedByOverride.length > 0 ? (
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                      Removidas:{" "}
+                                      {agent.actionIdsRemovedByOverride.map((actionId) => `\`${actionId}\``).join(", ")}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              O bind final segue exatamente a politica padrao do workspace.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Impacto por agente</p>
+                        {bindPreview.agents.map((agent) => (
+                          <div key={agent.planAgentKey} className="rounded-lg border p-3 space-y-3">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-medium">{agent.agentName}</span>
+                                  <Badge variant="outline">{agent.role}</Badge>
+                                  <Badge variant="secondary">{agent.planningMode}</Badge>
+                                  <Badge variant="outline">{bindModeLabel(agent.bindMode)}</Badge>
+                                  {agent.overrideMode !== "inherit" ? (
+                                    <Badge variant="secondary">{bindOverrideModeLabel(agent.overrideMode)}</Badge>
+                                  ) : null}
+                                </div>
+                                {agent.targetAgentName ? (
+                                  <p className="text-sm text-muted-foreground">Destino: {agent.targetAgentName}</p>
+                                ) : null}
+                                {agent.defaultBindMode !== agent.bindMode ? (
+                                  <p className="text-sm text-muted-foreground">
+                                    Politica padrao do workspace: {bindModeLabel(agent.defaultBindMode)}.
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`bind-toggle-${agent.planAgentKey}`}>Aplicar bind</Label>
+                                <Switch
+                                  id={`bind-toggle-${agent.planAgentKey}`}
+                                  checked={agent.effectiveBindEnabled}
+                                  disabled={isBindPreviewLoading || isBindOverrideSaving}
+                                  onCheckedChange={(checked) => void updateAgentBindOverride(agent, checked)}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => void applyAgentBatchAction(agent, "apply_all")}
+                                disabled={isBindPreviewLoading || isBindOverrideSaving}
+                              >
+                                Aplicar tudo
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => void applyAgentBatchAction(agent, "clear_all")}
+                                disabled={isBindPreviewLoading || isBindOverrideSaving}
+                              >
+                                Limpar tudo
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => void applyAgentBatchAction(agent, "reset")}
+                                disabled={isBindPreviewLoading || isBindOverrideSaving}
+                              >
+                                Resetar politica
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Padrao do workspace: {agent.defaultActionIdsToLink.length} actionId(s). Final aprovado:{" "}
+                              {agent.actionIdsToLink.length}.
+                            </p>
+                            {agent.actionIdsToLink.length > 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                Vai vincular: {agent.actionIdsToLink.map((actionId) => `\`${actionId}\``).join(", ")}
+                              </p>
+                            ) : null}
+                            {agent.actionIdsCandidate.length > 0 ? (
+                              <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">Selecionar actionIds para este agente:</p>
+                                <div className="space-y-2">
+                                  {agent.actionIdsCandidate.map((actionId) => {
+                                    const checked = agent.actionIdsToLink.includes(actionId)
+                                    return (
+                                      <label
+                                        key={`${agent.planAgentKey}-${actionId}`}
+                                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                                      >
+                                        <Checkbox
+                                          checked={checked}
+                                          disabled={!agent.effectiveBindEnabled || isBindPreviewLoading || isBindOverrideSaving}
+                                          onCheckedChange={(nextChecked) =>
+                                            void updateAgentActionOverride(agent, actionId, Boolean(nextChecked))
+                                          }
+                                        />
+                                        <code className="text-xs">{actionId}</code>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
+                            {agent.actionIdsAlreadyLinked.length > 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                Ja vinculadas: {agent.actionIdsAlreadyLinked.map((actionId) => `\`${actionId}\``).join(", ")}
+                              </p>
+                            ) : null}
+                            {agent.actionIdsExcludedByOverride.length > 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                Excluidas pelo override:{" "}
+                                {agent.actionIdsExcludedByOverride.map((actionId) => `\`${actionId}\``).join(", ")}
+                              </p>
+                            ) : null}
+                            {agent.actionIdsAddedByOverride.length > 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                Adicionadas ao padrao:{" "}
+                                {agent.actionIdsAddedByOverride.map((actionId) => `\`${actionId}\``).join(", ")}
+                              </p>
+                            ) : null}
+                            {agent.actionIdsRemovedByOverride.length > 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                Removidas do padrao:{" "}
+                                {agent.actionIdsRemovedByOverride.map((actionId) => `\`${actionId}\``).join(", ")}
+                              </p>
+                            ) : null}
+                            {agent.actionIdsBlockedByDisabledDefinitions.length > 0 ? (
+                              <p className="text-sm text-amber-500">
+                                Definitions inativas:{" "}
+                                {agent.actionIdsBlockedByDisabledDefinitions.map((actionId) => `\`${actionId}\``).join(", ")}
+                              </p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="bind-preview-approved"
+                          checked={bindPreviewApproved}
+                          onCheckedChange={(checked) => setBindPreviewApproved(Boolean(checked))}
+                        />
+                        <Label htmlFor="bind-preview-approved">
+                          Revisei o preview de bind da ultima versao salva e aprovo executar o plano.
+                        </Label>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Salve o plano e gere o preview para liberar a execucao com visibilidade do bind.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+            {lastExecutionMeta && plan.status === "executed" ? (
+              <Alert variant={lastExecutionMeta.effectiveBindEnabled ?? lastExecutionMeta.autoBindEnabled ? "default" : "destructive"}>
+                <Sparkles className="h-4 w-4" />
+                <AlertTitle>Resultado do bind de tools</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p className="text-muted-foreground">
+                    {lastExecutionMeta.effectiveBindEnabled ?? lastExecutionMeta.autoBindEnabled
+                      ? "O servidor executou o bind final aprovado para as capabilities sugeridas."
+                      : "O servidor executou o plano sem auto-bind. As capabilities continuam dependentes de habilitacao manual."}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Fonte da politica usada nesta execucao:{" "}
+                    <strong>
+                      {lastExecutionMeta.autoBindPolicySource === "workspace_enabled"
+                        ? "workspace ligado"
+                        : lastExecutionMeta.autoBindPolicySource === "workspace_disabled"
+                          ? "workspace desligado"
+                          : "padrao do servidor"}
+                    </strong>
+                    .
+                  </p>
+                  <p className="text-muted-foreground">
+                    Politica para agentes `reused`:{" "}
+                    <strong>{lastExecutionMeta.reusedAgentBindMode === "merge" ? "merge" : "manual"}</strong>.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">
+                      requested {lastExecutionMeta.autoBindActionsRequested ?? 0}
+                    </Badge>
+                    <Badge variant="outline">
+                      applied {lastExecutionMeta.autoBindActionsApplied ?? 0}
+                    </Badge>
+                    <Badge variant="secondary">
+                      definitions {lastExecutionMeta.boundToolDefinitionIds?.length ?? 0}
+                    </Badge>
+                    <Badge variant="outline">
+                      override agentes {lastExecutionMeta.bindOverrideAgentCount ?? 0}
+                    </Badge>
+                    <Badge variant="outline">
+                      override actions {lastExecutionMeta.bindOverrideActionCount ?? 0}
+                    </Badge>
+                    <Badge variant="outline">
+                      reused updated {lastExecutionMeta.reusedAgentsUpdated ?? 0}
+                    </Badge>
+                    <Badge variant="outline">
+                      reused skipped {lastExecutionMeta.reusedAgentsSkipped ?? 0}
+                    </Badge>
+                  </div>
+                  {reusedAgentsCount > 0 ? (
+                    <p className="text-muted-foreground">
+                      Este plano reutilizou {reusedAgentsCount} agente(s).{" "}
+                      {lastExecutionMeta.reusedAgentBindMode === "merge"
+                        ? "O backend aplicou merge controlado onde necessario."
+                        : "Valide manualmente a aba Ferramentas desses agentes se as capabilities forem necessarias no runtime."}
+                    </p>
+                  ) : null}
+                  {lastExecutionMeta.bindOverridesApplied ? (
+                    <p className="text-muted-foreground">
+                      Overrides granulares ajustaram o bind antes do execute final.
+                    </p>
+                  ) : null}
+                  {lastExecutionMeta.bindDiffSummary ? (
+                    <p className="text-muted-foreground">
+                      Delta aprovado versus politica do workspace: {lastExecutionMeta.bindDiffSummary.addedActionCount}{" "}
+                      adicao(oes), {lastExecutionMeta.bindDiffSummary.removedActionCount} remocao(oes), em{" "}
+                      {lastExecutionMeta.bindDiffSummary.affectedAgentCount} agente(s).
+                    </p>
+                  ) : null}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {executionPhase && (
               <div className="rounded-lg border border-dashed p-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -385,11 +1115,25 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             ) : null}
             <div className="space-y-2">
               <Label>Nome do time</Label>
-              <Input value={plan.team.name} onChange={(e) => setPlan({ ...plan, team: { ...plan.team, name: e.target.value } })} />
+              <Input
+                value={plan.team.name}
+                onChange={(e) => {
+                  setBindPreview(null)
+                  setBindPreviewApproved(false)
+                  setPlan({ ...plan, team: { ...plan.team, name: e.target.value } })
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label>Objetivo do time</Label>
-              <Textarea value={plan.team.objective} onChange={(e) => setPlan({ ...plan, team: { ...plan.team, objective: e.target.value } })} />
+              <Textarea
+                value={plan.team.objective}
+                onChange={(e) => {
+                  setBindPreview(null)
+                  setBindPreviewApproved(false)
+                  setPlan({ ...plan, team: { ...plan.team, objective: e.target.value } })
+                }}
+              />
             </div>
             <div className="space-y-3">
               <Label>Agentes planejados</Label>
@@ -407,6 +1151,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     onChange={(e) => {
                       const agents = [...plan.agents]
                       agents[index] = { ...agents[index], name: e.target.value }
+                      setBindPreview(null)
+                      setBindPreviewApproved(false)
                       setPlan({ ...plan, agents })
                     }}
                   />
@@ -415,6 +1161,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     onChange={(e) => {
                       const agents = [...plan.agents]
                       agents[index] = { ...agents[index], description: e.target.value }
+                      setBindPreview(null)
+                      setBindPreviewApproved(false)
                       setPlan({ ...plan, agents })
                     }}
                   />
@@ -423,6 +1171,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     onChange={(e) => {
                       const agents = [...plan.agents]
                       agents[index] = { ...agents[index], skills: parseCsv(e.target.value) }
+                      setBindPreview(null)
+                      setBindPreviewApproved(false)
                       setPlan({ ...plan, agents })
                     }}
                     placeholder="skills separadas por vírgula"
@@ -464,6 +1214,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 onClick={executePlan}
                 disabled={
                   isExecuting ||
+                  isBindPreviewLoading ||
+                  (requiresBindReview && (!bindPreview || !bindPreviewApproved)) ||
                   (overlapMode === "blocking" && (plan.reuseSummary?.conflicts?.length ?? 0) > 0)
                 }
               >

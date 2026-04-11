@@ -39,6 +39,7 @@ const TeamPlanSchema = new Schema(
     executionChecklist: [{ type: String }],
     requiredPacks: [{ type: String }],
     requiredTools: [{ type: String }],
+    bindOverrides: { type: Schema.Types.Mixed, default: { agents: {} } },
     plannerMeta: { type: Schema.Types.Mixed, default: {} },
     reuseSummary: { type: Schema.Types.Mixed, default: {} },
     result: { type: Schema.Types.Mixed, default: null },

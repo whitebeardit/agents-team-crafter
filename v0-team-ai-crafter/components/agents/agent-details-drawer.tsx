@@ -85,6 +85,7 @@ export function AgentDetailsDrawer({
   }
 
   const toolCount = agent.capabilities?.tools?.length || 0
+  const workspaceToolCount = agent.capabilities?.customToolDefinitionIds?.length || 0
   const knowledgeCount = agent.knowledge?.sources?.length || 0
   const channelCount = agent.channelConfig?.enabled?.length || agent.channels.length
 
@@ -196,7 +197,14 @@ export function AgentDetailsDrawer({
                 <Wrench className="w-4 h-4 text-accent" />
                 <div>
                   <p className="text-sm font-medium">{toolCount}</p>
-                  <p className="text-xs text-muted-foreground">Ferramentas</p>
+                  <p className="text-xs text-muted-foreground">Catalogo</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <Settings2 className="w-4 h-4 text-accent" />
+                <div>
+                  <p className="text-sm font-medium">{workspaceToolCount}</p>
+                  <p className="text-xs text-muted-foreground">Tools workspace</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">

@@ -16,10 +16,15 @@ const updateSchema = z.object({
   team: z.unknown().optional(),
   agents: z.unknown().optional(),
   graph: z.unknown().optional(),
+  bindOverrides: z.unknown().optional(),
 });
 
 const executeSchema = z.object({
   operationId: z.string().min(8).optional(),
+});
+
+const bindOverridesSchema = z.object({
+  bindOverrides: z.unknown().optional(),
 });
 
 export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDeps) {
@@ -48,6 +53,21 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
     const body = updateSchema.parse(req.body);
     const plan = await service.updatePlan(ws, id, body);
     return reply.send(successEnvelope(plan));
+  });
+
+  app.put('/team-plans/:id/bind-overrides', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = (req.params as { id: string }).id;
+    const body = bindOverridesSchema.parse(req.body ?? {});
+    const data = await service.updateBindOverrides(ws, id, body.bindOverrides);
+    return reply.send(successEnvelope(data));
+  });
+
+  app.get('/team-plans/:id/bind-preview', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = (req.params as { id: string }).id;
+    const preview = await service.previewBind(ws, id);
+    return reply.send(successEnvelope(preview));
   });
 
   app.post('/team-plans/:id/execute', { preHandler: tenant }, async (req, reply) => {

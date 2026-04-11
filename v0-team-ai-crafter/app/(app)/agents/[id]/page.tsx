@@ -89,6 +89,25 @@ const knowledgeTypeIcons: Record<string, typeof Database> = {
   website: Globe,
 }
 
+function describeWorkspaceToolConfig(tool: {
+  kind: string
+  config?: Record<string, unknown>
+}): string | null {
+  if (tool.kind === "internal_action") {
+    return typeof tool.config?.actionId === "string" ? String(tool.config.actionId) : "Acao interna do backend"
+  }
+  if (tool.kind === "http_webhook") {
+    return typeof tool.config?.url === "string" ? String(tool.config.url) : "Webhook HTTP"
+  }
+  if (tool.kind === "builtin_ref") {
+    return typeof tool.config?.builtinId === "string" ? `builtin:${String(tool.config.builtinId)}` : "Builtin"
+  }
+  if (tool.kind === "mcp_ref") {
+    return typeof tool.config?.toolName === "string" ? `mcp:${String(tool.config.toolName)}` : "Referencia MCP"
+  }
+  return null
+}
+
 export default function AgentDetailsPage({ params: _params }: { params: Promise<{ id: string }> }) {
   const params = useParams<{ id: string }>()
   const id = params.id
@@ -116,7 +135,14 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [enabledTools, setEnabledTools] = useState<string[]>([])
   const [customToolDefinitionIds, setCustomToolDefinitionIds] = useState<string[]>([])
   const [workspaceToolDefs, setWorkspaceToolDefs] = useState<
-    Array<{ id: string; name: string; slug: string; enabled: boolean }>
+    Array<{
+      id: string
+      name: string
+      slug: string
+      enabled: boolean
+      kind: "builtin_ref" | "http_webhook" | "mcp_ref" | "internal_action"
+      config?: Record<string, unknown>
+    }>
   >([])
   const [enabledChannels, setEnabledChannels] = useState<Array<"whatsapp" | "slack" | "email" | "api">>([])
   const [canReplyDirectly, setCanReplyDirectly] = useState(true)
@@ -169,7 +195,16 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           api.get<KnowledgeSource[]>("/knowledge-sources"),
           api.get<Team[]>(`/teams?page=1&perPage=100`),
           api
-            .get<Array<{ id: string; name: string; slug: string; enabled: boolean }>>("/tool-definitions")
+            .get<
+              Array<{
+                id: string
+                name: string
+                slug: string
+                enabled: boolean
+                kind: "builtin_ref" | "http_webhook" | "mcp_ref" | "internal_action"
+                config?: Record<string, unknown>
+              }>
+            >("/tool-definitions")
             .catch(() => ({ data: [], meta: {} })),
           api
             .get<{
@@ -193,7 +228,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         setBindings(bindingsRes.data)
         setKnowledgeSources(knowledgeRes.data)
         setTeams(teamsRes.data)
-        setWorkspaceToolDefs(toolDefsRes.data.filter((toolDef) => toolDef.enabled))
+        setWorkspaceToolDefs(toolDefsRes.data)
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Falha ao carregar agente"
         toast.error(msg)
@@ -226,6 +261,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const availableMCPsForBinding = mcps.filter(
     (m) => !boundMCPIds.includes(m.id) && m.status === "connected",
   )
+  const activeWorkspaceToolDefs = workspaceToolDefs.filter((toolDef) => toolDef.enabled)
+  const inactiveWorkspaceToolDefs = workspaceToolDefs.filter((toolDef) => !toolDef.enabled)
+  const selectedWorkspaceToolCount = customToolDefinitionIds.length
   
   const agentTeams = teams.filter((t) => t.coordinatorId === agent.id || t.agentIds.includes(agent.id))
 
@@ -646,7 +684,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 </CardTitleWithInfo>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                     <Plug className="w-5 h-5 text-primary" />
                     <div>
@@ -658,7 +696,14 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     <Wrench className="w-5 h-5 text-accent" />
                     <div>
                       <p className="text-sm font-medium">{agent.capabilities?.tools?.length || 0}</p>
-                      <p className="text-xs text-muted-foreground">Ferramentas</p>
+                      <p className="text-xs text-muted-foreground">Catalogo operacional</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Settings2 className="w-5 h-5 text-accent" />
+                    <div>
+                      <p className="text-sm font-medium">{selectedWorkspaceToolCount}</p>
+                      <p className="text-xs text-muted-foreground">Tools do workspace</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
@@ -949,7 +994,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 {agentFieldHelp.workspaceTools}
               </CardTitleWithInfo>
               <CardDescription>
-                Definicoes personalizadas (webhook HTTP, builtin_ref) criadas em{" "}
+                Definicoes personalizadas (`http_webhook`, `builtin_ref`, `internal_action`) criadas em{" "}
                 <Link href="/tool-definitions" className="text-primary underline-offset-4 hover:underline">
                   Tools
                 </Link>
@@ -957,13 +1002,29 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {workspaceToolDefs.length === 0 ? (
+              {inactiveWorkspaceToolDefs.length > 0 ? (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Existem tools desativadas no workspace</AlertTitle>
+                  <AlertDescription>
+                    {inactiveWorkspaceToolDefs.length} item(ns) estao ocultos desta lista porque `enabled=false`.
+                    Reative em{" "}
+                    <Link href="/tool-definitions" className="text-primary underline-offset-4 hover:underline">
+                      Tools
+                    </Link>{" "}
+                    para voltarem a aparecer aqui.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              {activeWorkspaceToolDefs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhuma tool de workspace ativa. Crie em Tools ou ative uma existente.
+                  Nenhuma tool de workspace ativa. Crie em Tools ou ative uma existente para poder habilitar neste
+                  agente.
                 </p>
               ) : (
-                workspaceToolDefs.map((def) => {
+                activeWorkspaceToolDefs.map((def) => {
                   const checked = customToolDefinitionIds.includes(def.id)
+                  const extraConfig = describeWorkspaceToolConfig(def)
                   return (
                     <div
                       key={def.id}
@@ -972,8 +1033,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                       }`}
                     >
                       <div className="min-w-0">
-                        <p className="font-medium truncate">{def.name}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium truncate">{def.name}</p>
+                          <Badge variant="outline">{def.kind}</Badge>
+                          {checked ? <Badge variant="secondary">Habilitada neste agente</Badge> : null}
+                        </div>
                         <p className="text-sm text-muted-foreground font-mono">{def.slug}</p>
+                        {extraConfig ? <p className="text-xs text-muted-foreground mt-1 break-all">{extraConfig}</p> : null}
                       </div>
                       <Switch
                         checked={checked}

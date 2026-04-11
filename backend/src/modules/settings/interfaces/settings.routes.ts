@@ -5,6 +5,10 @@ import { requireAdmin } from '../../../config/container.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { putWorkspaceIntegrationsBodySchema } from '../domain/workspace-integrations.schema.js';
+import {
+  putTeamPlanPolicyBodySchema,
+  resolveTeamPlanAutoBindPolicy,
+} from '../../team-planning/application/team-plan-auto-bind-policy.js';
 
 const workspacePut = z.object({
   name: z.string().optional(),
@@ -39,6 +43,37 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
     const data = await deps.workspaceIntegrationsService.getMasked(ws);
     return reply.send(successEnvelope(data));
   });
+
+  app.get('/settings/workspace/team-planning-policy', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const record = await deps.workspaceRepo.findById(ws);
+    if (!record) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
+    const envDefaultEnabled = (deps.env.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0') === '1';
+    const data = resolveTeamPlanAutoBindPolicy((record.settings as Record<string, unknown>) ?? {}, envDefaultEnabled);
+    return reply.send(successEnvelope(data));
+  });
+
+  app.put(
+    '/settings/workspace/team-planning-policy',
+    { preHandler: [...tenant, requireAdmin({ allowPlatformAdmin: true })] },
+    async (req, reply) => {
+      const ws = req.workspaceId!;
+      const body = putTeamPlanPolicyBodySchema.parse(req.body);
+      const record = await deps.workspaceRepo.findById(ws);
+      if (!record) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
+      const settings = { ...((record.settings as Record<string, unknown>) ?? {}) };
+      settings['teamPlanning'] = {
+        ...((settings['teamPlanning'] as Record<string, unknown> | undefined) ?? {}),
+        autoBindMode: body.autoBindMode,
+        ...(body.reusedAgentBindMode !== undefined ? { reusedAgentBindMode: body.reusedAgentBindMode } : {}),
+      };
+      const updated = await deps.workspaceRepo.updateWorkspace(ws, { settings });
+      if (!updated) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
+      const envDefaultEnabled = (deps.env.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0') === '1';
+      const data = resolveTeamPlanAutoBindPolicy((updated.settings as Record<string, unknown>) ?? {}, envDefaultEnabled);
+      return reply.send(successEnvelope({ message: 'Politica de auto-bind atualizada', ...data }));
+    },
+  );
 
   app.put(
     '/settings/workspace/integrations',
