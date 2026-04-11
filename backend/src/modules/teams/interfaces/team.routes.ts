@@ -18,6 +18,7 @@ import { assertActiveChannelBindingUnique } from '../application/assert-active-c
 import { getTeamGalleryService } from '../application/team-gallery.service.js';
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
+import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import {
   buildManualTeamInvocation,
   teamRunBodySchema,
@@ -37,7 +38,7 @@ const createTeamSchema = z.object({
   coordinatorId: z.string().min(1),
   agentIds: z.array(z.string()).default([]),
   channelIds: z.array(z.string()).default([]),
-  primaryChannel: z.enum(['whatsapp', 'slack', 'email', 'api']).optional(),
+  primaryChannel: productChannelTypeSchema.optional(),
 });
 
 const updateTeamSchema = z.object({
@@ -48,7 +49,7 @@ const updateTeamSchema = z.object({
   coordinatorId: z.string().min(1).optional(),
   agentIds: z.array(z.string()).optional(),
   channelIds: z.array(z.string()).optional(),
-  primaryChannel: z.enum(['whatsapp', 'slack', 'email', 'api']).optional(),
+  primaryChannel: productChannelTypeSchema.optional(),
 });
 
 const duplicateSchema = z.object({

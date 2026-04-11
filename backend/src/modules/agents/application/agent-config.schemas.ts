@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import { isAllowedTool, stripDeprecatedCatalogToolIds } from '../domain/available-tools.js';
 
-const channelType = z.enum(['whatsapp', 'slack', 'email', 'api']);
+const channelType = productChannelTypeSchema;
 
 export const missionSchema = z.object({
   goal: z.string().optional(),

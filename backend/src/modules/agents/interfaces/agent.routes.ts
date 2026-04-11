@@ -17,6 +17,7 @@ import {
 import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
+import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 
 const listQuerySchema = paginationQuerySchema.merge(
   z.object({
@@ -34,7 +35,7 @@ const createAgentSchema = z.object({
   role: z.enum(['coordinator', 'specialist']),
   skills: z.array(z.string()).default([]),
   category: z.string().optional(),
-  channels: z.array(z.enum(['whatsapp', 'slack', 'email', 'api'])).default([]),
+  channels: z.array(productChannelTypeSchema).default([]),
   goal: z.string().optional(),
   responsibilities: z.array(z.string()).optional(),
   domain: agentDomainSchema.optional(),
@@ -51,7 +52,7 @@ const updateAgentSchema = z.object({
   description: z.string().optional(),
   skills: z.array(z.string()).optional(),
   category: z.string().optional(),
-  channels: z.array(z.enum(['whatsapp', 'slack', 'email', 'api'])).optional(),
+  channels: z.array(productChannelTypeSchema).optional(),
   goal: z.string().optional(),
   responsibilities: z.array(z.string()).optional(),
   domain: agentDomainSchema.optional(),

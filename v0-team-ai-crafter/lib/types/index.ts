@@ -397,7 +397,7 @@ export interface TeamPlanAgentDraft {
   responsibilities: string[]
   skills: string[]
   category: string
-  channels: Array<Extract<ChannelType, "whatsapp" | "slack" | "email" | "api">>
+  channels: ChannelType[]
   planningMode?: "existing" | "new" | "split_required" | "conflict"
   existingAgentId?: string | null
   overlapScore?: number
@@ -528,7 +528,7 @@ export interface TeamPlanDraft {
     name: string
     objective: string
     description: string
-    primaryChannel?: Extract<ChannelType, "whatsapp" | "slack" | "email" | "api">
+    primaryChannel?: ChannelType
     channelIds: string[]
   }
   agents: TeamPlanAgentDraft[]

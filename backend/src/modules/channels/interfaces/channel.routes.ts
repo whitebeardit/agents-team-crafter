@@ -6,23 +6,13 @@ import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { mockChannelConnect, mockChannelTest } from '../infra/channel.repository.js';
 import { CHAT_SDK_PLATFORMS } from '../domain/chat-sdk-platform.js';
+import { productChannelTypeSchema } from '../domain/product-channel-type.js';
 import { parseChatSdkSecretsBody } from '../domain/chat-sdk-secrets.schema.js';
 import { buildChatSdkWebhookUrl } from '../application/build-chat-sdk-webhook-url.js';
 import { registerTelegramWebhookWithTelegramApi } from '../application/register-telegram-webhook.js';
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 
-const channelTypeEnum = z.enum([
-  'whatsapp',
-  'slack',
-  'email',
-  'api',
-  'teams',
-  'discord',
-  'gchat',
-  'telegram',
-  'github',
-  'linear',
-]);
+const channelTypeEnum = productChannelTypeSchema;
 
 const listQuery = z.object({
   type: channelTypeEnum.optional(),

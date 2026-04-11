@@ -958,6 +958,27 @@ Quando `POST /team-plans` devolve `plannerMeta.usedFallback: true`, o utilizador
 
 **Estado (ledger):** entregue — [`planner-fallback-messages.ts`](../v0-team-ai-crafter/lib/planner-fallback-messages.ts) + alterações em [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx).
 
+---
+
+## Loop 63 — Paridade planner × canais (Chat SDK + nativos)
+
+### Objetivo
+O schema Zod do output do Whitebeard AI Planner e as rotas que aceitam `channels` / `primaryChannel` em agentes e times devem permitir **os mesmos literais** que o modelo `Channel` no MongoDB e as plataformas expostas pelo Chat SDK (incluindo `telegram`). Caso contrário, um plano válido gerado pelo modelo com `primaryChannel: "telegram"` falha em `schema_validation_failed` e o produto cai no fallback genérico.
+
+### Foco
+- Constante e `z.enum` partilhados: [`product-channel-type.ts`](../backend/src/modules/channels/domain/product-channel-type.ts)
+- `plannerOutputSchema` extraído para [`team-plan-planner-output.schema.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts)
+- Rotas: canais em [`agent.routes.ts`](../backend/src/modules/agents/interfaces/agent.routes.ts), [`team.routes.ts`](../backend/src/modules/teams/interfaces/team.routes.ts), [`channel.routes.ts`](../backend/src/modules/channels/interfaces/channel.routes.ts), [`agent-config.schemas.ts`](../backend/src/modules/agents/application/agent-config.schemas.ts)
+- Prompt do planner: lista dinâmica de canais + regra de alinhar canal mencionado no contexto (ex.: Telegram → `"telegram"`)
+- Tipos frontend: [`v0-team-ai-crafter/lib/types/index.ts`](../v0-team-ai-crafter/lib/types/index.ts) (`TeamPlanAgentDraft`, `TeamPlanDraft`)
+- Teste: [`team-plan-planner-output.schema.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.test.ts)
+
+### Critério de saída
+- `plannerOutputSchema.safeParse` aceita `primaryChannel: "telegram"` e canais do coordenador coerentes
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) Loop 63.
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -972,6 +993,7 @@ Quando `POST /team-plans` devolve `plannerMeta.usedFallback: true`, o utilizador
 9. **Loop 60** — remover CRM HTTP do catálogo (ver [secção Loop 60](#loop-60--remover-crm-http-do-catálogo-paridade-com-crm-interno)); entregue no ledger.
 10. **Loop 61** — criação em lote de tools «Ação interna (negócio)» na página Tools (ver [secção Loop 61](#loop-61--criação-em-lote-de-tools-ação-interna-negócio-ux)); entregue no ledger.
 11. **Loop 62** — transparência do fallback do team planner no AI Builder (ver [secção Loop 62](#loop-62--transparência-do-fallback-do-team-planner-ai-builder)); entregue no ledger.
+12. **Loop 63** — paridade planner × canais Chat SDK + nativos (ver [secção Loop 63](#loop-63--paridade-planner--canais-chat-sdk--nativos)); entregue no ledger.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -982,6 +1004,7 @@ Quando `POST /team-plans` devolve `plannerMeta.usedFallback: true`, o utilizador
 - **Loop 60:** reduzir ambiguidade produto/runtime entre CRM catálogo HTTP e CRM interno (pack)
 - **Loop 61:** reduzir atrito ao registar muitas `internal_action` no mesmo workspace (seleção múltipla + confirmação única)
 - **Loop 62:** operação e suporte quando o planner usa template (`fallbackReason` visível na UI)
+- **Loop 63:** enum de canais do planner alinhado a `Channel` / Chat SDK (evita fallback por `telegram` inválido)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.

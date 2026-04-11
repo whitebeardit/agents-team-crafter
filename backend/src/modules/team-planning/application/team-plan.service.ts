@@ -16,6 +16,7 @@ import { ensureInternalActionDefinitions } from './ensure-planner-tool-definitio
 import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../../../app/metrics.js';
 import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
 import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
+import { plannerOutputSchema, type TPlannerOutput } from './team-plan-planner-output.schema.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
 
@@ -104,47 +105,6 @@ export interface ITeamPlanBindOverrideEntry {
 export interface ITeamPlanBindOverrides {
   agents: Record<string, ITeamPlanBindOverrideEntry>;
 }
-
-const plannerOutputSchema = z.object({
-  team: z.object({
-    name: z.string().min(3),
-    objective: z.string().min(10),
-    description: z.string().default(''),
-    primaryChannel: z.enum(['whatsapp', 'slack', 'email', 'api']).optional(),
-    channelIds: z.array(z.string()).default([]),
-  }),
-  agents: z
-    .array(
-      z.object({
-        name: z.string().min(2),
-        role: z.enum(['coordinator', 'specialist']),
-        description: z.string().default(''),
-        objective: z.string().default(''),
-        responsibilities: z.array(z.string()).default([]),
-        skills: z.array(z.string()).default([]),
-        category: z.string().default('geral'),
-        channels: z.array(z.enum(['whatsapp', 'slack', 'email', 'api'])).default([]),
-        planningMode: z.enum(['existing', 'new', 'split_required', 'conflict']).optional(),
-        existingAgentId: z.string().optional().nullable(),
-        overlapScore: z.number().optional(),
-        overlapReason: z.string().optional(),
-      }),
-    )
-    .min(1),
-  graph: z
-    .object({
-      nodes: z.array(z.unknown()).default([]),
-      edges: z.array(z.unknown()).default([]),
-    })
-    .default({ nodes: [], edges: [] }),
-  executionChecklist: z.array(z.string()).default([]),
-  /** Packs de negocio sugeridos (ETAPA 8 / Loop 26). */
-  requiredPacks: z.array(z.string()).default([]),
-  /** actionIds de business tools sugeridos para bind aos agentes. */
-  requiredTools: z.array(z.string()).default([]),
-});
-
-type TPlannerOutput = z.infer<typeof plannerOutputSchema>;
 
 const bindOverrideEntrySchema = z.object({
   mode: z.enum(['inherit', 'enabled', 'disabled']).default('inherit'),

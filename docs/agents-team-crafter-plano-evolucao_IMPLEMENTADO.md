@@ -631,6 +631,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 60   | Remover CRM HTTP do catálogo (ambiguidade vs CRM interno) | entregue (ver [Loop 60](#loop-60-fechado))                                                      |
 | 61   | Criação em lote de `internal_action` na página Tools (UX) | entregue (ver [Loop 61](#loop-61-fechado))                                                     |
 | 62   | Transparência do fallback do team planner (AI Builder)   | entregue (ver [Loop 62](#loop-62-fechado))                                                     |
+| 63   | Paridade planner × canais (Chat SDK + nativos)             | entregue (ver [Loop 63](#loop-63-fechado))                                                     |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -639,7 +640,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 62** — transparência do fallback do team planner no AI Builder (ver [Loop 62](#loop-62-fechado)).
+**Último slice numerado fechado:** **Loop 63** — paridade planner × canais (Chat SDK + nativos) (ver [Loop 63](#loop-63-fechado)).
 
 **Próximo slice:** definir no plano mestre (`agents-team-crafter-plano-evolucao.md`) quando houver nova macro-tarefa; candidatos incluem evoluções da ETAPA 9 (ex.: admin global — listagem de utilizadores / delete em cascata) ou novas frentes de produto.
 
@@ -1190,6 +1191,21 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - critério de saída: causas `no_openai_key`, `openai_request_failed`, `json_extract_failed`, `schema_validation_failed` identificáveis na revisão do plano.
 - Gate: `npm run build` em `v0-team-ai-crafter` (sem alteração de backend obrigatória para este slice).
 - **referência no plano mestre:** [Loop 62](agents-team-crafter-plano-evolucao.md#loop-62--transparência-do-fallback-do-team-planner-ai-builder)
+
+## Loop 63 (fechado)
+
+- etapa/prioridade: ETAPA 9 (contrato team planner / canais) / alta
+- objetivo do slice: alinhar `team.primaryChannel`, `agents[].channels`, rotas de agentes/times e `channelConfig.enabled` ao **mesmo conjunto de tipos** que o modelo `Channel` e o Chat SDK (`telegram`, `discord`, `teams`, … + `email`, `api`), evitando `schema_validation_failed` no planner quando o modelo devolve `primaryChannel: "telegram"`.
+- **entregue no repositório:**
+  - [`product-channel-type.ts`](../backend/src/modules/channels/domain/product-channel-type.ts): `PRODUCT_CHANNEL_TYPES`, `productChannelTypeSchema`
+  - [`team-plan-planner-output.schema.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): `plannerOutputSchema` com `productChannelTypeSchema`; import em [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts)
+  - [`channel.routes.ts`](../backend/src/modules/channels/interfaces/channel.routes.ts), [`agent.routes.ts`](../backend/src/modules/agents/interfaces/agent.routes.ts), [`team.routes.ts`](../backend/src/modules/teams/interfaces/team.routes.ts), [`agent-config.schemas.ts`](../backend/src/modules/agents/application/agent-config.schemas.ts): enum partilhado
+  - [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): lista dinâmica de canais + regras Telegram / multi-especialista / exemplos de `requiredPacks`
+  - [`v0-team-ai-crafter/lib/types/index.ts`](../v0-team-ai-crafter/lib/types/index.ts): `TeamPlanAgentDraft.channels` e `TeamPlanDraft.team.primaryChannel` como `ChannelType`
+  - [`team-plan-planner-output.schema.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.test.ts): aceita `telegram` e regressão `api`
+- critério de saída: JSON do planner com `telegram` valida sem fallback por enum de canal; gate com frontend.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**206** testes backend no encerramento deste slice).
+- **referência no plano mestre:** [Loop 63](agents-team-crafter-plano-evolucao.md#loop-63--paridade-planner--canais-chat-sdk--nativos)
 
 ---
 

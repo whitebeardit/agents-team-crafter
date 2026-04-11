@@ -2,9 +2,12 @@
  * Instrucoes do sistema para o Whitebeard AI Planner (saida JSON estruturada).
  */
 
+import { PRODUCT_CHANNEL_TYPES } from '../../channels/domain/product-channel-type.js';
 import { PLANNER_PACK_IDS } from './planner-pack-presets.js';
 
 const PLANNER_PACK_IDS_PROMPT = PLANNER_PACK_IDS.map((p) => `"${p}"`).join(', ');
+
+const PLANNER_CHANNEL_UNION = PRODUCT_CHANNEL_TYPES.map((c) => `"${c}"`).join(' | ');
 
 export const TEAM_PLANNER_SYSTEM_PROMPT = `Voce e o Whitebeard AI Planner. Sua tarefa e propor um TIME DE AGENTES (coordenador + especialistas) e um objetivo de time alinhados ao PROBLEMA e ao CONTEXTO do usuario.
 
@@ -22,8 +25,10 @@ Regras obrigatorias:
 - Se o problema envolver criacao de imagens, arte social, capas ou posts visuais: inclua um especialista cujo objective e responsibilities mencionem brief visual (tema, texto na imagem se houver, estilo, publico). Nota para o runtime: geracao com DALL-E 3 no produto usa tamanhos fixos 1024x1024 (quadrado), 1792x1024 ou 1024x1792; pedidos como "400x400" devem ser mapeados para quadrado 1024x1024 na missao (redimensionar depois se necessario).
 - graph: sempre envie "graph": { "nodes": [], "edges": [] }. O backend monta posicoes; nao envie coordenadas de nos.
 - executionChecklist: lista de passos concretos para colocar o plano em pratica.
-- requiredPacks: lista de identificadores de packs de negocio sugeridos quando o problema claramente exigir capabilities de dominio; use APENAS estes valores (strings exatas): ${PLANNER_PACK_IDS_PROMPT}. Use [] se nao aplicavel.
+- requiredPacks: lista de identificadores de packs de negocio sugeridos quando o problema claramente exigir capabilities de dominio; use APENAS estes valores (strings exatas): ${PLANNER_PACK_IDS_PROMPT}. Use [] se nao aplicavel. Exemplos: atendimento clinico / prontuario (care, clinical), pacotes e sessoes (packages_encounters), contas a receber (finance), cadastro (crm), agenda (scheduling).
 - requiredTools: lista de actionIds de business tools internas sugeridas (ex.: "crm_create_party", "sales_create_service_order") alinhadas ao problema; use [] se nao aplicavel.
+- Canais: team.primaryChannel e agents[].channels devem usar APENAS estes literais (iguais aos tipos de canal do produto / Chat SDK): ${PLANNER_CHANNEL_UNION}. Se o contexto mencionar um canal (ex.: Telegram, WhatsApp, Slack), defina team.primaryChannel e (para o coordenador) channels de acordo — ex.: Telegram -> "telegram". Nao invente nomes fora dessa lista.
+- Quando o problema pedir varios dominios distintos (ex.: financeiro vs prontuario vs cadastro), prefira varios especialistas com responsabilidades separadas; cada um responde ao seu escopo.
 
 Estrutura JSON exata das chaves de nivel superior:
 {
@@ -31,7 +36,7 @@ Estrutura JSON exata das chaves de nivel superior:
     "name": string (minimo 3 caracteres),
     "objective": string (minimo 10 caracteres),
     "description": string,
-    "primaryChannel": "whatsapp" | "slack" | "email" | "api" (opcional),
+    "primaryChannel": ${PLANNER_CHANNEL_UNION} (opcional),
     "channelIds": string[]
   },
   "agents": [
@@ -43,7 +48,7 @@ Estrutura JSON exata das chaves de nivel superior:
       "responsibilities": string[],
       "skills": string[],
       "category": string,
-      "channels": ("whatsapp"|"slack"|"email"|"api")[]
+      "channels": (${PLANNER_CHANNEL_UNION})[]
     }
   ],
   "graph": { "nodes": [], "edges": [] },
