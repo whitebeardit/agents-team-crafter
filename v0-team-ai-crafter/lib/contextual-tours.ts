@@ -17,6 +17,8 @@ export type ContextualTourScreenKey =
   | "templates_catalog"
   | "governance_workspace"
   | "observability_metrics"
+  | "agent_detail"
+  | "team_detail"
 
 export interface IContextualToursPreferences {
   /** Por workspace: por chave de ecrã, última versão do conteúdo vista/concluída */

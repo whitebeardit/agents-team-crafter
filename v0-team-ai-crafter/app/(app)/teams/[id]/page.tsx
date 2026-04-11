@@ -20,6 +20,7 @@ import {
   Calendar,
   MessageSquareCode,
 } from "lucide-react"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import type { Agent, Channel, ChannelType, Team, TeamRunRecord } from "@/lib/types"
 import { channelTypeLabels, channelStatusLabels } from "@/lib/constants/channel-labels"
@@ -296,6 +297,7 @@ export default function TeamDetailsPage({
 
   return (
     <div className="space-y-6">
+      <ContextualTourHost screenKey="team_detail" />
       {/* Back Link */}
       <Link
         href="/teams"
@@ -317,6 +319,7 @@ export default function TeamDetailsPage({
           <p className="text-muted-foreground mt-1">{team.description}</p>
         </div>
         <div className="-mx-1 flex max-w-full flex-wrap items-center gap-2 px-1 sm:mx-0 sm:justify-end sm:px-0">
+          <ContextualTourManualTrigger screenKey="team_detail" />
           <Link href={`/teams/${team.id}/gallery`}>
             <Button variant="outline" className="gap-2">
               <Images className="w-4 h-4" />

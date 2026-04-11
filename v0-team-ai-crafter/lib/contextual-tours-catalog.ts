@@ -193,4 +193,36 @@ export const CONTEXTUAL_TOUR_CATALOG: Record<ContextualTourScreenKey, Contextual
       },
     ],
   },
+  agent_detail: {
+    version: 1,
+    dialogTitle: "Tour — Ficha do agente",
+    steps: [
+      {
+        title: "Navegação e abas",
+        description:
+          "Use as abas para separar visão geral, missão, conhecimento, ferramentas, MCPs, canais e segurança. Em ecrãs estreitos as abas podem rolar horizontalmente.",
+      },
+      {
+        title: "Edição e catálogo",
+        description:
+          "Agentes da empresa podem ser editados e guardados aqui. Agentes do catálogo Whitebeard podem ser somente leitura — duplique para personalizar. O modo avançado expõe campos extra; confirme integrações em Configurações se o runtime depender delas.",
+      },
+    ],
+  },
+  team_detail: {
+    version: 1,
+    dialogTitle: "Tour — Ficha do time",
+    steps: [
+      {
+        title: "Composição e estado",
+        description:
+          "Veja estado do time, descrição e atalhos para galeria, grafo e edição. Ativar ou desativar o time afeta se entra em rotas de execução — confirme antes em produção.",
+      },
+      {
+        title: "Abas operacionais",
+        description:
+          "Visão geral resume contagens; Agentes e Canais ligam composição; Execução mostra runs recentes; Console ajuda a depurar mensagens. Ajuste canais e agentes conforme a governança do workspace.",
+      },
+    ],
+  },
 }

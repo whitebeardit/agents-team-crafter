@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–69) | Loops 52–69 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–70) | Loops 52–70 no ledger; próximos slices: ver plano mestre secção 14 e **Próximo loop oficial** |
 
 
 ---
@@ -666,7 +666,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 67   | Onboarding contextual e tour por tela                      | entregue (ver [Loop 67](#loop-67-fechado))                                                      |
 | 68   | Expansão de tours contextuais (listagens)                    | entregue (ver [Loop 68](#loop-68-fechado))                                                      |
 | 69   | Tours contextuais — governança e observabilidade             | entregue (ver [Loop 69](#loop-69-fechado))                                                      |
-| 70   | Tours contextuais — fichas agente e time                     | candidato mapeado (ver [candidato Loop 70](#candidato-loop-70))                                 |
+| 70   | Tours contextuais — fichas agente e time                     | entregue (ver [Loop 70](#loop-70-fechado))                                                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -675,29 +675,9 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 69** — tours contextuais em governança e observabilidade (ver [Loop 69](#loop-69-fechado)).
+**Último slice numerado fechado:** **Loop 70** — tours contextuais nas fichas de agente e de time (ver [Loop 70](#loop-70-fechado)).
 
-**Próximo slice numerado recomendado:** **Loop 70** — ver [candidato Loop 70](#candidato-loop-70) abaixo.
-
-Outros temas para slices futuros: spotlight DOM nos tours, tabelas densas mobile — [plano mestre 14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
-
-<a id="candidato-loop-70"></a>
-
-### Candidato Loop 70 — tours contextuais (fichas de agente e de time)
-
-**Objetivo:** estender os Loops 67–69 às **fichas de detalhe** mais usadas: edição e navegação em profundidade em **`/agents/[id]`** e **`/teams/[id]`**, com a **mesma infraestrutura** (`ContextualTourHost`, `contextual-tours-catalog`, `user.preferences.contextualTours`).
-
-**Foco mínimo (MVP):**
-
-- Novos `screenKey` + copy `version: 1` por rota dinâmica (persistência **por ecrã lógico**, não por `id` — o mesmo utilizador vê o tour uma vez por workspace até bump de versão).
-- `ContextualTourHost` + `ContextualTourManualTrigger` nos cabeçalhos das duas páginas (padrão dos loops anteriores).
-- Passos genéricos (abas, modo avançado, ferramentas, consola) sem **spotlight DOM** — spotlight fica para slice futuro se necessário.
-
-**Critério de saída:**
-
-- Auto-tour e «Ver tour desta tela» nas duas fichas, regras de reentrada do Loop 67.
-- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
-- Ledger: secção **Loop 70 (fechado)** com tabela `screenKey` ↔ rota.
+**Próximo slice numerado:** a definir no [plano mestre](agents-team-crafter-plano-evolucao.md) (candidatos: spotlight DOM nos tours, tabelas densas mobile, billing/2FA — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto)).
 
 ---
 
@@ -1369,10 +1349,25 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 | `governance_workspace` | `/governance` |
 | `observability_metrics` | `/observability` |
 
-- **Extensão adiada:** tours nas fichas `/agents/[id]` e `/teams/[id]` — candidato a **Loop 70** ou slice dedicado.
+- **Continuação (Loop 70):** tours nas fichas `/agents/[id]` e `/teams/[id]` — entregue.
 - **entregue no repositório:** extensão de [`contextual-tours.ts`](../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts); [`governance/page.tsx`](../v0-team-ai-crafter/app/(app)/governance/page.tsx), [`observability/page.tsx`](../v0-team-ai-crafter/app/(app)/observability/page.tsx).
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
 - **referência no plano mestre:** [Loop 69](agents-team-crafter-plano-evolucao.md#loop-69--tours-contextuais-governança-e-observabilidade)
+
+## Loop 70 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual — fase 4) / média-alta
+- objetivo do slice: tours nas **fichas de detalhe** `/agents/[id]` e `/teams/[id]`; persistência por `screenKey` lógico (`agent_detail`, `team_detail`), não por id de entidade.
+
+| `screenKey` | Rota |
+| --- | --- |
+| `agent_detail` | `/agents/[id]` |
+| `team_detail` | `/teams/[id]` |
+
+- **Fora do escopo:** spotlight DOM (slice futuro).
+- **entregue no repositório:** [`contextual-tours.ts`](../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../v0-team-ai-crafter/lib/contextual-tours-catalog.ts); [`agents/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx), [`teams/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx).
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- **referência no plano mestre:** [Loop 70](agents-team-crafter-plano-evolucao.md#loop-70--tours-contextuais-fichas-agente-e-time)
 
 ---
 

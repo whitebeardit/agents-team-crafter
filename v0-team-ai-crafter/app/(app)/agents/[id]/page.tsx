@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { toast } from "sonner"
 import {
   ArrowLeft,
@@ -479,6 +480,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
   return (
     <div className="space-y-6">
+      <ContextualTourHost screenKey="agent_detail" />
       {workspaceOpenAiConfigured === false && agent.origin === "company" ? (
         <Alert className="border-amber-500/50 bg-amber-500/5">
           <AlertCircle className="h-4 w-4 text-amber-600" />
@@ -535,6 +537,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-4">
+          <ContextualTourManualTrigger screenKey="agent_detail" className="w-full sm:w-auto" />
           <div className="flex items-center gap-2">
             <Label htmlFor="advanced-mode" className="text-sm text-muted-foreground">
               Modo avancado

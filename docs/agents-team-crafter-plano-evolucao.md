@@ -1167,7 +1167,7 @@ Completar o rollout de onboarding **por ecrã** nas fichas de **agente** e **tim
 ### Critério de saída
 - Mesmas regras de persistência e reentrada do Loop 67; gate com frontend; ledger com **Loop 70 (fechado)**.
 
-**Estado (ledger):** candidato mapeado — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) **candidato Loop 70**.
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 70 (fechado)** (`agent_detail`, `team_detail`).
 
 ## 14.6 Ordem recomendada
 1. Loop 52
@@ -1190,7 +1190,7 @@ Completar o rollout de onboarding **por ecrã** nas fichas de **agente** e **tim
 16. **Loop 67** — onboarding contextual e tour reexecutável por tela (entregue no ledger).
 17. **Loop 68** — expansão dos tours às listagens `/agents`, `/teams`, `/runs`, `/templates` (entregue no ledger).
 18. **Loop 69** — tours em `/governance` e `/observability` (entregue no ledger; ver [Loop 69](#loop-69--tours-contextuais-governança-e-observabilidade)).
-19. **Loop 70** — tours nas fichas `/agents/[id]` e `/teams/[id]` (candidato no ledger; ver [Loop 70](#loop-70--tours-contextuais-fichas-agente-e-time)).
+19. **Loop 70** — tours nas fichas `/agents/[id]` e `/teams/[id]` (entregue no ledger; ver [Loop 70](#loop-70--tours-contextuais-fichas-agente-e-time)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1208,7 +1208,7 @@ Completar o rollout de onboarding **por ecrã** nas fichas de **agente** e **tim
 - **Loop 67:** explicar a plataforma com onboarding contextual progressivo, sem impor tour global repetitivo
 - **Loop 68:** alargar o mesmo padrão às listagens operacionais sem mudar persistência
 - **Loop 69:** cobrir governança e observabilidade antes de fichas de detalhe ou spotlight DOM (entregue: `/governance`, `/observability`)
-- **Loop 70:** fechar onboarding nas fichas de agente e de time (MVP sem spotlight DOM)
+- **Loop 70:** fechar onboarding nas fichas de agente e de time (MVP sem spotlight DOM; entregue: `agent_detail`, `team_detail`)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
