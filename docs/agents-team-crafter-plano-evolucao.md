@@ -17,6 +17,8 @@ Evoluir o projeto para atender, de forma consistente, os objetivos do produto:
 - **controle do que está sendo executado**
 - **visualização em tempo real**
 - **UX simples, guiada e coerente com o runtime real**
+- **UI/UX responsiva para desktop, tablet e celular**
+- **onboarding contextual por tela, com tour reexecutável sob demanda**
 - **capabilities reais de negócio reutilizáveis por múltiplos agentes e times**
 
 ---
@@ -48,7 +50,7 @@ A estratégia correta é:
 - transformar tools em **capabilities reais de negócio**
 - permitir reutilização dessas capabilities em múltiplos times/agentes
 - ensinar o AI Builder a montar times já com **packs e tools reais**
-- manter UX simples
+- manter UX simples, responsiva e explicativa
 
 ---
 
@@ -115,6 +117,18 @@ flowchart TB
   customDefs --> sdk
 ```
 
+### Seleção de ferramentas por domínio do agente e defaults na criação de times
+
+**Norma de produto:**
+
+1. **Builtins visíveis = já ativas para aquele agente** — Na criação de um time, quando a UI mostrar as ferramentas **builtin** (catálogo Agents SDK / `capabilities.tools`) na ficha de cada **especialista**, as entradas apresentadas devem corresponder **somente** às tools que **esse** agente precisa para o seu papel; e essas entradas devem surgir **já selecionadas e ativadas** no agente, em vez de listas genéricas desmarcadas ou um pacote idêntico copiado para todos os especialistas sem critério de domínio.
+
+2. **Seleção por domínio, não por “template único”** — A escolha de ferramentas é **por domínio de responsabilidade do agente**. Dois especialistas com **papéis ou domínios distintos** não devem, por defeito, partilhar o **mesmo** conjunto de tools só porque estão no mesmo time: cada um recebe o **subconjunto mínimo** coerente com o seu domínio (o que reduz ambiguidade para o modelo e evita expor capacidades irrelevantes).
+
+3. **Um especialista por domínio** — Garantir que **apenas um** especialista **utilize e responda** por aquele domínio dentro do time (alinhado à governança de não-sobreposição já prevista no produto). Evita-se que dois agentes especialistas “disputem” o mesmo tipo de ação ou carreguem ferramentas duplicadas sem necessidade.
+
+Esta norma complementa [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) (pré-condições de execução) e reforça o objetivo de **especialistas sem sobreposição de função** no [Objetivo](#objetivo).
+
 ## 2.7 Admin global da plataforma (RBAC cross-tenant)
 
 **Quem é:** apenas o **admin global da plataforma** — utilizador com `isPlatformAdmin: true` no modelo de utilizador e/ou email listado em `PLATFORM_ADMIN_EMAILS` (ver [`user.model.ts`](../backend/src/modules/users/infra/user.model.ts), [`env.ts`](../backend/src/config/env.ts), enforcement em [`hooks.ts`](../backend/src/app/plugins/hooks.ts)). Não confundir com **owner** ou **admin de workspace** (âmbito de um único `workspaceId`).
@@ -127,6 +141,32 @@ flowchart TB
 Estas operações são **sensíveis** e não devem existir para membros normais nem para admins apenas dentro de um workspace.
 
 **Nota de alinhamento com o código:** até existirem rotas e serviços dedicados com testes, tratar listagem global de utilizadores e delete em cascata por utilizador como **requisito de evolução** documentado; o factory reset da zona de perigo (`/platform/danger-zone/factory-reset`) é wipe **de toda** a instalação, não substitui remoção selectiva por utilizador.
+
+## 2.8 UX responsiva e onboarding contextual por tela
+
+**Norma de produto:**
+
+1. **Responsividade é requisito funcional, não acabamento visual** — as superfícies principais do produto devem continuar utilizáveis em **desktop, tablet e celular** sem depender de zoom do navegador, scroll horizontal contínuo ou precisão de mouse. A ação principal de cada tela deve permanecer alcançável e compreensível em larguras reduzidas.
+
+2. **Tour não deve virar fricção recorrente** — a melhor prática **não** é disparar um tour genérico e longo em todo login. O padrão preferido para este produto é **onboarding contextual progressivo por tela**: o utilizador autenticado vê uma apresentação curta **na primeira vez em que entra naquela tela** (ou quando pedir explicitamente), com passos ancorados aos elementos reais daquela view.
+
+3. **Tour por tela, com reentrada voluntária** — cada tela relevante deve oferecer CTA explícito para **“Ver tour desta tela”** ou equivalente. O utilizador pode fechar, rever depois e reexecutar quando quiser, sem perder a autonomia de uso.
+
+4. **Persistência por utilizador + workspace + tela + versão** — o estado do onboarding deve ser guardado por combinação de `userId`, `workspaceId`, `screenKey` e `tourVersion`, permitindo:
+   - mostrar o tour apenas para quem ainda **não** viu aquela tela;
+   - reapresentar quando houver mudança material de UX/fluxo;
+   - respeitar contexto multi-tenant e perfil do utilizador.
+
+5. **Passos curtos e contextuais** — cada tour deve privilegiar **3–5 passos úteis**, com linguagem objectiva, orientada a tarefa e não a marketing. O foco é responder: **o que esta tela faz**, **qual é a ação principal**, **o que é obrigatório configurar** e **qual o próximo passo seguro**.
+
+6. **Variação por viewport e papel** — o mesmo conteúdo pode exigir variações entre `desktop`, `tablet` e `mobile` (por exemplo `sidebar` vs `drawer`, tabela vs cards) e também por papel/RBAC. O tour não deve apontar para elementos que não existem naquele layout ou para ações indisponíveis ao utilizador autenticado.
+
+7. **Slices Ralph Loop para onboarding** — não prometer “tour em todas as telas” num único ciclo. A abordagem correta é:
+   - primeiro entregar a infraestrutura base de responsividade e onboarding;
+   - depois aplicar em **lotes pequenos de telas críticas**;
+   - documentar no ledger quais telas ficaram cobertas em cada loop.
+
+**Decisão explícita de melhor prática para este produto:** adotar **onboarding contextual progressivo por tela**, com **auto-disparo apenas no primeiro acesso à tela** (ou quando `tourVersion` mudar) e **reexecução manual sob demanda**; evitar tour global intrusivo e repetitivo.
 
 ---
 
@@ -710,6 +750,7 @@ Fazer com que as superfícies administrativas e operacionais mais visíveis do p
 Hoje o produto já tem uma base forte para runtime, business tools e AI Builder, mas ainda existe um conjunto de telas e ações com desalinhamento entre UX e comportamento real do backend, especialmente em:
 
 - `/settings`
+- app shell autenticado (`sidebar`, header, navegação e CTAs principais)
 - menu superior do utilizador
 - faturamento / upgrade
 - segurança de conta
@@ -717,6 +758,7 @@ Hoje o produto já tem uma base forte para runtime, business tools e AI Builder,
 - tools do workspace
 - canais
 - agenda
+- AI Builder / criação de times
 - governança administrativa
 
 ### Diagnóstico consolidado
@@ -746,6 +788,8 @@ As anotações levantadas continuam válidas em grande parte, com o seguinte rec
 - apagar compromisso em `/schedule`
 - purge de logs em `/governance`
 - reset administrativo de fábrica
+- responsividade em tablet e celular nas telas mais densas
+- tours/guias contextuais para primeiro uso de cada tela
 
 ### Ainda precisam de melhor explicação operacional
 - para que servem `API keys`
@@ -754,6 +798,7 @@ As anotações levantadas continuam válidas em grande parte, com o seguinte rec
 - como descobrir, ativar e validar tools reais
 - como diferenciar canais genéricos de plataformas Chat SDK
 - como aplicar templates realmente curados e prontos para uso
+- como a plataforma funciona ao entrar numa tela pela primeira vez
 
 ## 14.3 Princípios da ETAPA 9
 - nenhuma configuração exibida ao utilizador deve parecer funcional sem backend real ou feedback honesto de indisponibilidade
@@ -762,6 +807,8 @@ As anotações levantadas continuam válidas em grande parte, com o seguinte rec
 - recursos ainda não entregues devem ser ocultados, despriorizados visualmente ou sinalizados como indisponíveis
 - integrações e tools precisam explicar claramente para que servem, como usar e um exemplo operacional mínimo
 - superfícies de configuração precisam ser coerentes com o runtime real do produto
+- telas críticas devem funcionar sem atrito relevante em desktop, tablet e celular
+- onboarding deve ser contextual, curto, reexecutável e persistido por utilizador/tela, em vez de um tour global obrigatório
 
 ## 14.4 Resultado esperado
 Ao final da ETAPA 9, o produto deverá:
@@ -771,6 +818,8 @@ Ao final da ETAPA 9, o produto deverá:
 - aplicar quotas reais de plano no backend
 - oferecer uma jornada clara de upgrade ou declarar explicitamente quando ela ainda não existir
 - reduzir UI enganosa em templates, tools, canais e menus de conta
+- ter navegação e telas operacionais principais responsivas em tablet e celular
+- apresentar o funcionamento da plataforma com tours contextuais por tela no primeiro acesso e sob demanda
 - dar aos administradores operações seguras para limpeza operacional e gestão avançada
 
 ## 14.5 Loops previstos da ETAPA 9
@@ -979,6 +1028,89 @@ O schema Zod do output do Whitebeard AI Planner e as rotas que aceitam `channels
 
 **Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) Loop 63.
 
+---
+
+## Loop 64 — Builtins por domínio (criação de time e AI Builder)
+
+### Objetivo
+Cumprir a norma de produto de [seleção de ferramentas por domínio do agente](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas): ao criar times, cada especialista deve receber **apenas** as builtins coerentes com o seu papel, já ativas por defeito quando fizer sentido.
+
+### Foco
+- wizard de time / AI Builder / preview de agentes: default = **subconjunto mínimo** coerente com papel e domínio; não replicar o mesmo pacote para todos os especialistas
+- planner / team plan: quando existirem `requiredTools` ou metadados de domínio, materializar em `capabilities.tools` e binds relacionados com previsibilidade
+- backend: preservar a intenção de **um especialista por domínio**, em linha com overlap guard e governança já existentes
+- documentação de encerramento: declarar claramente o que ficou como default automático e o que continua edição manual
+
+### Critério de saída
+- ao criar ou executar um time de exemplo com papéis distintos, a ficha de cada especialista mostra builtins **ativas** e **diferenciadas** por domínio
+- gate Ralph com frontend incluído quando o slice tocar `v0-team-ai-crafter`
+
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) Loop 64.
+
+---
+
+## Loop 65 — Foundation responsiva multi-device
+
+### Objetivo
+Criar a base para que a UI autenticada funcione de forma consistente em **tablet** e **celular**, sem depender de correções ad hoc tela a tela.
+
+### Foco
+- definir e normalizar breakpoints canónicos (`desktop`, `tablet`, `mobile`) e regras de densidade visual para o app shell
+- revisar `sidebar`, header, breadcrumbs, tabs, filtros e CTAs principais para comportamento responsivo previsível
+- substituir modais excessivamente largos por `drawer`, fullscreen dialog ou variantes equivalentes quando a viewport for reduzida
+- criar padrões para tabelas/listagens densas: colapso para cards, colunas prioritárias, detalhes expansíveis, ações acessíveis por toque
+- garantir ergonomia touch-first: alvos mínimos, espaçamento, safe areas, teclado virtual, rolagem e foco
+
+### Critério de saída
+- a navegação autenticada e os componentes-base não apresentam overflow horizontal contínuo nas larguras de referência `1024`, `768` e `390`
+- a ação principal de cada superfície-base permanece visível ou alcançável sem “caça ao botão”
+- gate Ralph com frontend incluído; documentação registra os padrões responsivos adotados
+
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) Loop 65 (shell: drawer `< lg`, sidebar `lg+`, header adaptável, `overflow-x` no `body`/`main`).
+
+---
+
+## Loop 66 — Responsividade das telas críticas
+
+### Objetivo
+Aplicar a foundation responsiva nas telas de maior valor operacional, reduzindo atrito real de uso em tablet e celular.
+
+### Foco
+- priorizar rotas críticas: `/settings`, `/channels`, `/tool-definitions`, AI Builder / criação de times, `/schedule` e fichas de agentes/times mais usadas no dia a dia
+- converter layouts densos em fluxos progressivos quando necessário: filtros recolhíveis, ações primárias “sticky”, cards empilhados, secções dobráveis e navegação em etapas
+- adaptar feedbacks da UI para telas pequenas: toasts, alertas, drawers, confirmação e erros inline sem cobrir elementos essenciais
+- rever tabelas e grids que hoje assumem desktop, evitando cortar informação essencial ou esconder estados importantes do runtime
+- documentar por tela o que ficou **responsivo entregue**, **aceitável com limitação** ou **pendente**
+
+### Critério de saída
+- um utilizador autenticado consegue executar os fluxos principais das telas priorizadas em tablet/celular sem depender de viewport desktop
+- o ledger do loop lista explicitamente as rotas cobertas e as limitações remanescentes
+- gate Ralph com frontend incluído; E2E ou smoke manual dirigido nas rotas alteradas quando viável
+
+**Estado (ledger):** entregue — ver [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 66 (fechado)** (tabela por rota: entregue / aceitável com limitação / pendente).
+
+---
+
+## Loop 67 — Onboarding contextual e tour reexecutável por tela
+
+### Objetivo
+Explicar como a plataforma funciona de forma **fácil, fluida e contextual**, apresentando cada tela ao utilizador autenticado quando ele ainda não a viu ou quando pedir ajuda explicitamente.
+
+### Decisão de UX
+Adotar **onboarding contextual progressivo por tela** como melhor prática para o produto, em vez de um tour único, longo e obrigatório. Cada view relevante pode auto-disparar um tour curto **no primeiro acesso** e também permitir **reabrir** esse tour sob demanda.
+
+### Foco
+- criar infraestrutura de tour/coaching com persistência por `userId` + `workspaceId` + `screenKey` + `tourVersion`
+- definir CTA consistente de ajuda: “Ver tour desta tela”, “Rever onboarding” ou equivalente em local previsível
+- suportar passos curtos, ancorados à UI real, com variações por viewport e RBAC; se o elemento não existir naquele contexto, o passo deve adaptar-se ou ser omitido
+- começar por um lote pequeno de telas críticas (`dashboard`/home quando existir, AI Builder, Tools, Settings, Channels, Schedule), em vez de prometer cobertura total num único slice
+- incluir estados de “ignorar”, “lembrar depois” ou encerramento simples, sem bloquear o trabalho do utilizador
+
+### Critério de saída
+- o utilizador vê ajuda contextual ao entrar pela primeira vez nas telas cobertas e pode reabrir o tour manualmente depois
+- a persistência impede repetição intrusiva e permite reapresentar o tour quando `tourVersion` mudar
+- o ledger lista as telas cobertas, o contrato de persistência adotado e as regras de reentrada
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -994,6 +1126,10 @@ O schema Zod do output do Whitebeard AI Planner e as rotas que aceitam `channels
 10. **Loop 61** — criação em lote de tools «Ação interna (negócio)» na página Tools (ver [secção Loop 61](#loop-61--criação-em-lote-de-tools-ação-interna-negócio-ux)); entregue no ledger.
 11. **Loop 62** — transparência do fallback do team planner no AI Builder (ver [secção Loop 62](#loop-62--transparência-do-fallback-do-team-planner-ai-builder)); entregue no ledger.
 12. **Loop 63** — paridade planner × canais Chat SDK + nativos (ver [secção Loop 63](#loop-63--paridade-planner--canais-chat-sdk--nativos)); entregue no ledger.
+13. **Loop 64** — builtins por domínio na criação de times e AI Builder (entregue no ledger).
+14. **Loop 65** — foundation responsiva multi-device (entregue no ledger).
+15. **Loop 66** — responsividade das telas críticas.
+16. **Loop 67** — onboarding contextual e tour reexecutável por tela.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1005,6 +1141,10 @@ O schema Zod do output do Whitebeard AI Planner e as rotas que aceitam `channels
 - **Loop 61:** reduzir atrito ao registar muitas `internal_action` no mesmo workspace (seleção múltipla + confirmação única)
 - **Loop 62:** operação e suporte quando o planner usa template (`fallbackReason` visível na UI)
 - **Loop 63:** enum de canais do planner alinhado a `Channel` / Chat SDK (evita fallback por `telegram` inválido)
+- **Loop 64:** reduzir ambiguidade e excesso de builtins por especialista, reforçando o modelo “um domínio por agente”
+- **Loop 65:** estabelecer a fundação responsiva antes de corrigir dezenas de telas de forma fragmentada
+- **Loop 66:** atacar as superfícies com maior atrito operacional em tablet e celular
+- **Loop 67:** explicar a plataforma com onboarding contextual progressivo, sem impor tour global repetitivo
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1020,3 +1160,5 @@ Ela funciona como a macrofase seguinte para:
 - 2FA pode exigir slice próprio, caso o MVP mínimo de conta precise sair antes
 - reset de fábrica deve ser tratado como capacidade de plataforma, não de workspace comum
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
+- tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes
+- responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota

@@ -42,6 +42,18 @@ Verificação mínima quando o slice toca em tools:
 - **Smoke manual** de tool “real” (Postgres, CRM, MCP HTTP, etc.), quando aplicável, fica a cargo do slice e pode exigir ambiente com segredos — **fora** do gate por defeito.
 - O **Loop 60** removeu o `crm_access` HTTP do catálogo e `toolCrm` em Integrações; validar CRM de negócio via pack `crm` / `internal_action` e documentação correspondente.
 
+<a id="norma-builtin-dominio-agente"></a>
+
+### Norma de produto — ferramentas builtin por domínio do agente (criação de time)
+
+Requisito explícito alinhado ao plano mestre ([§2.6](agents-team-crafter-plano-evolucao.md#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) — subsecção **Seleção de ferramentas por domínio do agente e defaults na criação de times**):
+
+- **Na criação de um time**, ao mostrar ferramentas **builtin** por agente especialista, devem aparecer **já selecionadas e ativadas** **somente** as tools que **esse** agente precisa usar — não um conjunto genérico nem “tudo desligado”.
+- A seleção é **por domínio do agente**: dois especialistas **diferentes** não devem, por defeito, carregar o **mesmo** pacote de ferramentas sem critério; cada um recebe o subconjunto adequado ao seu domínio.
+- **Um especialista por domínio** — apenas um agente deve **utilizar e responder** por aquele domínio no time, em linha com a governança de não-sobreposição.
+
+Slices futuros que toquem no AI Builder, wizard de times ou fichas de agente devem verificar esta norma na UX e na persistência (`capabilities.tools` / binds).
+
 ### Admin global da plataforma: norma vs implementação actual
 
 **Norma (contrato de produto):** apenas o **admin global** (`isPlatformAdmin` no utilizador e/ou `PLATFORM_ADMIN_EMAILS` em [`env.ts`](../backend/src/config/env.ts); enforcement [`hooks.ts`](../backend/src/app/plugins/hooks.ts)) pode realizar operações **cross-tenant** sensíveis: ver **todos** os utilizadores e **todos** os workspaces da instalação; eliminar **em cascata** um utilizador e os dados MongoDB associados (workspaces, membros, convites, etc., segundo política da implementação). Owner/admin **de workspace** não substitui este papel.
@@ -55,6 +67,22 @@ Verificação mínima quando o slice toca em tools:
 | **Delete em cascata por utilizador** | **Ainda não** implementado como operação selectiva; o [factory reset](../backend/src/modules/platform/interfaces/platform.routes.ts) (`POST /platform/danger-zone/factory-reset`) faz wipe **global** da base — não é equivalente a apagar um só utilizador. |
 
 Alinhamento com o plano mestre: [§2.7 Admin global da plataforma](agents-team-crafter-plano-evolucao.md#27-admin-global-da-plataforma-rbac-cross-tenant).
+
+### Norma de produto — UX responsiva e onboarding contextual por tela
+
+Requisito explícito alinhado ao plano mestre ([§2.8](agents-team-crafter-plano-evolucao.md#28-ux-responsiva-e-onboarding-contextual-por-tela)):
+
+- **Responsividade é parte do produto**: telas críticas devem continuar funcionais em `desktop`, `tablet` e `mobile`, sem depender de zoom, scroll horizontal constante ou precisão de cursor.
+- **Melhor prática adotada para “explicar a plataforma”**: usar **onboarding contextual progressivo por tela**, e **não** um tour global obrigatório e repetitivo.
+- **Disparo do tour**: mostrar ajuda contextual quando o utilizador autenticado entra pela **primeira vez** na tela (ou quando a `tourVersion` mudar) e permitir reabertura manual via CTA previsível.
+- **Persistência**: guardar estado por `userId` + `workspaceId` + `screenKey` + `tourVersion`.
+- **Slice Ralph**: primeiro a foundation responsiva, depois as telas críticas, e só então a expansão dos tours por lotes pequenos de views.
+
+Slices futuros que toquem UI/UX devem declarar no ledger:
+
+- quais rotas ficaram responsivas em `tablet` e `mobile`;
+- quais telas receberam tour contextual;
+- como a persistência do onboarding foi versionada ou alterada no slice.
 
 ---
 
@@ -72,7 +100,7 @@ Alinhamento com o plano mestre: [§2.7 Admin global da plataforma](agents-team-c
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–60) | Loops 52–60 no ledger; novos slices: ver plano mestre e secção **Próximo loop oficial** |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–66) | Loops 52–66 no ledger; próximo slice: ver secção **Próximo loop oficial** |
 
 
 ---
@@ -632,6 +660,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 61   | Criação em lote de `internal_action` na página Tools (UX) | entregue (ver [Loop 61](#loop-61-fechado))                                                     |
 | 62   | Transparência do fallback do team planner (AI Builder)   | entregue (ver [Loop 62](#loop-62-fechado))                                                     |
 | 63   | Paridade planner × canais (Chat SDK + nativos)             | entregue (ver [Loop 63](#loop-63-fechado))                                                     |
+| 64   | Builtins por domínio (criação de time e AI Builder)        | entregue (ver [Loop 64](#loop-64-fechado))                                                      |
+| 65   | Foundation responsiva multi-device                         | entregue (ver [Loop 65](#loop-65-fechado))                                                      |
+| 66   | Responsividade das telas críticas                          | entregue (ver [Loop 66](#loop-66-fechado))                                                      |
+| 67   | Onboarding contextual e tour por tela                      | candidato mapeado (ver **Próximo loop oficial**)                                                |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -640,12 +672,35 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 63** — paridade planner × canais (Chat SDK + nativos) (ver [Loop 63](#loop-63-fechado)).
+**Último slice numerado fechado:** **Loop 66** — responsividade das telas críticas (ver [Loop 66](#loop-66-fechado)).
 
-**Próximo slice:** definir no plano mestre (`agents-team-crafter-plano-evolucao.md`) quando houver nova macro-tarefa; candidatos incluem evoluções da ETAPA 9 (ex.: admin global — listagem de utilizadores / delete em cascata) ou novas frentes de produto.
+**Próximo slice numerado recomendado:** **Loop 67** — ver [candidato Loop 67](#candidato-loop-67) abaixo.
 
-### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** pode continuar com slices adicionais para além do Loop 62.
+Macro-temas adicionais, como admin global cross-tenant, continuam possíveis após estes slices.
+
+<a id="candidato-loop-67"></a>
+
+### Candidato Loop 67 — onboarding contextual e tour reexecutável por tela
+
+**Objetivo:** apresentar ao utilizador como a plataforma funciona de forma **fácil, fluida e contextual**, guiando a primeira utilização de cada tela sem transformar ajuda em ruído recorrente.
+
+**Decisão explícita de UX (melhor prática):**
+
+- **não** usar tour global, longo e obrigatório em todo login;
+- usar **onboarding contextual progressivo por tela**;
+- auto-disparar o tour apenas no **primeiro acesso** à tela (ou quando `tourVersion` mudar);
+- permitir **reabertura manual** por CTA previsível, como “Ver tour desta tela”.
+
+**Foco sugerido:**
+
+- **Persistência:** guardar estado por `userId` + `workspaceId` + `screenKey` + `tourVersion`.
+- **Conteúdo:** passos curtos, ancorados à UI real, com variação por viewport e RBAC; se o elemento não existir naquele contexto, adaptar ou omitir o passo.
+- **Rollout Ralph:** começar por lote pequeno de telas críticas (AI Builder, Tools, Settings, Channels, Schedule) e expandir em ciclos seguintes, em vez de prometer “todas as telas” de uma vez.
+- **Critério de saída:** telas cobertas mostram ajuda contextual no primeiro acesso, permitem reabrir o tour manualmente e não repetem o fluxo de forma intrusiva.
+
+### Próximo slice oficial (ETAPA 9)
+
+1. **Loop 67** — onboarding contextual e tour por tela.
 
 ---
 
@@ -1206,6 +1261,63 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - critério de saída: JSON do planner com `telegram` valida sem fallback por enum de canal; gate com frontend.
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**206** testes backend no encerramento deste slice).
 - **referência no plano mestre:** [Loop 63](agents-team-crafter-plano-evolucao.md#loop-63--paridade-planner--canais-chat-sdk--nativos)
+
+## Loop 64 (fechado)
+
+- etapa/prioridade: ETAPA 9 (norma §2.6 — builtins por domínio na criação de times) / alta
+- objetivo do slice: cada agente do plano (coordenador e especialistas) passa a ter **builtins do catálogo** (`capabilities.tools`) **materializadas** — subconjunto mínimo por papel, diferenciado entre especialistas quando o planner não define lista explícita; AI Builder permite **edição manual** antes de salvar/executar.
+- **entregue no repositório:**
+  - [`available-tools.ts`](../backend/src/modules/agents/domain/available-tools.ts): `normalizeCatalogToolIds`
+  - [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): inferência por keywords + rotação por índice de especialista; `resolveCatalogToolsForPlanAgent`
+  - [`team-plan-planner-output.schema.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): `agents[].catalogTools` normalizado
+  - [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts): materialização em `createPlan` / `updatePlan`; `executePlan` grava `capabilities.tools` em agentes **novos**
+  - [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): instruções + JSON com `catalogTools`
+  - [`team-plan.model.ts`](../backend/src/modules/team-planning/infra/team-plan.model.ts): persistência de `catalogTools` no agente do plano
+  - [`catalog-tool-ids.ts`](../v0-team-ai-crafter/lib/catalog-tool-ids.ts) + [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx): checkboxes por agente
+  - Testes: [`planner-agent-catalog-tools.test.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), extensão de [`team-plan-planner-output.schema.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.test.ts)
+- **Comportamento default vs manual:** default = lista do planner se válida; senão inferência no servidor ao criar/atualizar plano; utilizador pode alterar checkboxes no AI Builder (PUT `/team-plans/:id`); na execução, agentes novos recebem `capabilities.tools` conforme o plano (business tools continuam via `requiredTools` / `requiredPacks` + bind como antes).
+- **Critério de produto (executáveis vs stub):** builtins continuam sujeitos à matriz [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md) / [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts); este loop **não** promove integrações novas — apenas **seleção e persistência** por agente.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend no encerramento deste slice).
+- **referência no plano mestre:** [Loop 64](agents-team-crafter-plano-evolucao.md#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder)
+
+## Loop 65 (fechado)
+
+- etapa/prioridade: ETAPA 9 (shell autenticado / UX multi-device) / alta
+- objetivo do slice: **foundation responsiva** — app shell utilizável em mobile/tablet sem sidebar fixa a roubar largura; navegação principal acessível via drawer; header com pesquisa e identidade do workspace adaptáveis; sem overflow horizontal transversal no corpo.
+- **Padrões adotados (documentação viva no código):**
+  - Breakpoints alinhados ao Tailwind: `md` ≈ 768px (tablet), `lg` ≈ 1024px (sidebar fixa); referências de viewport em [`responsive-breakpoints.ts`](../v0-team-ai-crafter/lib/responsive-breakpoints.ts).
+  - **`< lg`:** `AppSidebar` oculto; `MobileNavSheet` (Radix Sheet à esquerda) com a mesma lista de rotas que o desktop; botão menu no `AppHeader`.
+  - **`≥ lg`:** sidebar visível com recolher opcional (inalterado em intenção).
+  - **Header:** pesquisa a partir de `md`; workspace e utilizador compactos em `sm`; alvos de toque ≥ 44px (`h-11` / `min-h-11`) nos ícones principais.
+  - **Layout:** `100dvh`, `min-w-0` na coluna de conteúdo, `main` com `overflow-x-hidden`; `body` com `overflow-x-hidden` em [`globals.css`](../v0-team-ai-crafter/app/globals.css); toasts `top-center` para telas estreitas.
+- **Fora do âmbito deste slice (Loop 66+):** conversão sistemática de cada `Dialog`/`modal` largo em drawer por rota; tabelas densas → cards — previsto no candidato Loop 66.
+- **entregue no repositório:**
+  - [`app-shell-context.tsx`](../v0-team-ai-crafter/components/layout/app-shell-context.tsx), [`mobile-nav-sheet.tsx`](../v0-team-ai-crafter/components/layout/mobile-nav-sheet.tsx)
+  - [`app-navigation.tsx`](../v0-team-ai-crafter/components/layout/app-navigation.tsx) (lista de navegação partilhada), refactor [`app-sidebar.tsx`](../v0-team-ai-crafter/components/layout/app-sidebar.tsx), [`app-header.tsx`](../v0-team-ai-crafter/components/layout/app-header.tsx), [`app/(app)/layout.tsx`](../v0-team-ai-crafter/app/(app)/layout.tsx)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (backend inalterado neste slice; **210** testes backend no último run completo).
+- **referência no plano mestre:** [Loop 65](agents-team-crafter-plano-evolucao.md#loop-65--foundation-responsiva-multi-device)
+
+## Loop 66 (fechado)
+
+- etapa/prioridade: ETAPA 9 (UX crítica / tablet e mobile) / alta
+- objetivo do slice: aplicar a foundation do Loop 65 às rotas com maior atrito — tabelas com scroll horizontal, cabeçalhos e tabs utilizáveis em viewport estreita, diálogos sem estourar a altura útil, CTAs empilháveis.
+- **Ledger por rota / superfície**
+
+| Rota ou componente | Estado |
+| --- | --- |
+| `/schedule` | **entregue** — tabela de compromissos em [`ResponsiveTableScroll`](../v0-team-ai-crafter/components/ui/responsive-table.tsx); diálogos com `max-h` + `overflow-y-auto`; grelhas data/hora em 1 coluna em `xs` |
+| `/tool-definitions` | **entregue** — contentor `min-w-0` + padding responsivo; cabeçalho em coluna em `xs`; linhas da lista empilhadas; diálogo “Nova tool” com scroll |
+| `/teams/create` + `TeamCreationHub` | **entregue** — `TabsList` em grelha 2×1 em mobile; título responsivo |
+| `TeamAiBuilder` (incl. `/teams/ai-create`) | **entregue** — cabeçalho e CTAs empilhados em `xs`; pré-visualização React Flow `h-[220px]` → `sm:h-[280px]`; ações “Salvar” / “Executar” largura total em `xs` |
+| `/teams/[id]` | **entregue** — cabeçalho em coluna; ações com `flex-wrap`; tabs com scroll horizontal `< lg` e grelha 5 colunas `≥ lg` |
+| `/agents/[id]` | **entregue** — cabeçalho em coluna; botão Salvar largura total em `xs`; tabs com scroll `< lg` e 7 colunas `≥ lg` |
+| `/channels` | **aceitável com limitação** — título `text-2xl sm:text-3xl`; grelha de cards já adaptável; sem refactor profundo de cartões |
+| `/settings` | **aceitável com limitação** — título responsivo; grelha de tabs existente (2/3/6) mantida |
+| Modais “largos” → drawer sistemático | **pendente** (fora do escopo deste slice; previsto como evolução futura) |
+
+- **entregue no repositório:** [`responsive-table.tsx`](../v0-team-ai-crafter/components/ui/responsive-table.tsx); alterações em [`schedule/page.tsx`](../v0-team-ai-crafter/app/(app)/schedule/page.tsx), [`tool-definitions/page.tsx`](../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx), [`team-creation-hub.tsx`](../v0-team-ai-crafter/components/teams/team-creation-hub.tsx), [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx), [`teams/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx), [`agents/[id]/page.tsx`](../v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx), [`channels/page.tsx`](../v0-team-ai-crafter/app/(app)/channels/page.tsx), [`settings/page.tsx`](../v0-team-ai-crafter/app/(app)/settings/page.tsx)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend; `next build` OK).
+- **referência no plano mestre:** [Loop 66](agents-team-crafter-plano-evolucao.md#loop-66--responsividade-das-telas-críticas)
 
 ---
 

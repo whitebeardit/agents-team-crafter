@@ -27,6 +27,7 @@ Regras obrigatorias:
 - executionChecklist: lista de passos concretos para colocar o plano em pratica.
 - requiredPacks: lista de identificadores de packs de negocio sugeridos quando o problema claramente exigir capabilities de dominio; use APENAS estes valores (strings exatas): ${PLANNER_PACK_IDS_PROMPT}. Use [] se nao aplicavel. Exemplos: atendimento clinico / prontuario (care, clinical), pacotes e sessoes (packages_encounters), contas a receber (finance), cadastro (crm), agenda (scheduling).
 - requiredTools: lista de actionIds de business tools internas sugeridas (ex.: "crm_create_party", "sales_create_service_order") alinhadas ao problema; use [] se nao aplicavel.
+- catalogTools (por agente): IDs do **catálogo builtins** OpenAI Agents SDK a habilitar nesse agente — subconjunto **mínimo** e **específico do papel**; **não** replique o mesmo pacote para todos os especialistas. IDs permitidos: "web_search", "file_search", "internal_actions", "code_execution", "email_send", "calendar_access", "database_query", "image_generation". Ex.: coordenador costuma precisar só de "web_search"; especialista de arte/social: "image_generation" (e talvez "web_search"); especialista de dados/SQL: "database_query"; de código: "code_execution". Use [] apenas se quiser deixar o servidor inferir (não recomendado — prefira escolher explicitamente).
 - Canais: team.primaryChannel e agents[].channels devem usar APENAS estes literais (iguais aos tipos de canal do produto / Chat SDK): ${PLANNER_CHANNEL_UNION}. Se o contexto mencionar um canal (ex.: Telegram, WhatsApp, Slack), defina team.primaryChannel e (para o coordenador) channels de acordo — ex.: Telegram -> "telegram". Nao invente nomes fora dessa lista.
 - Quando o problema pedir varios dominios distintos (ex.: financeiro vs prontuario vs cadastro), prefira varios especialistas com responsabilidades separadas; cada um responde ao seu escopo.
 
@@ -48,7 +49,8 @@ Estrutura JSON exata das chaves de nivel superior:
       "responsibilities": string[],
       "skills": string[],
       "category": string,
-      "channels": (${PLANNER_CHANNEL_UNION})[]
+      "channels": (${PLANNER_CHANNEL_UNION})[],
+      "catalogTools": string[]
     }
   ],
   "graph": { "nodes": [], "edges": [] },

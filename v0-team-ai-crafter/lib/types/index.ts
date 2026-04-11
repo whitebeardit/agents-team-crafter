@@ -398,6 +398,8 @@ export interface TeamPlanAgentDraft {
   skills: string[]
   category: string
   channels: ChannelType[]
+  /** Builtins do catálogo OpenAI Agents SDK por agente (Loop 64). */
+  catalogTools?: string[]
   planningMode?: "existing" | "new" | "split_required" | "conflict"
   existingAgentId?: string | null
   overlapScore?: number

@@ -18,6 +18,8 @@ const TeamPlanAgentSchema = new Schema(
     existingAgentId: { type: String, default: null },
     overlapScore: { type: Number, default: 0 },
     overlapReason: { type: String, default: '' },
+    /** Catálogo OpenAI Agents SDK por agente (Loop 64). */
+    catalogTools: [{ type: String }],
   },
   { _id: false },
 );

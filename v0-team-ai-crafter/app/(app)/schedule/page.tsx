@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Command,
@@ -243,65 +244,67 @@ export default function SchedulePage() {
             {!agenda?.appointments?.length ? (
               <p className="text-sm text-muted-foreground">Nenhum compromisso neste dia.</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Horário</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {agenda.appointments.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell className="whitespace-nowrap font-mono text-xs">
-                        {formatTimeRange(a.startsAt, a.endsAt)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{a.title}</div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div
-                            className="text-xs text-muted-foreground truncate max-w-[200px]"
-                            title={
-                              partiesById[a.partyId]?.displayName
-                                ? `${partiesById[a.partyId]!.displayName} · ${a.partyId}`
-                                : a.partyId
-                            }
-                          >
-                            {partiesById[a.partyId]?.displayName ? (
-                              <>
-                                <span className="text-foreground/90">{partiesById[a.partyId]!.displayName}</span>
-                                <span className="font-mono opacity-70"> · {a.partyId.slice(-6)}</span>
-                              </>
-                            ) : (
-                              <span className="font-mono">{a.partyId}</span>
-                            )}
-                          </div>
-                          <EditPartyDialog
-                            api={api}
-                            partyId={a.partyId}
-                            initialParty={partiesById[a.partyId] ?? null}
-                            onUpdated={(p) => setPartiesById((prev) => ({ ...prev, [p.id]: p }))}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={statusBadgeClass(a.status)}>
-                          {STATUS_PT[a.status] ?? a.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <AppointmentActions
-                          appointment={a}
-                          onAction={(p, b) => runMutation(p, b)}
-                          onRequestRemove={(id) => setRemoveAppointmentId(id)}
-                        />
-                      </TableCell>
+              <ResponsiveTableScroll>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Horário</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {agenda.appointments.map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="whitespace-nowrap font-mono text-xs">
+                          {formatTimeRange(a.startsAt, a.endsAt)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{a.title}</div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div
+                              className="text-xs text-muted-foreground truncate max-w-[200px]"
+                              title={
+                                partiesById[a.partyId]?.displayName
+                                  ? `${partiesById[a.partyId]!.displayName} · ${a.partyId}`
+                                  : a.partyId
+                              }
+                            >
+                              {partiesById[a.partyId]?.displayName ? (
+                                <>
+                                  <span className="text-foreground/90">{partiesById[a.partyId]!.displayName}</span>
+                                  <span className="font-mono opacity-70"> · {a.partyId.slice(-6)}</span>
+                                </>
+                              ) : (
+                                <span className="font-mono">{a.partyId}</span>
+                              )}
+                            </div>
+                            <EditPartyDialog
+                              api={api}
+                              partyId={a.partyId}
+                              initialParty={partiesById[a.partyId] ?? null}
+                              onUpdated={(p) => setPartiesById((prev) => ({ ...prev, [p.id]: p }))}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={statusBadgeClass(a.status)}>
+                            {STATUS_PT[a.status] ?? a.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <AppointmentActions
+                            appointment={a}
+                            onAction={(p, b) => runMutation(p, b)}
+                            onRequestRemove={(id) => setRemoveAppointmentId(id)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ResponsiveTableScroll>
             )}
           </CardContent>
         </Card>
@@ -616,7 +619,7 @@ function NewAppointmentDialog({
       <DialogTrigger asChild>
         <Button type="button">Novo compromisso</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Novo compromisso</DialogTitle>
           <DialogDescription>
@@ -677,7 +680,7 @@ function NewAppointmentDialog({
             <Label htmlFor="ap-title">Título</Label>
             <Input id="ap-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Consulta de retorno" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="ap-start">Início</Label>
               <Input id="ap-start" type="datetime-local" value={startLocal} onChange={(e) => setStartLocal(e.target.value)} />
@@ -763,13 +766,13 @@ function AvailabilityDialog({
           Nova janela
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Janela de disponibilidade</DialogTitle>
           <DialogDescription>Define um intervalo e o tamanho de cada slot (minutos).</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-2">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="av-start">Início</Label>
               <Input id="av-start" type="datetime-local" value={startLocal} onChange={(e) => setStartLocal(e.target.value)} />
@@ -779,7 +782,7 @@ function AvailabilityDialog({
               <Input id="av-end" type="datetime-local" value={endLocal} onChange={(e) => setEndLocal(e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="av-slot">Slot (min)</Label>
               <Input

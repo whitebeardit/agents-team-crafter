@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
+import { normalizeCatalogToolIds } from '../../agents/domain/available-tools.js';
 
 /** Saída JSON esperada do Whitebeard AI Planner (validação Zod antes de persistir). */
 export const plannerOutputSchema = z.object({
@@ -25,6 +26,11 @@ export const plannerOutputSchema = z.object({
         existingAgentId: z.string().optional().nullable(),
         overlapScore: z.number().optional(),
         overlapReason: z.string().optional(),
+        /** IDs do catálogo OpenAI Agents SDK (`capabilities.tools`) sugeridos por agente; normalizados no parse. */
+        catalogTools: z
+          .array(z.string())
+          .default([])
+          .transform((ids) => normalizeCatalogToolIds(ids)),
       }),
     )
     .min(1),

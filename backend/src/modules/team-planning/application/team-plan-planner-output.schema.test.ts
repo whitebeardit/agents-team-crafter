@@ -73,4 +73,37 @@ describe('plannerOutputSchema', () => {
     };
     expect(plannerOutputSchema.safeParse(raw).success).toBe(true);
   });
+
+  it('normaliza catalogTools e remove ids depreciados', () => {
+    const raw = {
+      team: {
+        name: 'Time Tools',
+        objective: 'Objetivo minimo de dez caracteres.',
+        description: '',
+        channelIds: [],
+      },
+      agents: [
+        {
+          name: 'Coord',
+          role: 'coordinator',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'geral',
+          channels: ['api'],
+          catalogTools: ['web_search', 'crm_access', 'web_search'],
+        },
+      ],
+      graph: { nodes: [], edges: [] },
+      executionChecklist: [],
+      requiredPacks: [],
+      requiredTools: [],
+    };
+    const parsed = plannerOutputSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.agents[0]!.catalogTools).toEqual(['web_search']);
+    }
+  });
 });

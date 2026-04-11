@@ -237,7 +237,7 @@ export default function ChannelsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Canais</h1>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Canais</h1>
           <p className="text-muted-foreground mt-1">
             Gerencie os canais de comunicação dos seus times
           </p>

@@ -17,11 +17,21 @@ import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../.
 import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
 import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
 import { plannerOutputSchema, type TPlannerOutput } from './team-plan-planner-output.schema.js';
+import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
 
 /** Limite de actionIds processados por execução (evita abuso / payloads enormes). */
 const TEAM_PLAN_AUTO_BIND_MAX_ACTIONS = 64;
+
+function materializePlannerAgentCatalogTools(plan: TPlannerOutput): TPlannerOutput['agents'] {
+  let specialistOrdinal = 0;
+  return plan.agents.map((agent) => {
+    const specialistIndex = agent.role === 'specialist' ? specialistOrdinal++ : 0;
+    const catalogTools = resolveCatalogToolsForPlanAgent(agent, { plan, specialistIndex });
+    return { ...agent, catalogTools };
+  });
+}
 
 /** Metadados persistidos em plannerMeta (API). */
 export interface ITeamPlannerMeta {
@@ -206,6 +216,7 @@ export class TeamPlanService {
           skills: ['planejamento', 'orquestracao', 'comunicacao'],
           category: 'planejamento',
           channels: ['api'],
+          catalogTools: ['web_search'],
         },
         {
           name: 'Especialista de Dominio',
@@ -216,6 +227,7 @@ export class TeamPlanService {
           skills: ['analise', 'execucao'],
           category: 'execucao',
           channels: [],
+          catalogTools: ['web_search', 'file_search'],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -436,13 +448,22 @@ export class TeamPlanService {
     }
 
     const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
-    const graph = this.buildDefaultGraph({ ...raw, agents: reuse.agents });
+    const parsedForGraph = plannerOutputSchema.parse({
+      team: raw.team,
+      agents: reuse.agents,
+      graph: raw.graph,
+      executionChecklist: raw.executionChecklist,
+      requiredPacks: raw.requiredPacks,
+      requiredTools: raw.requiredTools,
+    });
+    const agentsMaterialized = materializePlannerAgentCatalogTools(parsedForGraph);
+    const graph = this.buildDefaultGraph({ ...parsedForGraph, agents: agentsMaterialized });
     const created = await this.repo.create(workspaceId, {
       problem: input.problem,
       context: input.context,
       status: 'ready',
       team: raw.team,
-      agents: reuse.agents.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
+      agents: agentsMaterialized.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
       graph,
       executionChecklist: raw.executionChecklist,
       requiredPacks: raw.requiredPacks,
@@ -483,9 +504,18 @@ export class TeamPlanService {
       collectPlannerActionIds(parsed.requiredTools, parsed.requiredPacks),
     );
     const reuse = await this.annotateAgentsWithReuse(workspaceId, parsed.agents);
+    const fullPlan = plannerOutputSchema.parse({
+      team: parsed.team,
+      agents: reuse.agents,
+      graph: parsed.graph,
+      executionChecklist: parsed.executionChecklist,
+      requiredPacks: parsed.requiredPacks,
+      requiredTools: parsed.requiredTools,
+    });
+    const agentsMaterialized = materializePlannerAgentCatalogTools(fullPlan);
     const updated = await this.repo.update(workspaceId, id, {
       team: parsed.team,
-      agents: reuse.agents.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
+      agents: agentsMaterialized.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
       graph: parsed.graph,
       bindOverrides: normalizedBindOverrides,
       status: 'ready',
@@ -900,6 +930,7 @@ export class TeamPlanService {
       let createdCoordinator:
         | { id: string; role: 'coordinator' | 'specialist'; name: string; reused?: boolean; planAgentKey: string }
         | undefined;
+      let specialistOrdinal = 0;
       for (const [index, plannedAgent] of parsed.agents.entries()) {
         const planAgentKey = planAgentKeys[index] ?? `agent-${index + 1}`;
         if (plannedAgent.planningMode === 'existing' && plannedAgent.existingAgentId) {
@@ -918,6 +949,11 @@ export class TeamPlanService {
           if (plannedAgent.role === 'coordinator') createdCoordinator = reused;
           continue;
         }
+        const specialistIndex = plannedAgent.role === 'specialist' ? specialistOrdinal++ : 0;
+        const catalogTools = resolveCatalogToolsForPlanAgent(plannedAgent, {
+          plan: parsed,
+          specialistIndex,
+        });
         const created = await this.deps.agentRepo.create(workspaceId, {
           name: plannedAgent.name,
           description: plannedAgent.description ?? '',
@@ -930,6 +966,7 @@ export class TeamPlanService {
           version: '1.0.0',
           goal: plannedAgent.objective,
           responsibilities: plannedAgent.responsibilities,
+          capabilities: { tools: catalogTools },
         });
         const createdRow = {
           id: String(created.id),

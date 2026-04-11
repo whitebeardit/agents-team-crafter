@@ -496,8 +496,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         </Alert>
       ) : null}
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -517,8 +517,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             </AvatarFallback>
           </Avatar>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-foreground">{agent.name}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold text-foreground sm:text-2xl">{agent.name}</h1>
               <FieldInfo ariaLabel="Ajuda sobre nome e origem do agente">{agentFieldHelp.agentNameHeader}</FieldInfo>
               {agent.role === "coordinator" && (
                 <Crown className="w-5 h-5 text-warning" />
@@ -534,7 +534,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-4">
           <div className="flex items-center gap-2">
             <Label htmlFor="advanced-mode" className="text-sm text-muted-foreground">
               Modo avancado
@@ -547,7 +547,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               disabled={readOnly}
             />
           </div>
-          <Button onClick={handleSave} disabled={saving || readOnly}>
+          <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving || readOnly}>
             {readOnly ? "Somente leitura" : saving ? "Salvando..." : "Salvar alteracoes"}
           </Button>
         </div>
@@ -566,36 +566,38 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
+        <div className="-mx-1 w-full overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] lg:mx-0 lg:overflow-visible lg:pb-0">
+          <TabsList className="inline-flex h-auto min-h-10 w-max flex-nowrap justify-start gap-0.5 p-[3px] lg:grid lg:h-auto lg:w-full lg:grid-cols-7 lg:gap-0">
+          <TabsTrigger value="overview" className="flex shrink-0 items-center gap-2">
             <AgentWhitebeardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Visao Geral</span>
           </TabsTrigger>
-          <TabsTrigger value="mission" className="flex items-center gap-2">
+          <TabsTrigger value="mission" className="flex shrink-0 items-center gap-2">
             <Target className="w-4 h-4" />
             <span className="hidden sm:inline">Missao</span>
           </TabsTrigger>
-          <TabsTrigger value="knowledge" className="flex items-center gap-2">
+          <TabsTrigger value="knowledge" className="flex shrink-0 items-center gap-2">
             <Brain className="w-4 h-4" />
             <span className="hidden sm:inline">Conhecimento</span>
           </TabsTrigger>
-          <TabsTrigger value="tools" className="flex items-center gap-2">
+          <TabsTrigger value="tools" className="flex shrink-0 items-center gap-2">
             <Wrench className="w-4 h-4" />
             <span className="hidden sm:inline">Ferramentas</span>
           </TabsTrigger>
-          <TabsTrigger value="mcps" className="flex items-center gap-2">
+          <TabsTrigger value="mcps" className="flex shrink-0 items-center gap-2">
             <Plug className="w-4 h-4" />
             <span className="hidden sm:inline">MCPs</span>
           </TabsTrigger>
-          <TabsTrigger value="channels" className="flex items-center gap-2">
+          <TabsTrigger value="channels" className="flex shrink-0 items-center gap-2">
             <Radio className="w-4 h-4" />
             <span className="hidden sm:inline">Canais</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
+          <TabsTrigger value="security" className="flex shrink-0 items-center gap-2">
             <Shield className="w-4 h-4" />
             <span className="hidden sm:inline">Seguranca</span>
           </TabsTrigger>
         </TabsList>
+        </div>
 
         <fieldset disabled={readOnly} className="border-0 p-0 m-0 min-w-0 space-y-6">
 

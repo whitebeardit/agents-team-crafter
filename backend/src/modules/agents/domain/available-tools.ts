@@ -22,3 +22,16 @@ export function stripDeprecatedCatalogToolIds(ids: readonly string[]): string[] 
   const drop = new Set(DEPRECATED_CATALOG_TOOL_IDS as readonly string[]);
   return ids.filter((id) => !drop.has(id));
 }
+
+/** Dedupe, remove deprecated IDs, keep only catalog IDs allowed for `capabilities.tools`. */
+export function normalizeCatalogToolIds(ids: readonly string[]): string[] {
+  const stripped = stripDeprecatedCatalogToolIds(ids);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of stripped) {
+    if (!isAllowedTool(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}

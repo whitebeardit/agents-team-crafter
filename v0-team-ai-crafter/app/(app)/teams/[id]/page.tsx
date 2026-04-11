@@ -306,17 +306,17 @@ export default function TeamDetailsPage({
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">{team.name}</h1>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{team.name}</h1>
             <Badge variant="outline" className={statusColors[team.status]}>
               {statusLabels[team.status]}
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1">{team.description}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="-mx-1 flex max-w-full flex-wrap items-center gap-2 px-1 sm:mx-0 sm:justify-end sm:px-0">
           <Link href={`/teams/${team.id}/gallery`}>
             <Button variant="outline" className="gap-2">
               <Images className="w-4 h-4" />
@@ -349,16 +349,26 @@ export default function TeamDetailsPage({
 
       {/* Tabs */}
       <Tabs defaultValue="overview">
-        <TabsList className="bg-secondary">
-          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-          <TabsTrigger value="agents">Agentes</TabsTrigger>
-          <TabsTrigger value="channels">Canais</TabsTrigger>
-          <TabsTrigger value="runs">Execução</TabsTrigger>
-          <TabsTrigger value="debug" className="gap-1.5">
-            <MessageSquareCode className="w-3.5 h-3.5" />
-            Console
-          </TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 w-full overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] lg:mx-0 lg:overflow-visible lg:pb-0">
+          <TabsList className="inline-flex h-auto min-h-10 w-max gap-1 bg-secondary p-1 lg:grid lg:h-auto lg:w-full lg:grid-cols-5 lg:gap-1">
+            <TabsTrigger value="overview" className="shrink-0">
+              Visão Geral
+            </TabsTrigger>
+            <TabsTrigger value="agents" className="shrink-0">
+              Agentes
+            </TabsTrigger>
+            <TabsTrigger value="channels" className="shrink-0">
+              Canais
+            </TabsTrigger>
+            <TabsTrigger value="runs" className="shrink-0">
+              Execução
+            </TabsTrigger>
+            <TabsTrigger value="debug" className="gap-1.5 shrink-0">
+              <MessageSquareCode className="w-3.5 h-3.5" />
+              Console
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="mt-6 space-y-6">

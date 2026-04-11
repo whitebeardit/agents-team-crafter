@@ -13,11 +13,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, LogOut, User, Bell, Search } from "lucide-react"
+import { ChevronDown, LogOut, User, Bell, Search, Menu } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
+import { useAppShell } from "@/components/layout/app-shell-context"
 
 export function AppHeader() {
+  const { openMobileNav } = useAppShell()
   const router = useRouter()
   const { user, currentWorkspace, workspaces, setCurrentWorkspace, logout } =
     useWorkspaceStore()
@@ -55,34 +57,51 @@ export function AppHeader() {
   }
 
   return (
-    <header className="flex items-center justify-between h-16 px-6 border-b border-border bg-card">
-      {/* Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar agentes, times, templates..."
-            className="pl-10 bg-secondary border-border"
-          />
-        </div>
+    <header className="flex h-16 min-h-16 shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:px-4 lg:px-6">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-11 w-11 shrink-0 lg:hidden"
+        onClick={openMobileNav}
+        aria-label="Abrir menu de navegação"
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+
+      {/* Search — compacto em mobile; expande a partir de md */}
+      <div className="relative hidden min-w-0 flex-1 md:block md:max-w-md lg:max-w-lg">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar agentes, times, templates..."
+          className="border-border bg-secondary pl-10"
+          aria-label="Buscar na aplicação"
+        />
       </div>
+      {/* Espaço entre menu e acções em mobile (sem barra de pesquisa) */}
+      <div className="min-w-0 flex-1 md:hidden" aria-hidden />
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:gap-4">
         {/* Workspace Switcher */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2 bg-secondary border-border">
+            <Button
+              variant="outline"
+              className="h-11 max-w-[11rem] gap-2 border-border bg-secondary px-2 sm:max-w-none sm:px-3"
+            >
               <WorkspaceAvatar
                 name={currentWorkspace?.name ?? "WS"}
                 logo={currentWorkspace?.logo}
                 className="h-7 w-7 shrink-0"
               />
-              <span className="max-w-32 truncate">
+              <span className="hidden min-w-0 truncate sm:inline md:max-w-32">
                 {currentWorkspace?.name || "Selecionar"}
               </span>
-              {currentWorkspace && getPlanBadge(currentWorkspace.plan)}
-              <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+              {currentWorkspace && (
+                <span className="hidden sm:inline">{getPlanBadge(currentWorkspace.plan)}</span>
+              )}
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
@@ -103,27 +122,27 @@ export function AppHeader() {
         </DropdownMenu>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+        <Button variant="ghost" size="icon" className="relative h-11 w-11 shrink-0" aria-label="Notificações">
+          <Bell className="h-5 w-5" />
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />
         </Button>
 
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2 px-2">
-              <Avatar className="w-8 h-8">
+            <Button variant="ghost" className="h-11 gap-2 px-2 sm:px-3">
+              <Avatar className="h-8 w-8 shrink-0">
                 {user?.avatar ? (
                   <AvatarImage src={user.avatar} alt="" className="object-cover" />
                 ) : null}
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                <AvatarFallback className="bg-primary text-sm text-primary-foreground">
                   {user ? getInitials(user.name) : "U"}
                 </AvatarFallback>
               </Avatar>
-              <span className="max-w-24 truncate text-sm">
+              <span className="hidden max-w-24 truncate text-sm sm:inline">
                 {user?.name || "Usuário"}
               </span>
-              <ChevronDown className="w-4 h-4 opacity-50" />
+              <ChevronDown className="hidden h-4 w-4 opacity-50 sm:inline" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { createOperationId } from "@/lib/utils/operation-id"
 import { plannerPackLabelPt } from "@/lib/planner-pack-labels"
+import { CATALOG_TOOL_IDS, catalogToolLabelPt } from "@/lib/catalog-tool-ids"
 import { ReactFlow, type Node, type Edge } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { nodeTypes as graphNodeTypes } from "@/components/graph/graph-node"
@@ -592,12 +593,12 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className="space-y-6">
       {!embedded ? (
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Whitebeard AI Builder</h1>
-            <p className="text-muted-foreground mt-1">Descreva o problema e gere um time completo com plano editável.</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Whitebeard AI Builder</h1>
+            <p className="mt-1 text-muted-foreground">Descreva o problema e gere um time completo com plano editável.</p>
           </div>
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="w-full shrink-0 sm:w-auto">
             <Link href="/teams/create">Abrir jornada unificada</Link>
           </Button>
         </div>
@@ -1286,6 +1287,32 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     }}
                     placeholder="skills separadas por vírgula"
                   />
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground text-xs">Ferramentas builtin (catálogo OpenAI)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Por defeito o plano sugere um subconjunto por papel; ajuste antes de executar.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {CATALOG_TOOL_IDS.map((tid) => (
+                        <label key={tid} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={(agent.catalogTools ?? []).includes(tid)}
+                            onCheckedChange={(c) => {
+                              const agents = [...plan.agents]
+                              const cur = new Set(agents[index]?.catalogTools ?? [])
+                              if (c === true) cur.add(tid)
+                              else cur.delete(tid)
+                              agents[index] = { ...agents[index]!, catalogTools: [...cur] }
+                              setBindPreview(null)
+                              setBindPreviewApproved(false)
+                              setPlan({ ...plan, agents })
+                            }}
+                          />
+                          <span>{catalogToolLabelPt(tid)}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                   {agent.overlapReason ? <p className="text-xs text-muted-foreground">{agent.overlapReason}</p> : null}
                 </div>
               ))}
@@ -1293,7 +1320,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             <div className="space-y-2">
               <Label>Pré-visualização do grafo</Label>
               <GraphLegendInline />
-              <div className="h-[280px] rounded-lg border overflow-hidden">
+              <div className="h-[220px] overflow-hidden rounded-lg border sm:h-[280px]">
                 <ReactFlow
                   key={`${plan.id}-${previewGraphNodes.length}-${previewGraphEdges.length}`}
                   colorMode="dark"
@@ -1314,12 +1341,13 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </ReactFlow>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={saveEdits} disabled={isSaving}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Button variant="outline" onClick={saveEdits} disabled={isSaving} className="w-full sm:w-auto">
                 {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PencilLine className="w-4 h-4 mr-2" />}
                 Salvar ajustes
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 onClick={executePlan}
                 disabled={
                   isExecuting ||

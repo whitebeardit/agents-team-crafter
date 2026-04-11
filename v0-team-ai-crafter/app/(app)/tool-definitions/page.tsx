@@ -307,10 +307,10 @@ export default function ToolDefinitionsPage() {
   const disabledCount = items.length - enabledCount
 
   return (
-    <div className="space-y-6 p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Tools do workspace</h1>
+    <div className="mx-auto w-full min-w-0 max-w-4xl space-y-6 px-4 py-4 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold sm:text-2xl">Tools do workspace</h1>
           <p className="text-sm text-muted-foreground">
             Definicoes associaveis aos agentes (aba Ferramentas). Tipos: <code className="text-xs">internal_action</code>{" "}
             (accoes de negocio), <code className="text-xs">http_webhook</code>, <code className="text-xs">builtin_ref</code>,{" "}
@@ -326,12 +326,12 @@ export default function ToolDefinitionsPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full shrink-0 sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Nova tool
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {kind === "http_webhook"
@@ -547,7 +547,7 @@ export default function ToolDefinitionsPage() {
               {items.map((t) => (
                 <li
                   key={t.id}
-                  className="flex items-center justify-between gap-4 p-3 rounded-lg border border-border"
+                  className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -563,7 +563,7 @@ export default function ToolDefinitionsPage() {
                       {describeToolDependencies(t)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:justify-start">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Ativa</span>
                       <Switch
