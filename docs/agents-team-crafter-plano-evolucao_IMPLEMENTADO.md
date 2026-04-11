@@ -629,6 +629,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 58   | Danger Zone administrativa e reset de fábrica            | entregue (ver [Loop 58](#loop-58-fechado))                                                      |
 | 59   | Catálogo `internal_action` (presets + API + UI guiada)   | entregue (ver [Loop 59](#loop-59-fechado))                                                      |
 | 60   | Remover CRM HTTP do catálogo (ambiguidade vs CRM interno) | entregue (ver [Loop 60](#loop-60-fechado))                                                      |
+| 61   | Criação em lote de `internal_action` na página Tools (UX) | **em aberto** (ver [Loop 61](#loop-61-aberto))                                                 |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -639,7 +640,9 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Último slice numerado fechado:** **Loop 60** — remoção de `crm_access` / `toolCrm` (ver [Loop 60](#loop-60-fechado)).
 
-**Próximo slice:** definir no plano mestre (`agents-team-crafter-plano-evolucao.md`) quando houver nova macro-tarefa; candidatos incluem evoluções da ETAPA 9 (ex.: admin global — listagem de utilizadores / delete em cascata) ou novas frentes de produto.
+**Slice em aberto (ledger):** **Loop 61** — [criação em lote de tools «Ação interna (negócio)»](#loop-61-aberto) na página Tools (seleção múltipla + uma confirmação), conforme [plano mestre](agents-team-crafter-plano-evolucao.md#loop-61--criação-em-lote-de-tools-ação-interna-negócio-ux).
+
+**Outros próximos slices:** definir no plano mestre (`agents-team-crafter-plano-evolucao.md`) quando houver nova macro-tarefa; candidatos incluem evoluções da ETAPA 9 (ex.: admin global — listagem de utilizadores / delete em cascata) ou novas frentes de produto.
 
 ### Frente subsequente já mapeada
 A **ETAPA 9 — Paridade de produção, configurações e operação** pode continuar com slices adicionais para além do Loop 60.
@@ -1144,6 +1147,7 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** pode cont
   - [`agents-team-crafter-plano-evolucao.md`](agents-team-crafter-plano-evolucao.md): [§2.6](agents-team-crafter-plano-evolucao.md#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) e [Loop 59](agents-team-crafter-plano-evolucao.md#loop-59--catálogo-de-ações-de-negócio--ux-guiada-internal_action) no plano mestre
 - critério de saída: catálogo só lista `actionId` com handler; gate com frontend porque o slice alterou `v0-team-ai-crafter`
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+- **Seguinte evolução de UX:** criação **em lote** de várias `internal_action` sem repetir o modal — ver [Loop 61 (aberto)](#loop-61-aberto).
 
 ## Loop 60 (fechado)
 
@@ -1160,6 +1164,23 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** pode cont
   - [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md): matriz e integrações atualizadas.
 - critério de saída: sem `catalog_crm_access` nem `toolCrm` de primeira classe; gate verde backend + frontend.
 - Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (203 testes backend no encerramento deste slice).
+
+## Loop 61 (aberto)
+
+- etapa/prioridade: ETAPA 9 (UX Tools do workspace) / alta
+- objetivo do slice: **melhorar a UX** na página [`tool-definitions/page.tsx`](../v0-team-ai-crafter/app/%28app%29/tool-definitions/page.tsx) para permitir **selecionar e adicionar várias** tools do tipo **«Ação interna (negócio)»** (`internal_action`) **de uma vez**, em vez de repetir o diálogo **Nova tool** para cada `actionId`. O fluxo actual (combobox single-select por criação) permanece válido; o slice acrescenta um caminho em lote.
+- **Problema:** com catálogos grandes, registar muitas ações internas é trabalhoso e desmotiva o uso correcto das capabilities de negócio.
+- **Foco de implementação (quando fechar o loop):**
+  - UI: multiselect ou lista com checkboxes sobre o mesmo catálogo `GET /api/v1/business-actions/catalog`; resumo antes de confirmar; estados de loading e feedback em sucesso parcial.
+  - Respeitar desduplicação já existente (não criar duas defs para o mesmo `actionId` no workspace).
+  - Backend: avaliar `POST` em lote dedicado vs múltiplos `POST /tool-definitions` com tratamento de erros agregado (documentar a decisão no PR).
+- **referência no plano mestre:** [Loop 61 — Criação em lote…](agents-team-crafter-plano-evolucao.md#loop-61--criação-em-lote-de-tools-ação-interna-negócio-ux)
+- critério de saída (para marcar como fechado no ledger): utilizador consegue criar N `internal_action` sem N passagens pelo mesmo modal; testes e gate conforme alterações em backend/frontend.
+- Gate (a definir ao implementar): `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` se houver mudanças em `v0-team-ai-crafter`.
+
+### Relação com o Loop 59 (fechado)
+
+O Loop 59 entregou catálogo read-only, combobox **uma ação por criação** e [`useMemo`](../v0-team-ai-crafter/app/%28app%29/tool-definitions/page.tsx) no cliente API para evitar loop de carregamento. O Loop 61 é a **iteração de UX** em lote sobre o mesmo tipo de tool.
 
 ---
 
