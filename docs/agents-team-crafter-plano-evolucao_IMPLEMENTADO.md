@@ -100,7 +100,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–73); evolução contínua | Loops 52–73 entregues; próximos candidatos de produto (ex.: billing/2FA): ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–73); **74–76 planeados** (cards em mais listagens) | Loops 52–73 entregues; **Loops 74–76** = expansão do padrão de [Loop 73](#loop-73-fechado); outros candidatos (billing/2FA): ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -670,6 +670,9 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 71   | Tabelas densas — scroll horizontal (`ResponsiveTableScroll`) | entregue (ver [Loop 71](#loop-71-fechado))                                                      |
 | 72   | Tours — spotlight / ancoragem DOM (opcional por passo)       | entregue (ver [Loop 72](#loop-72-fechado))                                                      |
 | 73   | Listagens densas — vista em cards (mobile/tablet)             | entregue (ver [Loop 73](#loop-73-fechado))                                                      |
+| 74   | Listagens densas — cards em `/governance`                     | planeado — candidato (ver [Loop 74](#loop-74-candidato))                      |
+| 75   | Listagens densas — cards em `/tool-definitions`              | planeado — candidato (ver [Loop 75](#loop-75-candidato))                |
+| 76   | Listagens densas — cards em `/templates`                     | planeado — candidato (ver [Loop 76](#loop-76-candidato))                      |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -680,12 +683,15 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Último slice numerado fechado:** **Loop 73** — vista em cards para listagem densa em `/runs` (ver [Loop 73](#loop-73-fechado)).
 
-**Próximo slice:** não há **Loop 74** numerado no plano; candidatos naturais: **billing/2FA**, **self-service de workspace**, ou expansão de cards a outras listagens — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+**Próximo slice numerado recomendado:** **Loop 74** → **75** → **76** (expansão do padrão de cards; **um loop por rota**). Depois, candidatos de produto não UX (ex.: billing/2FA) — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
-| Ordem | Tema (candidato) | Plano mestre |
-| --- | --- | --- |
-| 1 | Billing / 2FA / operações sensíveis | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
-| 2 | Mais rotas com vista em cards (além de `/runs`) | [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards) (replicar padrão) |
+| Ordem | Loop | Tema | Plano mestre |
+| --- | --- | --- | --- |
+| 1 | **74** | Cards em listagens densas — `/governance` | [Loop 74](agents-team-crafter-plano-evolucao.md#loop-74-cards-governance) |
+| 2 | **75** | Cards em listagens densas — `/tool-definitions` | [Loop 75](agents-team-crafter-plano-evolucao.md#loop-75-cards-tool-definitions) |
+| 3 | **76** | Cards em listagens densas — `/templates` | [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates) |
+
+**Outros candidatos** (fora da sequência 74–76): billing/2FA, self-service de workspace — [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
 **Regra Ralph:** um slice coerente por ciclo; fechar com gate (`./scripts/ralph-loop-gate.sh`, com `RALPH_LOOP_INCLUDE_FRONTEND=1` se tocar no Next), commit + push, depois atualizar tabela acima e a secção **Loop N (fechado)** abaixo.
 
@@ -1422,6 +1428,42 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
 - **referência no plano mestre:** [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards)
+
+<a id="loop-74-candidato"></a>
+
+## Loop 74 (candidato — detalhe Ralph)
+
+- **Estado:** não iniciado; dependência: [Loop 73 (fechado)](#loop-73-fechado) — replicar o **mesmo contrato** de breakpoint (`<md` cartões, `md+` tabela) e **paridade** de ações.
+- **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
+- **objetivo:** vista em **cartões** nas tabelas densas da rota **`/governance`** (ex.: SLO por time, linha do tempo, auditoria paginada), sem alterar comportamento em desktop.
+- **Ficheiros prováveis:** [`governance/page.tsx`](../v0-team-ai-crafter/app/(app)/governance/page.tsx); componente(s) dedicado(s) sob `components/governance/` ou `components/ui/` conforme consistência com [`runs-list-mobile-cards.tsx`](../v0-team-ai-crafter/components/runs/runs-list-mobile-cards.tsx).
+- **Critério de saída:** matriz **coluna ↔ cartão ↔ CTA** no ledger (secção **Loop 74 (fechado)**); paridade com a tabela; sem regressão de permissões ou paginação.
+- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+- **Ao fechar:** linha 74 → entregue; **Próximo loop oficial** → **75**; plano mestre [Loop 74](agents-team-crafter-plano-evolucao.md#loop-74-cards-governance).
+
+<a id="loop-75-candidato"></a>
+
+## Loop 75 (candidato — detalhe Ralph)
+
+- **Estado:** não iniciado; dependência: [Loop 73 (fechado)](#loop-73-fechado); ordenação recomendada: após **74** (governança costuma ter mais superfícies).
+- **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
+- **objetivo:** cartões para a listagem densa de **tool definitions** em **`/tool-definitions`** (colunas tipo, estado, ids, ações).
+- **Ficheiros prováveis:** [`tool-definitions/page.tsx`](../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx) ou equivalente em `app/(app)/`; componente espelhando o padrão do Loop 73.
+- **Critério de saída:** matriz no ledger; paridade com edição/ativação/navegação existentes na tabela.
+- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+- **Ao fechar:** linha 75 → entregue; **Próximo loop oficial** → **76**; plano mestre [Loop 75](agents-team-crafter-plano-evolucao.md#loop-75-cards-tool-definitions).
+
+<a id="loop-76-candidato"></a>
+
+## Loop 76 (candidato — detalhe Ralph)
+
+- **Estado:** não iniciado; dependência: [Loop 73 (fechado)](#loop-73-fechado).
+- **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
+- **objetivo:** cartões para o catálogo de **templates** em **`/templates`** (metadados, origem, ações de aplicar/abrir).
+- **Ficheiros prováveis:** [`templates/page.tsx`](../v0-team-ai-crafter/app/(app)/templates/page.tsx) (ajustar se o path real divergir no repo).
+- **Critério de saída:** matriz no ledger; paridade com filtros e CTAs da vista em tabela.
+- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+- **Ao fechar:** linha 76 → entregue; **Próximo loop oficial** → candidatos [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) ou nova expansão (ex.: `/agents`, `/teams`); plano mestre [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates).
 
 ---
 

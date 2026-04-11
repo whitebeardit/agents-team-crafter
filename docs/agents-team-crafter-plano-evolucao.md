@@ -1247,6 +1247,83 @@ Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**
 
 **Estado (ledger):** **entregue** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 73 (fechado)** (piloto `/runs`).
 
+### Norma de replicação (Loops 74+)
+
+Cada slice que expande **cards em listagens densas** deve:
+
+1. **Um loop numerado por rota** (ou por conjunto mínimo coerente), com **gate** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` e **commit + push** antes de marcar **(fechado)** no ledger.
+2. **Paridade:** mesmos dados e **mesmas ações** que a tabela em `md+`; política de breakpoint alinhada ao Loop 73 (**`<md`** cartões, **`md+`** tabela), salvo decisão explícita no ledger.
+3. **Documentação:** tabela **coluna (tabela) ↔ campo no cartão ↔ CTA primário** na secção **Loop N (fechado)** do [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md).
+4. **Referência de código:** padrão piloto em [`runs-list-mobile-cards.tsx`](../v0-team-ai-crafter/components/runs/runs-list-mobile-cards.tsx) + [`runs/page.tsx`](../v0-team-ai-crafter/app/(app)/runs/page.tsx).
+
+---
+
+<a id="loop-74-cards-governance"></a>
+
+## Loop 74 — Listagens densas: cards em `/governance` (candidato Ralph)
+
+### Objetivo
+
+Aplicar vista em **cartões** em viewports estreitas às **tabelas densas** da rota **`/governance`** (resumo operacional, SLO por time, linha do tempo, auditoria paginada, etc.), **sem** alterar o comportamento em desktop nem quebrar permissões ou paginação.
+
+### Foco (MVP)
+
+- Reutilizar o contrato do [Loop 73](#loop-73-listagens-cards) e a **norma de replicação** acima.
+- Priorizar a superfície com maior atrito em mobile (tipicamente **auditoria** e/ou **SLO**, conforme análise no slice).
+
+### Fora do MVP
+
+- Redesenho visual completo da página ou substituição de tabelas em desktop.
+
+### Critério de saída
+
+- Matriz **coluna ↔ cartão ↔ CTA** no ledger; paridade funcional; gate com **`RALPH_LOOP_INCLUDE_FRONTEND=1`**; ledger com **Loop 74 (fechado)** quando implementado.
+
+**Estado (ledger):** **candidato** — [`Loop 74 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-74-candidato).
+
+---
+
+<a id="loop-75-cards-tool-definitions"></a>
+
+## Loop 75 — Listagens densas: cards em `/tool-definitions` (candidato Ralph)
+
+### Objetivo
+
+Vista em cartões para a listagem de **definições de tools** do workspace em **`/tool-definitions`**, com paridade de estado, tipos, identificadores e ações (editar, ativar/desativar, etc.).
+
+### Foco (MVP)
+
+- Tabela principal da página; breakpoint alinhado ao Loop 73.
+- Componente dedicado recomendado (espelhar estrutura do piloto `/runs`).
+
+### Critério de saída
+
+- Matriz no ledger; paridade com a tabela; gate; **Loop 75 (fechado)** quando implementado.
+
+**Estado (ledger):** **candidato** — [`Loop 75 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-75-candidato).
+
+---
+
+<a id="loop-76-cards-templates"></a>
+
+## Loop 76 — Listagens densas: cards em `/templates` (candidato Ralph)
+
+### Objetivo
+
+Vista em cartões para o **catálogo de templates** em **`/templates`**, preservando filtros, metadados visíveis na tabela e CTAs (abrir, aplicar, etc.).
+
+### Foco (MVP)
+
+- Lista/catalogação principal; prioridade de colunas documentada no encerramento do loop.
+
+### Critério de saída
+
+- Matriz no ledger; paridade com filtros e ações; gate; **Loop 76 (fechado)** quando implementado.
+
+**Estado (ledger):** **candidato** — [`Loop 76 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-76-candidato).
+
+---
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1272,6 +1349,9 @@ Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**
 20. **Loop 71** — `ResponsiveTableScroll` em `/runs`, `/governance` e convites em Settings (entregue no ledger; ver [Loop 71](#loop-71-tabelas-scroll)).
 21. **Loop 72** — tours com **spotlight / ancoragem DOM** opcional por passo (entregue no ledger; ver [Loop 72](#loop-72-spotlight-tours)).
 22. **Loop 73** — listagens densas com **vista em cards** em mobile/tablet (entregue no ledger, piloto `/runs`; ver [Loop 73](#loop-73-listagens-cards)).
+23. **Loop 74** — replicar cards em **`/governance`** (candidato; ver [Loop 74](#loop-74-cards-governance)).
+24. **Loop 75** — replicar cards em **`/tool-definitions`** (candidato; ver [Loop 75](#loop-75-cards-tool-definitions)).
+25. **Loop 76** — replicar cards em **`/templates`** (candidato; ver [Loop 76](#loop-76-cards-templates)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1293,6 +1373,7 @@ Complementar o **Loop 71** (`ResponsiveTableScroll`): em **viewports estreitas**
 - **Loop 71:** scroll horizontal consistente para tabelas densas em mobile/tablet (`/runs`, governança, convites)
 - **Loop 72:** elevar tours de “copy em diálogo” para **realce no alvo** quando o DOM for estável, mantendo fallback e `tourVersion`
 - **Loop 73:** quando o scroll horizontal não chega para leitura eficiente, **cards** com prioridade de colunas explícita por rota
+- **Loops 74–76:** expandir o **mesmo padrão** de cards (um Ralph Loop por rota: governança, tools do workspace, templates), mantendo paridade e documentação no ledger
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1309,4 +1390,4 @@ Ela funciona como a macrofase seguinte para:
 - reset de fábrica deve ser tratado como capacidade de plataforma, não de workspace comum
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
-- responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido
+- responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
