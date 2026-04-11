@@ -27,7 +27,12 @@ function refineInternalAction(data: { kind?: string; config?: Record<string, unk
 
 const createSchema = toolDefinitionBody.superRefine(refineInternalAction);
 
-const updateSchema = toolDefinitionBody.partial().superRefine(refineInternalAction);
+const updateSchema = toolDefinitionBody
+  .partial()
+  .extend({ enabled: z.boolean().optional() })
+  .superRefine((data, ctx) => {
+    if (data.kind === 'internal_action') refineInternalAction(data, ctx);
+  });
 
 export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: IAppDeps) {
   const tenant = [deps.authenticate, deps.requireTenant];

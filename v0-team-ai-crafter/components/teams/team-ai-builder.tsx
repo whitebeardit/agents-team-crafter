@@ -222,6 +222,21 @@ function definitionStatusLabel(status: TeamPlanBindPreview["toolDefinitions"][nu
   }
 }
 
+function plannedOperationLabel(
+  op: TeamPlanBindPreview["toolDefinitions"][number]["plannedOperation"],
+): string {
+  switch (op) {
+    case "create":
+      return "criar no execute"
+    case "reuse":
+      return "reutilizar"
+    case "reactivate":
+      return "reativar no execute"
+    default:
+      return "sem acao automatica"
+  }
+}
+
 export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
@@ -240,6 +255,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const [bindPreview, setBindPreview] = useState<TeamPlanBindPreview | null>(null)
   const [isBindPreviewLoading, setIsBindPreviewLoading] = useState(false)
   const [isBindOverrideSaving, setIsBindOverrideSaving] = useState(false)
+  const [isBindEnableSaving, setIsBindEnableSaving] = useState(false)
   const [bindPreviewApproved, setBindPreviewApproved] = useState(false)
   const [openaiKeyConfiguredInWorkspace, setOpenaiKeyConfiguredInWorkspace] = useState<boolean | null>(null)
   const [teamPlanningPolicy, setTeamPlanningPolicy] = useState<TeamPlanningPolicy | null>(null)
@@ -258,6 +274,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       bindPreview?.agents.filter(
         (agent) => agent.actionIdsAddedByOverride.length > 0 || agent.actionIdsRemovedByOverride.length > 0,
       ) ?? [],
+    [bindPreview],
+  )
+  const disabledBindDefinitionActionIds = useMemo(
+    () =>
+      bindPreview?.toolDefinitions.filter((d) => d.currentStatus === "existing_disabled").map((d) => d.actionId) ?? [],
     [bindPreview],
   )
 
@@ -305,6 +326,30 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       toast.error(message)
     } finally {
       setIsBindPreviewLoading(false)
+    }
+  }
+
+  const enableBindDefinitionsInline = async (actionIds: string[]) => {
+    if (!api || !plan || actionIds.length === 0) return
+    setIsBindEnableSaving(true)
+    setBindPreviewApproved(false)
+    try {
+      const res = await api.post<{
+        preview: TeamPlanBindPreview
+        reactivatedToolDefinitionIds: string[]
+      }>(`/team-plans/${plan.id}/bind-enable-definitions`, { actionIds })
+      setBindPreview(res.data.preview)
+      const n = res.data.reactivatedToolDefinitionIds.length
+      if (n > 0) {
+        toast.success(`${n} tool definition(s) reativada(s) no workspace. O preview foi atualizado.`)
+      } else {
+        toast.info("Nenhuma definition inativa correspondente a essas actionIds.")
+      }
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Falha ao reativar definitions"
+      toast.error(message)
+    } finally {
+      setIsBindEnableSaving(false)
     }
   }
 
@@ -513,6 +558,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             if (meta?.autoBindActionsTruncated) {
               toast.warning(
                 "Algumas capabilities sugeridas foram ignoradas: limite de 64 actionIds por execução no servidor.",
+              )
+            }
+            if ((meta?.reactivatedToolDefinitionIds?.length ?? 0) > 0) {
+              toast.success(
+                `${meta!.reactivatedToolDefinitionIds!.length} tool definition(s) estavam inativas e foram reativadas para o bind.`,
               )
             }
             if (teamId) router.push(`/teams/${teamId}`)
@@ -740,6 +790,20 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     >
                       Resetar politica
                     </Button>
+                    {disabledBindDefinitionActionIds.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={() => void enableBindDefinitionsInline(disabledBindDefinitionActionIds)}
+                        disabled={
+                          isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan
+                        }
+                      >
+                        {isBindEnableSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        Ativar definitions inativas ({disabledBindDefinitionActionIds.length})
+                      </Button>
+                    ) : null}
                   </div>
                   {bindPreview ? (
                     <>
@@ -747,21 +811,38 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                         <p className="text-sm font-medium">Tool definitions</p>
                         {bindPreview.toolDefinitions.map((definition) => (
                           <div key={definition.actionId} className="rounded-lg border p-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <code className="text-xs">{definition.actionId}</code>
-                              {definition.packIds.map((packId) => (
-                                <Badge key={`${definition.actionId}-${packId}`} variant="secondary" title={packId}>
-                                  {plannerPackLabelPt(packId)}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <code className="text-xs">{definition.actionId}</code>
+                                {definition.packIds.map((packId) => (
+                                  <Badge key={`${definition.actionId}-${packId}`} variant="secondary" title={packId}>
+                                    {plannerPackLabelPt(packId)}
+                                  </Badge>
+                                ))}
+                                <Badge variant="outline">{definitionStatusLabel(definition.currentStatus)}</Badge>
+                                <Badge
+                                  variant={
+                                    definition.plannedOperation === "create" || definition.plannedOperation === "reactivate"
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                >
+                                  {plannedOperationLabel(definition.plannedOperation)}
                                 </Badge>
-                              ))}
-                              <Badge variant="outline">{definitionStatusLabel(definition.currentStatus)}</Badge>
-                              <Badge variant={definition.plannedOperation === "create" ? "default" : "secondary"}>
-                                {definition.plannedOperation === "create"
-                                  ? "criar"
-                                  : definition.plannedOperation === "reuse"
-                                    ? "reutilizar"
-                                    : "sem ação automática"}
-                              </Badge>
+                              </div>
+                              {definition.currentStatus === "existing_disabled" && definition.toolDefinitionId ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => void enableBindDefinitionsInline([definition.actionId])}
+                                  disabled={
+                                    isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan
+                                  }
+                                >
+                                  Ativar no workspace
+                                </Button>
+                              ) : null}
                             </div>
                           </div>
                         ))}
@@ -1080,6 +1161,12 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       Delta aprovado versus politica do workspace: {lastExecutionMeta.bindDiffSummary.addedActionCount}{" "}
                       adicao(oes), {lastExecutionMeta.bindDiffSummary.removedActionCount} remocao(oes), em{" "}
                       {lastExecutionMeta.bindDiffSummary.affectedAgentCount} agente(s).
+                    </p>
+                  ) : null}
+                  {(lastExecutionMeta.reactivatedToolDefinitionIds?.length ?? 0) > 0 ? (
+                    <p className="text-muted-foreground">
+                      Definitions reativadas automaticamente para destravar o bind:{" "}
+                      {lastExecutionMeta.reactivatedToolDefinitionIds!.length} id(s).
                     </p>
                   ) : null}
                 </AlertDescription>

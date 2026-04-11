@@ -27,6 +27,10 @@ const bindOverridesSchema = z.object({
   bindOverrides: z.unknown().optional(),
 });
 
+const bindEnableDefinitionsSchema = z.object({
+  actionIds: z.array(z.string().min(1)).min(1),
+});
+
 export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDeps) {
   const tenant = [deps.authenticate, deps.requireTenant];
   const repo = new TeamPlanRepository();
@@ -68,6 +72,18 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
     const id = (req.params as { id: string }).id;
     const preview = await service.previewBind(ws, id);
     return reply.send(successEnvelope(preview));
+  });
+
+  app.post('/team-plans/:id/bind-enable-definitions', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = (req.params as { id: string }).id;
+    const body = bindEnableDefinitionsSchema.parse(req.body ?? {});
+    const data = await service.enableDisabledBindDefinitions(ws, id, body.actionIds);
+    return reply.send(
+      successEnvelope(data, {
+        reactivatedToolDefinitionIds: data.reactivatedToolDefinitionIds,
+      }),
+    );
   });
 
   app.post('/team-plans/:id/execute', { preHandler: tenant }, async (req, reply) => {

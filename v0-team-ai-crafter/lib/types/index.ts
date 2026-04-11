@@ -393,6 +393,8 @@ export interface TeamPlanExecuteMeta {
   autoBindPolicySource?: "workspace_enabled" | "workspace_disabled" | "environment_default"
   reusedAgentBindMode?: "manual" | "merge"
   boundToolDefinitionIds?: string[]
+  /** Definitions que estavam `enabled: false` e foram reativadas durante o execute (Loop 51). */
+  reactivatedToolDefinitionIds?: string[]
   /** Quantidade de actionIds pedidos pelo planner (antes do cap). */
   autoBindActionsRequested?: number
   /** Quantidade considerada para bind (0 se política desligada). */
@@ -426,7 +428,7 @@ export interface TeamPlanBindPreviewDefinition {
   toolDefinitionId?: string
   enabled?: boolean
   currentStatus: "missing" | "existing_enabled" | "existing_disabled"
-  plannedOperation: "create" | "reuse" | "none"
+  plannedOperation: "create" | "reuse" | "reactivate" | "none"
 }
 
 export interface TeamPlanBindPreviewAgent {

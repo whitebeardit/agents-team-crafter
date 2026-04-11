@@ -37,7 +37,7 @@ export interface ITeamPlanBindPreviewDefinition {
   toolDefinitionId?: string;
   enabled?: boolean;
   currentStatus: 'missing' | 'existing_enabled' | 'existing_disabled';
-  plannedOperation: 'create' | 'reuse' | 'none';
+  plannedOperation: 'create' | 'reuse' | 'reactivate' | 'none';
 }
 
 export interface ITeamPlanBindPreviewAgent {
@@ -696,7 +696,13 @@ export class TeamPlanService {
     for (const actionId of selectedActionIds) {
       const definition = definitionPreviewByActionId.get(actionId);
       if (!definition) continue;
-      definition.plannedOperation = definition.toolDefinitionId ? 'reuse' : 'create';
+      if (!definition.toolDefinitionId) {
+        definition.plannedOperation = 'create';
+      } else if (definition.currentStatus === 'existing_disabled') {
+        definition.plannedOperation = 'reactivate';
+      } else {
+        definition.plannedOperation = 'reuse';
+      }
     }
     const toolDefinitions = actionIds.map((actionId) => definitionPreviewByActionId.get(actionId)!);
     const bindOverrideAgentCount = agents.filter((agent) => agent.overrideMode !== 'inherit').length;
@@ -787,6 +793,54 @@ export class TeamPlanService {
     });
     const { preview } = await this.buildBindPreview(workspaceId, parsed, autoBindPolicy, plan.bindOverrides);
     return preview;
+  }
+
+  /**
+   * Ativa `WorkspaceToolDefinition` inativas referenciadas pelo preview de bind do plano,
+   * sem exigir ir à página de tool-definitions (Loop 51).
+   */
+  async enableDisabledBindDefinitions(
+    workspaceId: string,
+    planId: string,
+    actionIds: string[],
+  ): Promise<{ preview: ITeamPlanBindPreview; reactivatedToolDefinitionIds: string[] }> {
+    const plan = await this.repo.findById(workspaceId, planId);
+    if (!plan) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
+    if (plan.status === 'executing' || plan.status === 'executed') {
+      throw new AppError('CONFLICT', 'Plano ja foi executado ou esta em execucao', 409);
+    }
+    const workspaceRecord = await this.deps.workspaceRepo.findById(workspaceId);
+    const envDefaultEnabled = (this.deps.env.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0') === '1';
+    const autoBindPolicy = resolveTeamPlanAutoBindPolicy(
+      (workspaceRecord?.settings as Record<string, unknown> | undefined) ?? {},
+      envDefaultEnabled,
+    );
+    const parsed = plannerOutputSchema.parse({
+      team: plan.team,
+      agents: plan.agents,
+      graph: plan.graph,
+      executionChecklist: plan.executionChecklist ?? [],
+      requiredPacks: plan.requiredPacks ?? [],
+      requiredTools: plan.requiredTools ?? [],
+    });
+    const { preview } = await this.buildBindPreview(workspaceId, parsed, autoBindPolicy, plan.bindOverrides);
+    const requested = [...new Set(actionIds.map((a) => a.trim()).filter(Boolean))];
+    const reactivatedToolDefinitionIds: string[] = [];
+    for (const actionId of requested) {
+      const def = preview.toolDefinitions.find((d) => d.actionId === actionId);
+      if (!def || def.currentStatus !== 'existing_disabled' || !def.toolDefinitionId) continue;
+      const updated = await this.deps.workspaceToolDefinitionRepo.update(workspaceId, def.toolDefinitionId, {
+        enabled: true,
+      });
+      if (updated) reactivatedToolDefinitionIds.push(updated.id);
+    }
+    const { preview: freshPreview } = await this.buildBindPreview(
+      workspaceId,
+      parsed,
+      autoBindPolicy,
+      plan.bindOverrides,
+    );
+    return { preview: freshPreview, reactivatedToolDefinitionIds };
   }
 
   async executePlan(
@@ -932,11 +986,21 @@ export class TeamPlanService {
       let reusedAgentsUpdated = 0;
       let reusedAgentsSkipped = 0;
       const effectiveBindEnabled = preview.effectiveBindEnabled;
+      const reactivatedToolDefinitionIds: string[] = [];
       if (effectiveBindEnabled && selectedActionIds.length > 0) {
         onPhase?.(
           'binding_tools',
           `Vinculando ${selectedActionIds.length} acao(oes) de negocio; reused=${autoBindPolicy.reusedAgentBindMode}`,
         );
+        for (const actionId of selectedActionIds) {
+          const def = preview.toolDefinitions.find((d) => d.actionId === actionId);
+          if (def?.currentStatus === 'existing_disabled' && def.toolDefinitionId) {
+            const updated = await this.deps.workspaceToolDefinitionRepo.update(workspaceId, def.toolDefinitionId, {
+              enabled: true,
+            });
+            if (updated) reactivatedToolDefinitionIds.push(updated.id);
+          }
+        }
         const actionIdToToolDefinitionId = new Map<string, string>();
         for (const definition of preview.toolDefinitions) {
           if (definition.toolDefinitionId) actionIdToToolDefinitionId.set(definition.actionId, definition.toolDefinitionId);
@@ -1114,6 +1178,7 @@ export class TeamPlanService {
           bindOverrideActionCount: preview.bindOverrideActionCount,
           bindDiffSummary: preview.diffSummary,
           boundToolDefinitionIds,
+          reactivatedToolDefinitionIds,
           autoBindActionsRequested: actionIdsFull.length,
           autoBindActionsTruncated: actionIdsTruncated,
           reusedAgentsUpdated,
@@ -1143,6 +1208,7 @@ export class TeamPlanService {
       responseMeta.autoBindActionsTruncated = actionIdsTruncated;
       responseMeta.reusedAgentsUpdated = reusedAgentsUpdated;
       responseMeta.reusedAgentsSkipped = reusedAgentsSkipped;
+      responseMeta.reactivatedToolDefinitionIds = reactivatedToolDefinitionIds;
       executeMetrics.observeResult('success');
       return { plan: updated, responseMeta };
     } catch (err) {

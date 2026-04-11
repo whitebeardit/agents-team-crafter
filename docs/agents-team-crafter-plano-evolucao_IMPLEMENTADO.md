@@ -44,7 +44,7 @@ Regras de uso:
 | ETAPA 5 - simplificação do grafo                       | alta       | concluído    | hub-and-spoke refletido na UI                                                                            |
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
-| ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | em progresso | Loops 17–50 entregues; próximo slice oficial: **Loop 51**                                                |
+| ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | em progresso | Loops 17–51 entregues; próximo slice oficial: **Loop 52** (ETAPA 9)                                       |
 | ETAPA 9 - Paridade de produção, configurações e operação | altíssima | planejado    | frente documental aprovada; loops 52–58 mapeados para endurecer `/settings` e superfícies adjacentes |
 
 
@@ -592,8 +592,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 48   | Pré-visualização/aprovação do bind antes do execute      | entregue (preview backend + AI Builder + aprovação antes do execute; ver [Loop 48](#loop-48))  |
 | 49   | Overrides granulares do bind por agente                  | entregue (persistência + preview/execute + UI; ver [Loop 49](#loop-49))                        |
 | 50   | Ações em lote e reset de overrides do bind               | entregue (ações rápidas globais/por agente/pack + diff final; ver [Loop 50](#loop-50))         |
-| 51   | Ativação inline de tool definitions inativas no preview  | **próximo** — ver [Loop 51](#loop-51-próximo-loop-oficial--sugestão)                           |
-| 52   | Settings de perfil e preferências com backend real       | planejado (ETAPA 9; endurecer `/settings`, perfil, preferências e navegação de conta)          |
+| 51   | Ativação inline de tool definitions inativas no preview  | entregue (reativar no execute + `POST .../bind-enable-definitions` + UI; ver [Loop 51](#loop-51)) |
+| 52   | Settings de perfil e preferências com backend real       | **próximo (ETAPA 9)** — ver [Loop 52](#loop-52)                                                |
 | 53   | Notificações, canais e explicações operacionais         | planejado (ETAPA 9; reduzir ambiguidades e explicar uso prático em produção)                   |
 | 54   | Segurança e autenticação de conta                        | planejado (ETAPA 9; senha, sessões e decisão honesta sobre 2FA)                                |
 | 55   | Faturamento, upgrade e enforcement de quotas             | planejado (ETAPA 9; quotas reais + jornada de upgrade)                                         |
@@ -608,10 +608,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Loop 51** — Permitir ativação inline de `tool definitions` inativas diretamente no preview do bind do AI Builder. Ver [Loop 51](#loop-51-próximo-loop-oficial--sugestão).
+**Loop 52** — Paridade de `/settings` (perfil, preferências, tema) com backend real. Ver [Loop 52](#loop-52).
 
 ### Frente subsequente já mapeada
-Após o Loop 51, a continuação prioritária do roadmap fica organizada na **ETAPA 9 — Paridade de produção, configurações e operação**, com backlog inicial nos Loops 52–58.
+A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 52–58.
 
 ---
 
@@ -965,7 +965,7 @@ Após o Loop 51, a continuação prioritária do roadmap fica organizada na **ET
 
 ---
 
-## Loop 51 (próximo loop oficial — sugestão)
+## Loop 51
 
 - etapa/prioridade: ETAPA 8 / média
 - objetivo do slice: fechar o último atrito operacional do bind quando o preview encontra `tool definitions` existentes, porém inativas
@@ -977,6 +977,14 @@ Após o Loop 51, a continuação prioritária do roadmap fica organizada na **ET
 - critério de saída:
   - o utilizador consegue resolver o caso “definition existe mas está inativa” sem abandonar o fluxo de criação do time
   - o preview continua espelhando com precisão o resultado final do runtime após a reativação
+- **entregue no repositório:**
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../backend/src/modules/team-planning/application/team-plan.service.ts)`: `plannedOperation` `reactivate`; reativação no `execute`; `enableDisabledBindDefinitions` + preview reconstruído; `responseMeta.reactivatedToolDefinitionIds`
+  - `[backend/src/modules/team-planning/interfaces/team-plan.routes.ts](../backend/src/modules/team-planning/interfaces/team-plan.routes.ts)`: `POST /team-plans/:id/bind-enable-definitions`
+  - `[backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts](../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts)`: `PUT` aceita `enabled`
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: botões “Ativar no workspace” / lote; meta pós-execução
+  - `[v0-team-ai-crafter/lib/types/index.ts](../v0-team-ai-crafter/lib/types/index.ts)`: tipos `reactivate` / `reactivatedToolDefinitionIds`
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: `describe` isolado “Loop 51” (execute + endpoint)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
 ---
 

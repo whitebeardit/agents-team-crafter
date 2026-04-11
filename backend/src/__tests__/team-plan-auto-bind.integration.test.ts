@@ -17,6 +17,7 @@ import { AgentModel } from '../modules/agents/infra/agent.model.js';
 import { UserModel } from '../modules/users/infra/user.model.js';
 import { WorkspaceModel } from '../modules/workspaces/infra/workspace.model.js';
 import { WorkspaceMemberModel } from '../modules/workspaces/infra/workspace-member.model.js';
+import { WorkspaceToolDefinitionModel } from '../modules/tool-definitions/infra/workspace-tool-definition.model.js';
 
 const MOCK_LLM_PLAN = {
   team: {
@@ -1017,5 +1018,201 @@ describe('team-plan execute with workspace auto-bind policy override', () => {
     for (const id of executeBody.meta.boundToolDefinitionIds ?? []) {
       expect(custom).toContain(id);
     }
+  });
+});
+
+describe('team-plan Loop 51: reativar definitions inativas no bind', () => {
+  let mongo: MongoMemoryServer;
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let workspaceId = '';
+
+  const env: IEnv = {
+    NODE_ENV: 'test',
+    PORT: 3004,
+    MONGODB_URI: '',
+    JWT_SECRET: '01234567890123456789012345678901',
+    JWT_EXPIRES_IN: '1h',
+    JWT_REFRESH_EXPIRES_IN: '30d',
+    CORS_ORIGIN: '*',
+    OPENAI_API_KEY: 'test-key',
+    SLACK_SIGNING_SECRET: 'test-secret',
+    TEAM_PLAN_AUTO_BIND_TOOLS: '1',
+  };
+
+  beforeAll(async () => {
+    if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+    mongo = await MongoMemoryServer.create();
+    env.MONGODB_URI = mongo.getUri();
+    await mongoose.connect(env.MONGODB_URI);
+
+    const passwordHash = await bcrypt.hash('secret', 10);
+    const ws = await WorkspaceModel.create({ name: 'Loop51Ws', plan: 'free' });
+    workspaceId = ws._id.toString();
+    const user = await UserModel.create({
+      email: 'loop51-autobind@test.com',
+      passwordHash,
+      name: 'Loop51 AutoBind',
+      workspaceIds: [ws._id],
+    });
+    await WorkspaceMemberModel.create({
+      workspaceId: ws._id,
+      userId: user._id,
+      role: 'owner',
+    });
+    app = await buildApp(env);
+  });
+
+  beforeEach(() => {
+    jest.spyOn(global, 'fetch').mockResolvedValue(mockFetchOpenAiSuccess());
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    await mongoose.disconnect();
+    await mongo.stop();
+  });
+
+  async function authHeaders() {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'loop51-autobind@test.com', password: 'secret' },
+    });
+    const { data } = JSON.parse(login.body) as { data: { token: string } };
+    return {
+      authorization: `Bearer ${data.token}`,
+      'x-workspace-id': workspaceId,
+    };
+  }
+
+  it('execute reativa definitions inativas selecionadas e expoe reactivatedToolDefinitionIds no meta', async () => {
+    const unique = `exec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      mockFetchOpenAiSuccess({
+        ...MOCK_LLM_PLAN,
+        agents: [
+          { ...MOCK_LLM_PLAN.agents[0], name: `Coord ${unique}` },
+          { ...MOCK_LLM_PLAN.agents[1], name: `Espec ${unique}` },
+        ],
+      }),
+    );
+    const headers = await authHeaders();
+    const wsObjectId = new mongoose.Types.ObjectId(workspaceId);
+    await WorkspaceToolDefinitionModel.deleteMany({ workspaceId: wsObjectId, slug: 'ba-crm-create-party' });
+    const disabled = await WorkspaceToolDefinitionModel.create({
+      workspaceId: wsObjectId,
+      name: 'Negocio: crm_create_party',
+      slug: 'ba-crm-create-party',
+      kind: 'internal_action',
+      jsonSchema: { type: 'object', additionalProperties: true },
+      config: { actionId: 'crm_create_party' },
+      enabled: false,
+    });
+
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans',
+      headers,
+      payload: {
+        problem: `Precisamos cadastrar e consultar clientes com CRM integrado ao time. ${unique}`,
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const planId = (JSON.parse(create.body) as { data: { id: string } }).data.id;
+
+    const execute = await app.inject({
+      method: 'POST',
+      url: `/api/v1/team-plans/${planId}/execute`,
+      headers,
+      payload: { operationId: `op-reativar-def-${unique}` },
+    });
+    expect(execute.statusCode).toBe(200);
+    const body = JSON.parse(execute.body) as {
+      meta: { reactivatedToolDefinitionIds?: string[]; boundToolDefinitionIds?: string[] };
+    };
+    expect(body.meta.reactivatedToolDefinitionIds).toEqual([disabled._id.toString()]);
+    expect(body.meta.boundToolDefinitionIds?.length).toBeGreaterThan(0);
+
+    const refreshed = await WorkspaceToolDefinitionModel.findOne({ _id: disabled._id }).lean();
+    expect(refreshed && 'enabled' in refreshed && refreshed.enabled).toBe(true);
+  });
+
+  it('bind-preview marca reativacao e POST bind-enable-definitions reativa sem sair do fluxo', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      mockFetchOpenAiSuccess({
+        ...MOCK_LLM_PLAN,
+        agents: [
+          { ...MOCK_LLM_PLAN.agents[0], name: 'Coord Loop51 Reativar A' },
+          { ...MOCK_LLM_PLAN.agents[1], name: 'Espec Loop51 Reativar A' },
+        ],
+      }),
+    );
+    const headers = await authHeaders();
+    const wsObjectId = new mongoose.Types.ObjectId(workspaceId);
+    await WorkspaceToolDefinitionModel.deleteMany({ workspaceId: wsObjectId, slug: 'ba-crm-create-party' });
+    const disabled = await WorkspaceToolDefinitionModel.create({
+      workspaceId: wsObjectId,
+      name: 'Negocio: crm_create_party',
+      slug: 'ba-crm-create-party',
+      kind: 'internal_action',
+      jsonSchema: { type: 'object', additionalProperties: true },
+      config: { actionId: 'crm_create_party' },
+      enabled: false,
+    });
+
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans',
+      headers,
+      payload: {
+        problem: 'Precisamos cadastrar e consultar clientes com CRM integrado ao time.',
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const planId = (JSON.parse(create.body) as { data: { id: string } }).data.id;
+
+    const previewRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/team-plans/${planId}/bind-preview`,
+      headers,
+    });
+    expect(previewRes.statusCode).toBe(200);
+    const previewBody = JSON.parse(previewRes.body) as {
+      data: {
+        toolDefinitions: Array<{
+          actionId: string;
+          currentStatus: string;
+          plannedOperation: string;
+          toolDefinitionId?: string;
+        }>;
+      };
+    };
+    const crmDef = previewBody.data.toolDefinitions.find((d) => d.actionId === 'crm_create_party');
+    expect(crmDef?.currentStatus).toBe('existing_disabled');
+    expect(crmDef?.toolDefinitionId).toBe(disabled._id.toString());
+    expect(crmDef?.plannedOperation).toBe('reactivate');
+
+    const enable = await app.inject({
+      method: 'POST',
+      url: `/api/v1/team-plans/${planId}/bind-enable-definitions`,
+      headers,
+      payload: { actionIds: ['crm_create_party'] },
+    });
+    expect(enable.statusCode).toBe(200);
+    const enableBody = JSON.parse(enable.body) as {
+      data: {
+        preview: { toolDefinitions: Array<{ actionId: string; currentStatus: string; plannedOperation: string }> };
+        reactivatedToolDefinitionIds: string[];
+      };
+    };
+    expect(enableBody.data.reactivatedToolDefinitionIds).toContain(disabled._id.toString());
+    const crmAfter = enableBody.data.preview.toolDefinitions.find((d) => d.actionId === 'crm_create_party');
+    expect(crmAfter?.currentStatus).toBe('existing_enabled');
+    expect(crmAfter?.plannedOperation).toBe('reuse');
   });
 });
