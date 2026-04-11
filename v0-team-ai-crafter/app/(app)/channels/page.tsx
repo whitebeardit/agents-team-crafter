@@ -1,7 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Radio, MessageSquare, Hash, Mail, Globe } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { ChannelCard } from "@/components/channels/channel-card"
@@ -242,6 +244,34 @@ export default function ChannelsPage() {
         </div>
       </div>
 
+      <Alert>
+        <MessageSquare className="h-4 w-4" />
+        <AlertTitle>Duas formas de criar canais</AlertTitle>
+        <AlertDescription className="space-y-2 text-sm">
+          <p>
+            <strong className="text-foreground">Chat SDK — plataformas</strong>: um canal por plataforma (Slack,
+            Discord, Teams, …) com <code className="text-xs">provider=chat_sdk</code>, roteamento e segredos proprios
+            em <strong>Configurar</strong>. E o caminho para integrar o runtime dos agentes com mensagens nessas apps.
+          </p>
+          <p>
+            <strong className="text-foreground">Canais genéricos</strong>: modelos por tipo (WhatsApp, email, API REST,
+            …) para fluxos mais amplos. O atalho &quot;Slack&quot; aqui cria ja um canal Chat SDK de Slack; use a grelha
+            acima para Discord, Teams ou outras.
+          </p>
+          <p className="text-muted-foreground">
+            Segredos do workspace (fallback) e OpenAI estao em{" "}
+            <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
+              Configuracoes → Integracoes
+            </Link>
+            . Preferencias de alertas por email/Slack/Discord ficam em{" "}
+            <Link href="/settings?tab=notifications" className="text-primary underline-offset-4 hover:underline">
+              Notificacoes
+            </Link>
+            .
+          </p>
+        </AlertDescription>
+      </Alert>
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-border bg-card">
           <CardContent className="pt-6">
@@ -304,8 +334,10 @@ export default function ChannelsPage() {
         <CardHeader>
           <CardTitle className="text-lg">Chat SDK — plataformas</CardTitle>
           <CardDescription>
-            Crie um canal por plataforma; configure roteamento e segredos em Configurar (admin).
-            Requer <code className="text-xs">ENCRYPTION_MASTER_KEY</code> no servidor para salvar segredos.
+            Inclui Slack, Discord, Microsoft Teams, Telegram, Google Chat, GitHub, Linear e WhatsApp Cloud. Cada botao
+            cria um canal com <code className="text-xs">provider=chat_sdk</code> e <code className="text-xs">platform</code>{" "}
+            correspondente; em <strong>Configurar</strong> define IDs de equipa/guild e tokens (cifrados com{" "}
+            <code className="text-xs">ENCRYPTION_MASTER_KEY</code>).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -330,7 +362,11 @@ export default function ChannelsPage() {
       <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-lg">Canais genéricos</CardTitle>
-          <CardDescription>Tipos de alto nível (inclui Slack como atalho Chat SDK)</CardDescription>
+          <CardDescription>
+            Modelos por tipo de integracao. O cartao Slack abre um fluxo Chat SDK; os restantes sao entradas genericas
+            (email/SMTP, API REST, WhatsApp) que pode alinhar ao seu provedor. Use <strong>Testar</strong> no cartao do
+            canal apos configurar.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

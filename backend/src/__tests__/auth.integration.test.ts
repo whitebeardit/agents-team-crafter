@@ -165,6 +165,43 @@ describe('auth + tenant', () => {
     expect(meParsed.data.avatar).toBe(tinyPng);
   });
 
+  it('PUT /settings/profile merges notifications in preferences', async () => {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'u@test.com', password: 'secret' },
+    });
+    const { data } = JSON.parse(login.body) as { data: { token: string } };
+    const put = await app.inject({
+      method: 'PUT',
+      url: '/api/v1/settings/profile',
+      headers: { authorization: `Bearer ${data.token}` },
+      payload: {
+        preferences: {
+          notifications: {
+            email: false,
+            slack: true,
+            discord: true,
+            alertsEnabled: false,
+            weeklyReport: true,
+          },
+        },
+      },
+    });
+    expect(put.statusCode).toBe(200);
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { authorization: `Bearer ${data.token}` },
+    });
+    const meParsed = JSON.parse(me.body) as {
+      data: { preferences?: { notifications?: Record<string, boolean> } };
+    };
+    expect(meParsed.data.preferences?.notifications?.email).toBe(false);
+    expect(meParsed.data.preferences?.notifications?.slack).toBe(true);
+    expect(meParsed.data.preferences?.notifications?.discord).toBe(true);
+  });
+
   it('PUT /settings/profile clears avatar with empty string', async () => {
     const login = await app.inject({
       method: 'POST',

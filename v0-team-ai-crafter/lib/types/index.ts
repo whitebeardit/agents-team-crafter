@@ -292,11 +292,21 @@ export interface Workspace {
 }
 
 // User types
+/** Preferências de notificação (persistidas em `user.preferences.notifications`) */
+export interface IUserNotificationPreferences {
+  email?: boolean
+  slack?: boolean
+  discord?: boolean
+  alertsEnabled?: boolean
+  weeklyReport?: boolean
+}
+
 /** Preferências persistidas em `PUT /settings/profile` (`preferences` no utilizador) */
 export interface IUserPreferences {
   locale?: "pt-BR" | "en-US" | "es"
   theme?: "light" | "dark" | "system"
   bio?: string
+  notifications?: IUserNotificationPreferences
 }
 
 export interface User {

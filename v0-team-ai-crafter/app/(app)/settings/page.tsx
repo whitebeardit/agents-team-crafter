@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { WORKSPACE_DEFAULT_LOGO } from "@/lib/constants/workspace"
@@ -55,7 +56,7 @@ import {
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { WorkspaceTeamSection } from "@/components/workspace/workspace-team-section"
-import type { IUserPreferences } from "@/lib/types"
+import type { IUserNotificationPreferences, IUserPreferences } from "@/lib/types"
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const AVATAR_MAX_BYTES = 1024 * 1024
@@ -69,6 +70,29 @@ const SETTINGS_TAB_VALUES = [
   "billing",
 ] as const
 const LOGO_ACCEPT_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/svg+xml"])
+
+function defaultNotificationPrefs(): IUserNotificationPreferences {
+  return {
+    email: true,
+    slack: false,
+    discord: false,
+    alertsEnabled: true,
+    weeklyReport: true,
+  }
+}
+
+function parseNotificationPrefs(prefs: Record<string, unknown> | undefined): IUserNotificationPreferences {
+  const raw = prefs?.notifications
+  const n = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
+  const d = defaultNotificationPrefs()
+  return {
+    email: typeof n.email === "boolean" ? n.email : d.email,
+    slack: typeof n.slack === "boolean" ? n.slack : d.slack,
+    discord: typeof n.discord === "boolean" ? n.discord : d.discord,
+    alertsEnabled: typeof n.alertsEnabled === "boolean" ? n.alertsEnabled : d.alertsEnabled,
+    weeklyReport: typeof n.weeklyReport === "boolean" ? n.weeklyReport : d.weeklyReport,
+  }
+}
 
 type SettingsWorkspaceState = {
   id: string
@@ -212,11 +236,10 @@ export default function SettingsPage() {
   const [prefLocale, setPrefLocale] = useState<IUserPreferences["locale"]>("pt-BR")
   const [prefTheme, setPrefTheme] = useState<IUserPreferences["theme"]>("dark")
 
-  // Notification settings
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [slackNotifications, setSlackNotifications] = useState(false)
-  const [alertsEnabled, setAlertsEnabled] = useState(true)
-  const [weeklyReport, setWeeklyReport] = useState(true)
+  const [notificationPrefs, setNotificationPrefs] = useState<IUserNotificationPreferences>(() =>
+    defaultNotificationPrefs(),
+  )
+  const [notifSaving, setNotifSaving] = useState(false)
   const currentPlan = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
 
   useEffect(() => {
@@ -282,6 +305,7 @@ export default function SettingsPage() {
       setPrefLocale(loc === "en-US" || loc === "es" || loc === "pt-BR" ? loc : "pt-BR")
       const th = prefs.theme
       setPrefTheme(th === "light" || th === "dark" || th === "system" ? th : "dark")
+      setNotificationPrefs(parseNotificationPrefs(prefs as Record<string, unknown>))
     })()
   }, [token, refreshToken, currentWorkspace])
 
@@ -389,6 +413,7 @@ export default function SettingsPage() {
           locale: prefLocale,
           theme: prefTheme,
           bio: userBio.trim() || undefined,
+          notifications: { ...notificationPrefs },
         },
       }
       if (pendingAvatar !== undefined) {
@@ -416,6 +441,39 @@ export default function SettingsPage() {
       toastApiRequestError(err, "Falha ao salvar configuracoes")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const saveNotificationsOnly = async () => {
+    if (!token) return
+    setNotifSaving(true)
+    try {
+      const api = createApiClient({
+        getAuth: () => ({ token, refreshToken }),
+        setAuth: () => {},
+        clearAuth: () => {},
+        getWorkspaceId: () => currentWorkspace?.id,
+      })
+      const res = await api.put<ProfileApiResponse & { message: string }>(
+        "/settings/profile",
+        { preferences: { notifications: { ...notificationPrefs } } },
+        { tenant: false },
+      )
+      const p = res.data
+      setProfile({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        avatar: p.avatar,
+        preferences: p.preferences ?? {},
+      })
+      setNotificationPrefs(parseNotificationPrefs(p.preferences as Record<string, unknown>))
+      await refreshSessionUser()
+      toast.success("Preferencias de notificacao guardadas")
+    } catch (err) {
+      toastApiRequestError(err, "Falha ao guardar notificacoes")
+    } finally {
+      setNotifSaving(false)
     }
   }
 
@@ -922,10 +980,25 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Chaves de API</CardTitle>
               <CardDescription>
-                Gerencie suas chaves de API para integracao.
+                Tokens para a API HTTP desta plataforma (autenticacao de integracoes e automacoes).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Alert className="border-primary/20 bg-muted/20">
+                <Key className="h-4 w-4" />
+                <AlertTitle>O que e isto</AlertTitle>
+                <AlertDescription className="space-y-2 text-sm">
+                  <p>
+                    Cada chave autoriza pedidos <code className="text-xs">Bearer</code> a{" "}
+                    <code className="text-xs">/api/v1/...</code> com o cabecalho{" "}
+                    <code className="text-xs">X-Workspace-Id</code> deste workspace. Use em scripts, gateways ou
+                    servicos externos que precisem de criar runs, ler agentes, etc.
+                  </p>
+                  <p className="text-muted-foreground">
+                    Nao e a chave OpenAI (essa esta em Integracoes) nem segredos de Slack/Discord dos canais.
+                  </p>
+                </AlertDescription>
+              </Alert>
               <div className="flex items-center gap-2">
                 <Input
                   placeholder="Nome da chave (ex: Integracao CRM)"
@@ -998,6 +1071,30 @@ export default function SettingsPage() {
               Chaves ficam cifradas no servidor. E necessario{" "}
               <code className="text-xs bg-muted px-1 rounded">ENCRYPTION_MASTER_KEY</code> no BFF. Apenas{" "}
               <strong>admin</strong> ou <strong>owner</strong> podem guardar alteracoes.
+            </AlertDescription>
+          </Alert>
+
+          <Alert>
+            <Database className="h-4 w-4" />
+            <AlertTitle>Leitura rapida</AlertTitle>
+            <AlertDescription className="space-y-2 text-sm">
+              <p>
+                <strong className="text-foreground">OpenAI (BYOK)</strong>: alimenta o runtime dos agentes e tools de
+                catalogo (ex. <code className="text-xs">image_generation</code>). Use &quot;Testar ligacao&quot; para
+                validar antes de colocar em producao.
+              </p>
+              <p>
+                <strong className="text-foreground">SMTP / Slack (workspace)</strong>: base para envio de email e
+                fallback Slack; conversas em tempo real passam por{" "}
+                <Link href="/channels" className="text-primary underline-offset-4 hover:underline">
+                  Canais
+                </Link>{" "}
+                (Chat SDK ou genericos).
+              </p>
+              <p>
+                <strong className="text-foreground">Tools do catalogo</strong>: ligue Postgres (leitura), CRM REST ou
+                calendario para as <code className="text-xs">internal_action</code> correspondentes nos agentes.
+              </p>
             </AlertDescription>
           </Alert>
 
@@ -1529,37 +1626,93 @@ export default function SettingsPage() {
 
         {/* Notifications Settings */}
         <TabsContent value="notifications" className="space-y-6">
+          <Alert>
+            <Bell className="h-4 w-4" />
+            <AlertTitle>Preferencias guardadas na sua conta</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>
+                Estas opcoes ficam em <code className="text-xs bg-muted px-1 rounded">user.preferences.notifications</code>{" "}
+                e serao usadas quando o produto enviar alertas (email, Slack ou Discord). Configure SMTP e segredos do
+                workspace em{" "}
+                <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
+                  Integracoes
+                </Link>
+                .
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Pode guardar so esta aba com o botao abaixo ou usar &quot;Salvar Alteracoes&quot; no fim da pagina (inclui
+                workspace e perfil).
+              </p>
+            </AlertDescription>
+          </Alert>
+
           <Card>
             <CardHeader>
-              <CardTitle>Canais de Notificacao</CardTitle>
+              <CardTitle>Canais de notificacao</CardTitle>
               <CardDescription>
-                Escolha como deseja receber notificacoes.
+                Onde pretende receber avisos operacionais (quando o backend tiver entrega ligada a estes canais).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="font-medium">Email</p>
                   <p className="text-sm text-muted-foreground">
-                    Receba notificacoes por email
+                    Requer{" "}
+                    <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
+                      SMTP configurado
+                    </Link>{" "}
+                    no workspace para envio real.
                   </p>
                 </div>
                 <Switch
-                  checked={emailNotifications}
-                  onCheckedChange={setEmailNotifications}
+                  checked={Boolean(notificationPrefs.email)}
+                  onCheckedChange={(v) =>
+                    setNotificationPrefs((prev) => ({ ...prev, email: v }))
+                  }
                 />
               </div>
               <Separator />
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="font-medium">Slack</p>
                   <p className="text-sm text-muted-foreground">
-                    Receba notificacoes no Slack
+                    Usa o webhook ou app do workspace em{" "}
+                    <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
+                      Integracoes
+                    </Link>
+                    ; canais de conversa em{" "}
+                    <Link href="/channels" className="text-primary underline-offset-4 hover:underline">
+                      Canais
+                    </Link>{" "}
+                    (Chat SDK) sao outro fluxo.
                   </p>
                 </div>
                 <Switch
-                  checked={slackNotifications}
-                  onCheckedChange={setSlackNotifications}
+                  checked={Boolean(notificationPrefs.slack)}
+                  onCheckedChange={(v) =>
+                    setNotificationPrefs((prev) => ({ ...prev, slack: v }))
+                  }
+                />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">Discord</p>
+                  <p className="text-sm text-muted-foreground">
+                    Preferencia para alertas via bot Discord; crie um canal{" "}
+                    <strong>Chat SDK — Discord</strong> em{" "}
+                    <Link href="/channels" className="text-primary underline-offset-4 hover:underline">
+                      Canais
+                    </Link>{" "}
+                    e configure segredos em Configurar.
+                  </p>
+                </div>
+                <Switch
+                  checked={Boolean(notificationPrefs.discord)}
+                  onCheckedChange={(v) =>
+                    setNotificationPrefs((prev) => ({ ...prev, discord: v }))
+                  }
                 />
               </div>
             </CardContent>
@@ -1567,39 +1720,49 @@ export default function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Tipos de Notificacao</CardTitle>
+              <CardTitle>Tipos de notificacao</CardTitle>
               <CardDescription>
-                Selecione quais notificacoes deseja receber.
+                Quais categorias de aviso deseja receber (quando disponiveis no produto).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-medium">Alertas de Sistema</p>
+                  <p className="font-medium">Alertas de sistema</p>
                   <p className="text-sm text-muted-foreground">
-                    Erros, falhas e problemas criticos
+                    Erros, falhas e incidentes criticos.
                   </p>
                 </div>
                 <Switch
-                  checked={alertsEnabled}
-                  onCheckedChange={setAlertsEnabled}
+                  checked={Boolean(notificationPrefs.alertsEnabled)}
+                  onCheckedChange={(v) =>
+                    setNotificationPrefs((prev) => ({ ...prev, alertsEnabled: v }))
+                  }
                 />
               </div>
               <Separator />
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-medium">Relatorio Semanal</p>
+                  <p className="font-medium">Relatorio semanal</p>
                   <p className="text-sm text-muted-foreground">
-                    Resumo de performance dos times
+                    Resumo de utilizacao e metricas dos times (quando existir job de envio).
                   </p>
                 </div>
                 <Switch
-                  checked={weeklyReport}
-                  onCheckedChange={setWeeklyReport}
+                  checked={Boolean(notificationPrefs.weeklyReport)}
+                  onCheckedChange={(v) =>
+                    setNotificationPrefs((prev) => ({ ...prev, weeklyReport: v }))
+                  }
                 />
               </div>
             </CardContent>
           </Card>
+
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => void saveNotificationsOnly()} disabled={notifSaving}>
+              {notifSaving ? "A guardar..." : "Guardar notificacoes"}
+            </Button>
+          </div>
         </TabsContent>
 
         {/* Security Settings */}

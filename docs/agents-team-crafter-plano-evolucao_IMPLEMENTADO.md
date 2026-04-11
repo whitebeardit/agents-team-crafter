@@ -45,7 +45,7 @@ Regras de uso:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso     | **Loop 52 entregue**; Loops 53–58 pendentes (`/settings` e adjacentes)                          |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso     | **Loops 52–53 entregues**; Loops 54–58 pendentes                                                |
 
 
 ---
@@ -594,8 +594,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 50   | Ações em lote e reset de overrides do bind               | entregue (ações rápidas globais/por agente/pack + diff final; ver [Loop 50](#loop-50-fechado)) |
 | 51   | Ativação inline de tool definitions inativas no preview  | entregue (reativar no execute + `POST .../bind-enable-definitions` + UI; ver [Loop 51](#loop-51-fechado)) |
 | 52   | Settings de perfil e preferências com backend real       | entregue (perfil, avatar data URL, prefs, tema; ver [Loop 52](#loop-52-fechado))                |
-| 53   | Notificações, canais e explicações operacionais         | **próximo (ETAPA 9)** — ver [Loop 53](#loop-53)                                                |
-| 54   | Segurança e autenticação de conta                        | planejado (ETAPA 9; senha, sessões e decisão honesta sobre 2FA)                                |
+| 53   | Notificações, canais e explicações operacionais         | entregue (prefs notif. + copy settings/canais; ver [Loop 53](#loop-53-fechado))                 |
+| 54   | Segurança e autenticação de conta                        | **próximo (ETAPA 9)** — ver [Loop 54](#loop-54)                                                |
 | 55   | Faturamento, upgrade e enforcement de quotas             | planejado (ETAPA 9; quotas reais + jornada de upgrade)                                         |
 | 56   | Templates e tools com curadoria real de produção         | planejado (ETAPA 9; catálogo confiável, exemplos e dependências explícitas)                    |
 | 57   | Governança limpa e agenda operacional                    | planejado (ETAPA 9; apagar compromisso e purge de auditoria com RBAC)                          |
@@ -608,10 +608,10 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Loop 53** — Notificações, canais e explicações operacionais em `/settings` e `/channels`. Ver [Loop 53](#loop-53).
+**Loop 54** — Segurança de conta (senha, sessões, 2FA honesto). Ver [Loop 54](#loop-54).
 
 ### Frente subsequente já mapeada
-A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 53–58 (Loop 52 fechado).
+A **ETAPA 9 — Paridade de produção, configurações e operação** continua com backlog nos Loops 54–58 (Loops 52–53 fechados).
 
 ---
 
@@ -999,7 +999,9 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - `[backend/src/__tests__/auth.integration.test.ts](../backend/src/__tests__/auth.integration.test.ts)`: cobertura de perfil e limpeza de avatar
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
-## Loop 53
+---
+
+## Loop 53 (fechado)
 
 - etapa/prioridade: ETAPA 9 / alta
 - objetivo do slice: tornar `/settings` e `/channels` mais compreensíveis e utilizáveis em produção
@@ -1008,13 +1010,14 @@ A **ETAPA 9 — Paridade de produção, configurações e operação** continua 
   - canal adicional de notificação via Discord, se alinhado ao modelo de canais existente
   - explicação prática de OpenAI, `API keys`, integrações e tools de catálogo
   - redução da ambiguidade entre `Chat SDK — plataformas` e `Canais genéricos`
-- arquivos-alvo (indicativos):
-  - `v0-team-ai-crafter/app/(app)/settings/page.tsx`
-  - `v0-team-ai-crafter/app/(app)/channels/page.tsx`
-  - `backend/src/modules/settings/interfaces/settings.routes.ts`
-  - módulos de canais/notificação correspondentes
 - critério de saída:
   - o utilizador entende para que serve cada configuração e consegue testá-la com poucos cliques
+- **entregue no repositório:**
+  - `[v0-team-ai-crafter/lib/types/index.ts](../v0-team-ai-crafter/lib/types/index.ts)`: `IUserNotificationPreferences` + `notifications` em `IUserPreferences`
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: aba Notificações com `user.preferences.notifications` persistido; botão **Guardar notificacoes** (`PUT` parcial); toggles email / Slack / Discord + tipos; alertas explicativos; texto para Chaves de API e **Leitura rapida** em Integrações
+  - `[v0-team-ai-crafter/app/(app)/channels/page.tsx](../v0-team-ai-crafter/app/(app)/channels/page.tsx)`: alerta *Chat SDK vs canais genéricos*, descrições alinhadas ao modelo existente (Discord já em `CHAT_SDK_PLATFORMS`), links para settings
+  - `[backend/src/__tests__/auth.integration.test.ts](../backend/src/__tests__/auth.integration.test.ts)`: merge de `preferences.notifications`
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
 
 ## Loop 54
 
