@@ -1,0 +1,1837 @@
+
+
+`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`
+
+
+
+`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`
+
+`agents-team-crafter` Ralph Loop Implementado
+
+## Resumo executivo
+
+Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
+
+**Fase actual do produto:** **Loops 82–85** na linha de **team planner + AI Builder** estão **fechados** (bind por agente, inferência mínima de built-ins, preview de bind estável em edições cosméticas). **Próximo foco macro:** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service) ou novo slice numerado quando definido.
+
+Regras de uso:
+
+- ler este arquivo antes de iniciar o próximo loop
+- executar apenas um slice coerente por loop
+- **gate obrigatório antes de encerrar o ciclo:** `npm run build` e `npm test` em `backend/` (e `npm run build` em `v0-team-ai-crafter/` se o slice tocar no frontend); atalho: `./scripts/ralph-loop-gate.sh` (opcional `RALPH_LOOP_INCLUDE_FRONTEND=1`)
+- ao final de cada etapa/loop oficialmente concluído, fazer **commit de tudo** e **push** antes de marcar o ciclo como encerrado no ledger
+- atualizar o status por etapa, o checklist do loop encerrado e a secção **Próximo loop oficial** ao final de cada ciclo
+
+### Cerimônia Ralph (um ciclo)
+
+1. Ler este ledger + o plano mestre (`docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md`) para o contexto da etapa.
+2. Trabalhar **um único** loop (um slice coerente); não misturar dois loops no mesmo PR/ciclo.
+3. Implementar e validar com o **gate** (build → testes; frontend se aplicável).
+4. Se o gate falhar, corrigir no **mesmo** loop até passar — só então avançar.
+5. Fazer **commit de tudo** e **push** do loop/etapa concluído.
+6. Atualizar este ficheiro: tabela de estado, checklist do loop concluído, definição do **próximo** loop oficial.
+7. Se o slice tocar **criação de times por IA** (planner, `team-plan-planner-prompt`, schema, AI Builder): no texto do encerramento, mapear quais **micro-etapas** ([A–K](#micro-etapas-ralph-criacao-times-ia); **F–G** = pré-JSON + reparo servidor; **H–K** = UX preview / progressive disclosure no [`TeamAiBuilder`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)) passaram a estar garantidas por código ou prompt e quais ficam só na norma.
+
+### Checklist: ferramentas Agents SDK utilizáveis (após gate verde)
+
+O `./scripts/ralph-loop-gate.sh` (build + testes no `backend/`, e frontend opcional) **não** substitui provar que uma tool faz chamada real a integrações externas. Ao fechar um loop que altere ferramentas, confirmar no texto do ledger que a entrega **não** promove a falsa expectativa de “habilitou na UI = funciona” sem pré-condições.
+
+Verificação mínima quando o slice toca em tools:
+
+- **Catálogo (`capabilities.tools`):** para IDs que o runtime só executa com integração, o loop deve dizer se ficou **operacional** (integração + caminho feliz) ou **stub**; alinhar com [`operational-catalog-tools.ts`](../../backend/src/modules/agents/domain/operational-catalog-tools.ts) e a matriz em [`docs/UI-RUNTIME-AGENT.md`](../UI-RUNTIME-AGENT.md).
+- **`http_webhook`:** URL acessível, contrato e autenticação documentados ou cobertos por teste; sem isso, declarar limitação.
+- **`internal_action`:** presets em [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts) + catálogo read-only `GET /api/v1/business-actions/catalog`; `actionId` resolvível no registry de negócio e `businessToolRuntime` disponível no compose do agente.
+- **`builtin_ref`:** tratar como **alias/placeholder** no runtime atual (não duplica executores do catálogo); não prometer paridade com as tools de catálogo até haver evolução explícita de produto/código.
+- **Smoke manual** de tool “real” (Postgres, CRM, MCP HTTP, etc.), quando aplicável, fica a cargo do slice e pode exigir ambiente com segredos — **fora** do gate por defeito.
+- O **Loop 60** removeu o `crm_access` HTTP do catálogo e `toolCrm` em Integrações; validar CRM de negócio via pack `crm` / `internal_action` e documentação correspondente.
+
+<a id="norma-builtin-dominio-agente"></a>
+
+### Norma de produto — ferramentas builtin por domínio do agente (criação de time)
+
+Requisito explícito alinhado ao plano mestre ([§2.6](agents-team-crafter-plano-evolucao.md#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) — subsecção **Seleção de ferramentas por domínio do agente e defaults na criação de times**; âncora [§2.6 — seleção por domínio](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)):
+
+- **Na criação de um time**, ao mostrar ferramentas **builtin** por agente especialista, devem aparecer **já selecionadas e ativadas** **somente** as tools que **esse** agente precisa usar — não um conjunto genérico nem “tudo desligado”.
+- A seleção é **por domínio do agente**: dois especialistas **diferentes** não devem, por defeito, carregar o **mesmo** pacote de ferramentas sem critério; cada um recebe o subconjunto adequado ao seu domínio.
+- **Um especialista por domínio de assunto** — apenas um agente deve **definir a resposta** e a **propriedade operacional** sobre aquele âmbito temático no time; o coordenador continua a ser a interface externa.
+- **Inventário explícito de builtins** — ao desenhar ou gerar especialistas (incluindo IA), deve ficar claro **se** e **quais** IDs do catálogo (`capabilities.tools` / `catalogTools`) cada especialista necessita; não copiar listas entre agentes “por hábito”.
+- **Unicidade de builtins de negócio** — no mesmo time, **dois especialistas não podem** partilhar o **mesmo ID** de builtin cuja função primária é um **domínio de negócio** (critério detalhado no plano mestre; alinhar a [`operational-catalog-tools.ts`](../../backend/src/modules/agents/domain/operational-catalog-tools.ts) no slice de enforcement). Utilitários genuinamente transversais no catálogo devem ter regra explícita em prompt/código para não mascarar duplicação de domínio.
+- **Âmbito** — a regra aplica-se ao par **`workspaceId` × mesmo team plan**; **não** colide com outro time no workspace nem com outro workspace.
+
+Slices futuros que toquem no AI Builder, wizard de times ou fichas de agente devem verificar esta norma na UX e na persistência (`capabilities.tools` / binds). **Loops 77–78** do plano mestre: [prompts](#loop-77-fechado) + [enforcement](#loop-78-fechado). **Loop 80** (fechado): [outer loop de auto-reparo pela IA](#loop-80-fechado) no `POST` de criação de plano ([plano mestre § Loop 80](agents-team-crafter-plano-evolucao.md#loop-80-planner-auto-repair-ia)).
+
+<a id="micro-etapas-ralph-criacao-times-ia"></a>
+
+### Metodologia Ralph Loop — micro-etapas (criação de times por IA)
+
+Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evolucao.md#metodologia-ralph-criacao-times-ia)). Ao encerrar um slice que altere `team-plan-planner-prompt.ts`, schema do planner ou AI Builder, o ledger deve indicar quais micro-etapas ficaram **cobertas por código/prompt** vs **ainda só documentadas**:
+
+| ID | Micro-etapa | Nota para o ledger |
+| --- | --- | --- |
+| A | Partição de domínios (1 especialista ↔ 1 domínio de assunto) | Domínio → papel; sem dois papéis no mesmo domínio. |
+| B | Inventário de builtins por especialista | IDs só do catálogo permitido; marcar quais são **de negócio**. |
+| C | Verificação de unicidade entre especialistas (mesmo `workspaceId`, mesmo team plan) | Interseção de IDs de negócio vazia **neste** time; outros times/workspaces são independentes. |
+| D | JSON válido + normalização no servidor | `plannerOutputSchema` / `catalogTools`; fallback honesto ([Loop 62](#loop-62-fechado)). |
+| E | Gate `./scripts/ralph-loop-gate.sh` (+ frontend se Next) | Commit + push antes de marcar loop fechado. |
+| F | Matriz pré-JSON (planeamento) | Antes do JSON final: uma linha por especialista com `catalogTools` mínimas; cada ID exclusivo em **no máximo** um especialista. |
+| G | Outer loop de auto-reparo IA ([Loop 80](#loop-80-fechado)) | Gerar → `getSpecialistsCatalogToolConflicts` → se falhar, **reemitir** com diagnóstico (segunda chamada OpenAI); limite `TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS` + `plannerMeta.catalogToolRepairAttempts` / `catalogUniquenessRepaired`. |
+| H | Leitura rápida do plano ([Loop 81](#loop-81-fechado)) | Primeiro ecrã: equipa + agentes + **objectives**; sem grelha completa de tools por defeito. |
+| I | Tools resumidas + edição focalizada ([Loop 81](#loop-81-fechado)) | Chips com tools activas; modal/drawer para toggles completos; colisão só para `SPECIALIST_EXCLUSIVE_*` entre especialistas. |
+| J | Progressive disclosure ([Loop 81](#loop-81-fechado)) | Grafo e detalhes longos do agente em **Collapsible**; bind/packs mantêm cartão dedicado quando aplicável. |
+| K | Gate UX ([Loop 81](#loop-81-fechado)) | `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` + smoke do fluxo assistido. |
+
+**Inner loop (engenharia Ralph):** falha estrutural em C, D, F ou G → corrigir no **mesmo** Ralph Loop (prompt, schema, serviço de reparo ou `planner-agent-catalog-tools`), não apenas copy na UI.
+
+**Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
+
+**Estado actual (pós Loop 85):** bind por agente (**Loop 83**), inferência mínima de built-ins (**Loop 84**), e no AI Builder preview de bind **estável** em edições cosméticas + `requiresBindReview` com hints por agente (**Loop 85**). Ver [Loop 83 (fechado)](#loop-83-fechado), [Loop 84 (fechado)](#loop-84-fechado), [Loop 85 (fechado)](#loop-85-fechado). **Próximo slice numerado oficial:** [Loop 86 (oficial)](#loop-86-oficial) — especificação canónica abaixo; após fechar, marcar **(fechado)** aqui e na [secção Loop 86 do plano mestre](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito).
+
+### Admin global da plataforma: norma vs implementação actual
+
+**Norma (contrato de produto):** apenas o **admin global** (`isPlatformAdmin` no utilizador e/ou `PLATFORM_ADMIN_EMAILS` em [`env.ts`](../../backend/src/config/env.ts); enforcement [`hooks.ts`](../../backend/src/app/plugins/hooks.ts)) pode realizar operações **cross-tenant** sensíveis: ver **todos** os utilizadores e **todos** os workspaces da instalação; eliminar **em cascata** um utilizador e os dados MongoDB associados (workspaces, membros, convites, etc., segundo política da implementação). Owner/admin **de workspace** não substitui este papel.
+
+**Estado actual no repositório:**
+
+| Capacidade | Situação |
+| ---------- | -------- |
+| Listar **todos os workspaces** (instalação) | **Parcialmente entregue:** `GET /workspaces` retorna [`workspaceRepo.listAll()`](../../backend/src/modules/workspaces/interfaces/workspace.routes.ts) quando `req.user.isPlatformAdmin`. |
+| Listar **todos os utilizadores** (instalação) | **Ainda não** há endpoint/API dedicada documentada; tratar como **evolução** até existir rota + serviço + testes. |
+| **Delete em cascata por utilizador** | **Ainda não** implementado como operação selectiva; o [factory reset](../../backend/src/modules/platform/interfaces/platform.routes.ts) (`POST /platform/danger-zone/factory-reset`) faz wipe **global** da base — não é equivalente a apagar um só utilizador. |
+
+Alinhamento com o plano mestre: [§2.7 Admin global da plataforma](agents-team-crafter-plano-evolucao.md#27-admin-global-da-plataforma-rbac-cross-tenant).
+
+### Norma de produto — UX responsiva e onboarding contextual por tela
+
+Requisito explícito alinhado ao plano mestre ([§2.8](agents-team-crafter-plano-evolucao.md#28-ux-responsiva-e-onboarding-contextual-por-tela)):
+
+- **Responsividade é parte do produto**: telas críticas devem continuar funcionais em `desktop`, `tablet` e `mobile`, sem depender de zoom, scroll horizontal constante ou precisão de cursor.
+- **Melhor prática adotada para “explicar a plataforma”**: usar **onboarding contextual progressivo por tela**, e **não** um tour global obrigatório e repetitivo.
+- **Disparo do tour**: mostrar ajuda contextual quando o utilizador autenticado entra pela **primeira vez** na tela (ou quando a `tourVersion` mudar) e permitir reabertura manual via CTA previsível.
+- **Persistência**: guardar estado por `userId` + `workspaceId` + `screenKey` + `tourVersion`.
+- **Slice Ralph**: primeiro a foundation responsiva, depois as telas críticas, e só então a expansão dos tours por lotes pequenos de views.
+
+Slices futuros que toquem UI/UX devem declarar no ledger:
+
+- quais rotas ficaram responsivas em `tablet` e `mobile`;
+- quais telas receberam tour contextual;
+- como a persistência do onboarding foi versionada ou alterada no slice.
+
+---
+
+# Status por etapa do plano
+
+
+| Etapa                                                  | Prioridade | Status       | Observação                                                                                               |
+| ------------------------------------------------------ | ---------- | ------------ | -------------------------------------------------------------------------------------------------------- |
+| ETAPA 0 - contrato runtime/UX/grafo                    | altíssima  | concluído    | coordinator-first consolidado                                                                            |
+| ETAPA 1 - governança de domínio                        | máxima     | concluído    | overlap guard e bloqueio integrados                                                                      |
+| ETAPA 2 - wizard de criação de agentes                 | máxima     | concluído    | `agent-plans` e wizard assistido entregues                                                               |
+| ETAPA 3 - unificação da criação de times               | alta       | concluído    | hub unificado entregue                                                                                   |
+| ETAPA 4 - execução persistida                          | alta       | concluído    | `runs`, `run_steps`, `run_events`                                                                        |
+| ETAPA 5 - simplificação do grafo                       | alta       | concluído    | hub-and-spoke refletido na UI                                                                            |
+| ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
+| ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
+| ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–83 fechados; 84+ planeados) | Loops **52–83** entregues (último numerado: [Loop 83](#loop-83-fechado)); continuação: **built-ins mínimas**, **UX** — [Loops 84–85](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow) *planeados*; [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio); billing/2FA e self-service: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+
+
+---
+
+# Loops já executados
+
+## Loops 0–16
+
+Os loops 0–16 foram executados e fecharam a fase de:
+
+- governança de domínio
+- criação guiada de agentes
+- criação guiada de times
+- runs persistidas
+- simplificação do grafo
+- auditoria operacional
+- feature flags
+- tendências
+- SLO
+- webhook de SLO
+
+A história detalhada desses loops permanece válida e faz parte da trajetória do projeto.
+
+---
+
+# Nova frente ativa — Business Tools Platform
+
+## Objetivo da nova frente
+
+Transformar o sistema de tools em uma plataforma real de capabilities de negócio multi-tenant.
+
+## Resultado esperado
+
+Permitir que múltiplos agentes e times usem, com segurança e isolamento por workspace, tools reais como:
+
+- CRM
+- cadastro de paciente/pet
+- anamnese e evolução
+- catálogo de serviços
+- vendas
+- pacotes
+- atendimento por pacote
+- contas a pagar
+- contas a receber
+- lembretes
+- GitHub Ops
+
+---
+
+# Loops previstos da nova frente
+
+## Loop 17
+
+- etapa/prioridade: ETAPA 8 / altíssima
+- objetivo do slice: foundation de business tools
+- foco:
+  - adicionar `internal_action`
+  - criar `business-tool-runtime`
+  - criar `business-tool-registry`
+  - introduzir auditoria `business_tool_audit`
+- arquivos-alvo:
+  - `backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts`
+  - `backend/src/modules/tool-definitions/infra/workspace-tool-definition.model.ts`
+  - `backend/src/modules/runtime/application/build-workspace-custom-tools.ts`
+  - `backend/src/modules/business-tools/application/business-tool-runtime.ts`
+  - `backend/src/modules/business-tools/application/business-tool-registry.ts`
+- critério de saída:
+  - uma tool interna consegue ser executada por agente com `workspaceId` resolvido corretamente
+
+## Loop 18
+
+- etapa/prioridade: ETAPA 8 / alta
+- objetivo do slice: CRM Pack
+- foco:
+  - `parties`
+  - CRUD semântico de partes
+  - tools CRM
+- entregas:
+  - `crm_create_party`
+  - `crm_update_party`
+  - `crm_find_party`
+  - `crm_get_party_summary`
+  - `crm_list_parties_by_role`
+
+## Loop 19
+
+- etapa/prioridade: ETAPA 8 / alta
+- objetivo do slice: Care Pack
+- foco:
+  - `care_subjects`
+  - humano x animal
+  - vínculo com `party`
+- entregas:
+  - `care_create_subject`
+  - `care_update_subject`
+  - `care_find_subject`
+  - `care_get_subject_summary`
+
+## Loop 20
+
+- etapa/prioridade: ETAPA 8 / alta
+- objetivo do slice: Services & Sales Pack
+- foco:
+  - `service_catalog`
+  - `service_orders`
+  - histórico de compra
+  - total pago por serviço
+- entregas:
+  - `service_catalog_create_item`
+  - `service_catalog_list_items`
+  - `sales_create_service_order`
+  - `sales_add_service_item`
+  - `sales_mark_order_paid`
+  - `sales_get_customer_purchase_history`
+  - `sales_top_services`
+  - `sales_total_paid_by_service`
+
+## Loop 21
+
+- etapa/prioridade: ETAPA 8 / alta
+- objetivo do slice: Packages & Encounters
+- foco:
+  - `package_sales`
+  - `encounters`
+  - saldo de pacote
+- entregas:
+  - `package_sell_to_party`
+  - `package_get_balance`
+  - `attendance_register_session`
+  - `attendance_list_by_party`
+  - `attendance_list_by_package_sale`
+  - `attendance_get_party_care_summary`
+
+## Loop 22
+
+- etapa/prioridade: ETAPA 8 / média-alta
+- objetivo do slice: Clinical Records Pack
+- foco:
+  - `anamneses`
+  - `evolution_notes`
+  - `encounters` clínicos
+- entregas:
+  - `clinical_create_anamnesis`
+  - `clinical_add_evolution_note`
+  - `clinical_list_subject_history`
+  - `clinical_get_latest_evolution`
+  - `clinical_open_encounter`
+  - `clinical_close_encounter`
+
+## Loop 23
+
+- etapa/prioridade: ETAPA 8 / média-alta
+- objetivo do slice: Finance Pack
+- foco:
+  - `receivables`
+  - `payables`
+  - overdue
+  - agregações
+- entregas:
+  - `finance_create_receivable`
+  - `finance_create_payable`
+  - `finance_mark_receivable_paid`
+  - `finance_mark_payable_paid`
+  - `finance_list_overdue_receivables`
+  - `finance_list_overdue_payables`
+  - `finance_total_receivable_by_payer`
+  - `finance_total_payable_by_destination`
+  - `finance_customer_financial_summary`
+
+## Loop 24
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: Reminder Pack
+- foco:
+  - `reminders`
+  - lembretes por data/hora
+- entregas:
+  - `schedule_create_reminder`
+  - `schedule_list_reminders_by_date`
+  - `schedule_mark_reminder_done`
+  - `schedule_cancel_reminder`
+
+## Loop 25
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: GitHub Ops Pack
+- foco:
+  - PR read/diff/comment
+  - arquivos alterados
+  - issue read
+- entregas:
+  - `github_read_pr`
+  - `github_read_diff`
+  - `github_comment_pr`
+  - `github_list_changed_files`
+  - `github_get_issue`
+
+## Loop 26
+
+- etapa/prioridade: ETAPA 8 / altíssima
+- objetivo do slice: integrar packs e tools reais ao AI Builder
+- foco:
+  - planner sugerindo packs
+  - review mostrando capabilities
+  - execute plan com install/bind
+- entregas:
+  - `requiredPacks`
+  - `requiredTools`
+  - instalação automática de packs
+  - bind de `toolDefinitionIds` aos agentes
+- estado no repositório:
+  - **fase 1 entregue:** `requiredPacks` / `requiredTools` no JSON do planner, persistência em `TeamPlan`, `responseMeta` e auditoria na execução
+  - **fase 2:** ficou para o **Loop 27** (install automático + bind de `toolDefinitionIds`)
+
+## Loop 27
+
+- etapa/prioridade: ETAPA 8 / altíssima
+- objetivo do slice: completar a integração AI Builder — **instalação/bind** de business tools a partir do planner
+- depende de: Loop 26 fase 1 (`requiredPacks`, `requiredTools` já no plano e na execução)
+- foco:
+  - política explícita (workspace / feature flag) para **auto-criar** ou **reutilizar** `WorkspaceToolDefinition` (`kind: internal_action`, `config.actionId`)
+  - mapear `requiredTools` (e opcionalmente packs via `requiredPacks`) para definitions por `workspaceId`
+  - no fluxo de **execute** do team plan (ou serviço dedicado): anexar `customToolDefinitionIds` aos agentes criados conforme o plano
+  - **UI** no fluxo de criação de time por IA: revisão das capabilities sugeridas (mínimo: mostrar e confirmar antes de aplicar bind)
+- arquivos-alvo (indicativos):
+  - `backend/src/modules/team-planning/application/team-plan.service.ts`
+  - `backend/src/modules/tool-definitions/` (repositório, modelo)
+  - `backend/src/modules/agents/` (capabilities / `customToolDefinitionIds`)
+  - `v0-team-ai-crafter/` (AI create team / revisão do plano)
+- critério de saída (Ralph):
+  - com um plano que inclua `requiredTools` válidos, após **execute** os agentes relevantes ficam com tool definitions resolvíveis no runtime **ou** a política documenta explicitamente o modo “só sugestão” sem bind e o utilizador confirma na UI
+  - **gate verde:** `./scripts/ralph-loop-gate.sh` (e frontend se o slice alterar `v0-team-ai-crafter/`)
+- **entregue no repositório:**
+  - `TEAM_PLAN_AUTO_BIND_TOOLS` (`0`|`1`, default `0`) em `[backend/src/config/env.ts](../../backend/src/config/env.ts)`
+  - `collectPlannerActionIds` + `PLANNER_PACK_TO_ACTION_IDS` em `[planner-pack-presets.ts](../../backend/src/modules/team-planning/application/planner-pack-presets.ts)`
+  - `ensureInternalActionDefinitions` + `findBySlug` no repositório de tool definitions
+  - fase `binding_tools` no `executePlan` e `responseMeta` (`autoBindEnabled`, `boundToolDefinitionIds`)
+  - ADR `[docs/adr/ADR-2026-04-team-plan-auto-bind-tools.md](../adr/ADR-2026-04-team-plan-auto-bind-tools.md)`
+  - UI: alerta com packs/tools no `[team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`
+
+## Loop 28
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: testes de integração do bind, hardening (idempotência, limites), observabilidade opcional
+- critério de saída: gate verde + documentação mínima no ledger
+- **entregue no repositório:**
+  - integração: `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)` — `TEAM_PLAN_AUTO_BIND_TOOLS=1`, `requiredTools`, `GET /agents/:id` confirma `capabilities.customToolDefinitionIds`; segundo `execute` com mesmo `operationId` não reprocessa bind
+  - hardening: teto de **64** actionIds por execução (`TEAM_PLAN_AUTO_BIND_MAX_ACTIONS` em `[team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`) antes de `ensureInternalActionDefinitions`
+
+## Loop 29
+
+- etapa/prioridade: ETAPA 8 / baixa–média
+- objetivo do slice: observabilidade do bind + UX mínima quando a lista é truncada
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - Backend: logs pino `team_plan.auto_bind_summary` (info) ou truncagem com `warn` + campos `workspaceId`, `teamPlanId`, `correlationId`, contagens; payload de auditoria `governance.team_plan_execute` com `autoBindActionsRequested` / `autoBindActionsTruncated`
+  - API: `responseMeta` com `autoBindActionsRequested`, `autoBindActionsApplied`, `autoBindActionsTruncated` em `[team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`
+  - Frontend: tipo `[TeamPlanExecuteMeta](../../v0-team-ai-crafter/lib/types/index.ts)` + toast se `autoBindActionsTruncated` em `[team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`
+  - ADR atualizado: `[ADR-2026-04-team-plan-auto-bind-tools.md](../adr/ADR-2026-04-team-plan-auto-bind-tools.md)`
+
+## Loop 30
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: ampliar mapeamento pack → actionIds e alinhar o prompt do planner à lista canónica de packs
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `[planner-pack-presets.ts](../../backend/src/modules/team-planning/application/planner-pack-presets.ts)`: mais actionIds por pack (só registados no `BusinessToolRegistry`); export `PLANNER_PACK_IDS`
+  - `[team-plan-planner-prompt.ts](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts)`: `requiredPacks` referencia dinamicamente `PLANNER_PACK_IDS` (strings exatas)
+  - `[planner-pack-presets.test.ts](../../backend/src/modules/team-planning/application/planner-pack-presets.test.ts)`: cobertura finance + invariante `PLANNER_PACK_IDS`
+
+## Loop 31
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: UX (rótulos PT-BR por pack no AI Builder) + documentação no README do backend; métricas Prometheus ficam para iteração futura (dependência `prom-client` ainda não no projeto)
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `[v0-team-ai-crafter/lib/planner-pack-labels.ts](../../v0-team-ai-crafter/lib/planner-pack-labels.ts)` + badges com `title` = id canónico em `[team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`
+  - `[backend/README.md](../../backend/README.md)`: secção **Team plans: packs do planner** com ligações a `planner-pack-presets.ts`, prompt e ADR de bind
+
+## Loop 32
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: expor métricas Prometheus (`/metrics`) para team-plan execute/bind
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - dependência `prom-client` adicionada ao backend
+  - `[backend/src/app/metrics.ts](../../backend/src/app/metrics.ts)`: registry singleton + default metrics + counters/histograms de `team-plan execute` e auto-bind
+  - `[backend/src/app/app.ts](../../backend/src/app/app.ts)`: `GET /metrics`
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`: instrumentação de sucesso/erro/idempotência e contagens de auto-bind
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: smoke de `/metrics` + nomes de métricas
+  - `[backend/README.md](../../backend/README.md)`: secção de observabilidade
+
+## Loop 33 — Scheduling / Appointments Pack
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: abrir o pack de agenda operacional para fechar o fluxo venda → agendamento → lembrete → atendimento
+- foco:
+  - `appointments` e `availability_slots`
+  - vínculo com `party` e/ou `care_subject`
+  - integração inicial com `service_orders`, `package_sales`, `encounters` e `reminders`
+  - actionIds candidatos:
+    - `schedule_create_appointment`
+    - `schedule_reschedule_appointment`
+    - `schedule_cancel_appointment`
+    - `schedule_confirm_appointment`
+    - `schedule_mark_no_show`
+    - `schedule_list_agenda_by_date`
+    - `schedule_get_availability`
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `[backend/src/modules/scheduling/infra/appointment.model.ts](../../backend/src/modules/scheduling/infra/appointment.model.ts)` e `[availability-slot.model.ts](../../backend/src/modules/scheduling/infra/availability-slot.model.ts)`
+  - `[backend/src/modules/scheduling/infra/appointment.repository.ts](../../backend/src/modules/scheduling/infra/appointment.repository.ts)` e `[availability-slot.repository.ts](../../backend/src/modules/scheduling/infra/availability-slot.repository.ts)`
+  - `[backend/src/modules/scheduling/application/register-scheduling-pack.ts](../../backend/src/modules/scheduling/application/register-scheduling-pack.ts)`: actions de agenda + integração mínima com `party`, `care_subject`, `service_orders`, `package_sales`, `encounters` e `reminders`
+  - integração no registry/container via `[register-all-business-packs.ts](../../backend/src/modules/business-tools/application/register-all-business-packs.ts)` e `[config/container.ts](../../backend/src/config/container.ts)`
+  - planner: pack `scheduling` em `[planner-pack-presets.ts](../../backend/src/modules/team-planning/application/planner-pack-presets.ts)`
+  - frontend: label `scheduling` em `[v0-team-ai-crafter/lib/planner-pack-labels.ts](../../v0-team-ai-crafter/lib/planner-pack-labels.ts)`
+  - testes: `[register-scheduling-pack.test.ts](../../backend/src/modules/scheduling/application/register-scheduling-pack.test.ts)` + expansão em `[planner-pack-presets.test.ts](../../backend/src/modules/team-planning/application/planner-pack-presets.test.ts)`
+
+## Loop 34
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: garantir contrato entre `PLANNER_PACK_IDS` (backend) e `PLANNER_PACK_LABELS_PT` (frontend), evitando drift entre planner/bind/UI
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - teste de contrato em `[backend/src/modules/team-planning/application/planner-pack-presets.test.ts](../../backend/src/modules/team-planning/application/planner-pack-presets.test.ts)`
+  - leitura direta do ficheiro `[v0-team-ai-crafter/lib/planner-pack-labels.ts](../../v0-team-ai-crafter/lib/planner-pack-labels.ts)` sem criar nova fonte de verdade
+
+## Loop 35
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: expandir o pack `scheduling` para concluir appointments em atendimentos efetivos
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - action `schedule_complete_appointment` em `[backend/src/modules/scheduling/application/register-scheduling-pack.ts](../../backend/src/modules/scheduling/application/register-scheduling-pack.ts)`
+  - `EncounterRepository.create` passa a aceitar `careSubjectId` e o `appointment` concluído passa a referenciar o `encounter`
+  - `AppointmentRepository.complete(...)` para fechar appointment com `status: completed` e `encounterId`
+  - preset do pack `scheduling` ampliado em `[planner-pack-presets.ts](../../backend/src/modules/team-planning/application/planner-pack-presets.ts)`
+  - teste de conclusão em `[register-scheduling-pack.test.ts](../../backend/src/modules/scheduling/application/register-scheduling-pack.test.ts)`: cria `encounter` e marca reminder como `done`
+
+## Loop 36
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: expor uma API HTTP mínima de agenda sobre o pack `scheduling`
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - rotas autenticadas em `[backend/src/modules/scheduling/interfaces/scheduling.routes.ts](../../backend/src/modules/scheduling/interfaces/scheduling.routes.ts)`
+  - registo global em `[backend/src/app/routes.ts](../../backend/src/app/routes.ts)`
+  - endpoints `GET /schedule/agenda`, `GET /schedule/appointments`, `POST /schedule/availability` e mutações `POST /schedule/appointments/:id/`*
+  - teste de integração `[backend/src/__tests__/scheduling-api.integration.test.ts](../../backend/src/__tests__/scheduling-api.integration.test.ts)`
+  - README backend atualizado com a surface da Scheduling API
+
+## Loop 37
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: UI mínima de agenda consumindo `/api/v1/schedule/...`
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - página `[schedule/page.tsx](../../v0-team-ai-crafter/app/%28app%29/schedule/page.tsx)`: dia (`GET /schedule/agenda`), compromissos com ações (confirmar, cancelar, falta, concluir), diálogos para novo compromisso e nova janela de disponibilidade
+  - entrada de navegação **Agenda** em `[app-sidebar.tsx](../../v0-team-ai-crafter/components/layout/app-sidebar.tsx)`
+  - tipos `ScheduleAgendaResponse` / `ScheduleAppointment` em `[lib/types/index.ts](../../v0-team-ai-crafter/lib/types/index.ts)`
+  - `next build` no frontend
+
+## Loop 38
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: UX da agenda — pesquisa de `party` sem colar ObjectId (API HTTP + picker na UI)
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `GET /parties`, `GET /parties/:id` em `[backend/src/modules/crm/interfaces/party.routes.ts](../../backend/src/modules/crm/interfaces/party.routes.ts)`
+  - `PartyRepository.listRecent` em `[party.repository.ts](../../backend/src/modules/crm/infra/party.repository.ts)`
+  - `partyRepo` exposto em `[IAppDeps](../../backend/src/config/container.ts)` e registo em `[routes.ts](../../backend/src/app/routes.ts)`
+  - testes `[parties-api.integration.test.ts](../../backend/src/__tests__/parties-api.integration.test.ts)`
+  - agenda: combobox de contatos + resolução de nomes na tabela em `[schedule/page.tsx](../../v0-team-ai-crafter/app/%28app%29/schedule/page.tsx)`; tipo `[CrmParty](../../v0-team-ai-crafter/lib/types/index.ts)`
+  - README backend atualizado
+
+## Loop 39
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: `POST /parties` + criar contato a partir da UI (agenda)
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `POST /parties` em `[party.routes.ts](../../backend/src/modules/crm/interfaces/party.routes.ts)`
+  - teste de integração em `[parties-api.integration.test.ts](../../backend/src/__tests__/parties-api.integration.test.ts)`
+  - componente `[create-party-dialog.tsx](../../v0-team-ai-crafter/components/schedule/create-party-dialog.tsx)` + botões na página `[schedule/page.tsx](../../v0-team-ai-crafter/app/%28app%29/schedule/page.tsx)` (toolbar e fluxo “Novo compromisso”)
+  - README e plano mestre atualizados
+
+## Loop 40
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: painel leve com métricas derivadas de Prometheus (team-plan / auto-bind) na UI
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `GET /observability/metrics-summary` em `[observability.routes.ts](../../backend/src/modules/observability/interfaces/observability.routes.ts)` (admin workspace; JSON via `metricsRegistry.getMetricsAsJSON()` filtrado por prefixo `agents_team_crafter_`)
+  - testes `[observability-metrics.integration.test.ts](../../backend/src/__tests__/observability-metrics.integration.test.ts)`
+  - página `[/observability](../../v0-team-ai-crafter/app/%28app%29/observability/page.tsx)` + entrada na sidebar
+  - README backend atualizado
+
+## Loop 41
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: `PUT /parties/:id` (CRM) + UI mínima na agenda
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `PUT /parties/:id` em `[party.routes.ts](../../backend/src/modules/crm/interfaces/party.routes.ts)` (corpo parcial; 400 se nada aplicável após trim)
+  - testes em `[parties-api.integration.test.ts](../../backend/src/__tests__/parties-api.integration.test.ts)`
+  - `[edit-party-dialog.tsx](../../v0-team-ai-crafter/components/schedule/edit-party-dialog.tsx)` + integração na `[schedule/page.tsx](../../v0-team-ai-crafter/app/%28app%29/schedule/page.tsx)` (contatos em cache + botão Editar)
+  - README backend atualizado
+
+## Loop 42
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: KPIs legíveis na observabilidade (cards) + campo `kpis` no BFF
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - função pura `[team-plan-metrics-kpis.ts](../../backend/src/modules/observability/application/team-plan-metrics-kpis.ts)` + testes unitários `[team-plan-metrics-kpis.test.ts](../../backend/src/modules/observability/application/team-plan-metrics-kpis.test.ts)`
+  - `GET /observability/metrics-summary` passa a incluir `kpis` junto de `metrics` em `[observability.routes.ts](../../backend/src/modules/observability/interfaces/observability.routes.ts)`
+  - integração atualizada em `[observability-metrics.integration.test.ts](../../backend/src/__tests__/observability-metrics.integration.test.ts)`
+  - UI: cards na `[observability/page.tsx](../../v0-team-ai-crafter/app/%28app%29/observability/page.tsx)`; JSON bruto em secção recolhível; tipos `[TeamPlanMetricsKpis](../../v0-team-ai-crafter/lib/types/index.ts)`
+  - README backend atualizado
+
+## Loop 43
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: `PUT /parties/:id` com `$unset` para limpar `email` / `phone` / `notes` quando enviados vazios (após trim); alinhar `crm_update_party` e UI de edição
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `[party.repository.ts](../../backend/src/modules/crm/infra/party.repository.ts)`: `update` com `IPartyUpdateOperation` (`$set` + `$unset`)
+  - `[party.routes.ts](../../backend/src/modules/crm/interfaces/party.routes.ts)`: semântica HTTP; corpo `{}` → 400
+  - `[register-crm-pack.ts](../../backend/src/modules/crm/application/register-crm-pack.ts)`: `crm_update_party` com a mesma regra para strings opcionais
+  - testes em `[parties-api.integration.test.ts](../../backend/src/__tests__/parties-api.integration.test.ts)` (incl. integração `$unset`)
+  - `[edit-party-dialog.tsx](../../v0-team-ai-crafter/components/schedule/edit-party-dialog.tsx)`: payload sempre com `email`/`phone`/`notes` para permitir limpar campos
+  - README backend atualizado
+
+## Loop 44
+
+- etapa/prioridade: ETAPA 8 / baixa
+- objetivo do slice: E2E Playwright da rota `/schedule` (agenda)
+- critério de saída: gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `[@playwright/test](../../v0-team-ai-crafter/package.json)` + `[playwright.config.ts](../../v0-team-ai-crafter/playwright.config.ts)`
+  - `[e2e/global-setup.ts](../../v0-team-ai-crafter/e2e/global-setup.ts)`: login na API + `storageState` com `localStorage` Zustand (`teamagents-workspace`)
+  - `[e2e/schedule.spec.ts](../../v0-team-ai-crafter/e2e/schedule.spec.ts)`: smoke da página (título, Atualizar, Novo compromisso); **skipped** sem `E2E_API_URL` + credenciais (exit 0)
+  - `.gitignore` para `e2e/.auth/`; secção no `[README](../../v0-team-ai-crafter/README.md)` com variáveis `E2E_`*
+
+## Loop 45
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: fechar a lacuna de habilitação de tools entre planner, tool definitions e configuração dos agentes
+- foco:
+  - expor na UI uma jornada clara para **habilitar tools** de workspace nos agentes
+  - completar a gestão de `tool-definitions` com edição do estado `enabled`
+  - melhorar o AI Builder para deixar explícito quando `requiredPacks` / `requiredTools` são apenas sugestão e quando houve bind real
+  - tornar visível o resultado do bind (`boundToolDefinitionIds`) e o caso de agentes `reused`
+  - avaliar se a política de auto-bind continua apenas por env ou se precisa de surface configurável no produto
+- arquivos-alvo:
+  - `v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx`
+  - `v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx`
+  - `v0-team-ai-crafter/components/teams/team-ai-builder.tsx`
+  - `v0-team-ai-crafter/lib/types/index.ts`
+  - `backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts`
+  - `backend/src/modules/team-planning/application/team-plan.service.ts`
+  - `backend/src/config/env.ts`
+- critério de saída:
+  - um utilizador consegue descobrir, ativar e verificar tools do workspace sem depender de inspeção manual do Mongo ou de leitura do código
+  - o fluxo do AI Builder deixa claro quando houve auto-bind e o que ficou pendente de habilitação manual
+  - gate verde + atualização deste ledger
+- **entregue no repositório:**
+  - `[v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx](../../v0-team-ai-crafter/app/%28app%29/tool-definitions/page.tsx)`: gestão de `enabled`, contadores de ativas/desativadas e visibilidade de `internal_action`
+  - `[v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx](../../v0-team-ai-crafter/app/%28app%29/agents/%5Bid%5D/page.tsx)`: resumo com contagem de tools do workspace, distinção entre ativas/desativadas e contexto para habilitação manual
+  - `[v0-team-ai-crafter/components/agents/agent-details-drawer.tsx](../../v0-team-ai-crafter/components/agents/agent-details-drawer.tsx)`: contagem separada de tools do workspace no resumo rápido
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: diferenciação explícita entre sugestão do planner e bind efetivo, feedback de execução e aviso sobre agentes `reused`
+  - decisão do loop: manter a política `TEAM_PLAN_AUTO_BIND_TOOLS` explícita na UI e **ainda** configurada por ambiente, sem introduzir neste slice uma nova surface persistida de workspace
+
+---
+
+# Entregas já concluídas antes da nova frente
+
+- ledger oficial do Ralph Loop
+- governança de domínio com overlap guard
+- wizard assistido de agentes
+- jornada unificada de criação de times
+- `runs`, `run_steps` e `run_events`
+- grafo coordinator-first
+- catálogo inicial de plataforma
+- auditoria administrativa
+- dashboard e governança
+- enforcement warning/blocking
+- paginação/export da auditoria
+- tendências e SLO
+- Redis unificado
+- shutdown limpo
+- alertas SLO e webhook opcional
+
+---
+
+# Pendências e bloqueios
+
+## Bloqueios
+
+- nenhum bloqueio funcional aberto para iniciar a ETAPA 8
+
+## Dependência principal
+
+O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `BusinessToolRegistry`, `BusinessToolRuntime`, coleção `business_tool_audit`, ação interna `business.ping`, e integração no orquestrador via `businessToolRuntime` em `composeExecutableAgentConfig`.
+
+---
+
+# Estado dos loops do roadmap ativo
+
+
+| Loop | Tema                                                     | Estado                                                                                         |
+| ---- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 17   | Foundation (`internal_action`, runtime, registry, audit) | entregue                                                                                       |
+| 18   | CRM Pack                                                 | entregue (Mongo `Party` + actionIds `crm_`*)                                                   |
+| 19   | Care Pack                                                | entregue (`CareSubject` + `care_*`)                                                            |
+| 20   | Services & Sales                                         | entregue (catálogo, pedidos, `sales_*` / `service_catalog_*`)                                  |
+| 21   | Packages & Encounters                                    | entregue (`PackageSale`, `Encounter`, `package_*`, `attendance_*`)                             |
+| 22   | Clinical                                                 | entregue (anamneses, evolução, encontros clínicos + `clinical_*`)                              |
+| 23   | Finance                                                  | entregue (`Receivable`, `Payable`, `finance_*`)                                                |
+| 24   | Reminders                                                | entregue (`Reminder`, `schedule_*`)                                                            |
+| 25   | GitHub Ops                                               | entregue (REST GitHub; requer `GITHUB_TOKEN` / `GH_TOKEN`)                                     |
+| 26   | AI Builder / planner                                     | entregue (fase 1: `requiredPacks` / `requiredTools` no planner + persistência)                 |
+| 27   | Bind / install de tools a partir do planner              | entregue (`TEAM_PLAN_AUTO_BIND_TOOLS`, fase `binding_tools`, UI revisão)                       |
+| 28   | Hardening / testes integração bind                       | entregue (integração + teto 64 actionIds; ver [Loop 28](#loop-28))                             |
+| 29   | Observabilidade bind + meta execute + UX truncagem       | entregue (logs, `responseMeta`, toast; ver [Loop 29](#loop-29))                                |
+| 30   | Catálogo pack → actionIds + prompt dinâmico              | entregue (ver [Loop 30](#loop-30))                                                             |
+| 31   | Labels PT-BR packs (UI) + README backend                 | entregue (ver [Loop 31](#loop-31))                                                             |
+| 32   | Prometheus `/metrics` para team-plan execute/bind        | entregue (ver [Loop 32](#loop-32))                                                             |
+| 33   | Scheduling / Appointments Pack                           | entregue (ver [Loop 33](#loop-33--scheduling--appointments-pack))                              |
+| 34   | Contrato packs ↔ labels                                  | entregue (ver [Loop 34](#loop-34))                                                             |
+| 35   | Scheduling: conclusão de appointment → encounter         | entregue (ver [Loop 35](#loop-35))                                                             |
+| 36   | Scheduling API HTTP                                      | entregue (ver [Loop 36](#loop-36))                                                             |
+| 37   | UI mínima de agenda                                      | entregue (ver [Loop 37](#loop-37))                                                             |
+| 38   | Agenda: API parties + picker                             | entregue (ver [Loop 38](#loop-38))                                                             |
+| 39   | POST parties + UI criar contato                          | entregue (ver [Loop 39](#loop-39))                                                             |
+| 40   | Painel métricas team-plan (UI + BFF)                     | entregue (ver [Loop 40](#loop-40))                                                             |
+| 41   | `PUT /parties/:id` + edição na agenda                    | entregue (ver [Loop 41](#loop-41))                                                             |
+| 42   | Observabilidade: KPIs + cards na UI                      | entregue (ver [Loop 42](#loop-42))                                                             |
+| 43   | CRM: `$unset` em opcionais vazios (`PUT` + tool)         | entregue (ver [Loop 43](#loop-43))                                                             |
+| 44   | E2E Playwright `/schedule`                               | entregue (ver [Loop 44](#loop-44))                                                             |
+| 45   | Habilitação de tools: UX, tool-definitions e auto-bind   | entregue (UI de ativação + feedback de bind; ver [Loop 45](#loop-45))                          |
+| 46   | Política configurável de auto-bind por workspace         | entregue (settings + AI Builder + override no execute; ver [Loop 46](#loop-46))                |
+| 47   | Política de bind para agentes `reused`                   | entregue (settings + execute + AI Builder + teste de merge; ver [Loop 47](#loop-47))           |
+| 48   | Pré-visualização/aprovação do bind antes do execute      | entregue (preview backend + AI Builder + aprovação antes do execute; ver [Loop 48](#loop-48))  |
+| 49   | Overrides granulares do bind por agente                  | entregue (persistência + preview/execute + UI; ver [Loop 49](#loop-49))                        |
+| 50   | Ações em lote e reset de overrides do bind               | entregue (ações rápidas globais/por agente/pack + diff final; ver [Loop 50](#loop-50-fechado)) |
+| 51   | Ativação inline de tool definitions inativas no preview  | entregue (reativar no execute + `POST .../bind-enable-definitions` + UI; ver [Loop 51](#loop-51-fechado)) |
+| 52   | Settings de perfil e preferências com backend real       | entregue (perfil, avatar data URL, prefs, tema; ver [Loop 52](#loop-52-fechado))                |
+| 53   | Notificações, canais e explicações operacionais         | entregue (prefs notif. + copy settings/canais; ver [Loop 53](#loop-53-fechado))                 |
+| 54   | Segurança e autenticação de conta                        | entregue (senha, revoke sessões, 2FA honesto; ver [Loop 54](#loop-54-fechado))                 |
+| 55   | Faturamento, upgrade e enforcement de quotas             | entregue (quotas por plano + UI consumo + upgrade honesto; ver [Loop 55](#loop-55-fechado))      |
+| 56   | Templates e tools com curadoria real de produção         | entregue (metadata templates + seed clinica + tools deps; ver [Loop 56](#loop-56-fechado))     |
+| 57   | Governança limpa e agenda operacional                    | entregue (purge auditoria + agenda cancelados/delete; ver [Loop 57](#loop-57-fechado))        |
+| 58   | Danger Zone administrativa e reset de fábrica            | entregue (ver [Loop 58](#loop-58-fechado))                                                      |
+| 59   | Catálogo `internal_action` (presets + API + UI guiada)   | entregue (ver [Loop 59](#loop-59-fechado))                                                      |
+| 60   | Remover CRM HTTP do catálogo (ambiguidade vs CRM interno) | entregue (ver [Loop 60](#loop-60-fechado))                                                      |
+| 61   | Criação em lote de `internal_action` na página Tools (UX) | entregue (ver [Loop 61](#loop-61-fechado))                                                     |
+| 62   | Transparência do fallback do team planner (AI Builder)   | entregue (ver [Loop 62](#loop-62-fechado))                                                     |
+| 63   | Paridade planner × canais (Chat SDK + nativos)             | entregue (ver [Loop 63](#loop-63-fechado))                                                     |
+| 64   | Builtins por domínio (criação de time e AI Builder)        | entregue (ver [Loop 64](#loop-64-fechado))                                                      |
+| 65   | Foundation responsiva multi-device                         | entregue (ver [Loop 65](#loop-65-fechado))                                                      |
+| 66   | Responsividade das telas críticas                          | entregue (ver [Loop 66](#loop-66-fechado))                                                      |
+| 67   | Onboarding contextual e tour por tela                      | entregue (ver [Loop 67](#loop-67-fechado))                                                      |
+| 68   | Expansão de tours contextuais (listagens)                    | entregue (ver [Loop 68](#loop-68-fechado))                                                      |
+| 69   | Tours contextuais — governança e observabilidade             | entregue (ver [Loop 69](#loop-69-fechado))                                                      |
+| 70   | Tours contextuais — fichas agente e time                     | entregue (ver [Loop 70](#loop-70-fechado))                                                      |
+| 71   | Tabelas densas — scroll horizontal (`ResponsiveTableScroll`) | entregue (ver [Loop 71](#loop-71-fechado))                                                      |
+| 72   | Tours — spotlight / ancoragem DOM (opcional por passo)       | entregue (ver [Loop 72](#loop-72-fechado))                                                      |
+| 73   | Listagens densas — vista em cards (mobile/tablet)             | entregue (ver [Loop 73](#loop-73-fechado))                                                      |
+| 74   | Listagens densas — cards em `/governance`                     | entregue (ver [Loop 74](#loop-74-fechado))                                                      |
+| 75   | Listagens densas — cards em `/tool-definitions`              | entregue (ver [Loop 75](#loop-75-fechado))                                                      |
+| 76   | Listagens densas — cards em `/templates`                     | entregue (ver [Loop 76](#loop-76-fechado))                                                      |
+| 77   | Prompts do planner — domínio, builtin e anti-duplicação       | entregue (ver [Loop 77](#loop-77-fechado))                                                      |
+| 78   | Enforcement / UX — builtins de negócio sem ambiguidade       | entregue (ver [Loop 78](#loop-78-fechado))                        |
+| 79   | AI Builder — atalhos por agente com definition inativa (bind preview) | entregue (ver [Loop 79](#loop-79-fechado))                        |
+| 80   | Planner — matriz pré-JSON + outer loop auto-reparo IA (unicidade builtins) | entregue (ver [Loop 80](#loop-80-fechado)) |
+| 81   | AI Builder — preview simples, tools focalizadas, camadas (UX assistido) | entregue (ver [Loop 81](#loop-81-fechado)) |
+| 82   | Contrato do planner por agente + workflow ownership | entregue (ver [Loop 82](#loop-82-fechado)) |
+| 83   | Bind preview e execute per-agent (fim do bind global) | entregue (ver [Loop 83](#loop-83-fechado)) |
+| 84   | Built-ins mínimas por papel + hints por packs | entregue (ver [Loop 84](#loop-84-fechado)) |
+| 85   | UX AI Builder — preview estável e execute fluido | entregue (ver [Loop 85](#loop-85-fechado)) |
+| 86   | AI Builder — execute, bind review proporcional, workflow ownership explícito | **planeado** (especificação: [Loop 86](#loop-86-oficial)) |
+
+
+**Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
+
+---
+
+# Próximo loop oficial
+
+**Último slice numerado fechado:** **Loop 85** — `teamPlanBindFingerprint` + `proposePlanUpdate` no [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); `requiresBindReview` alinhado a hints por agente; `Salvar` não esvazia o preview antes do refresh; gate **237** testes + `next build`; ver [Loop 85](#loop-85-fechado).
+
+**Próximo slice oficial (numerado):** **[Loop 86](#loop-86-oficial)** — destravar **Executar plano** quando não houver blocker real; bind review proporcional (`preview.requiresExplicitApproval`); ownership de workflow sem sufixos silenciosos; inferência de built-ins mais conservadora para especialistas. Plano mestre: [Loop 86](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito).
+
+| Ordem | Tema | Plano mestre |
+| --- | --- | --- |
+| **1** | **Loop 86** (team planner + AI Builder) | [Loop 86](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito) |
+| *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+
+**Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
+
+**Regra Ralph:** um slice coerente por ciclo; fechar com gate (`./scripts/ralph-loop-gate.sh`, com `RALPH_LOOP_INCLUDE_FRONTEND=1` se tocar no Next), commit + push, depois atualizar tabela acima e a secção **Loop N (fechado)** abaixo.
+
+---
+
+<a id="checklist-do-loop-82-fechado"></a>
+
+## Checklist do Loop 82 (fechado)
+
+- [x] Evoluir `plannerOutputSchema` por agente (Zod) em [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts)
+- [x] Introduzir `workflowKey` por agente com unicidade entre especialistas ([`planner-workflow-ownership.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts))
+- [x] Introduzir `requiredBusinessActionIds` e `requiredPackIds` por agente
+- [x] Alinhar [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) e reparo Loop 80 (payload JSON)
+- [x] Tipos frontend em [`v0-team-ai-crafter/lib/types/index.ts`](../../v0-team-ai-crafter/lib/types/index.ts) + cartão no [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)
+- [x] Persistência Mongoose [`team-plan.model.ts`](../../backend/src/modules/team-planning/infra/team-plan.model.ts); `buildFallback` + `agentGraphData` em [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts)
+- [x] Testes: `team-plan-planner-output.schema.test.ts`, `planner-workflow-ownership.test.ts`, `planner-agent-catalog-tools.test.ts`
+- [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **227** testes backend; `next build` OK
+
+<a id="checklist-do-loop-83-fechado"></a>
+
+## Checklist do Loop 83 (fechado)
+
+- [x] `buildBindPreview` / `executePlan`: candidatos por agente quando `hasPerAgentBindHints` (listas por agente); legado global inalterado
+- [x] [`planner-pack-presets.ts`](../../backend/src/modules/team-planning/application/planner-pack-presets.ts): `computePlannerBindActionUniverse`, `mergePlannerPackIdsForBind`, testes Loop 83
+- [x] AI Builder: badge **por agente** + copy quando `bindResolutionMode === per_agent`
+- [x] Tipos `TeamPlanBindPreview.bindResolutionMode`
+- [x] `normalizeBindOverrides` em `updatePlan` / `updateBindOverrides` com universo capped alinhado
+- [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **232** testes backend; `next build` OK
+
+<a id="checklist-do-loop-84-fechado"></a>
+
+## Checklist do Loop 84 (fechado)
+
+- [x] [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): removida rotação por índice; `inferCatalogPackContextLower`; hints por packs (`calendar_access`, `internal_actions`) conservadores
+- [x] [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): regra Loop 84 (inferência mínima; sem rotação)
+- [x] Testes: [`planner-agent-catalog-tools.test.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), [`team-plan-planner-prompt.test.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts)
+- [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes backend; `next build` OK
+
+<a id="checklist-do-loop-85-fechado"></a>
+
+## Checklist do Loop 85 (fechado)
+
+- [x] [`team-plan-bind-fingerprint.ts`](../../v0-team-ai-crafter/lib/team-plan-bind-fingerprint.ts): `teamPlanBindFingerprint`, `planHasBindReviewHints`
+- [x] [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx): `proposePlanUpdate` — invalida preview/aprovação só quando o fingerprint de bind muda; edições cosméticas e `catalogTools` não limpam o preview
+- [x] `requiresBindReview` / contagens incluem `requiredBusinessActionIds` / `requiredPackIds` por agente; alerta “Capabilities sugeridas” coerente
+- [x] `saveEdits` mantém o preview até o novo `bind-preview` regressar do servidor
+- [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes; `next build` OK
+
+---
+
+# Checklist do Loop 27 (fechado)
+
+- ADR ou nota curta: política de auto-criação vs só sugestão (`requiredTools` / `requiredPacks`) → `[docs/adr/ADR-2026-04-team-plan-auto-bind-tools.md](../adr/ADR-2026-04-team-plan-auto-bind-tools.md)`
+- Backend: criar ou reutilizar `WorkspaceToolDefinition` (`internal_action` + `actionId`) por workspace
+- Backend: em `execute` do team plan, aplicar `customToolDefinitionIds` aos agentes novos quando `TEAM_PLAN_AUTO_BIND_TOOLS=1`
+- Frontend: revisão de packs/capabilities sugeridas no fluxo AI create team (mínimo viável)
+- Testes: `planner-pack-presets.test.ts` + suite existente
+- Gate: build + testes (`153` testes) e `next build` no frontend
+- Ledger: este ficheiro atualizado
+
+---
+
+# Checklist do Loop 28 (fechado)
+
+- Integração: execute com `TEAM_PLAN_AUTO_BIND_TOOLS=1` e plano com `requiredTools` → agentes com `customToolDefinitionIds` → `[team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`
+- Limite de actionIds por execução (proteção abuso): teto **64** em `team-plan.service.ts` antes de `ensureInternalActionDefinitions`
+- Idempotência: segundo `execute` com mesmo `operationId` coberto no teste de integração
+- Gate: build + testes (`155` testes)
+- Ledger: este ficheiro atualizado
+
+---
+
+# Checklist do Loop 29 (fechado)
+
+- Logs estruturados no bind (`team_plan.auto_bind_summary` / truncagem) com `correlationId`
+- `responseMeta`: `autoBindActionsRequested`, `autoBindActionsApplied`, `autoBindActionsTruncated`
+- Auditoria: payload com `autoBindActionsRequested` / `autoBindActionsTruncated`
+- Frontend: tipo `TeamPlanExecuteMeta` + toast quando lista truncada
+- ADR atualizado
+- Teste de integração asserta os novos campos de meta
+- Gate: backend `155` testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 30 (fechado)
+
+- Ampliar `PLANNER_PACK_TO_ACTION_IDS` com actionIds já registados no registry
+- Export `PLANNER_PACK_IDS` + prompt do planner alinhado (lista dinâmica)
+- Testes: invariante de chaves + expansão `finance`
+- Gate: backend **157** testes
+
+---
+
+# Checklist do Loop 31 (fechado)
+
+- UX: rótulos PT-BR para `requiredPacks` no AI Builder (`planner-pack-labels.ts` + `title` com id técnico)
+- Docs: secção no `[backend/README.md](../../backend/README.md)` com pointers ao preset, prompt e ADR
+- Gate: backend **157** testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 32 (fechado)
+
+- Adicionar `prom-client` ao backend
+- Expor `GET /metrics` com registry singleton e default metrics
+- Instrumentar `team-plan execute` e auto-bind com counters/histograms
+- Teste de integração cobre `/metrics`
+- Docs: README backend atualizado
+- Gate: backend **157** testes
+
+---
+
+# Checklist do Loop 33 (fechado)
+
+- Criar `appointments` e `availability_slots`
+- Registrar actions iniciais de agenda no `BusinessToolRegistry`
+- Integrar o pack com `service_orders`, `package_sales`, `encounters` e `reminders` no mínimo viável
+- Atualizar planner/presets para o pack `scheduling`
+- Gate: backend **160** testes + `v0-team-ai-crafter` build
+- Ledger atualizado
+
+---
+
+# Checklist do Loop 34 (fechado)
+
+- Garantir contrato entre `PLANNER_PACK_IDS` e `PLANNER_PACK_LABELS_PT`
+- Gate: backend **161** testes
+- Ledger atualizado
+
+---
+
+# Checklist do Loop 35 (fechado)
+
+- Expandir `scheduling` com `schedule_complete_appointment`
+- Criar `encounter` ao concluir appointment e vincular `careSubjectId`
+- Marcar reminder associado como `done`
+- Atualizar preset do pack `scheduling`
+- Gate: backend **162** testes
+
+---
+
+# Checklist do Loop 36 (fechado)
+
+- Expor Scheduling API autenticada em `/api/v1/schedule/...`
+- Reaproveitar regras do `BusinessToolRegistry` sem duplicar a lógica de negócio
+- Cobrir agenda diária e conclusão de appointment via teste de integração
+- Docs: `backend/README.md` + plano mestre atualizados
+- Gate: backend **164** testes
+
+---
+
+# Checklist do Loop 37 (fechado)
+
+- Rota `/schedule` com vista diária e `GET /schedule/agenda`
+- Ações operacionais nos compromissos (confirmar, cancelar, falta, concluir)
+- Criação de compromisso e de janela de disponibilidade via API
+- Sidebar + tipos TypeScript
+- Gate: `v0-team-ai-crafter` `npm run build`
+
+---
+
+# Checklist do Loop 38 (fechado)
+
+- API HTTP `GET /parties` (lista recente + `q`) e `GET /parties/:id`
+- Picker na criação de compromisso + fallback ID manual
+- Nomes de contato na tabela de compromissos (lookup por id)
+- Gate: backend **168** testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 39 (fechado)
+
+- `POST /parties` com validação Zod
+- UI: diálogo “Novo contato” na toolbar e atalho no “Novo compromisso”
+- Teste de integração POST + GET por id
+- Gate: backend **169** testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 40 (fechado)
+
+- BFF: `GET /observability/metrics-summary` + RBAC admin
+- UI: rota `/observability` com JSON das séries team-plan
+- Testes de integração admin vs membro
+- Gate: backend **171** testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 41 (fechado)
+
+- `PUT /parties/:id` com validação e 400 quando patch vazio
+- UI: `EditPartyDialog` na lista de compromissos + cache `partiesById`
+- Testes de integração PUT + caso 400
+- Gate: backend **173** testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 42 (fechado)
+
+- BFF: `kpis` agregados em `GET /observability/metrics-summary` (`computeTeamPlanMetricsKpis`)
+- Testes: unitários `team-plan-metrics-kpis.test.ts` + integração asserta `kpis`
+- UI: cards (execuções, duração, auto-bind) + JSON em collapsible
+- Gate: backend **175** testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 43 (fechado)
+
+- Repositório: `IPartyUpdateOperation` com `$set` / `$unset` para `email`, `phone`, `notes`
+- Rotas HTTP + `crm_update_party` alinhados; integração cobre limpeza e 400 em `{}`
+- UI: `EditPartyDialog` envia strings opcionais para permitir limpar
+- Gate: backend **176** testes + `v0-team-ai-crafter` build
+
+---
+
+# Checklist do Loop 44 (fechado)
+
+- Playwright + config + `e2e/global-setup.ts` (login API → `storageState` com Zustand)
+- `e2e/schedule.spec.ts` smoke; sem `E2E_`* → testes skipped (exit 0)
+- README frontend com comandos e variáveis; `e2e/.auth/` no `.gitignore`
+- Gate: backend **176** testes + `v0-team-ai-crafter` build + `npm run test:e2e` (skipped)
+
+---
+
+# Checklist do Loop 45 (fechado)
+
+- UI: permitir gerir `enabled` em `tool-definitions`
+- UI: tornar explícita a habilitação manual de tools de workspace na página do agente
+- UI: AI Builder mostrar com clareza sugestão vs bind efetivo (`boundToolDefinitionIds`, auto-bind ligado/desligado, agentes `reused`)
+- Backend/produto: decidir e documentar a política de habilitação do auto-bind (mantido por env neste loop; UI explicitada)
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+---
+
+## Loop 46
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: expor uma política configurável de auto-bind por workspace, reduzindo dependência operacional de env
+- foco:
+  - definir se a política vive em `settings`, governança ou configuração própria do planner
+  - permitir leitura/escrita da política via produto, mantendo compatibilidade com `TEAM_PLAN_AUTO_BIND_TOOLS`
+  - decidir se agentes `reused` continuam fora do bind automático ou se passam a ter política controlada
+  - refletir a política visível no AI Builder e nos metadados de execução
+- critério de saída:
+  - um admin consegue controlar a política sem editar ambiente do servidor
+  - a decisão fica documentada e coberta por testes mínimos
+- **entregue no repositório:**
+  - `[backend/src/modules/team-planning/application/team-plan-auto-bind-policy.ts](../../backend/src/modules/team-planning/application/team-plan-auto-bind-policy.ts)`: política resolvida (`inherit` / `enabled` / `disabled`) com fallback para `TEAM_PLAN_AUTO_BIND_TOOLS`
+  - `[backend/src/modules/settings/interfaces/settings.routes.ts](../../backend/src/modules/settings/interfaces/settings.routes.ts)`: endpoints `GET` / `PUT /settings/workspace/team-planning-policy`
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`: `executePlan` passa a usar a política do workspace e expor `autoBindPolicySource` / `autoBindMode`
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../../v0-team-ai-crafter/app/%28app%29/settings/page.tsx)`: UI para admin controlar a política no produto
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: AI Builder mostra a política efetiva do workspace antes e depois do execute
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: cobertura da sobreposição por workspace com env global desligada
+
+---
+
+## Loop 46 (fechado)
+
+- Backend: resolver política híbrida (`workspace` + fallback env) para auto-bind
+- Backend: expor leitura/escrita da política por endpoint dedicado em `settings`
+- Frontend: permitir a um admin ajustar a política em Configurações
+- Frontend: AI Builder mostrar a política efetiva antes e depois da execução
+- Testes: integração cobrindo override de workspace com env global desligada
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+---
+
+## Loop 47
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: decidir e implementar a política de bind para agentes `reused`, fechando a última ambiguidade principal do execute do team plan
+- foco:
+  - decidir se agentes `reused` continuam excluídos do bind ou se passam a receber merge controlado de `customToolDefinitionIds`
+  - se houver bind em `reused`, definir guardrails de segurança e visibilidade na UI
+  - alinhar `responseMeta`, auditoria e AI Builder para explicitar o comportamento escolhido
+  - cobrir o comportamento com testes de integração
+- critério de saída:
+  - a política para agentes `reused` fica explícita no produto e no código
+  - o comportamento fica coberto por testes e documentado no ledger
+- **entregue no repositório:**
+  - `[backend/src/modules/team-planning/application/team-plan-auto-bind-policy.ts](../../backend/src/modules/team-planning/application/team-plan-auto-bind-policy.ts)`: política híbrida passa a incluir `reusedAgentBindMode` (`manual` / `merge`) com default seguro em `manual`
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`: `executePlan` respeita a política para agentes `reused` e expõe `reusedAgentBindMode`, `reusedAgentsUpdated` e `reusedAgentsSkipped`
+  - `[backend/src/modules/settings/interfaces/settings.routes.ts](../../backend/src/modules/settings/interfaces/settings.routes.ts)`: `PUT /settings/workspace/team-planning-policy` persiste também a política de `reused`
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: cobertura do caso `reusedAgentBindMode=merge` com agente reutilizado recebendo `customToolDefinitionIds`
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../../v0-team-ai-crafter/app/%28app%29/settings/page.tsx)`: Configurações expõem a decisão entre modo manual e merge controlado
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: AI Builder mostra a política efetiva para `reused` antes e depois da execução
+  - `[v0-team-ai-crafter/lib/types/index.ts](../../v0-team-ai-crafter/lib/types/index.ts)`: meta do execute tipada com os novos campos de política e contadores
+
+---
+
+## Loop 47 (fechado)
+
+- Backend: tornar explícita a política de bind para agentes `reused`
+- Backend: aplicar `merge` controlado quando configurado no workspace
+- Backend: expor metadados/auditoria do bind em `reused`
+- Frontend: permitir configurar a política em Configurações
+- Frontend: AI Builder explicar a política e o resultado por agentes reutilizados
+- Testes: integração cobrindo `reusedAgentBindMode=merge`
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+---
+
+## Loop 48
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: dar previsibilidade operacional ao bind antes do execute, mostrando exatamente o que será associado a cada agente
+- foco:
+  - gerar preview por agente com separação entre `new` e `reused`
+  - explicitar quais `WorkspaceToolDefinition` serão criadas, reutilizadas ou apenas vinculadas
+  - permitir aprovação consciente do merge em agentes `reused` antes de executar
+  - alinhar preview, `responseMeta` e feedback do AI Builder
+- critério de saída:
+  - o usuário entende antes do execute quais binds serão aplicados
+  - a divergência entre sugestão do planner e efeito real do runtime fica mínima
+- **entregue no repositório:**
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`: helper único de preview para espelhar a lógica efetiva do `execute`
+  - `[backend/src/modules/team-planning/interfaces/team-plan.routes.ts](../../backend/src/modules/team-planning/interfaces/team-plan.routes.ts)`: endpoint `GET /team-plans/:id/bind-preview`
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: cobertura do preview por agente antes do execute
+  - `[v0-team-ai-crafter/lib/types/index.ts](../../v0-team-ai-crafter/lib/types/index.ts)`: tipos do preview de bind
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: card de preview, refresh manual e aprovação obrigatória antes do execute
+
+---
+
+## Loop 48 (fechado)
+
+- Backend: expor preview do bind por plano antes do execute
+- Backend: reaproveitar a mesma regra do execute para evitar divergência preview/runtime
+- Frontend: mostrar preview de tool definitions e impacto por agente
+- Frontend: exigir aprovação explícita do preview antes do execute quando houver capabilities sugeridas
+- Testes: integração cobrindo o endpoint de preview
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+---
+
+## Loop 49
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: permitir override granular do bind no AI Builder, para o usuário ajustar o plano antes da execução final
+- foco:
+  - permitir ligar/desligar o bind por agente no preview
+  - permitir excluir actionIds específicas antes do execute sem editar manualmente o plano bruto
+  - persistir os overrides no `team-plan` ou no request de execute com rastreabilidade
+  - refletir os overrides em `responseMeta`, auditoria e feedback final do execute
+- critério de saída:
+  - o usuário consegue revisar e ajustar o bind sem sair do AI Builder
+  - o runtime executa exatamente o conjunto aprovado no preview
+- **entregue no repositório:**
+  - `[backend/src/modules/team-planning/infra/team-plan.model.ts](../../backend/src/modules/team-planning/infra/team-plan.model.ts)` e `[team-plan.repository.ts](../../backend/src/modules/team-planning/infra/team-plan.repository.ts)`: persistência de `bindOverrides` no `team-plan`
+  - `[backend/src/modules/team-planning/interfaces/team-plan.routes.ts](../../backend/src/modules/team-planning/interfaces/team-plan.routes.ts)`: endpoint `PUT /team-plans/:id/bind-overrides`
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`: preview/execute passam a respeitar overrides por agente e por `actionId`, com auditoria e `responseMeta` alinhados
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: cobertura de override granular para desligar binds, remover `actionIds` e forçar bind em agente `reused`
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: toggles por agente, checkboxes por `actionId` e persistência imediata dos overrides no preview
+  - `[v0-team-ai-crafter/lib/types/index.ts](../../v0-team-ai-crafter/lib/types/index.ts)`: tipos do preview/meta/`TeamPlanDraft` alinhados ao novo contrato
+
+---
+
+## Loop 49 (fechado)
+
+- Backend: persistir `bindOverrides` no `team-plan`
+- Backend: permitir salvar overrides via endpoint dedicado e reaproveitar o mesmo contrato no preview e no execute
+- Backend: alinhar auditoria e `responseMeta` aos overrides efetivamente aplicados
+- Frontend: permitir ligar/desligar bind por agente no preview
+- Frontend: permitir retirar `actionIds` específicas antes do execute
+- Testes: integração cobrindo cenários `disabled`, exclusão de `actionId` e override `enabled` para agente `reused`
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (`181` testes backend + build frontend)
+
+---
+
+## Loop 50 (fechado)
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: reduzir atrito operacional dos overrides com ações em lote e uma leitura final mais clara do delta aprovado
+- foco:
+  - adicionar ações rápidas de “aplicar tudo”, “limpar tudo” e “resetar para a política do workspace”
+  - permitir operar overrides em lote por agente e por pack sugerido
+  - mostrar no preview um diff compacto entre política padrão, overrides salvos e bind final que será executado
+  - refletir o delta aprovado no feedback final do execute
+- critério de saída:
+  - o usuário consegue ajustar cenários com muitas capabilities sem microgerenciar checkbox a checkbox
+  - o preview final deixa explícito o delta entre padrão do workspace e decisão aprovada
+- **entregue no repositório:**
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`: preview enriquecido com `packIds` por action, `defaultActionIdsToLink`, `suggestedPacks` e `diffSummary`; `responseMeta` / auditoria passam a espelhar o delta final aprovado
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: cobertura de preview com `requiredPacks`, diff agregado e meta final do execute
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: ações rápidas globais, por agente e por pack; diff final compacto; badges de pack nas tool definitions; feedback final alinhado ao delta aprovado
+  - `[v0-team-ai-crafter/lib/types/index.ts](../../v0-team-ai-crafter/lib/types/index.ts)`: tipos do preview/meta atualizados para packs e diff do bind
+
+---
+
+## Loop 51 (fechado)
+
+- etapa/prioridade: ETAPA 8 / média
+- objetivo do slice: fechar o último atrito operacional do bind quando o preview encontra `tool definitions` existentes, porém inativas
+- foco:
+  - permitir ativar `internal_action` inativas diretamente a partir do preview do bind, sem sair do AI Builder
+  - distinguir com clareza o que depende de criação, reuso ou apenas reativação de definition
+  - refletir na UI e no `responseMeta` quando uma definition foi reativada para destravar o bind
+  - reduzir a ida e volta entre o AI Builder e a página de `tool-definitions`
+- critério de saída:
+  - o utilizador consegue resolver o caso “definition existe mas está inativa” sem abandonar o fluxo de criação do time
+  - o preview continua espelhando com precisão o resultado final do runtime após a reativação
+- **entregue no repositório:**
+  - `[backend/src/modules/team-planning/application/team-plan.service.ts](../../backend/src/modules/team-planning/application/team-plan.service.ts)`: `plannedOperation` `reactivate`; reativação no `execute`; `enableDisabledBindDefinitions` + preview reconstruído; `responseMeta.reactivatedToolDefinitionIds`
+  - `[backend/src/modules/team-planning/interfaces/team-plan.routes.ts](../../backend/src/modules/team-planning/interfaces/team-plan.routes.ts)`: `POST /team-plans/:id/bind-enable-definitions`
+  - `[backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts](../../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts)`: `PUT` aceita `enabled`
+  - `[v0-team-ai-crafter/components/teams/team-ai-builder.tsx](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)`: botões “Ativar no workspace” / lote; meta pós-execução
+  - `[v0-team-ai-crafter/lib/types/index.ts](../../v0-team-ai-crafter/lib/types/index.ts)`: tipos `reactivate` / `reactivatedToolDefinitionIds`
+  - `[backend/src/__tests__/team-plan-auto-bind.integration.test.ts](../../backend/src/__tests__/team-plan-auto-bind.integration.test.ts)`: `describe` isolado “Loop 51” (execute + endpoint)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+---
+
+## Loop 52 (fechado)
+
+- etapa/prioridade: ETAPA 9 / altíssima
+- objetivo do slice: fechar o gap entre o que `/settings` mostra e o que realmente persiste para o utilizador
+- foco:
+  - foto/avatar de perfil real
+  - idioma persistido em `preferences`
+  - tema persistido em `preferences` e respeitado no app shell
+  - bio e preferências explícitas ou remoção da UI sem backend
+  - navegação correta de `Meu Perfil` no menu superior
+- critério de saída:
+  - tudo o que aparece em perfil/preferências salva de verdade ou deixa de ser exibido como funcional
+- **entregue no repositório:**
+  - `[backend/src/modules/settings/interfaces/settings.routes.ts](../../backend/src/modules/settings/interfaces/settings.routes.ts)`: `PUT /settings/profile` aceita `avatar` (data URL), devolve perfil completo; removido `POST /settings/profile/avatar` que não persistia ficheiro
+  - `[backend/src/modules/users/infra/user.repository.ts](../../backend/src/modules/users/infra/user.repository.ts)`: `updateProfile` com `$unset` para limpar `avatar`
+  - `[backend/src/modules/auth/interfaces/auth.routes.ts](../../backend/src/modules/auth/interfaces/auth.routes.ts)`: `preferences` em login/register/`GET /auth/me`
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: tab `?tab=profile`, bio/locale/tema persistidos, email só leitura, upload de avatar
+  - `[v0-team-ai-crafter/components/providers/app-providers.tsx](../../v0-team-ai-crafter/components/providers/app-providers.tsx)` + `[user-preferences-sync.tsx](../../v0-team-ai-crafter/components/layout/user-preferences-sync.tsx)`: `next-themes` no shell + sync tema/idioma
+  - `[v0-team-ai-crafter/components/layout/app-header.tsx](../../v0-team-ai-crafter/components/layout/app-header.tsx)`: avatar + `Meu Perfil` → `/settings?tab=profile`
+  - `[v0-team-ai-crafter/app/layout.tsx](../../v0-team-ai-crafter/app/layout.tsx)`: `suppressHydrationWarning`, sem `className="dark"` fixo no `<html>`
+  - `[backend/src/__tests__/auth.integration.test.ts](../../backend/src/__tests__/auth.integration.test.ts)`: cobertura de perfil e limpeza de avatar
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+---
+
+## Loop 53 (fechado)
+
+- etapa/prioridade: ETAPA 9 / alta
+- objetivo do slice: tornar `/settings` e `/channels` mais compreensíveis e utilizáveis em produção
+- foco:
+  - persistência real de preferências de notificação
+  - canal adicional de notificação via Discord, se alinhado ao modelo de canais existente
+  - explicação prática de OpenAI, `API keys`, integrações e tools de catálogo
+  - redução da ambiguidade entre `Chat SDK — plataformas` e `Canais genéricos`
+- critério de saída:
+  - o utilizador entende para que serve cada configuração e consegue testá-la com poucos cliques
+- **entregue no repositório:**
+  - `[v0-team-ai-crafter/lib/types/index.ts](../../v0-team-ai-crafter/lib/types/index.ts)`: `IUserNotificationPreferences` + `notifications` em `IUserPreferences`
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: aba Notificações com `user.preferences.notifications` persistido; botão **Guardar notificacoes** (`PUT` parcial); toggles email / Slack / Discord + tipos; alertas explicativos; texto para Chaves de API e **Leitura rapida** em Integrações
+  - `[v0-team-ai-crafter/app/(app)/channels/page.tsx](../../v0-team-ai-crafter/app/(app)/channels/page.tsx)`: alerta *Chat SDK vs canais genéricos*, descrições alinhadas ao modelo existente (Discord já em `CHAT_SDK_PLATFORMS`), links para settings
+  - `[backend/src/__tests__/auth.integration.test.ts](../../backend/src/__tests__/auth.integration.test.ts)`: merge de `preferences.notifications`
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+---
+
+## Loop 54 (fechado)
+
+- etapa/prioridade: ETAPA 9 / altíssima
+- objetivo do slice: entregar o mínimo de segurança de conta esperado para produção
+- foco:
+  - alterar senha
+  - gestão mínima de sessões
+  - decisão honesta sobre 2FA: implementar MVP ou ocultar CTA até existir backend real
+  - alinhar a danger zone de conta com ações reais
+- critério de saída:
+  - não existir mais botão crítico de segurança sem endpoint correspondente
+- **entregue no repositório:**
+  - `[backend/src/modules/auth/interfaces/auth.routes.ts](../../backend/src/modules/auth/interfaces/auth.routes.ts)`: `POST /auth/change-password`, `POST /auth/revoke-sessions`; `GET /auth/me` inclui `session.hasRefreshToken`
+  - `[backend/src/modules/users/infra/user.repository.ts](../../backend/src/modules/users/infra/user.repository.ts)`: `updatePasswordHash` (invalida refresh)
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: dialog alterar senha; sessão/renovação honesta; 2FA como indisponível; remover exclusão de conta falsa
+  - `[backend/src/__tests__/auth.integration.test.ts](../../backend/src/__tests__/auth.integration.test.ts)`: alteração de senha e revoke
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+## Loop 55 (fechado)
+
+- etapa/prioridade: ETAPA 9 / altíssima
+- objetivo do slice: fazer o plano Free / Pro / Enterprise refletir comportamento real do backend
+- critério de saída: limites por plano aplicados no servidor; UI mostra consumo real; upgrade sem checkout falso
+- **entregue no repositório:**
+  - `[backend/src/modules/workspaces/application/workspace-plan-limits.ts](../../backend/src/modules/workspaces/application/workspace-plan-limits.ts)`: defaults por plano (free: 2 / 5 / 10; pro: 10 / 50 / 50; enterprise: ilimitado); `assertWorkspaceQuota` / `assertWorkspaceQuotaDelta`; erro `QUOTA_EXCEEDED` (403)
+  - `[backend/src/modules/settings/infra/settings.repository.ts](../../backend/src/modules/settings/infra/settings.repository.ts)`: `getWorkspace` agrega `max*` efectivos (override em `workspace.limits` quando definido)
+  - Rotas: `POST /teams`, `POST /teams/:id/duplicate`, `POST /agents`, `POST /channels`; `team-plan.execute` e `agent-plan.execute` respeitam quotas antes de criar recursos
+  - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: separador Faturamento com `used/max` ou ilimitado; alerta sobre ausência de gateway; dialog “Fazer upgrade” com email e workspace id (sem cartão fictício)
+  - `[backend/src/__tests__/workspace-quota.integration.test.ts](../../backend/src/__tests__/workspace-quota.integration.test.ts)`: cobertura GET limits + bloqueio teams/agents/channels
+  - Testes de team-plan com workspace `enterprise` onde o fluxo cria muitos recursos (`team-plan-auto-bind`, `team-plans`) para não colidir com quotas de teste
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+## Loop 56 (fechado)
+
+- etapa/prioridade: ETAPA 9 / alta
+- objetivo do slice: fazer `Templates` e `Tools` entregarem valor concreto para uso produtivo
+- critério de saída: templates seed honestos + vertical saude; UI mostra requisitos antes de aplicar; tools explicam dependências
+- **entregue no repositório:**
+  - `[backend/src/modules/templates/infra/template.model.ts](../../backend/src/modules/templates/infra/template.model.ts)`: `vertical`, `prerequisites[]`, `applyBehavior`
+  - `[backend/src/modules/templates/infra/template.repository.ts](../../backend/src/modules/templates/infra/template.repository.ts)`: expõe campos em listagem e `GET /templates/:id`
+  - `[backend/scripts/seed-demo.ts](../../backend/scripts/seed-demo.ts)`: template omnichannel corrigido (sem prometer 4 agentes inexistentes); novo agente `Especialista Saude Mental`; template **Clinica Psicologia — triagem**; copy honesta nos três templates
+  - `[v0-team-ai-crafter/app/(app)/templates/page.tsx](../../v0-team-ai-crafter/app/(app)/templates/page.tsx)`: modal com requisitos, comportamento real e agentes referenciados (`GET` detalhe)
+  - `[v0-team-ai-crafter/components/templates/template-card.tsx](../../v0-team-ai-crafter/components/templates/template-card.tsx)`: vertical + primeiro requisito; label "no modelo"
+  - `[v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx](../../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx)`: tipos de tool no cabeçalho; dependências por `kind`; link para Integrações
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+## Loop 57 (fechado)
+
+- etapa/prioridade: ETAPA 9 / alta
+- objetivo do slice: fechar pendências operacionais que impactam uso diário e administração
+- critério de saída: limpar auditoria e remover compromissos terminais sem Mongo shell
+- **entregue no repositório:**
+  - Agenda: `GET /schedule/agenda?includeCancelled=false` omite cancelados da lista; `DELETE /schedule/appointments/:id` (admin) remove definitivamente `cancelled` / `no_show`; acção `schedule_delete_appointment` + `AppointmentRepository.hardDelete`
+  - `[v0-team-ai-crafter/app/(app)/schedule/page.tsx](../../v0-team-ai-crafter/app/(app)/schedule/page.tsx)`: interruptor “Mostrar cancelados”; botão “Remover da base” com confirmação
+  - Governança: `POST /governance/audit-events/purge` com `confirmPhrase: PURGE_GOVERNANCE_AUDIT` e `scope: all | range`; `GovernanceAuditEventRepository.purge`; evento `governance.audit_purged` após operação
+  - `[v0-team-ai-crafter/app/(app)/governance/page.tsx](../../v0-team-ai-crafter/app/(app)/governance/page.tsx)`: cartão de limpeza (admin)
+  - Testes: `scheduling-api`, `register-scheduling-pack`, `agent-governance` (purge)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+## Loop 58 (fechado)
+
+- etapa/prioridade: ETAPA 9 / média-alta
+- objetivo do slice: operação de reset da instalação apenas para admin de plataforma, com guardrails fortes
+- **Semântica de reset total:** `deleteMany({})` em todas as coleções Mongoose de negócio da aplicação (paridade com o wipe inicial de `scripts/seed-demo.ts` + módulos posteriores — ver `wipe-factory-collections.ts`).
+- **RBAC:** `authenticate` + `requirePlatformAdmin` (sem tenant).
+- **Env:** `DANGER_ZONE_FACTORY_RESET_ENABLED=1` obrigatório; em `NODE_ENV=production` exige também `DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION=1`.
+- **Confirmações:** corpo com `confirmPhrase: RESET_FACTORY_INSTALLATION`, `confirmEmail` igual ao token, `acknowledgeIrreversible: true`; em produção (quando permitido) `productionSafetyPhrase: DELETE_ALL_PRODUCTION_DATA`.
+- **Auditoria:** log estruturado `platform.factory_reset` antes do wipe (a base deixa de conter utilizadores após a operação).
+- **entregue no repositório:**
+  - `GET /platform/danger-zone/status`, `POST /platform/danger-zone/factory-reset` — [`backend/src/modules/platform/interfaces/platform.routes.ts`](../../backend/src/modules/platform/interfaces/platform.routes.ts), wipe em [`backend/src/modules/platform/application/wipe-factory-collections.ts`](../../backend/src/modules/platform/application/wipe-factory-collections.ts)
+  - [`v0-team-ai-crafter/app/(app)/settings/page.tsx`](../../v0-team-ai-crafter/app/(app)/settings/page.tsx): cartão “Zona de perigo” no separador Segurança (só platform admin)
+  - Testes: [`backend/src/__tests__/platform-factory-reset.integration.test.ts`](../../backend/src/__tests__/platform-factory-reset.integration.test.ts)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+
+## Loop 59 (fechado)
+
+- etapa/prioridade: ETAPA 9 / altíssima
+- objetivo do slice: documentar o fluxo coordenador → especialista → `internal_action` → MongoDB; expor metadados PT-BR por `actionId` (presets + registry); endpoint read-only de catálogo para a UI; criar `WorkspaceToolDefinition` do tipo `internal_action` via select (sem `actionId` manual); rótulos amigáveis na ficha do agente; alinhar `ensureInternalActionDefinitions` aos presets quando existirem.
+- **entregue no repositório:**
+  - [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts): títulos/descrições/`packId` por `actionId`
+  - [`business-tool-registry.ts`](../../backend/src/modules/business-tools/application/business-tool-registry.ts): `listCatalog()` (handlers registados + presets)
+  - [`business-actions.routes.ts`](../../backend/src/modules/business-tools/interfaces/business-actions.routes.ts): `GET /api/v1/business-actions/catalog` (`preHandler: tenant`)
+  - [`routes.ts`](../../backend/src/app/routes.ts): `registerBusinessActionRoutes`
+  - [`ensure-planner-tool-definitions.ts`](../../backend/src/modules/team-planning/application/ensure-planner-tool-definitions.ts): `WorkspaceToolDefinition.name` a partir de presets quando existirem
+  - [`business-tool-registry.test.ts`](../../backend/src/modules/business-tools/application/business-tool-registry.test.ts): catálogo
+  - [`business-action-slug.ts`](../../v0-team-ai-crafter/lib/business-action-slug.ts): `actionIdToToolSlug` alinhado ao planner
+  - [`tool-definitions/page.tsx`](../../v0-team-ai-crafter/app/%28app%29/tool-definitions/page.tsx): tipo «Ação interna (negócio)», combobox do catálogo, desduplicação, linhas com título amigável
+  - [`agents/[id]/page.tsx`](../../v0-team-ai-crafter/app/%28app%29/agents/%5Bid%5D/page.tsx): rótulos a partir do catálogo + badge de pack quando aplicável
+  - [`UI-RUNTIME-AGENT.md`](../UI-RUNTIME-AGENT.md): subsecção domínio de negócio / `internal_action`
+  - [`agents-team-crafter-plano-evolucao.md`](agents-team-crafter-plano-evolucao.md): [§2.6](agents-team-crafter-plano-evolucao.md#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) e [Loop 59](agents-team-crafter-plano-evolucao.md#loop-59--catálogo-de-ações-de-negócio--ux-guiada-internal_action) no plano mestre
+- critério de saída: catálogo só lista `actionId` com handler; gate com frontend porque o slice alterou `v0-team-ai-crafter`
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
+- **Seguinte evolução de UX (entregue no Loop 61):** criação **em lote** de várias `internal_action` — ver [Loop 61 (fechado)](#loop-61-fechado).
+
+## Loop 60 (fechado)
+
+- etapa/prioridade: ETAPA 9 (paridade produto/runtime e integrações) / alta
+- objetivo do slice: eliminar a ferramenta de catálogo **`crm_access`** (integração HTTP `toolCrm` em Configurações) para que o utilizador e o modelo não confundam **CRM externo via GET catalog** com o **CRM interno** persistido no MongoDB (pack `crm`, ações `crm_*`, `PartyRepository`).
+- **entregue no repositório:**
+  - [`available-tools.ts`](../../backend/src/modules/agents/domain/available-tools.ts): removido `crm_access` do catálogo; `DEPRECATED_CATALOG_TOOL_IDS` + `stripDeprecatedCatalogToolIds`; runtime ignora ID legado (`isAllowedTool`).
+  - [`agent-config.schemas.ts`](../../backend/src/modules/agents/application/agent-config.schemas.ts): `toolsSchema` filtra `crm_access` em PUT.
+  - [`build-specialist-sdk-tools.ts`](../../backend/src/modules/runtime/application/build-specialist-sdk-tools.ts), [`tool-builtin-executors.ts`](../../backend/src/modules/runtime/application/tool-builtin-executors.ts): removidos executor e stub HTTP CRM.
+  - [`operational-catalog-tools.ts`](../../backend/src/modules/agents/domain/operational-catalog-tools.ts): sem linha operacional `crm_access`.
+  - [`workspace-integrations.schema.ts`](../../backend/src/modules/settings/domain/workspace-integrations.schema.ts), [`workspace-integrations.service.ts`](../../backend/src/modules/settings/application/workspace-integrations.service.ts): removido `toolCrm`; migração ao ler payload cifrado (remove `toolCrm` e regrava ou anula segredos).
+  - [`tool-integration.types.ts`](../../backend/src/shared/kernel/tool-integration.types.ts): removido `crm` do contexto.
+  - [`settings/page.tsx`](../../v0-team-ai-crafter/app/(app)/settings/page.tsx): removido cartão CRM; copy “Leitura rápida” alinhada ao CRM de negócio.
+  - [`UI-RUNTIME-AGENT.md`](../UI-RUNTIME-AGENT.md): matriz e integrações atualizadas.
+- critério de saída: sem `catalog_crm_access` nem `toolCrm` de primeira classe; gate verde backend + frontend.
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (203 testes backend no encerramento deste slice).
+
+## Loop 61 (fechado)
+
+- etapa/prioridade: ETAPA 9 (UX Tools do workspace) / alta
+- objetivo do slice: **melhorar a UX** na página [`tool-definitions/page.tsx`](../../v0-team-ai-crafter/app/%28app%29/tool-definitions/page.tsx) para **selecionar e adicionar várias** tools `internal_action` **numa única operação**, em vez de repetir o diálogo **Nova tool** para cada `actionId`.
+- **Decisão:** `POST /api/v1/tool-definitions/bulk-internal-actions` com corpo `{ actionIds: string[] }` (até 64), resposta `{ created, skipped, errors }`; idempotente por workspace (`already_defined`, `not_in_catalog`, `slug_collision`).
+- **entregue no repositório:**
+  - [`tool-definition.routes.ts`](../../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts): `POST /api/v1/tool-definitions/bulk-internal-actions` (`requireAdmin`)
+  - [`tool-definitions-bulk.integration.test.ts`](../../backend/src/__tests__/tool-definitions-bulk.integration.test.ts): criação múltipla + segunda chamada só `skipped`
+  - [`tool-definitions/page.tsx`](../../v0-team-ai-crafter/app/%28app%29/tool-definitions/page.tsx): lista com checkboxes + «Seleccionar todas» / «Limpar»; botão «Adicionar (N)»; toasts agregados
+- critério de saída: utilizador cria N `internal_action` sem N passagens pelo fluxo; catálogo continua a ser `GET /business-actions/catalog`.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**204** testes backend no encerramento deste slice).
+
+### Relação com o Loop 59 (fechado)
+
+O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 substitui o combobox **single-select** por **lista com selecção múltipla** para `internal_action` na mesma página.
+
+## Loop 62 (fechado)
+
+- etapa/prioridade: ETAPA 9 (UX AI Builder / team plan) / alta
+- objetivo do slice: quando `plannerMeta.usedFallback` é verdadeiro, a UI deve mostrar **a razão** (`fallbackReason`) e o **detalhe técnico** opcional (`parseErrorSummary`) já devolvidos pelo backend, em PT-BR, no toast e no alerta «Plano em modo template» — sem obrigar o utilizador a inspecionar a rede.
+- **entregue no repositório:**
+  - [`planner-fallback-messages.ts`](../../v0-team-ai-crafter/lib/planner-fallback-messages.ts): mapa de mensagens por `fallbackReason` + `parseErrorSummary`
+  - [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx): toast com título/descrição; alerta com explicação, código e bloco «Detalhe tecnico (suporte)»
+- critério de saída: causas `no_openai_key`, `openai_request_failed`, `json_extract_failed`, `schema_validation_failed` identificáveis na revisão do plano.
+- Gate: `npm run build` em `v0-team-ai-crafter` (sem alteração de backend obrigatória para este slice).
+- **referência no plano mestre:** [Loop 62](agents-team-crafter-plano-evolucao.md#loop-62--transparência-do-fallback-do-team-planner-ai-builder)
+
+## Loop 63 (fechado)
+
+- etapa/prioridade: ETAPA 9 (contrato team planner / canais) / alta
+- objetivo do slice: alinhar `team.primaryChannel`, `agents[].channels`, rotas de agentes/times e `channelConfig.enabled` ao **mesmo conjunto de tipos** que o modelo `Channel` e o Chat SDK (`telegram`, `discord`, `teams`, … + `email`, `api`), evitando `schema_validation_failed` no planner quando o modelo devolve `primaryChannel: "telegram"`.
+- **entregue no repositório:**
+  - [`product-channel-type.ts`](../../backend/src/modules/channels/domain/product-channel-type.ts): `PRODUCT_CHANNEL_TYPES`, `productChannelTypeSchema`
+  - [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): `plannerOutputSchema` com `productChannelTypeSchema`; import em [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts)
+  - [`channel.routes.ts`](../../backend/src/modules/channels/interfaces/channel.routes.ts), [`agent.routes.ts`](../../backend/src/modules/agents/interfaces/agent.routes.ts), [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts), [`agent-config.schemas.ts`](../../backend/src/modules/agents/application/agent-config.schemas.ts): enum partilhado
+  - [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): lista dinâmica de canais + regras Telegram / multi-especialista / exemplos de `requiredPacks`
+  - [`v0-team-ai-crafter/lib/types/index.ts`](../../v0-team-ai-crafter/lib/types/index.ts): `TeamPlanAgentDraft.channels` e `TeamPlanDraft.team.primaryChannel` como `ChannelType`
+  - [`team-plan-planner-output.schema.test.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.test.ts): aceita `telegram` e regressão `api`
+- critério de saída: JSON do planner com `telegram` valida sem fallback por enum de canal; gate com frontend.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**206** testes backend no encerramento deste slice).
+- **referência no plano mestre:** [Loop 63](agents-team-crafter-plano-evolucao.md#loop-63--paridade-planner--canais-chat-sdk--nativos)
+
+## Loop 64 (fechado)
+
+- etapa/prioridade: ETAPA 9 (norma §2.6 — builtins por domínio na criação de times) / alta
+- objetivo do slice: cada agente do plano (coordenador e especialistas) passa a ter **builtins do catálogo** (`capabilities.tools`) **materializadas** — subconjunto mínimo por papel, diferenciado entre especialistas quando o planner não define lista explícita; AI Builder permite **edição manual** antes de salvar/executar.
+- **entregue no repositório:**
+  - [`available-tools.ts`](../../backend/src/modules/agents/domain/available-tools.ts): `normalizeCatalogToolIds`
+  - [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): inferência por keywords (+ [Loop 84](#loop-84-fechado): hints por packs, sem rotação por índice); `resolveCatalogToolsForPlanAgent`
+  - [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): `agents[].catalogTools` normalizado
+  - [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts): materialização em `createPlan` / `updatePlan`; `executePlan` grava `capabilities.tools` em agentes **novos**
+  - [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): instruções + JSON com `catalogTools`
+  - [`team-plan.model.ts`](../../backend/src/modules/team-planning/infra/team-plan.model.ts): persistência de `catalogTools` no agente do plano
+  - [`catalog-tool-ids.ts`](../../v0-team-ai-crafter/lib/catalog-tool-ids.ts) + [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx): checkboxes por agente
+  - Testes: [`planner-agent-catalog-tools.test.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), extensão de [`team-plan-planner-output.schema.test.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.test.ts)
+- **Comportamento default vs manual:** default = lista do planner se válida; senão inferência no servidor ao criar/atualizar plano; utilizador pode alterar checkboxes no AI Builder (PUT `/team-plans/:id`); na execução, agentes novos recebem `capabilities.tools` conforme o plano (business tools continuam via `requiredTools` / `requiredPacks` + bind como antes).
+- **Critério de produto (executáveis vs stub):** builtins continuam sujeitos à matriz [`UI-RUNTIME-AGENT.md`](../UI-RUNTIME-AGENT.md) / [`operational-catalog-tools.ts`](../../backend/src/modules/agents/domain/operational-catalog-tools.ts); este loop **não** promove integrações novas — apenas **seleção e persistência** por agente.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend no encerramento deste slice).
+- **referência no plano mestre:** [Loop 64](agents-team-crafter-plano-evolucao.md#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder)
+- **Extensão documentada no plano mestre:** prompts mais rígidos + enforcement de unicidade de builtins de negócio — [Loop 77 (fechado)](#loop-77-fechado) / [Loop 78 (fechado)](#loop-78-fechado).
+
+## Loop 65 (fechado)
+
+- etapa/prioridade: ETAPA 9 (shell autenticado / UX multi-device) / alta
+- objetivo do slice: **foundation responsiva** — app shell utilizável em mobile/tablet sem sidebar fixa a roubar largura; navegação principal acessível via drawer; header com pesquisa e identidade do workspace adaptáveis; sem overflow horizontal transversal no corpo.
+- **Padrões adotados (documentação viva no código):**
+  - Breakpoints alinhados ao Tailwind: `md` ≈ 768px (tablet), `lg` ≈ 1024px (sidebar fixa); referências de viewport em [`responsive-breakpoints.ts`](../../v0-team-ai-crafter/lib/responsive-breakpoints.ts).
+  - **`< lg`:** `AppSidebar` oculto; `MobileNavSheet` (Radix Sheet à esquerda) com a mesma lista de rotas que o desktop; botão menu no `AppHeader`.
+  - **`≥ lg`:** sidebar visível com recolher opcional (inalterado em intenção).
+  - **Header:** pesquisa a partir de `md`; workspace e utilizador compactos em `sm`; alvos de toque ≥ 44px (`h-11` / `min-h-11`) nos ícones principais.
+  - **Layout:** `100dvh`, `min-w-0` na coluna de conteúdo, `main` com `overflow-x-hidden`; `body` com `overflow-x-hidden` em [`globals.css`](../../v0-team-ai-crafter/app/globals.css); toasts `top-center` para telas estreitas.
+- **Fora do âmbito deste slice (Loop 66+):** conversão sistemática de cada `Dialog`/`modal` largo em drawer por rota; tabelas densas → cards — previsto no candidato Loop 66.
+- **entregue no repositório:**
+  - [`app-shell-context.tsx`](../../v0-team-ai-crafter/components/layout/app-shell-context.tsx), [`mobile-nav-sheet.tsx`](../../v0-team-ai-crafter/components/layout/mobile-nav-sheet.tsx)
+  - [`app-navigation.tsx`](../../v0-team-ai-crafter/components/layout/app-navigation.tsx) (lista de navegação partilhada), refactor [`app-sidebar.tsx`](../../v0-team-ai-crafter/components/layout/app-sidebar.tsx), [`app-header.tsx`](../../v0-team-ai-crafter/components/layout/app-header.tsx), [`app/(app)/layout.tsx`](../../v0-team-ai-crafter/app/(app)/layout.tsx)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (backend inalterado neste slice; **210** testes backend no último run completo).
+- **referência no plano mestre:** [Loop 65](agents-team-crafter-plano-evolucao.md#loop-65--foundation-responsiva-multi-device)
+
+## Loop 66 (fechado)
+
+- etapa/prioridade: ETAPA 9 (UX crítica / tablet e mobile) / alta
+- objetivo do slice: aplicar a foundation do Loop 65 às rotas com maior atrito — tabelas com scroll horizontal, cabeçalhos e tabs utilizáveis em viewport estreita, diálogos sem estourar a altura útil, CTAs empilháveis.
+- **Ledger por rota / superfície**
+
+| Rota ou componente | Estado |
+| --- | --- |
+| `/schedule` | **entregue** — tabela de compromissos em [`ResponsiveTableScroll`](../../v0-team-ai-crafter/components/ui/responsive-table.tsx); diálogos com `max-h` + `overflow-y-auto`; grelhas data/hora em 1 coluna em `xs` |
+| `/tool-definitions` | **entregue** — contentor `min-w-0` + padding responsivo; cabeçalho em coluna em `xs`; linhas da lista empilhadas; diálogo “Nova tool” com scroll |
+| `/teams/create` + `TeamCreationHub` | **entregue** — `TabsList` em grelha 2×1 em mobile; título responsivo |
+| `TeamAiBuilder` (incl. `/teams/ai-create`) | **entregue** — cabeçalho e CTAs empilhados em `xs`; pré-visualização React Flow `h-[220px]` → `sm:h-[280px]`; ações “Salvar” / “Executar” largura total em `xs` |
+| `/teams/[id]` | **entregue** — cabeçalho em coluna; ações com `flex-wrap`; tabs com scroll horizontal `< lg` e grelha 5 colunas `≥ lg` |
+| `/agents/[id]` | **entregue** — cabeçalho em coluna; botão Salvar largura total em `xs`; tabs com scroll `< lg` e 7 colunas `≥ lg` |
+| `/channels` | **aceitável com limitação** — título `text-2xl sm:text-3xl`; grelha de cards já adaptável; sem refactor profundo de cartões |
+| `/settings` | **aceitável com limitação** — título responsivo; grelha de tabs existente (2/3/6) mantida |
+| Modais “largos” → drawer sistemático | **pendente** (fora do escopo deste slice; previsto como evolução futura) |
+
+- **entregue no repositório:** [`responsive-table.tsx`](../../v0-team-ai-crafter/components/ui/responsive-table.tsx); alterações em [`schedule/page.tsx`](../../v0-team-ai-crafter/app/(app)/schedule/page.tsx), [`tool-definitions/page.tsx`](../../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx), [`team-creation-hub.tsx`](../../v0-team-ai-crafter/components/teams/team-creation-hub.tsx), [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx), [`teams/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx), [`agents/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx), [`channels/page.tsx`](../../v0-team-ai-crafter/app/(app)/channels/page.tsx), [`settings/page.tsx`](../../v0-team-ai-crafter/app/(app)/settings/page.tsx)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend; `next build` OK).
+- **referência no plano mestre:** [Loop 66](agents-team-crafter-plano-evolucao.md#loop-66--responsividade-das-telas-críticas)
+
+## Loop 67 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual) / alta
+- objetivo do slice: tours **curtos por ecrã**, sem tour global obrigatório; persistência de versão vista por `userId` + `workspaceId` + `screenKey`; reapresentação quando a **versão de conteúdo** do ecrã sobe no catálogo.
+- **Contrato de persistência:** `user.preferences.contextualTours.byWorkspace[workspaceId][screenKey] = número` (última versão de conteúdo vista ou marcada como “não mostrar”). Merge profundo só no ramo `contextualTours` via `PUT /settings/profile` (já suporta merge de chaves de primeiro nível em `preferences`).
+- **Regras de reentrada:**
+  - **Auto:** ao montar o ecrã, se `seenVersion < catalog[screenKey].version` e não houver snooze de sessão (`sessionStorage`), abre após ~500 ms.
+  - **Mais tarde:** grava snooze de sessão; não persiste versão.
+  - **Não mostrar de novo / Concluir:** persiste `seenVersion = catalog.version`.
+  - **Fechar (ESC/overlay):** snooze de sessão (evita repetir imediatamente no mesmo reload).
+  - **Ver tour desta tela:** abre sempre (manual).
+  - **Reapresentar a todos após alteração de copy:** incrementar `version` em [`contextual-tours-catalog.ts`](../../v0-team-ai-crafter/lib/contextual-tours-catalog.ts) para esse `screenKey`.
+
+| Ecrã (`screenKey`) | Rota / componente |
+| --- | --- |
+| `dashboard` | `/dashboard` |
+| `ai_builder` | `TeamCreationHub` (`/teams/create`, `/teams/ai-create`) |
+| `tool_definitions` | `/tool-definitions` |
+| `settings` | `/settings` |
+| `channels` | `/channels` |
+| `schedule` | `/schedule` |
+
+- **Fora deste slice:** tours ancorados a seletores DOM (spotlight), RBAC por passo, e cobertura de todas as rotas.
+- **entregue no repositório:** [`contextual-tours.ts`](../../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../../v0-team-ai-crafter/lib/contextual-tours-catalog.ts), [`contextual-tour.tsx`](../../v0-team-ai-crafter/components/onboarding/contextual-tour.tsx); integrações nas páginas listadas; tipo `IContextualToursPreferences` em [`lib/types`](../../v0-team-ai-crafter/lib/types/index.ts).
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend; `next build` OK).
+- **referência no plano mestre:** [Loop 67](agents-team-crafter-plano-evolucao.md#loop-67--onboarding-contextual-e-tour-reexecutável-por-tela)
+
+## Loop 68 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual — fase 2) / média-alta
+- objetivo do slice: **mesma infraestrutura do Loop 67** (`ContextualTourHost` / `ManualTrigger`, persistência `contextualTours.byWorkspace`), com **novos `screenKey`** e copy em [`contextual-tours-catalog.ts`](../../v0-team-ai-crafter/lib/contextual-tours-catalog.ts) para rotas de lista de alto tráfego ainda sem tour.
+- **Ecrãs adicionados (v1 de conteúdo):**
+
+| `screenKey` | Rota |
+| --- | --- |
+| `agents_catalog` | `/agents` |
+| `teams_list` | `/teams` |
+| `runs_list` | `/runs` |
+| `templates_catalog` | `/templates` |
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (backend + `next build`).
+- **referência no plano mestre:** [Loop 68](agents-team-crafter-plano-evolucao.md#loop-68--expansão-dos-tours-contextuais-listagens)
+
+## Loop 69 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual — fase 3) / média-alta
+- objetivo do slice: mesma infraestrutura dos Loops 67–68; novos `screenKey` para **`/governance`** e **`/observability`**.
+
+| `screenKey` | Rota |
+| --- | --- |
+| `governance_workspace` | `/governance` |
+| `observability_metrics` | `/observability` |
+
+- **Continuação (Loop 70):** tours nas fichas `/agents/[id]` e `/teams/[id]` — entregue.
+- **entregue no repositório:** extensão de [`contextual-tours.ts`](../../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../../v0-team-ai-crafter/lib/contextual-tours-catalog.ts); [`governance/page.tsx`](../../v0-team-ai-crafter/app/(app)/governance/page.tsx), [`observability/page.tsx`](../../v0-team-ai-crafter/app/(app)/observability/page.tsx).
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- **referência no plano mestre:** [Loop 69](agents-team-crafter-plano-evolucao.md#loop-69--tours-contextuais-governança-e-observabilidade)
+
+## Loop 70 (fechado)
+
+- etapa/prioridade: ETAPA 9 (onboarding contextual — fase 4) / média-alta
+- objetivo do slice: tours nas **fichas de detalhe** `/agents/[id]` e `/teams/[id]`; persistência por `screenKey` lógico (`agent_detail`, `team_detail`), não por id de entidade.
+
+| `screenKey` | Rota |
+| --- | --- |
+| `agent_detail` | `/agents/[id]` |
+| `team_detail` | `/teams/[id]` |
+
+- **Fora do escopo:** spotlight DOM (slice futuro).
+- **entregue no repositório:** [`contextual-tours.ts`](../../v0-team-ai-crafter/lib/contextual-tours.ts), [`contextual-tours-catalog.ts`](../../v0-team-ai-crafter/lib/contextual-tours-catalog.ts); [`agents/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/agents/[id]/page.tsx), [`teams/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx).
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- **referência no plano mestre:** [Loop 70](agents-team-crafter-plano-evolucao.md#loop-70--tours-contextuais-fichas-agente-e-time)
+
+## Loop 71 (fechado)
+
+- etapa/prioridade: ETAPA 9 (UX responsiva — continuação) / média
+- objetivo do slice: alargar o padrão **`ResponsiveTableScroll`** ([`responsive-table.tsx`](../../v0-team-ai-crafter/components/ui/responsive-table.tsx)) às tabelas que ainda causavam **overflow horizontal** ou não tinham **scroll tátil** consistente em viewports estreitas.
+- **Ficheiros tocados:**
+  - [`runs/page.tsx`](../../v0-team-ai-crafter/app/(app)/runs/page.tsx) — lista de execuções
+  - [`governance/page.tsx`](../../v0-team-ai-crafter/app/(app)/governance/page.tsx) — SLO por time (substitui `div.overflow-x-auto`), linha do tempo, auditoria paginada
+  - [`workspace-team-section.tsx`](../../v0-team-ai-crafter/components/workspace/workspace-team-section.tsx) — convites (Settings / equipa)
+- **Fora do escopo:** conversão de tabelas em **cards** por breakpoint; spotlight em tours.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+- **referência no plano mestre:** [Loop 71](agents-team-crafter-plano-evolucao.md#loop-71-tabelas-scroll)
+
+## Loop 72 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (onboarding contextual — fase avançada) / média-alta
+- **objetivo:** passos de tour **opcionalmente ancorados** a elementos da UI (spotlight) com **fallback** para o modo `Dialog` quando o alvo não existe; contrato `contextualTours.byWorkspace` + `tourVersion` mantido.
+- **Entregas:**
+  - Modelo [`ContextualTourAnchor`](../../v0-team-ai-crafter/lib/contextual-tours.ts) + `resolveContextualTourAnchor`; passos com `anchor` opcional no catálogo.
+  - [`tour-spotlight-overlay.tsx`](../../v0-team-ai-crafter/components/onboarding/tour-spotlight-overlay.tsx) — máscara em quatro faixas, `useTourAnchorRect`, `TourSpotlightLayer` (portal).
+  - [`contextual-tour.tsx`](../../v0-team-ai-crafter/components/onboarding/contextual-tour.tsx) — alterna dialog / spotlight; `Escape` em spotlight = snooze; polling curto se o DOM do ancoragem aparece tarde.
+  - Piloto: **`dashboard`** e **`runs_list`** — `version` 2; primeiro passo com `dataAttr` → `data-tour-anchor` em [`dashboard/page.tsx`](../../v0-team-ai-crafter/app/(app)/dashboard/page.tsx) e [`runs/page.tsx`](../../v0-team-ai-crafter/app/(app)/runs/page.tsx); segundo passo sem anchor permanece em dialog.
+  - ADR: [`ADR-2026-04-contextual-tour-spotlight.md`](../adr/ADR-2026-04-contextual-tour-spotlight.md)
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend no encerramento deste slice).
+- **referência no plano mestre:** [Loop 72](agents-team-crafter-plano-evolucao.md#loop-72-spotlight-tours)
+
+## Loop 73 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
+- **objetivo:** em **viewports estreitas**, lista em **cartões** para uma listagem densa, com paridade de dados e ações face à tabela em `md+`.
+- **Política de breakpoint:** **`md` e acima** (`≥768px`) — tabela dentro de `ResponsiveTableScroll`; **abaixo de `md`** — lista vertical de cartões (`RunsListMobileCards`).
+- **Rota piloto:** `/runs` — ficheiros: [`runs/page.tsx`](../../v0-team-ai-crafter/app/(app)/runs/page.tsx), [`runs-list-mobile-cards.tsx`](../../v0-team-ai-crafter/components/runs/runs-list-mobile-cards.tsx).
+
+| Coluna (tabela) | Campo no cartão | CTA primário |
+| --- | --- | --- |
+| Estado | `Badge` no topo | — |
+| Início | `time` (canto, `dateTime`) | — |
+| Run | `h3` monoespaçado (ID completo) | — |
+| Time | `dl` / Time | — |
+| Origem | `dl` / Origem (+ canal) | — |
+| (ligações) | — | **Abrir time** → `/teams/[teamId]` (texto + ícone; paridade com ícone na tabela) |
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
+- **referência no plano mestre:** [Loop 73](agents-team-crafter-plano-evolucao.md#loop-73-listagens-cards)
+
+<a id="loop-74-fechado"></a>
+
+## Loop 74 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
+- **objetivo:** vista em **cartões** nas tabelas densas da rota **`/governance`** em viewports **&lt; md**, com paridade de dados e mesmas ações que em `md+`.
+- **Política de breakpoint:** alinhada ao [Loop 73 (fechado)](#loop-73-fechado) — **`md` e acima** tabela dentro de `ResponsiveTableScroll`; **abaixo de `md`** lista vertical de cartões.
+- **Ficheiros:** [`governance/page.tsx`](../../v0-team-ai-crafter/app/(app)/governance/page.tsx), [`governance-dense-lists-mobile-cards.tsx`](../../v0-team-ai-crafter/components/governance/governance-dense-lists-mobile-cards.tsx).
+
+### SLO por time
+
+| Coluna (tabela) | Campo no cartão | CTA primário |
+| --- | --- | --- |
+| Time | `h3` (nome do time) | — |
+| OK / Falha | `dl` com valores tabulares | — |
+| Taxa | `dl` / Taxa | — |
+| p50 / p95 | `dl` (latência formatada) | — |
+| SLO | `Badge` (Dentro / Fora / —) no canto | — |
+
+### Linha do tempo (resumo)
+
+| Coluna (tabela) | Campo no cartão | CTA primário |
+| --- | --- | --- |
+| Evento | `Badge` (tipo formatado) + JSON do payload se existir | — |
+| Quando | `time` (`dateTime`, canto) | — |
+
+### Auditoria completa (página atual)
+
+| Coluna (tabela) | Campo no cartão | CTA primário |
+| --- | --- | --- |
+| Evento | `Badge` (`eventType` monoespaçado) | — |
+| Payload | bloco `font-mono` com `JSON.stringify` | — |
+| Quando | `time` (`dateTime`, canto) | — |
+
+Paginação, exportação CSV/JSON, limpeza de auditoria e políticas do workspace **inalterados**; permissões 403 na auditoria mantêm o mesmo fluxo.
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
+- **referência no plano mestre:** [Loop 74](agents-team-crafter-plano-evolucao.md#loop-74-cards-governance)
+
+<a id="loop-74-candidato"></a>
+
+<a id="loop-75-fechado"></a>
+
+## Loop 75 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
+- **objetivo:** em **`/tool-definitions`**, **tabela densa** em **`md+`** e **cartões** em **`<md`**, com as **mesmas** ações (ativar/desativar, remover) e os mesmos dados resumidos.
+- **Política de breakpoint:** [Loop 73 (fechado)](#loop-73-fechado) — `≥md` → `ResponsiveTableScroll` + `Table`; **`<md`** → `ToolDefinitionsListMobileCards`.
+- **Ficheiros:** [`tool-definitions/page.tsx`](../../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx), [`tool-definitions-list-mobile-cards.tsx`](../../v0-team-ai-crafter/components/tool-definitions/tool-definitions-list-mobile-cards.tsx), [`tool-definitions-display.ts`](../../v0-team-ai-crafter/lib/tool-definitions-display.ts) (helpers partilhados).
+
+### Lista de tools
+
+| Coluna (tabela) | Campo no cartão | CTA / ações |
+| --- | --- | --- |
+| Estado | `Badge` Ativa / Desativada (topo com nome e tipo) | — |
+| Nome | título (`font-medium`) | — |
+| Slug | `font-mono` | — |
+| Tipo | `Badge` outline (`kind`) | — |
+| Resumo | linha `describeToolConfig` | — |
+| Ações | `Switch` + ícone remover | **Switch** — ativar/desativar; **Trash** — eliminar definição |
+
+**Nota:** nos cartões, o texto longo de **dependências** (`describeToolDependencies`) permanece visível para leitura em ecrã estreito; na tabela desktop o detalhe fica implícito no resumo e na documentação da página.
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
+- **referência no plano mestre:** [Loop 75](agents-team-crafter-plano-evolucao.md#loop-75-cards-tool-definitions)
+
+<a id="loop-75-candidato"></a>
+
+<a id="loop-76-fechado"></a>
+
+## Loop 76 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
+- **objetivo:** em **`/templates`**, **tabela** do catálogo em **`md+`** e **`TemplateCard`** empilhados em **`<md`**, mantendo os **Tabs** de filtro por origem e as mesmas ações que nos cartões.
+- **Política de breakpoint:** [Loop 73 (fechado)](#loop-73-fechado) — `≥md` → `ResponsiveTableScroll` + `Table`; **`<md`** → grelha só com [`TemplateCard`](../../v0-team-ai-crafter/components/templates/template-card.tsx) (uma coluna).
+- **Ficheiros:** [`templates/page.tsx`](../../v0-team-ai-crafter/app/(app)/templates/page.tsx).
+
+### Catálogo (linha da tabela ↔ cartão)
+
+| Coluna (tabela) | Campo no cartão (`TemplateCard`) | CTA / ações |
+| --- | --- | --- |
+| Template | título + vertical opcional | — |
+| Origem | `Badge` origem (cores no cartão) | — |
+| v / Categoria | linha versão + categoria | — |
+| Agentes | “N no modelo” | — |
+| Descrição | parágrafo `line-clamp` | — |
+| Ações | “Usar Template” + Share (empresa) | **Usar** → dialog aplicar; **Share** → toast (empresa) |
+
+Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **e** à tabela (`filteredTemplates`).
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
+- **referência no plano mestre:** [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates)
+
+<a id="loop-76-candidato"></a>
+
+<a id="loop-77-fechado"></a>
+
+## Loop 77 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (team planner / AI Builder) / alta
+- **objetivo:** endurecer **system prompt** e **mensagem de utilizador** (`buildTeamPlannerUserMessage`) para domínio por especialista, `catalogTools` intencionais, **anti-duplicação** de IDs de catálogo entre especialistas (lista `PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS`), e distinção **`requiredPacks` / `requiredTools` / `catalogTools`**.
+- **Ficheiros:** [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts), [`team-plan-planner-prompt.test.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts) (regressão de texto).
+- **IDs exclusivos entre especialistas (prompt):** `database_query`, `calendar_access`, `internal_actions`, `email_send`, `image_generation`, `file_search` — ver constante exportada no ficheiro; enforcement no servidor em [Loop 78 (fechado)](#loop-78-fechado).
+
+### Micro-etapas Ralph (A–D) — cobertura neste slice
+
+| ID | Cobertura |
+| --- | --- |
+| **A** Partição de domínios | Prompt exige `category` distinto por especialista e texto anti-sobreposição de assunto. |
+| **B** Inventário de builtins | Instruções para `catalogTools` mínimos por papel; exemplo JSON com `catalogTools` por agente. |
+| **C** Unicidade entre especialistas | Secção "Unicidade de catalogTools entre ESPECIALISTAS" + contra-exemplo `database_query` duplicado. |
+| **D** JSON válido + normalização | Alinhado a `plannerOutputSchema` / `normalizeCatalogToolIds`; sem alteração de schema neste slice. |
+
+- Gate: `./scripts/ralph-loop-gate.sh` (**214** testes backend no encerramento deste slice; frontend não tocado).
+- **referência no plano mestre:** [Loop 77](agents-team-crafter-plano-evolucao.md#loop-77-planner-prompts-builtin-domain)
+
+<a id="loop-77-candidato"></a>
+
+<a id="loop-78-fechado"></a>
+
+## Loop 78 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (team plan / AI Builder) / alta
+- **objetivo:** **validação servidor** em `create` / `update` / início de `execute` do team plan e **UX** no AI Builder quando **dois especialistas** partilham o mesmo ID de **`catalogTools` de domínio** (lista canónica alinhada ao [Loop 77](#loop-77-fechado)); coordenador ignorado na regra.
+- **Política:** **rejeitar** com `400` / `VALIDATION_ERROR` (sem normalização silenciosa); mensagem em PT com IDs e nomes dos agentes.
+- **Backend:** [`planner-specialist-catalog-uniqueness.ts`](../../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts) (`assertSpecialistsExclusiveCatalogTools`), chamado desde [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) após materialização de `catalogTools`; constante reexportada em [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) para uma única fonte de verdade com o prompt.
+- **Frontend:** [`catalog-tool-ids.ts`](../../v0-team-ai-crafter/lib/catalog-tool-ids.ts) (`SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS`); [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — alertas e bloqueio de **Salvar** / **Executar** quando há colisão.
+- **Testes:** [`planner-specialist-catalog-uniqueness.test.ts`](../../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.test.ts) (unidade); [`team-plans.integration.test.ts`](../../backend/src/__tests__/team-plans.integration.test.ts) — `POST` com reparo automático ([Loop 80](#loop-80-fechado)); `PUT` manual com colisão → 400.
+- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**218** testes backend + `next build`).
+- **referência no plano mestre:** [Loop 78](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity)
+
+<a id="loop-79-fechado"></a>
+
+## Loop 79 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (AI Builder / team plan) / média
+- **objetivo:** completar o fluxo do [Loop 51 (fechado)](#loop-51-fechado) quando o utilizador edita **overrides por agente**: reativar definitions inativas **na linha do `actionId`** (sem depender só dos cartões de Tool definitions ou do botão em lote).
+- **Frontend:** [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — para `actionId` em `actionIdsBlockedByDisabledDefinitions`: checkbox desativado até o preview refletir definition ativa; botão **Ativar definition** chama `POST /team-plans/:id/bind-enable-definitions` (mesmo endpoint do Loop 51).
+- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (testes backend inalterados neste slice; `next build` obrigatório).
+- **referência no plano mestre:** [Loop 79](agents-team-crafter-plano-evolucao.md#loop-79-ai-builder-bind-inactive-per-action)
+
+<a id="loop-80-fechado"></a>
+
+## Loop 80 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (team planner / AI Builder) / alta
+- **objetivo:** no **`POST /api/v1/team-plans`** (geração com OpenAI), quando `catalogTools` **materializados** (incl. inferência em [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)) colidirem entre especialistas, **rechamar o modelo** com `TEAM_PLANNER_REPAIR_SYSTEM_PROMPT` e plano + diagnóstico, até unicidade ou limite de tentativas; fallback `buildFallback` com `fallbackReason` `catalog_uniqueness_exhausted_repair` ou `catalog_repair_parse_failed`.
+- **Âmbito:** [Loop 78](#loop-78-fechado) inalterado para **`PUT`** / edição manual (`assertSpecialistsExclusiveCatalogTools` continua a devolver 400).
+- **Backend:** [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) — `resolveCatalogUniquenessWithRepair`, `evaluateMaterializedCatalogUniqueness`, `fetchRepairedPlannerOutput`; [`planner-specialist-catalog-uniqueness.ts`](../../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts) — `getSpecialistsCatalogToolConflicts`, `formatCatalogToolConflictsForMessage`; [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) — `TEAM_PLANNER_REPAIR_SYSTEM_PROMPT`, `buildTeamPlannerRepairUserMessage`, reforço da micro-etapa **F** na mensagem do utilizador principal.
+- **`plannerMeta`:** `catalogToolRepairAttempts`, `catalogUniquenessRepaired` (opcionais); env `TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS` (default 3, máx. 8).
+- **Testes:** [`team-plans.integration.test.ts`](../../backend/src/__tests__/team-plans.integration.test.ts) — reparo em 2 chamadas fetch; `PUT` com colisão → 400; unidade em `planner-specialist-catalog-uniqueness.test.ts` e `team-plan-planner-prompt.test.ts`.
+- **Gate:** `./scripts/ralph-loop-gate.sh` (**222** testes backend no encerramento deste slice; frontend não tocado).
+- **referência no plano mestre:** [Loop 80](agents-team-crafter-plano-evolucao.md#loop-80-planner-auto-repair-ia)
+
+<a id="loop-81-fechado"></a>
+
+## Loop 81 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (AI Builder / criação assistida de times) / altíssima
+- **problema:** o preview repetia a grelha dos **8** `CATALOG_TOOL_IDS` por agente — funcional, mas **denso**.
+- **entrega:** [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — por agente: **Missão / objective** em evidência; **chips** com `catalogTools` activas; botão **Editar ferramentas** abre **Dialog** com grupos “Domínio” (`SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS`) vs “Utilitários” (`CATALOG_UTILITY_TOOL_IDS` em [`catalog-tool-ids.ts`](../../v0-team-ai-crafter/lib/catalog-tool-ids.ts)); ao activar exclusivo já usado por outro especialista → `toast.error` (alinha a [Loop 78](#loop-78-fechado)); **Collapsible** para descrição, skills e overlap; **Collapsible** para pré-visualização do grafo (fechado por defeito). Bind/packs/capabilities sugeridas mantêm o cartão existente quando aplicável (progressive disclosure parcial).
+- **Micro-etapas H–K:** cobertas no sentido **H, I, K**; **J** parcial (grafo + detalhes agente recolhíveis; bind denso não movido para accordion neste slice).
+- **Testes / gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **222** testes backend; `next build` OK.
+- **referência no plano mestre:** [Loop 81](agents-team-crafter-plano-evolucao.md#loop-81-ai-builder-ux-preview-simples)
+
+---
+
+<a id="loop-82-fechado"></a>
+
+## Loop 82 (fechado) — Contrato do planner por agente e workflow ownership
+
+- **etapa/prioridade:** ETAPA 9 (team planner / contrato JSON) / altíssima
+- **objetivo do slice:** o plano declara por agente **`workflowKey`**, **`requiredBusinessActionIds`** e **`requiredPackIds`**; especialistas não partilham o mesmo `workflowKey` no plano (desambiguação automática com sufixos `__1`, `__2`…); `requiredPacks` / `requiredTools` globais inalterados para visão macro.
+- **Backend:** [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts) + [`planner-workflow-ownership.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts); [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts); [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) (`buildFallback`, `formatPlanPayloadForRepair`, `agentGraphData`); [`team-plan.model.ts`](../../backend/src/modules/team-planning/infra/team-plan.model.ts).
+- **Frontend:** [`v0-team-ai-crafter/lib/types/index.ts`](../../v0-team-ai-crafter/lib/types/index.ts); cartão **Plano por agente** em [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx).
+- **Bind operacional por agente** quando há listas por agente — [Loop 83](#loop-83-fechado) (*entregue*).
+- **Testes / gate:** unidade acima + `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **227** testes backend; `next build` OK.
+- **referência no plano mestre:** [Loop 82](agents-team-crafter-plano-evolucao.md#loop-82-contrato-do-planner-por-agente-e-ownership-por-workflow) — **entregue**; ver [checklist](#checklist-do-loop-82-fechado).
+
+<a id="loop-83-fechado"></a>
+
+## Loop 83 (fechado) — Bind preview e execute per-agent
+
+- **etapa/prioridade:** ETAPA 9 (team plan bind) / altíssima
+- **objetivo do slice:** candidatos de `actionId` por agente quando o plano tem `requiredBusinessActionIds` / `requiredPackIds`; caso contrário, modo **global** legado (todos os agentes com o mesmo conjunto derivado de `requiredTools` / `requiredPacks`).
+- **Backend:** [`planner-pack-presets.ts`](../../backend/src/modules/team-planning/application/planner-pack-presets.ts) — `computePlannerBindActionUniverse`, `mergePlannerPackIdsForBind`; [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) — `buildBindPreview`, overrides em `updatePlan` / `updateBindOverrides`; preview inclui `bindResolutionMode`.
+- **Frontend:** [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); [`lib/types`](../../v0-team-ai-crafter/lib/types/index.ts).
+- **Testes / gate:** [`planner-pack-presets.test.ts`](../../backend/src/modules/team-planning/application/planner-pack-presets.test.ts); `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **232** testes.
+- **referência no plano mestre:** [Loop 83](agents-team-crafter-plano-evolucao.md#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global)
+
+<a id="loop-84-fechado"></a>
+
+## Loop 84 (fechado) — Built-ins mínimas por papel + hints por packs
+
+- **etapa/prioridade:** ETAPA 9 (inferência) / alta
+- **objetivo do slice:** reduzir inferência agressiva quando `catalogTools` vem vazio — sem rotação por índice; fallback mínimo (`web_search`); packs por agente (`requiredPackIds`) ou globais reforçam hints controlados (`calendar_access`, `internal_actions`).
+- **Backend:** [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts) — `inferCatalogPackContextLower`, `inferCatalogToolsForPlanAgent`; [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) — parágrafo Loop 84.
+- **Testes / gate:** [`planner-agent-catalog-tools.test.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), [`team-plan-planner-prompt.test.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts); `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes.
+- **referência no plano mestre:** [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)
+
+<a id="loop-85-fechado"></a>
+
+## Loop 85 (fechado) — UX do AI Builder: preview estável e execute fluido
+
+- **etapa/prioridade:** ETAPA 9 (AI Builder) / alta
+- **objetivo do slice:** não invalidar preview/aprovação de bind por edições que **não** afectam o cálculo de bind no servidor; alinhar “há revisão de bind?” a hints globais **e** por agente.
+- **Frontend:** [`team-plan-bind-fingerprint.ts`](../../v0-team-ai-crafter/lib/team-plan-bind-fingerprint.ts); [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — `proposePlanUpdate`, `planHasBindReviewHints`.
+- **critério de saída:** gate com frontend.
+- **referência no plano mestre:** [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)
+
+---
+
+<a id="loop-86-oficial"></a>
+
+## Loop 86 (oficial) — AI Builder: destravar execute, bind review proporcional e workflow ownership explícito
+
+**Estado:** **especificação canónica (não fechado)** — este bloco e a [secção homónima no plano mestre](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito) são a fonte de verdade até o encerramento do loop (commit + push + gate + checklist).
+
+### Contexto
+
+Após **Loops 77–85**, a base está sólida: metadados por agente (`workflowKey`, `requiredBusinessActionIds`, `requiredPackIds`), modo de bind `per_agent`, preview de bind, UX do AI Builder simplificada em parte. Ainda há problemas de produto:
+
+1. **Executar plano** bloqueia mais do que deveria.
+2. **Revisão de bind** é mais rígida que o risco real.
+3. **Duplicidade de workflow** entre especialistas é mascarada (ex.: sufixos `__1`, `__2` em [`planner-workflow-ownership.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts)) em vez de tratada como erro de desenho do time.
+4. **Inferência de built-ins** ainda pode poluir especialistas quando o plano não é específico (fallback de packs globais em [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)).
+
+### Diagnóstico factual (código actual)
+
+| Área | Problema |
+| --- | --- |
+| **Execute** | No `TeamAiBuilder`, o CTA desactiva-se com `requiresBindReview` derivado de `planHasBindReviewHints(plan)` — **só a presença de hints** já exige preview + aprovação, mesmo sem bind real a aplicar. |
+| **Backend vs UI** | O backend já expõe `preview.requiresExplicitApproval`; a UI ainda privilegia a heurística `planHasBindReviewHints` em vez do contrato do preview. |
+| **Aprovação** | `refreshBindPreview()` e `saveEdits()` podem derrubar `bindPreviewApproved` sempre (`setBindPreviewApproved(false)`), mesmo para alterações compatíveis. |
+| **Workflow** | `ensurePlannerAgentWorkflowKeys()` gera chaves e **sufixa duplicatas** — evita colisão técnica mas mascara duplicidade no mesmo team plan. Regra de produto: **um especialista dono de cada workflow/domínio** no mesmo time; duplicidade só noutro time/workflow/workspace. |
+| **Built-ins** | `inferCatalogPackContextLower()`: coordenador usa packs globais; especialista com `requiredPackIds` vazio pode cair em `requiredPacks` globais e herdar `internal_actions` / `calendar_access` sem necessidade. |
+
+### Objetivo do Loop 86
+
+1. Destravar **execute** quando não houver blocker real.  
+2. **Bind review** proporcional ao risco real (`requiresExplicitApproval` como contrato).  
+3. **Duplicidade de workflow** = conflito explícito + reparo na geração (padrão [Loop 80](#loop-80-fechado)); `PUT` manual → `400 VALIDATION_ERROR`.  
+4. **Menos poluição** de built-ins por fallback global em especialistas.
+
+### Escopo
+
+**Incluído:** backend (validação de ownership de workflow, heurística de bind review, inferência conservadora); frontend (`bindPreview.requiresExplicitApproval`, preservar aprovação quando preview equivalente, copy de blockers); **docs:** este ledger + plano mestre ao fechar.
+
+**Fora:** redesign completo do AI Builder; wizard multi-passos; reabrir ETAPA 8; templates, scheduling, billing, 2FA.
+
+### Resultado esperado
+
+- **Executar plano** só bloqueado com blocker real.  
+- Sem reaprovação “à toa” do preview.  
+- Duplicidade de workflow entre especialistas = conflito visível e corrigível.  
+- Built-ins por fallback mais conservadores.  
+- UX mais clara sem perder segurança.
+
+### Implementação técnica (resumo)
+
+**Backend — workflow ownership**
+
+- Novo módulo `backend/src/modules/team-planning/domain/planner-workflow-uniqueness.ts`: `getSpecialistWorkflowConflicts`, `assertSpecialistWorkflowOwnership` (ignorar coordenador; comparação case-insensitive; conflitos legíveis).
+- Ajustar [`planner-workflow-ownership.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts): normalizar/gerar faltantes; **não** resolver duplicidade entre especialistas com sufixo silencioso.
+- [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts): `createPlan`, `updatePlan`, `executePlan` — `assertSpecialistWorkflowOwnership`; em geração IA, conflito entra no **ciclo de reparo** (como Loop 80); em `PUT` manual → `400`.
+- [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) + [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): reforçar “um especialista por workflow”; alinhar validação.
+
+**Backend — bind review**
+
+- [`buildBindPreview`](../../backend/src/modules/team-planning/application/team-plan.service.ts): `requiresExplicitApproval === true` só com risco real (ex.: `selectedActionIds.length > 0`, criação/reativação de definitions, delta relevante de override — rever condição exacta; evitar falso positivo por `actionIdsFull`).
+
+**Frontend — [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)**
+
+- `requiresExplicitBindApproval = bindPreview?.requiresExplicitApproval ?? (bindPreview ? false : planHasBindReviewHints(plan))` (ou equivalente); **executePlan** alinhado.
+- `refreshBindPreview` / fingerprint de aprovação: invalidar aprovação só quando o preview mudar semanticamente (helper dedicado, ex. `team-plan-bind-preview-fingerprint.ts` se necessário).
+- Card de preview + lista de **blockers** acima do CTA (workflow duplicado, aprovação pendente, overlap blocking, colisão builtin exclusiva, etc.).
+
+**Backend — built-ins**
+
+- [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): para **especialistas**, se existir hint per-agent em qualquer especialista (`requiredPackIds` / `requiredBusinessActionIds`), **não** herdar automaticamente packs globais para quem não especificou; coordenador pode continuar com globais.
+
+### Critérios de aceite, testes e gate
+
+- **Aceite:** unicidade de workflow entre especialistas sem sufixo mascarado; reparo IA no `POST`; `PUT` com duplicidade → 400; `requiresExplicitApproval` falso sem bind pendente; inferência sem poluição global indevida; UI usa `requiresExplicitApproval`; execute e aprovação conforme especificação.
+- **Testes:** `planner-workflow-uniqueness.test.ts`; expandir `team-plans.integration.test.ts`, `team-plan-auto-bind.integration.test.ts`, `planner-agent-catalog-tools.test.ts`.
+- **Gate:** `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+
+### Ao fechar o loop
+
+Marcar **Loop 86 (fechado)** neste ficheiro e no plano mestre; registar decisões sobre workflow uniqueness, `requiresExplicitApproval`, preservação de aprovação do preview e impacto na UX.
+
+### Restrições e ordem sugerida
+
+- Não reabrir ETAPA 8; não novo plano oficial paralelo; slice pequeno; gate verde antes de encerrar.
+
+**Ordem:** (1) workflow uniqueness → (2) `requiresExplicitApproval` → (3) inferência built-ins → (4) frontend `requiresExplicitApproval` → (5) preservar aprovação → (6) blockers/copy → (7) testes → (8) gate → (9) docs.
+
+### Resumo executivo
+
+Correção fina de produto: execute previsível, bind alinhado ao risco, ownership de domínio explícito, menos ruído de tools nos especialistas — fiel ao desenho coordinator-first.
+
+---
+
+# Decisão de manutenção documental
+
+## Não criar terceira fonte oficial
+
+Continuar com (em **`docs/RALPHLOOP/`**):
+
+- `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` = plano mestre
+- `docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md` = ledger oficial
+
+Qualquer detalhamento adicional deve entrar como:
+
+- anexo temporário
+- proposal
+- ADR
+
+e depois ser consolidado nesses dois arquivos.
