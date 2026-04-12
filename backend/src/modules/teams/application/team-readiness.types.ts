@@ -11,8 +11,10 @@ export interface ITeamReadinessItem {
   title: string;
   detail: string;
   nextStep: string;
-  /** Rota relativa na UI (ex.: /settings) */
+  /** Rota relativa na UI (ex.: /settings?tab=integrations) */
   routeHint?: string;
+  /** Texto curto para o botão de acção directa (Loop 92). */
+  ctaLabel?: string;
 }
 
 export interface ITeamReadinessResult {

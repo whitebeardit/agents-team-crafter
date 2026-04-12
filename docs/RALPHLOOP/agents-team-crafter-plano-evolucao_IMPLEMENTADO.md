@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–91** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)) e **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)). **Próximo slice oficial numerado:** [Loop 92 (candidato)](#loop-92-candidato--resolver-pendências-com-cta-directo) — CTAs de resolução a partir do readiness; ver [plano §92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–92** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)) e **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)). **Próximo slice oficial numerado:** [Loop 93 (candidato)](#loop-93-candidato--runs-legíveis-replay-e-troubleshooting) — runs legíveis e troubleshooting; ver [plano §93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 **Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
@@ -187,7 +187,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–91 fechados; [Loop 92](#loop-92-candidato--resolver-pendências-com-cta-directo) candidato) | Loops **52–91** entregues; **próximo candidato numerado:** [Loop 92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo); [Loop 91 fechado](#loop-91-fechado): console debug + sessões; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–92 fechados; [Loop 93](#loop-93-candidato--runs-legíveis-replay-e-troubleshooting) candidato) | Loops **52–92** entregues; **próximo candidato numerado:** [Loop 93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido); [Loop 92 fechado](#loop-92-fechado): CTAs readiness; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -786,7 +786,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Penúltimo slice fechado:** **[Loop 89](#loop-89-fechado)** — AI Builder simples/avançado ([`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)).
 
-**Próximo número na ordem recomendada (candidato):** **[Loop 92](#loop-92-candidato--resolver-pendências-com-cta-directo)** (CTAs de resolução / readiness) — ver [plano §Loop 92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
+**Próximo número na ordem recomendada (candidato):** **[Loop 93](#loop-93-candidato--runs-legíveis-replay-e-troubleshooting)** (runs legíveis / replay) — ver [plano §Loop 93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
 
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
@@ -794,7 +794,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | **2** | **Loop 88** — readiness / preflight *(fechado)* | [plano §88](agents-team-crafter-plano-evolucao.md#loop-88--preflight-operacional-do-team--readiness-do-runtime), [ledger](#loop-88-fechado) |
 | **3** | **Loop 89** — AI Builder simples / avançado *(fechado)* | [plano §89](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda), [ledger](#loop-89-fechado) |
 | **4** | **Loop 90** — cockpit na ficha do time *(fechado)* | [plano §90](agents-team-crafter-plano-evolucao.md#loop-90--cockpit-operacional-do-team), [ledger](#loop-90-fechado) |
-| **5–11** | **Loops 91–95** — operação real, UX, troubleshooting *(candidatos / após 90)* | [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
+| **5–11** | **Loops 93–95** — operação real, UX, troubleshooting *(candidatos / após 92)* | [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
 | **12+** | **Loops 96+** — verticais por pack *(após 90 ou em paralelo)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
@@ -1949,14 +1949,23 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 - [x] Gate: `npm run build` backend + `npm run build` frontend (`v0-team-ai-crafter`). *Nota:* `npm test` no backend reportou 2 falhas pré-existentes em `channel-delete` / `team-active-channel-binding` (403 vs 201); não relacionadas com este slice.
 
 <a id="loop-92-candidato--resolver-pendências-com-cta-directo"></a>
+<a id="loop-92-fechado"></a>
 
-## Loop 92 (candidato) — Resolver pendências com CTA directo
+## Loop 92 (fechado) — Resolver pendências com CTA directo
 
-- **Etapa / prioridade:** alta  
-- **Objectivo do slice:** fechar «detetado» → «corrigido» com menos cliques.  
-- **Foco:** CTA por blocker (definition, integração, canal, política, agente, tool).  
-- **Critério de saída:** transição `blocked` → `ready`/`attention` com navegação mínima; gate + ledger.  
-- **Escopo Ralph:** padrão de resolução guiada; evitar mapa de navegação genérico sem acções concretas.
+**Estado:** **fechado** — plano mestre [§ Loop 92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo).
+
+### Entregas (resumo)
+
+- **Contrato:** `ctaLabel` opcional em [`ITeamReadinessItem`](../../backend/src/modules/teams/application/team-readiness.types.ts) / resposta `GET /teams/:id/readiness`; `routeHint` mais específicos (`/settings?tab=integrations`, `/teams/:id?tab=channels|agents|overview`, etc.) em [`team-readiness.service.ts`](../../backend/src/modules/teams/application/team-readiness.service.ts).
+- **UI:** [`teams/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx) — botões **secondary** por item (card Prontidão + «O que resolver agora» no cockpit); sincronização `?tab=` com as abas do time (`overview` | `agents` | `channels` | `runs` | `debug`); CTA explícito quando o coordenador está em falta.
+
+### Checklist (fechado)
+
+- [x] CTA directo por pendência com copy curta; menos cliques que o link «Abrir» inline.
+- [x] Gate: `npm run build` backend + `npm test --testPathPattern=team-readiness` + `npm run build` frontend.
+
+<a id="loop-93-candidato--runs-legíveis-replay-e-troubleshooting"></a>
 
 ## Loop 93 (candidato) — Runs legíveis, replay e troubleshooting
 

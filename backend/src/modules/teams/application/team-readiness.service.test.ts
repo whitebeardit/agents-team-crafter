@@ -53,7 +53,10 @@ describe('computeTeamReadiness', () => {
     });
     const r = await computeTeamReadiness('ws', 'tid', deps);
     expect(r.level).toBe('blocked');
-    expect(r.items.some((i) => i.code === 'team_not_found')).toBe(true);
+    const missing = r.items.find((i) => i.code === 'team_not_found');
+    expect(missing).toBeDefined();
+    expect(missing?.ctaLabel).toBe('Lista de times');
+    expect(missing?.routeHint).toBe('/teams');
   });
 
   it('flags draft team as attention', async () => {

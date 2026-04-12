@@ -147,6 +147,15 @@ export default function TeamDetailsPage({
   const [readinessLoading, setReadinessLoading] = useState(false)
   const [mainTab, setMainTab] = useState("overview")
 
+  const TEAM_PAGE_TAB_VALUES = ["overview", "agents", "channels", "runs", "debug"] as const
+
+  useEffect(() => {
+    const t = searchParams.get("tab")
+    if (t && (TEAM_PAGE_TAB_VALUES as readonly string[]).includes(t)) {
+      setMainTab(t)
+    }
+  }, [searchParams])
+
   const debugApi = useMemo(() => {
     if (!token || !currentWorkspace) return null
     return createApiClient({
@@ -508,15 +517,14 @@ export default function TeamDetailsPage({
                       <p className="mt-1 text-muted-foreground">{item.detail}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">Próximo passo:</span> {item.nextStep}
-                        {item.routeHint ? (
-                          <>
-                            {" "}
-                            <Link href={item.routeHint} className="text-primary underline-offset-4 hover:underline">
-                              Abrir
-                            </Link>
-                          </>
-                        ) : null}
                       </p>
+                      {item.routeHint ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button variant="secondary" size="sm" asChild>
+                            <Link href={item.routeHint}>{item.ctaLabel ?? "Resolver agora"}</Link>
+                          </Button>
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -618,11 +626,16 @@ export default function TeamDetailsPage({
                   </p>
                   <ul className="space-y-2">
                     {!coordinator ? (
-                      <li className="flex gap-2 text-sm">
+                      <li className="flex flex-wrap items-center gap-2 text-sm">
                         <Badge variant="outline" className="shrink-0 border-destructive/40 text-destructive">
                           Bloqueio
                         </Badge>
-                        <span>Coordenador em falta — corrija na ficha do time ou em Agentes.</span>
+                        <span className="text-muted-foreground">
+                          Coordenador em falta — corrija na ficha do time ou em Agentes.
+                        </span>
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link href={`/teams/${team.id}?tab=agents`}>Escolher coordenador</Link>
+                        </Button>
                       </li>
                     ) : null}
                     {cockpitPriorities.map((item, idx) => (
@@ -639,15 +652,12 @@ export default function TeamDetailsPage({
                         >
                           {item.severity === "blocked" ? "Bloqueio" : item.severity === "attention" ? "Atenção" : "Info"}
                         </Badge>
-                        <span className="text-muted-foreground">
+                        <span className="flex flex-1 flex-wrap items-center gap-2 text-muted-foreground">
                           <span className="font-medium text-foreground">{item.title}</span>
                           {item.routeHint ? (
-                            <>
-                              {" "}
-                              <Link href={item.routeHint} className="text-primary underline-offset-4 hover:underline">
-                                Abrir
-                              </Link>
-                            </>
+                            <Button variant="secondary" size="sm" className="h-7 text-xs" asChild>
+                              <Link href={item.routeHint}>{item.ctaLabel ?? "Resolver"}</Link>
+                            </Button>
                           ) : null}
                         </span>
                       </li>

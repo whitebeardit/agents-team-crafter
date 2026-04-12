@@ -265,6 +265,8 @@ export interface TeamReadinessItem {
   detail: string
   nextStep: string
   routeHint?: string
+  /** Rótulo do botão de acção directa (Loop 92). */
+  ctaLabel?: string
 }
 
 export interface TeamReadinessResult {

@@ -64,6 +64,7 @@ export async function computeTeamReadiness(
           detail: 'O identificador do time não existe neste workspace.',
           nextStep: 'Verifique o URL ou volte à lista de times.',
           routeHint: '/teams',
+          ctaLabel: 'Lista de times',
         },
       ],
       checkedAt: new Date().toISOString(),
@@ -77,7 +78,8 @@ export async function computeTeamReadiness(
       title: 'Time em rascunho',
       detail: 'Times em rascunho não estão activos para canais externos.',
       nextStep: 'Active o time quando a configuração estiver final.',
-      routeHint: `/teams/${teamId}`,
+      routeHint: `/teams/${teamId}?tab=overview`,
+      ctaLabel: 'Gerir estado do time',
     });
   } else if (team.status === 'inactive') {
     push({
@@ -86,7 +88,8 @@ export async function computeTeamReadiness(
       title: 'Time inactivo',
       detail: 'O time está desactivado e não deve receber tráfego de produção.',
       nextStep: 'Reactive o time em Gestão do time.',
-      routeHint: `/teams/${teamId}`,
+      routeHint: `/teams/${teamId}?tab=overview`,
+      ctaLabel: 'Reactivar time',
     });
   }
 
@@ -98,7 +101,8 @@ export async function computeTeamReadiness(
       title: 'Coordenador em falta',
       detail: 'O agente coordenador referenciado pelo time não existe.',
       nextStep: 'Seleccione um coordenador válido para o time.',
-      routeHint: `/teams/${teamId}`,
+      routeHint: `/teams/${teamId}?tab=agents`,
+      ctaLabel: 'Escolher coordenador',
     });
   } else if ((coord as { role?: string }).role !== 'coordinator') {
     push({
@@ -108,6 +112,7 @@ export async function computeTeamReadiness(
       detail: 'O agente indicado como coordenador não tem função Coordenador.',
       nextStep: 'Atribua um agente com papel Coordenador.',
       routeHint: `/agents/${team.coordinatorId}`,
+      ctaLabel: 'Abrir agente coordenador',
     });
   }
 
@@ -123,6 +128,7 @@ export async function computeTeamReadiness(
         detail: 'Um agente listado no time não existe no workspace.',
         nextStep: 'Remova o agente ou restaure-o em Agentes.',
         routeHint: '/agents',
+        ctaLabel: 'Workspace — Agentes',
       });
     }
   }
@@ -154,6 +160,7 @@ export async function computeTeamReadiness(
           detail: `O agente «${agentName}» referencia a definition «${defId}», que não existe.`,
           nextStep: 'Crie ou associe uma tool definition válida.',
           routeHint: '/tool-definitions',
+          ctaLabel: 'Abrir tools do workspace',
         });
       } else if (def.enabled === false) {
         push({
@@ -163,6 +170,7 @@ export async function computeTeamReadiness(
           detail: `«${def.name}» está desactivada mas está ligada ao agente «${agentName}».`,
           nextStep: 'Reactiva a definition ou remove-a das capabilities.',
           routeHint: '/tool-definitions',
+          ctaLabel: 'Abrir definitions',
         });
       }
     }
@@ -176,7 +184,8 @@ export async function computeTeamReadiness(
       title: 'Integrações em falta para tools de catálogo',
       detail: `Estas tools estão activas em agentes mas sem integração configurada: ${sorted.join(', ')} (execução limitada ou stub).`,
       nextStep: 'Configure Postgres, calendário ou OpenAI em Configurações > Integrações, conforme cada tool.',
-      routeHint: '/settings',
+      routeHint: '/settings?tab=integrations',
+      ctaLabel: 'Abrir integrações',
     });
   }
 
@@ -190,7 +199,8 @@ export async function computeTeamReadiness(
         title: 'Canal em falta',
         detail: `O canal ${cid} associado ao time não existe.`,
         nextStep: 'Associe canais válidos ao time.',
-        routeHint: '/channels',
+        routeHint: `/teams/${teamId}?tab=channels`,
+        ctaLabel: 'Canais do time',
       });
       continue;
     }
@@ -202,7 +212,8 @@ export async function computeTeamReadiness(
         title: `Canal não ligado (${(ch as { name?: string }).name ?? cid})`,
         detail: `Estado actual: ${st}. Mensagens externas podem não chegar.`,
         nextStep: 'Complete a ligação do canal em Canais.',
-        routeHint: '/channels',
+        routeHint: `/teams/${teamId}?tab=channels`,
+        ctaLabel: 'Ligar canal',
       });
     }
   }
@@ -241,6 +252,7 @@ export async function computeTeamReadiness(
         detail: err.message,
         nextStep: 'Corrija o grafo do time (nós e arestas).',
         routeHint: `/teams/${teamId}/graph`,
+        ctaLabel: 'Editor de grafo',
       });
     }
   }
@@ -252,6 +264,7 @@ export async function computeTeamReadiness(
       detail: w.message,
       nextStep: 'Revê a topologia do time no editor de grafo.',
       routeHint: `/teams/${teamId}/graph`,
+      ctaLabel: 'Rever grafo',
     });
   }
 
