@@ -136,7 +136,29 @@ flowchart TB
    - **Regra de unicidade:** no mesmo time, **dois especialistas não podem partilhar o mesmo ID** de builtin **de negócio**. Se dois papéis parecerem exigir a mesma tool de negócio, o desenho está errado: fundir responsabilidades num único especialista ou repartir **domínios** de forma que cada tool de negócio fique sob **um** dono (o coordenador continua a ser o único interface externo).
    - **Âmbito da regra:** a unicidade aplica-se ao par **`workspaceId` × team plan (mesmo time em construção)**. **Não** há conflito entre dois times no mesmo workspace, nem entre workspaces distintos: dois especialistas em **times diferentes** (ou tenants diferentes) podem listar o mesmo ID de builtin de negócio sem violar esta norma.
 
-Esta norma complementa [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) (pré-condições de execução) e reforça o objetivo de **especialistas sem sobreposição de função** no [Objetivo](#objetivo). A materialização parcial no código e prompts está no [Loop 64](#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder); o reforço de **prompts, validação e enforcement** está nos [Loops 77–78](#loop-77-planner-prompts-builtin-domain); o **outer loop de auto-reparo pela IA** (em vez de erro ao utilizador no fluxo assistido) está planeado no [Loop 80](#loop-80-planner-auto-repair-ia).
+Esta norma complementa [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) (pré-condições de execução) e reforça o objetivo de **especialistas sem sobreposição de função** no [Objetivo](#objetivo). A materialização parcial no código e prompts está no [Loop 64](#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder); o reforço de **prompts, validação e enforcement** está nos [Loops 77–78](#loop-77-planner-prompts-builtin-domain); o **outer loop de auto-reparo pela IA** no `POST` do planner está **entregue** no [Loop 80](#loop-80-planner-auto-repair-ia). A **simplificação da superfície do AI Builder** (preview em camadas, menos checkboxes simultâneos) está **entregue** no [Loop 81](#loop-81-ai-builder-ux-preview-simples).
+
+<a id="sec-ux-ai-builder-estado-atual"></a>
+
+### Criação assistida de time — estado actual no produto (síntese)
+
+Fluxo actual ([`team-creation-hub.tsx`](../v0-team-ai-crafter/components/teams/team-creation-hub.tsx)): separador **Assistido por IA** → componente **`TeamAiBuilder`**. O utilizador descreve problema/contexto; o backend gera um `team plan` (com [Loop 80](#loop-80-planner-auto-repair-ia) a tratar colisões de `catalogTools` entre especialistas na geração). No cliente ([Loop 81](#loop-81-ai-builder-ux-preview-simples)), o revisar plano mostra por agente **objective** em destaque, **chips** com `catalogTools` activas e edição completa num **modal**; descrição longa, skills e pré-visualização do grafo podem ficar **recolhidos**; secções de bind/packs quando aplicável mantêm-se visíveis quando o plano sugere capabilities.
+
+**Regra já reflectida no código (unicidade):** apenas os IDs em **`SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS`** (6 valores, alinhados ao backend) **não podem** estar activos em **dois especialistas** do mesmo plano; **`web_search`** e **`code_execution`** **podem** repetir-se entre especialistas (são tratados como utilitários no prompt do [Loop 77](#loop-77-planner-prompts-builtin-domain)). O AI Builder já bloqueia Salvar/Executar quando há colisão de exclusivos ([Loop 78](#loop-78-enforcement-builtin-ambiguity)).
+
+<a id="sec-ux-ai-builder-alvo-loop-81"></a>
+
+### Norma alvo — preview simples, efectivo e camadas (Ralph → Loop 81)
+
+Objetivo de produto: **poucos cliques**, **alta legibilidade** do que vai ser criado, **ferramentas já coerentes** com o papel de cada agente, e **ajuste fino** sem poluir o primeiro ecrã.
+
+| Camada | O quê | Critério |
+| --- | --- | --- |
+| **Primeira vista** | Nome do time, lista de agentes (papel + **objective** em destaque), canal principal se relevante, CTA claros (guardar / executar / regenerar). | O utilizador responde “quem faz o quê” em **&lt; 30 s** sem abrir secções avançadas. |
+| **Ferramentas builtin** | Mostrar **só as já seleccionadas** para aquele agente como *chips* ou lista curta; botão **“Editar ferramentas”** abre painel com validação de colisão **só para IDs exclusivos** entre especialistas. | Não listar os 8 IDs em grelha aberta por defeito para cada agente. |
+| **Avançado** | Packs, `requiredTools`, bind preview detalhado, grafo fino, texto longo de overlap — atrás de **accordion**, **drawer** ou passo secundário. | Quem só quer “criar e ir” não vê tabelas densas nem duplicação de controlos. |
+
+Esta norma foi materializada no [Loop 81](#loop-81-ai-builder-ux-preview-simples) com gate frontend no Ralph.
 
 <a id="prompts-team-planner-contrato"></a>
 
@@ -164,8 +186,14 @@ Cada slice que mexer em `team-plan-planner-prompt.ts`, schema do planner ou AI B
 | **E — Gate de engenharia** | `./scripts/ralph-loop-gate.sh` (+ frontend se tocar em `v0-team-ai-crafter`). | Build e testes verdes; commit + push antes de fechar o loop no ledger. |
 | **F — Matriz de atribuição (pré-JSON)** | **Antes** da emissão do JSON final, o modelo (ou um passo explícito de chain-of-thought interno) fixa **uma linha por especialista**: domínio → `catalogTools` mínimas → quem “possui” cada builtin de negócio. | Cada ID em `PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS` (ver [Loop 77](#loop-77-planner-prompts-builtin-domain)) aparece **no máximo numa** linha de especialista. |
 | **G — Outer loop de auto-reparo IA** | Após **D**, aplicar o mesmo validador que o servidor ([Loop 78](#loop-78-enforcement-builtin-ambiguity)). Se falhar, **não** devolver `VALIDATION_ERROR` ao utilizador no **fluxo gerado por IA**: segunda chamada (ou ferramenta) com o JSON inválido + diagnóstico (IDs e nomes em colisão) para **reemitir** o plano corrigido. | Plano reemitido passa em `assertSpecialistsExclusiveCatalogTools`; **tentativas máximas** definidas; após o limite, fallback honesto (`plannerMeta`) ou mensagem controlada — ver [Loop 80](#loop-80-planner-auto-repair-ia). |
+| **H — Leitura rápida do plano (UX)** | Após gerar, a UI mostra **primeiro** equipa + agentes + **objectives**; não obrigar a percorrer todas as tools para perceber o desenho. | Utilizador identifica papéis sem expandir “avançado”. |
+| **I — Tools resumidas + edição focalizada** | Por agente: exibir **apenas** `catalogTools` já activas como resumo; acção **“Alterar ferramentas”** abre UI onde se listam os IDs (ou subconjunto) com regra de colisão **só** para `SPECIALIST_EXCLUSIVE_*` vs outros especialistas. | Redução de checkboxes visíveis no default em relação ao padrão actual (grelha completa por agente). |
+| **J — Progressive disclosure** | Bind pesado, packs, grafo opcional, notas de governança → secções **fechadas** ou ecrã dedicado. | Um utilizador novo conclui “gerar → rever objetivos → executar” em **≤ 3** interações principais além do texto livre inicial. |
+| **K — Gate UX** | `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`; smoke manual do fluxo assistido. | `next build` verde; sem regressão nos bloqueios [Loop 78](#loop-78-enforcement-builtin-ambiguity) no cliente. |
 
 **Inner loop de correção (Ralph no repositório):** se **C**, **D**, **F** ou **G** falharem de forma **estrutural** (prompt/schema/servidor), não “remendar” só na UI: ajustar **prompt**, **schema**, **passo de reparo** ou **normalização** (`planner-agent-catalog-tools`, etc.) no **mesmo** Ralph Loop de engenharia, até o critério ficar estável.
+
+**Slices só frontend (H–K):** iterar no **mesmo** ciclo Ralph até cumprir critérios de leitura rápida e progressive disclosure **sem** desligar validações de unicidade; testes de componente ou E2E quando o slice os adicionar.
 
 **Outer loop de produto (runtime da geração):** **G** é o ciclo **gerar → validar → reparar com IA → validar** até sucesso ou limite; espelha a disciplina Ralph (não avançar com gate vermelho) sem expor erro bruto ao utilizador quando o produto prometer correção automática.
 
@@ -1487,6 +1515,37 @@ Complementar [Loop 77](#loop-77-planner-prompts-builtin-domain) e [Loop 78](#loo
 
 ---
 
+<a id="loop-81-ai-builder-ux-preview-simples"></a>
+
+## Loop 81 — AI Builder: preview simples, ferramentas focadas e camadas *(entregue)*
+
+### Objetivo
+
+Reduzir **poluição visual** e **carga cognitiva** no assistente **Criar time** ([`TeamAiBuilder`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)) mantendo a **eficácia**: o utilizador vê **de imediato** quais agentes serão criados e **para quê** (objectivos / papéis), com **ferramentas builtin já alinhadas** ao plano; ajustes finos (catálogo completo, bind, packs) ficam em **camadas avançadas**.
+
+### Diagnóstico (estado actual)
+
+- O preview repete **todos** os **8** `CATALOG_TOOL_IDS` por agente em checkboxes — multiplica o ruído (ex.: 6 agentes → 48 controlos só nesta secção).
+- A norma [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio) pede subconjunto **mínimo** por papel e **já seleccionado**; a UI ainda **expõe o catálogo inteiro** por defeito.
+- **Unicidade:** apenas **6** IDs são **exclusivos entre especialistas** (`SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS`); **`web_search`** e **`code_execution`** podem coexistir em vários especialistas — a UX de edição deve **destacar** a regra dos exclusivos (alerta ao marcar) sem tratar todos os IDs igual.
+
+### Foco (MVP do slice)
+
+1. **Cartão agente — modo resumo:** título, papel, **objective** (e opcionalmente uma linha de responsabilidades); chips só com **`catalogTools` já activas**; CTA **“Editar ferramentas do catálogo”**.
+2. **Painel / modal de edição:** lista completa ou agrupada (ex.: “Exclusivas por domínio” vs “Utilitários”) com **validação de colisão em tempo real** para exclusivos (reutilizar lógica alinhada a [`catalog-tool-ids.ts`](../v0-team-ai-crafter/lib/catalog-tool-ids.ts) + mensagens do [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
+3. **Avançado:** accordion para bind preview detalhado, packs, grafo ampliado, metadados longos — **fechado por defeito** após primeira visita ou com preferência guardada.
+4. **Micro-etapas Ralph [H–K](#metodologia-ralph-criacao-times-ia)** documentadas no encerramento do loop no ledger.
+
+### Critério de saída
+
+- Revisão assistida **sem** precisar scroll infinito de checkboxes no estado inicial.
+- Caminho **gerar → confirmar objetivos → executar** possível com **poucos cliques** para utilizador experiente; utilizador curioso abre avançado.
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
+
+**Estado:** **entregue** — ledger: [Loop 81 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-81-fechado).
+
+---
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1519,6 +1578,7 @@ Complementar [Loop 77](#loop-77-planner-prompts-builtin-domain) e [Loop 78](#loo
 27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (entregue; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
 28. **Loop 79** — AI Builder: atalhos por agente/ação com definition inativa no bind preview (entregue; ver [Loop 79](#loop-79-ai-builder-bind-inactive-per-action)).
 29. **Loop 80** — planner: matriz pré-JSON + outer loop de auto-reparo pela IA (entregue; ver [Loop 80](#loop-80-planner-auto-repair-ia)).
+30. **Loop 81** — AI Builder: preview simples, chips de tools, edição focalizada, progressive disclosure *(entregue; ver [Loop 81](#loop-81-ai-builder-ux-preview-simples))*.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1545,6 +1605,7 @@ Complementar [Loop 77](#loop-77-planner-prompts-builtin-domain) e [Loop 78](#loo
 - **Loop 78:** **validação e UX** quando o plano violar unicidade de builtins de negócio entre especialistas — entregue; alinhado à [metodologia de micro-etapas](#metodologia-ralph-criacao-times-ia)
 - **Loop 79:** completar o fluxo do [Loop 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado) com **resolução por linha** no impacto por agente (definition inativa + override granular)
 - **Loop 80:** **auto-reparo pela IA** no `POST` de criação de plano quando o modelo violar unicidade (micro-etapas **F** e **G**); **PUT** manual continua com **400** do [Loop 78](#loop-78-enforcement-builtin-ambiguity) — entregue ([secção dedicada](#loop-80-planner-auto-repair-ia))
+- **Loop 81:** **UX do AI Builder** — preview legível, tools resumidas, avançado recolhido; micro-etapas **H–K** — *entregue* ([Loop 81](#loop-81-ai-builder-ux-preview-simples))
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1562,4 +1623,4 @@ Ela funciona como a macrofase seguinte para:
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
 - responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
-- criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia) e [Loop 80](#loop-80-planner-auto-repair-ia)
+- criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); **Loop 81** (superfície do assistente mais simples — **entregue**; [§ estado actual](#sec-ux-ai-builder-estado-atual)); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia), [Loop 80](#loop-80-planner-auto-repair-ia) e [Loop 81](#loop-81-ai-builder-ux-preview-simples)

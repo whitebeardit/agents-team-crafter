@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Loader2, Sparkles, Play, PencilLine, AlertTriangle, Info } from "lucide-react"
+import { Loader2, Sparkles, Play, PencilLine, AlertTriangle, ChevronDown } from "lucide-react"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import type {
@@ -30,7 +30,7 @@ import { Label } from "@/components/ui/label"
 import { createOperationId } from "@/lib/utils/operation-id"
 import { plannerPackLabelPt } from "@/lib/planner-pack-labels"
 import {
-  CATALOG_TOOL_IDS,
+  CATALOG_UTILITY_TOOL_IDS,
   SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS,
   catalogToolLabelPt,
   type CatalogToolId,
@@ -43,6 +43,15 @@ import { GraphFlowOverlays } from "@/components/graph/graph-flow-overlays"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 type TeamPlanningPolicy = {
   autoBindMode: "inherit" | "enabled" | "disabled"
@@ -313,6 +322,43 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     }
     return out
   }, [plan])
+
+  const [catalogToolsEditorIndex, setCatalogToolsEditorIndex] = useState<number | null>(null)
+
+  const handleCatalogToolCheckedChange = (
+    agentIndex: number,
+    tid: CatalogToolId,
+    checked: boolean,
+  ) => {
+    if (!plan) return
+    const agents = [...plan.agents]
+    const agent = agents[agentIndex]
+    if (!agent) return
+    const cur = new Set(agent.catalogTools ?? [])
+    if (checked) {
+      if (agent.role === "specialist") {
+        const exclusive = SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS as readonly string[]
+        if (exclusive.includes(tid)) {
+          const conflict = plan.agents.find(
+            (a, i) => a.role === "specialist" && i !== agentIndex && (a.catalogTools ?? []).includes(tid),
+          )
+          if (conflict) {
+            toast.error(
+              `"${catalogToolLabelPt(tid)}" já está atribuída ao especialista "${conflict.name}". Remova primeiro noutro agente.`,
+            )
+            return
+          }
+        }
+      }
+      cur.add(tid)
+    } else {
+      cur.delete(tid)
+    }
+    agents[agentIndex] = { ...agent, catalogTools: [...cur] }
+    setBindPreview(null)
+    setBindPreviewApproved(false)
+    setPlan({ ...plan, agents })
+  }
 
   const plannerFallbackCopy = useMemo(() => {
     if (!plan?.plannerMeta?.usedFallback) return null
@@ -1298,15 +1344,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             </div>
             <div className="space-y-3">
               <Label>Agentes planejados</Label>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>Ferramentas por domínio</AlertTitle>
-                <AlertDescription className="text-muted-foreground text-sm">
-                  Cada especialista deve ter um âmbito distinto: as ferramentas marcadas como de domínio (SQL, calendário,
-                  ações internas, e-mail, imagem, ficheiros) não podem ser atribuídas a dois especialistas ao mesmo tempo.
-                  O coordenador pode partilhar utilitários com um especialista sem conflito.
-                </AlertDescription>
-              </Alert>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Ferramentas de <strong>domínio</strong> (SQL, calendário, e-mail, etc.) não podem repetir entre{" "}
+                <strong>especialistas</strong>. Utilitários (
+                {CATALOG_UTILITY_TOOL_IDS.map((id) => catalogToolLabelPt(id)).join(", ")}) podem repetir.
+              </p>
               {specialistExclusiveCollisions.length > 0 ? (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
@@ -1321,7 +1363,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </Alert>
               ) : null}
               {plan.agents.map((agent, index) => (
-                <div key={`${agent.role}-${index}`} className="border rounded-lg p-3 space-y-2">
+                <div key={`${agent.role}-${index}`} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline">{agent.role}</Badge>
                     <Badge variant={agent.planningMode === "existing" ? "secondary" : "outline"}>
@@ -1339,81 +1381,172 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       setPlan({ ...plan, agents })
                     }}
                   />
-                  <Textarea
-                    value={agent.description}
-                    onChange={(e) => {
-                      const agents = [...plan.agents]
-                      agents[index] = { ...agents[index], description: e.target.value }
-                      setBindPreview(null)
-                      setBindPreviewApproved(false)
-                      setPlan({ ...plan, agents })
-                    }}
-                  />
-                  <Input
-                    value={agent.skills.join(", ")}
-                    onChange={(e) => {
-                      const agents = [...plan.agents]
-                      agents[index] = { ...agents[index], skills: parseCsv(e.target.value) }
-                      setBindPreview(null)
-                      setBindPreviewApproved(false)
-                      setPlan({ ...plan, agents })
-                    }}
-                    placeholder="skills separadas por vírgula"
-                  />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Missão / objetivo do agente</Label>
+                    <Textarea
+                      value={agent.objective}
+                      onChange={(e) => {
+                        const agents = [...plan.agents]
+                        agents[index] = { ...agents[index], objective: e.target.value }
+                        setBindPreview(null)
+                        setBindPreviewApproved(false)
+                        setPlan({ ...plan, agents })
+                      }}
+                      rows={3}
+                      className="min-h-[72px] resize-y"
+                    />
+                  </div>
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground text-xs">Ferramentas builtin (catálogo OpenAI)</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Por defeito o plano sugere um subconjunto por papel; ajuste antes de executar.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {CATALOG_TOOL_IDS.map((tid) => (
-                        <label key={tid} className="flex items-center gap-2 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={(agent.catalogTools ?? []).includes(tid)}
-                            onCheckedChange={(c) => {
-                              const agents = [...plan.agents]
-                              const cur = new Set(agents[index]?.catalogTools ?? [])
-                              if (c === true) cur.add(tid)
-                              else cur.delete(tid)
-                              agents[index] = { ...agents[index]!, catalogTools: [...cur] }
-                              setBindPreview(null)
-                              setBindPreviewApproved(false)
-                              setPlan({ ...plan, agents })
-                            }}
-                          />
-                          <span>{catalogToolLabelPt(tid)}</span>
-                        </label>
-                      ))}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-sm text-muted-foreground">Ferramentas do catálogo (OpenAI)</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setCatalogToolsEditorIndex(index)}>
+                        Editar ferramentas
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 min-h-[24px]">
+                      {(agent.catalogTools ?? []).length === 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          Nenhuma seleccionada — o servidor pode inferir na execução.
+                        </span>
+                      ) : (
+                        (agent.catalogTools ?? []).map((tid) => (
+                          <Badge key={tid} variant="secondary" className="font-normal">
+                            {catalogToolLabelPt(tid as CatalogToolId)}
+                          </Badge>
+                        ))
+                      )}
                     </div>
                   </div>
-                  {agent.overlapReason ? <p className="text-xs text-muted-foreground">{agent.overlapReason}</p> : null}
+                  <Collapsible defaultOpen={false}>
+                    <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-md border border-dashed px-2 py-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted/50">
+                      <span>Descrição, skills e notas de overlap</span>
+                      <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-2">
+                      <Textarea
+                        value={agent.description}
+                        onChange={(e) => {
+                          const agents = [...plan.agents]
+                          agents[index] = { ...agents[index], description: e.target.value }
+                          setBindPreview(null)
+                          setBindPreviewApproved(false)
+                          setPlan({ ...plan, agents })
+                        }}
+                        placeholder="Descrição do papel"
+                      />
+                      <Input
+                        value={agent.skills.join(", ")}
+                        onChange={(e) => {
+                          const agents = [...plan.agents]
+                          agents[index] = { ...agents[index], skills: parseCsv(e.target.value) }
+                          setBindPreview(null)
+                          setBindPreviewApproved(false)
+                          setPlan({ ...plan, agents })
+                        }}
+                        placeholder="Skills separadas por vírgula"
+                      />
+                      {agent.overlapReason ? (
+                        <p className="text-xs text-muted-foreground">{agent.overlapReason}</p>
+                      ) : null}
+                    </CollapsibleContent>
+                  </Collapsible>
                 </div>
               ))}
             </div>
-            <div className="space-y-2">
-              <Label>Pré-visualização do grafo</Label>
-              <GraphLegendInline />
-              <div className="h-[220px] overflow-hidden rounded-lg border sm:h-[280px]">
-                <ReactFlow
-                  key={`${plan.id}-${previewGraphNodes.length}-${previewGraphEdges.length}`}
-                  colorMode="dark"
-                  nodeTypes={graphNodeTypes}
-                  nodes={previewGraphNodes}
-                  edges={previewGraphEdges}
-                  fitView
-                  fitViewOptions={{ padding: 0.15, maxZoom: 1.25 }}
-                  nodesDraggable={false}
-                  nodesConnectable={false}
-                  elementsSelectable={false}
-                  zoomOnScroll={false}
-                  panOnScroll
-                  proOptions={{ hideAttribution: true }}
-                  className="bg-background"
-                >
-                  <GraphFlowOverlays />
-                </ReactFlow>
-              </div>
-            </div>
+            <Dialog
+              open={catalogToolsEditorIndex !== null}
+              onOpenChange={(open) => {
+                if (!open) setCatalogToolsEditorIndex(null)
+              }}
+            >
+              <DialogContent className="max-w-lg sm:max-w-xl">
+                {catalogToolsEditorIndex !== null && plan.agents[catalogToolsEditorIndex] ? (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>Ferramentas do catálogo</DialogTitle>
+                      <DialogDescription>
+                        {plan.agents[catalogToolsEditorIndex].name} — builtins do OpenAI Agents SDK por agente.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 max-h-[min(70vh,520px)] overflow-y-auto pr-1">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Domínio (um especialista por ferramenta)</p>
+                        <p className="text-xs text-muted-foreground">
+                          Ao activar aqui, não pode repetir entre dois especialistas. O coordenador não entra nesta colisão.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS.map((tid) => (
+                            <label key={tid} className="flex items-center gap-2 text-sm cursor-pointer">
+                              <Checkbox
+                                checked={
+                                  (plan.agents[catalogToolsEditorIndex]?.catalogTools ?? []).includes(tid)
+                                }
+                                onCheckedChange={(c) =>
+                                  handleCatalogToolCheckedChange(catalogToolsEditorIndex, tid, c === true)
+                                }
+                              />
+                              <span>{catalogToolLabelPt(tid)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Utilitários (podem repetir entre especialistas)</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {CATALOG_UTILITY_TOOL_IDS.map((tid) => (
+                            <label key={tid} className="flex items-center gap-2 text-sm cursor-pointer">
+                              <Checkbox
+                                checked={
+                                  (plan.agents[catalogToolsEditorIndex]?.catalogTools ?? []).includes(tid)
+                                }
+                                onCheckedChange={(c) =>
+                                  handleCatalogToolCheckedChange(catalogToolsEditorIndex, tid, c === true)
+                                }
+                              />
+                              <span>{catalogToolLabelPt(tid)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" variant="secondary" onClick={() => setCatalogToolsEditorIndex(null)}>
+                        Fechar
+                      </Button>
+                    </DialogFooter>
+                  </>
+                ) : null}
+              </DialogContent>
+            </Dialog>
+            <Collapsible defaultOpen={false} className="space-y-2">
+              <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm font-medium hover:bg-muted/50">
+                <span>Pré-visualização do grafo</span>
+                <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 pt-1">
+                <GraphLegendInline />
+                <div className="h-[220px] overflow-hidden rounded-lg border sm:h-[280px]">
+                  <ReactFlow
+                    key={`${plan.id}-${previewGraphNodes.length}-${previewGraphEdges.length}`}
+                    colorMode="dark"
+                    nodeTypes={graphNodeTypes}
+                    nodes={previewGraphNodes}
+                    edges={previewGraphEdges}
+                    fitView
+                    fitViewOptions={{ padding: 0.15, maxZoom: 1.25 }}
+                    nodesDraggable={false}
+                    nodesConnectable={false}
+                    elementsSelectable={false}
+                    zoomOnScroll={false}
+                    panOnScroll
+                    proOptions={{ hideAttribution: true }}
+                    className="bg-background"
+                  >
+                    <GraphFlowOverlays />
+                  </ReactFlow>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Button
                 variant="outline"

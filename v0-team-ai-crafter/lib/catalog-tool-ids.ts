@@ -25,6 +25,11 @@ export const SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS: readonly CatalogToolId[] = [
   "file_search",
 ]
 
+/** Utilitários que podem repetir entre especialistas (fora da colisão de domínio). */
+export const CATALOG_UTILITY_TOOL_IDS: readonly CatalogToolId[] = CATALOG_TOOL_IDS.filter(
+  (id) => !(SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS as readonly string[]).includes(id),
+)
+
 const LABELS_PT: Record<CatalogToolId, string> = {
   web_search: "Pesquisa web",
   file_search: "Busca em ficheiros",
