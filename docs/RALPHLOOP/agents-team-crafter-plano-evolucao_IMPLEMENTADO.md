@@ -43,7 +43,7 @@ Verificação mínima quando o slice toca em tools:
 - **`internal_action`:** presets em [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts) + catálogo read-only `GET /api/v1/business-actions/catalog`; `actionId` resolvível no registry de negócio e `businessToolRuntime` disponível no compose do agente.
 - **`builtin_ref`:** tratar como **alias/placeholder** no runtime atual (não duplica executores do catálogo); não prometer paridade com as tools de catálogo até haver evolução explícita de produto/código.
 - **Smoke manual** de tool “real” (Postgres, CRM, MCP HTTP, etc.), quando aplicável, fica a cargo do slice e pode exigir ambiente com segredos — **fora** do gate por defeito.
-- O **Loop 60** removeu o `crm_access` HTTP do catálogo e `toolCrm` em Integrações; validar CRM de negócio via pack `crm` / `internal_action` e documentação correspondente.
+- O **Loop 60** removeu o `crm_access` HTTP do catálogo e `toolCrm` em Integrações; validar CRM de negócio via pack `crm` / `internal_action` e documentação correspondente. **Gaps observados** no uso real (listagem/cadastro de clientes, schema `catalog_internal_actions`): ver [Gap — CRM / clientes](#gap-runtime-crm-clientes).
 
 <a id="norma-builtin-dominio-agente"></a>
 
@@ -85,6 +85,20 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 **Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
 **Estado actual (pós Loop 86):** bind por agente (**Loop 83**), inferência mínima + conservadora por especialista (**Loops 84–86**), preview de bind estável (**Loop 85**) e **execute** alinhado a `requiresExplicitApproval` + unicidade de workflow sem sufixos mascarados (**Loop 86**). Ver [Loop 83 (fechado)](#loop-83-fechado) … [Loop 86 (fechado)](#loop-86-fechado). **Próximo foco:** macro [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) ou novo slice numerado.
+
+<a id="gap-runtime-crm-clientes"></a>
+
+### Gap observado — CRM / clientes no runtime (fora do team planner)
+
+Registo **operacional** para não perder contexto entre ciclos (detalhe canónico no plano mestre: [§14.8 — gaps CRM / clientes](agents-team-crafter-plano-evolucao.md#148-runtime-crm-clientes-gaps)):
+
+| Sintoma | Notas |
+| --- | --- |
+| `400 Invalid schema for function 'catalog_internal_actions'` | Validação strict do JSON Schema da tool: `required` vs `properties` — em relatórios, **`query` ausente** de `required`. Código de referência: [`build-specialist-sdk-tools.ts`](../../backend/src/modules/runtime/application/build-specialist-sdk-tools.ts) (`catalogArgs`, ramo stub `internal_actions`). |
+| Listar clientes / clientes ativos | Invocação sem **`query`** → erro de parâmetro essencial ou resposta pouco útil; alinhar prompt + schema e/ou default de listagem num slice futuro. |
+| Cadastro de cliente | O agente só confirma sucesso quando o utilizador já deu **todos** os dados; **esperado:** inferir intenção, listar campos obrigatórios e **perguntar tudo de uma vez** antes de executar. |
+
+**Estado:** aberto — candidato a **Loop 87+** (prompt + `internal_action` / `crm_*` + eventual ajuste de schema das tools de catálogo).
 
 ### Admin global da plataforma: norma vs implementação actual
 
@@ -1212,8 +1226,16 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 - etapa/prioridade: ETAPA 9 / altíssima
 - objetivo do slice: fazer o plano Free / Pro / Enterprise refletir comportamento real do backend
 - critério de saída: limites por plano aplicados no servidor; UI mostra consumo real; upgrade sem checkout falso
+- **Plano Free — quotas canónicas (fonte Ralph Loop; alinhar copy e enforcement):** 1 time · até 5 agentes no workspace · 1 canal.
+
+| Dimensão | Limite |
+| --- | ---: |
+| Times | 1 |
+| Agentes | 5 |
+| Canais | 1 |
+
 - **entregue no repositório:**
-  - `[backend/src/modules/workspaces/application/workspace-plan-limits.ts](../../backend/src/modules/workspaces/application/workspace-plan-limits.ts)`: defaults por plano (free: 2 / 5 / 10; pro: 10 / 50 / 50; enterprise: ilimitado); `assertWorkspaceQuota` / `assertWorkspaceQuotaDelta`; erro `QUOTA_EXCEEDED` (403)
+  - `[backend/src/modules/workspaces/application/workspace-plan-limits.ts](../../backend/src/modules/workspaces/application/workspace-plan-limits.ts)`: defaults por plano (free: **1 / 5 / 1**; pro: 10 / 50 / 50; enterprise: ilimitado); `assertWorkspaceQuota` / `assertWorkspaceQuotaDelta`; erro `QUOTA_EXCEEDED` (403)
   - `[backend/src/modules/settings/infra/settings.repository.ts](../../backend/src/modules/settings/infra/settings.repository.ts)`: `getWorkspace` agrega `max*` efectivos (override em `workspace.limits` quando definido)
   - Rotas: `POST /teams`, `POST /teams/:id/duplicate`, `POST /agents`, `POST /channels`; `team-plan.execute` e `agent-plan.execute` respeitam quotas antes de criar recursos
   - `[v0-team-ai-crafter/app/(app)/settings/page.tsx](../../v0-team-ai-crafter/app/(app)/settings/page.tsx)`: separador Faturamento com `used/max` ou ilimitado; alerta sobre ausência de gateway; dialog “Fazer upgrade” com email e workspace id (sem cartão fictício)

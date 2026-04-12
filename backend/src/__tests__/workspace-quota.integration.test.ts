@@ -106,29 +106,27 @@ describe('workspace quotas (plan limits)', () => {
     const body = JSON.parse(res.body) as {
       data: { limits: { maxTeams: number; maxAgents: number; maxChannels: number } };
     };
-    expect(body.data.limits.maxTeams).toBe(2);
+    expect(body.data.limits.maxTeams).toBe(1);
     expect(body.data.limits.maxAgents).toBe(5);
-    expect(body.data.limits.maxChannels).toBe(10);
+    expect(body.data.limits.maxChannels).toBe(1);
   });
 
-  it('blocks POST /teams when at team quota (free: 2)', async () => {
+  it('blocks POST /teams when at team quota (free: 1)', async () => {
     const headers = await authHeaders();
     await TeamModel.deleteMany({ workspaceId: new mongoose.Types.ObjectId(workspaceId) });
 
-    for (let i = 0; i < 2; i++) {
-      const r = await app.inject({
-        method: 'POST',
-        url: '/api/v1/teams',
-        headers,
-        payload: {
-          name: `Team ${i}`,
-          coordinatorId: coordId,
-          channelIds: [channelId],
-          agentIds: [],
-        },
-      });
-      expect(r.statusCode).toBe(201);
-    }
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/v1/teams',
+      headers,
+      payload: {
+        name: 'Team 0',
+        coordinatorId: coordId,
+        channelIds: [channelId],
+        agentIds: [],
+      },
+    });
+    expect(first.statusCode).toBe(201);
 
     const blocked = await app.inject({
       method: 'POST',
@@ -185,19 +183,17 @@ describe('workspace quotas (plan limits)', () => {
     expect(err.error?.code).toBe('QUOTA_EXCEEDED');
   });
 
-  it('blocks POST /channels when at channel quota (free: 10)', async () => {
+  it('blocks POST /channels when at channel quota (free: 1)', async () => {
     const headers = await authHeaders();
     await ChannelModel.deleteMany({ workspaceId: new mongoose.Types.ObjectId(workspaceId) });
 
-    for (let i = 0; i < 10; i++) {
-      await ChannelModel.create({
-        workspaceId: new mongoose.Types.ObjectId(workspaceId),
-        type: 'api',
-        name: `Ch ${i}`,
-        status: 'connected',
-        config: {},
-      });
-    }
+    await ChannelModel.create({
+      workspaceId: new mongoose.Types.ObjectId(workspaceId),
+      type: 'api',
+      name: 'Ch 0',
+      status: 'connected',
+      config: {},
+    });
 
     const blocked = await app.inject({
       method: 'POST',

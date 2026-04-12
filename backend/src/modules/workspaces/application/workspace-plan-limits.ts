@@ -8,7 +8,7 @@ export const PLAN_DEFAULT_LIMITS: Record<
   WorkspacePlanKind,
   { maxTeams: number; maxAgents: number; maxChannels: number }
 > = {
-  free: { maxTeams: 2, maxAgents: 5, maxChannels: 10 },
+  free: { maxTeams: 1, maxAgents: 5, maxChannels: 1 },
   pro: { maxTeams: 10, maxAgents: 50, maxChannels: 50 },
   enterprise: { maxTeams: -1, maxAgents: -1, maxChannels: -1 },
 };

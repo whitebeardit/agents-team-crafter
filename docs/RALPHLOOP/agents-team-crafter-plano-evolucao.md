@@ -998,8 +998,20 @@ Fazer o plano Free / Pro / Enterprise refletir comportamento real do backend.
 - jornada real de `Fazer upgrade` ou sinalização explícita de indisponibilidade
 - desenho de integração futura com provider de billing, sem bloquear o enforcement
 
+### Plano Free — quotas canónicas (fonte Ralph Loop)
+
+Um workspace no plano **Free** fica limitado a **um time com até cinco agentes** e **um único canal** (dimensões independentes: times, agentes no workspace e canais).
+
+| Dimensão | Limite |
+| --- | ---: |
+| Times | 1 |
+| Agentes (no workspace) | 5 |
+| Canais | 1 |
+
+Valores por defeito em código: [`workspace-plan-limits.ts`](../../backend/src/modules/workspaces/application/workspace-plan-limits.ts) (`PLAN_DEFAULT_LIMITS.free`).
+
 ### Critério de saída
-- o texto `Free até 2 times e 5 agentes` deixa de ser marketing solto e passa a ser regra aplicada
+- o texto de marketing do Free (1 time, 5 agentes, 1 canal) deixa de ser solto e passa a ser regra aplicada no backend e refletida no consumo na UI
 
 ---
 
@@ -1785,6 +1797,25 @@ Ela funciona como a macrofase seguinte para:
 **Fase actual (pós Loops 77–86):** a onda **team planner + AI Builder** (Loops **82–86**) está **fechada** — bind por agente, inferência mínima e conservadora, preview de bind estável, execute e aprovação proporcionais a `requiresExplicitApproval`, workflow único por especialista sem sufixos mascarados. **Paralelamente:** [14.8](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 ## 14.8 Riscos e decisões em aberto
+
+<a id="148-runtime-crm-clientes-gaps"></a>
+
+### Gaps observados em runtime — CRM / clientes (`internal_actions` e catálogo)
+
+Comportamento **observado** ao pedir a um agente operações sobre **clientes cadastrados** (domínio CRM / pack `crm` / tools de negócio), fora do team planner:
+
+1. **Erro 400 — schema da function `catalog_internal_actions`**  
+   Mensagem típica: `Invalid schema for function 'catalog_internal_actions'`. Detalhe técnico (API / modo strict de JSON Schema): o array `required` deve cobrir as chaves declaradas em `properties`; em cenários reportados faltava **`query`** em `required` face a `properties`, o que invalida o registo da tool antes da invocação.  
+   **Implicação para engenharia:** rever o contrato exposto em [`build-specialist-sdk-tools.ts`](../../backend/src/modules/runtime/application/build-specialist-sdk-tools.ts) (`catalogArgs` e tools `catalog_*` em stub) para alinhar com as regras de schema do provider. **Implicação para suporte:** distinguir falha de **contrato da tool** de falha de **negócio** (CRM).
+
+2. **Listar clientes (ou “clientes ativos”) sem `query`**  
+   Mesmo após o utilizador pedir explicitamente “liste os clientes” / “clientes ativos”, o modelo pode invocar a function **sem** preencher o parâmetro essencial **`query`**, gerando erro do tipo *parâmetro essencial ausente* e respostas genéricas a sugerir “tentar mais tarde”.  
+   **Expectativa de produto:** instrução do agente + contrato da tool devem permitir listagens úteis com **defaults** (ex.: string vazia ou token reservado para “todos” / filtro por estado) **ou** o modelo deve sempre enviar `query` com semântica clara — a combinar num slice dedicado (prompt + schema + testes manuais).
+
+3. **Cadastro de cliente — elicitação em lote**  
+   Comportamento observado: o agente só **confirma** cadastro quando o utilizador já forneceu **todas** as informações necessárias.  
+   **Expectativa de produto:** o agente deve **reconhecer a intenção** (criar cliente), **identificar os campos obrigatórios** do fluxo e **perguntar de uma vez** (ou num único bloco estruturado) tudo o que falta, em vez de depender de entrada espontânea completa do utilizador. Isto exige combinação de **prompt de sistema**, eventual **tool design** (`internal_action` / `crm_*`) e UX de conversa — candidato a slice **Loop 87+** quando priorizado.
+
 - o provider de billing ainda não está decidido
 - 2FA pode exigir slice próprio, caso o MVP mínimo de conta precise sair antes
 - reset de fábrica deve ser tratado como capacidade de plataforma, não de workspace comum
