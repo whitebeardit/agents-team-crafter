@@ -81,6 +81,20 @@ export interface TeamRunExecutionEvent {
   runtimeMessage?: string
 }
 
+/** Item de `GET /teams/:id/debug-sessions` (Loop 91). */
+export interface TeamDebugSessionSummary {
+  conversationId: string
+  updatedAt: string
+  turnCount: number
+}
+
+/** Turno com instante — `GET /teams/:id/debug-sessions/:conversationId`. */
+export interface TeamDebugSessionTurn {
+  role: "user" | "assistant"
+  content: string
+  at: string
+}
+
 /** SSE `agentStatus` durante `POST /teams/:id/run/stream` e `GET /teams/:id/live`. */
 export interface TeamRunProgressEvent {
   runId: string

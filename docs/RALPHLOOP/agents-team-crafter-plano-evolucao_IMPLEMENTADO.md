@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–90** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)) e **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)). **Próximo slice oficial numerado:** [Loop 91 (candidato)](#loop-91-candidato--console-conversacional-com-sessões-e-timeline) — console conversacional com sessões e timeline; ver [plano §91](agents-team-crafter-plano-evolucao.md#loop-91--console-conversacional-com-sessões-timeline-e-contexto-reutilizável). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–91** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)) e **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)). **Próximo slice oficial numerado:** [Loop 92 (candidato)](#loop-92-candidato--resolver-pendências-com-cta-directo) — CTAs de resolução a partir do readiness; ver [plano §92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 **Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
@@ -187,7 +187,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–90 fechados; [Loop 91](#loop-91-candidato--console-conversacional-com-sessões-e-timeline) candidato) | Loops **52–90** entregues; **próximo candidato numerado:** [Loop 91](agents-team-crafter-plano-evolucao.md#loop-91--console-conversacional-com-sessões-timeline-e-contexto-reutilizável); [Loop 90 fechado](#loop-90-fechado): cockpit ficha do time; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–91 fechados; [Loop 92](#loop-92-candidato--resolver-pendências-com-cta-directo) candidato) | Loops **52–91** entregues; **próximo candidato numerado:** [Loop 92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo); [Loop 91 fechado](#loop-91-fechado): console debug + sessões; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -786,7 +786,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Penúltimo slice fechado:** **[Loop 89](#loop-89-fechado)** — AI Builder simples/avançado ([`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)).
 
-**Próximo número na ordem recomendada (candidato):** **[Loop 91](#loop-91-candidato--console-conversacional-com-sessões-e-timeline)** (console conversacional com sessões e timeline) — ver [plano §Loop 91](agents-team-crafter-plano-evolucao.md#loop-91--console-conversacional-com-sessões-timeline-e-contexto-reutilizável); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
+**Próximo número na ordem recomendada (candidato):** **[Loop 92](#loop-92-candidato--resolver-pendências-com-cta-directo)** (CTAs de resolução / readiness) — ver [plano §Loop 92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
 
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
@@ -1931,14 +1931,24 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 ---
 
 <a id="loop-91-candidato--console-conversacional-com-sessões-e-timeline"></a>
+<a id="loop-91-fechado"></a>
 
-## Loop 91 (candidato) — Console conversacional com sessões e timeline
+## Loop 91 (fechado) — Console conversacional com sessões e timeline
 
-- **Etapa / prioridade:** alta  
-- **Objectivo do slice:** debug operacional com narrativa (utilizador → coordenador → especialista → tools → resposta).  
-- **Foco:** sessão reutilizável; timeline legível; JSON como avançado.  
-- **Critério de saída:** troubleshooting sem depender de JSON cru para o caso médio; gate + ledger.  
-- **Escopo Ralph:** não expandir para observabilidade completa da plataforma num só slice.
+**Estado:** **fechado** — plano mestre [§ Loop 91](agents-team-crafter-plano-evolucao.md#loop-91--console-conversacional-com-sessões-timeline-e-contexto-reutilizável).
+
+### Entregas (resumo)
+
+- **API:** `GET /teams/:id/debug-sessions` e `GET /teams/:id/debug-sessions/:conversationId` — lista de sessões persistidas (`TeamDebugSession`) e turnos com instantes ([`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts), [`team-debug-session.repository.ts`](../../backend/src/modules/team-runtime/infra/team-debug-session.repository.ts)).
+- **UI:** [`team-debug-console.tsx`](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx) — selector de sessão, refresh, histórico carregado do servidor com marca de tempo por turno; bloco **«Fluxo da última execução (narrativa)»** a partir de `events` + resumos de especialistas ([`team-debug-narrative.ts`](../../v0-team-ai-crafter/components/teams/team-debug-narrative.ts)); JSON técnico mantém-se em colapsável.
+- **Contexto de nomes:** `coordinatorAgentId`, `agentDisplayNames` na ficha do time e no grafo para labels na narrativa.
+
+### Checklist (fechado)
+
+- [x] Sessão reutilizável + lista; narrativa legível sem JSON obrigatório.
+- [x] Gate: `npm run build` backend + `npm run build` frontend (`v0-team-ai-crafter`). *Nota:* `npm test` no backend reportou 2 falhas pré-existentes em `channel-delete` / `team-active-channel-binding` (403 vs 201); não relacionadas com este slice.
+
+<a id="loop-92-candidato--resolver-pendências-com-cta-directo"></a>
 
 ## Loop 92 (candidato) — Resolver pendências com CTA directo
 

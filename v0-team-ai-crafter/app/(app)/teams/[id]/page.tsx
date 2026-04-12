@@ -239,6 +239,17 @@ export default function TeamDetailsPage({
     return { total, connected, notConnected }
   }, [teamChannels])
 
+  const agentDisplayNamesForDebug = useMemo(() => {
+    const m: Record<string, string> = {}
+    if (!team) return m
+    const agents = (team as Team & { agents?: Agent[] }).agents
+    if (!agents) return m
+    for (const a of agents) {
+      if (a.id && a.name) m[a.id] = a.name
+    }
+    return m
+  }, [team])
+
   const cockpitPriorities = useMemo(() => {
     if (!readiness?.items?.length) return [] as TeamReadinessResult["items"]
     const rank: Record<string, number> = { blocked: 0, attention: 1, info: 2 }
@@ -830,7 +841,9 @@ export default function TeamDetailsPage({
                 <TeamDebugConsole
                   teamId={team.id}
                   api={debugApi}
+                  coordinatorAgentId={team.coordinatorId}
                   coordinatorLabel={coordinator?.name}
+                  agentDisplayNames={agentDisplayNamesForDebug}
                   useHttpRun
                 />
               ) : (

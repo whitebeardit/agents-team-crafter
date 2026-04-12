@@ -1,7 +1,9 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import ReactMarkdown from "react-markdown"
+import { format, formatDistanceToNow, parseISO } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -9,16 +11,26 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { ChevronDown, Loader2, MessageSquareCode, Send } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { ChevronDown, Loader2, MessageSquareCode, RefreshCw, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ApiError, type createApiClient } from "@/lib/api/client"
 import type {
   TeamDebugLiveMirrorLine,
+  TeamDebugSessionSummary,
+  TeamDebugSessionTurn,
   TeamGraphLiveAgentState,
   TeamRunExternalImageAttachment,
   TeamRunResponse,
 } from "@/lib/types"
 import { toast } from "sonner"
+import { buildTeamRunNarrativeLines } from "@/components/teams/team-debug-narrative"
 
 type Api = ReturnType<typeof createApiClient>
 
@@ -26,6 +38,10 @@ export interface TeamDebugConsoleProps {
   teamId: string
   api: Api
   coordinatorLabel?: string
+  /** Para narrativa e nomes na timeline (opcional). */
+  coordinatorAgentId?: string
+  /** id → nome (especialistas + opcionalmente coordenador). */
+  agentDisplayNames?: Record<string, string>
   /** Usa POST /teams/:id/run (resposta completa de uma vez). Predefinido: true se nem stream estiver ativo. */
   useHttpRun?: boolean
   /** Usa POST /teams/:id/run/stream com SSE (modo live no grafo). */
@@ -50,6 +66,8 @@ type ChatLine = {
   streaming?: boolean
   format?: "plain" | "markdown"
   attachments?: TeamRunExternalImageAttachment[]
+  /** Quando o turno veio do histórico persistido no servidor. */
+  atLabel?: string
 }
 
 function AssistantMessageBody({ line }: { line: ChatLine }) {
@@ -115,6 +133,8 @@ export function TeamDebugConsole({
   teamId,
   api,
   coordinatorLabel,
+  coordinatorAgentId,
+  agentDisplayNames,
   useHttpRun: useHttpRunProp,
   useStreamRun = false,
   onLiveAgentStatus,
@@ -137,6 +157,85 @@ export function TeamDebugConsole({
   const [lastRaw, setLastRaw] = useState<TeamRunResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [rawOpen, setRawOpen] = useState(false)
+  const [narrativeOpen, setNarrativeOpen] = useState(true)
+  const [sessions, setSessions] = useState<TeamDebugSessionSummary[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+
+  const agentNameMap = useMemo(() => {
+    const m: Record<string, string> = { ...(agentDisplayNames ?? {}) }
+    if (coordinatorAgentId && coordinatorLabel) {
+      m[coordinatorAgentId] = coordinatorLabel
+    }
+    return m
+  }, [agentDisplayNames, coordinatorAgentId, coordinatorLabel])
+
+  const narrativeLines = useMemo(() => {
+    if (!lastRaw) return []
+    return buildTeamRunNarrativeLines(lastRaw.events ?? [], lastRaw.specialistResults ?? [], agentNameMap)
+  }, [lastRaw, agentNameMap])
+
+  const refreshSessions = useCallback(async () => {
+    setSessionsLoading(true)
+    try {
+      const res = await api.get<{ items: TeamDebugSessionSummary[] }>(`/teams/${teamId}/debug-sessions`)
+      setSessions(res.data.items ?? [])
+    } catch {
+      /* silencioso — lista é auxiliar */
+    } finally {
+      setSessionsLoading(false)
+    }
+  }, [api, teamId])
+
+  useEffect(() => {
+    void refreshSessions()
+  }, [refreshSessions])
+
+  const applyTurnsFromServer = useCallback((turns: TeamDebugSessionTurn[]) => {
+    setLines(
+      turns.map((t) => {
+        let atLabel: string | undefined
+        try {
+          atLabel = format(parseISO(t.at), "dd/MM/yyyy HH:mm", { locale: ptBR })
+        } catch {
+          atLabel = undefined
+        }
+        return {
+          role: t.role,
+          content: t.content,
+          atLabel,
+        }
+      }),
+    )
+  }, [])
+
+  const loadSessionHistory = useCallback(
+    async (cid: string) => {
+      try {
+        const res = await api.get<{ conversationId: string; turns: TeamDebugSessionTurn[] }>(
+          `/teams/${teamId}/debug-sessions/${encodeURIComponent(cid)}`,
+        )
+        applyTurnsFromServer(res.data.turns ?? [])
+        setConversationId(res.data.conversationId)
+        setLastRaw(null)
+      } catch (e) {
+        const err = e as ApiError
+        toast.error(err.message ?? "Não foi possível carregar a sessão")
+      }
+    },
+    [api, teamId, applyTurnsFromServer],
+  )
+
+  const sessionOptions = useMemo(() => {
+    const list: TeamDebugSessionSummary[] = [...sessions]
+    if (!list.some((s) => s.conversationId === conversationId)) {
+      list.push({
+        conversationId,
+        updatedAt: new Date().toISOString(),
+        turnCount: lines.length,
+      })
+    }
+    return list.sort((a, b) => parseISO(b.updatedAt).getTime() - parseISO(a.updatedAt).getTime())
+  }, [sessions, conversationId, lines.length])
 
   const send = useCallback(async () => {
     const message = input.trim()
@@ -190,6 +289,7 @@ export function TeamDebugConsole({
               }
               return next
             })
+            void refreshSessions()
           },
           onError: (err) => {
             toast.error(err.message ?? "Falha no stream do time")
@@ -231,6 +331,7 @@ export function TeamDebugConsole({
             attachments: er?.attachments,
           },
         ])
+        void refreshSessions()
       } catch (e) {
         const err = e as ApiError
         toast.error(err.message ?? "Falha ao executar time")
@@ -252,6 +353,7 @@ export function TeamDebugConsole({
     useHttpRun,
     useStreamRun,
     conversationId,
+    refreshSessions,
   ])
 
   return (
@@ -284,6 +386,56 @@ export function TeamDebugConsole({
           </div>
         </div>
       ) : null}
+
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2 border-b border-border bg-muted/15 shrink-0",
+          compact ? "px-3 py-2" : "px-4 py-2",
+        )}
+      >
+        <span className={cn("text-muted-foreground shrink-0", compact ? "text-[10px]" : "text-xs")}>Sessão</span>
+        <Select
+          value={conversationId}
+          onValueChange={(v) => {
+            void loadSessionHistory(v)
+          }}
+          disabled={busy}
+        >
+          <SelectTrigger className={cn("w-[min(100%,300px)]", compact ? "h-8 text-xs" : "")}>
+            <SelectValue placeholder="Conversa" />
+          </SelectTrigger>
+          <SelectContent align="start">
+            {sessionOptions.map((s) => {
+              let rel = ""
+              try {
+                rel = formatDistanceToNow(parseISO(s.updatedAt), { locale: ptBR, addSuffix: true })
+              } catch {
+                rel = ""
+              }
+              return (
+                <SelectItem key={s.conversationId} value={s.conversationId} className="text-xs">
+                  <span className="font-mono">{s.conversationId.slice(0, 8)}…</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {s.turnCount} trocas · {rel}
+                  </span>
+                </SelectItem>
+              )
+            })}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn("shrink-0", compact ? "h-8 w-8" : "h-9 w-9")}
+          disabled={sessionsLoading || busy}
+          onClick={() => void refreshSessions()}
+          title="Actualizar lista de sessões"
+        >
+          <RefreshCw className={cn("h-4 w-4", sessionsLoading && "animate-spin")} />
+        </Button>
+      </div>
 
       <div
         className={cn(
@@ -355,12 +507,41 @@ export function TeamDebugConsole({
               ) : (
                 <AssistantMessageBody line={line} />
               )}
+              {line.atLabel ? (
+                <p className="text-[10px] text-muted-foreground mt-1.5 opacity-90">{line.atLabel}</p>
+              ) : null}
             </div>
           ))
         )}
       </div>
 
       <div className={cn("border-t border-border space-y-2 shrink-0", compact ? "p-3" : "p-4 space-y-3")}>
+        {lastRaw && narrativeLines.length > 0 ? (
+          <Collapsible open={narrativeOpen} onOpenChange={setNarrativeOpen}>
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="gap-1 text-muted-foreground px-0 h-auto w-full justify-start">
+                <ChevronDown className={cn("w-4 h-4 transition-transform shrink-0", narrativeOpen && "rotate-180")} />
+                Fluxo da última execução (narrativa)
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <ol className="mt-2 space-y-1.5 text-xs text-foreground border border-border rounded-md p-3 bg-muted/30 list-decimal list-inside">
+                {narrativeLines.map((nl, i) => (
+                  <li
+                    key={`nar-${i}`}
+                    className={cn(
+                      "pl-1 marker:text-muted-foreground",
+                      nl.kind === "summary" && "text-muted-foreground list-[circle]",
+                    )}
+                  >
+                    {nl.text}
+                  </li>
+                ))}
+              </ol>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
+
         <Textarea
           placeholder="Mensagem para o coordenador..."
           value={input}
@@ -393,6 +574,7 @@ export function TeamDebugConsole({
               )
               setLines([])
               setLastRaw(null)
+              void refreshSessions()
             }}
           >
             Nova conversa

@@ -441,6 +441,32 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     return reply.code(201).send(successEnvelope(dup));
   });
 
+  const debugSessionsListQuery = z.object({
+    limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  });
+
+  app.get('/teams/:id/debug-sessions', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await deps.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const q = debugSessionsListQuery.parse(req.query);
+    const items = await deps.teamDebugSessionRepo.listSessionsForTeam(ws, teamId, q.limit);
+    return reply.send(successEnvelope({ items }));
+  });
+
+  app.get('/teams/:id/debug-sessions/:conversationId', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const rawCid = (req.params as { conversationId: string }).conversationId;
+    const team = await deps.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const cid = decodeURIComponent(rawCid ?? '').trim();
+    if (!cid) throw new AppError('VALIDATION_ERROR', 'conversationId invalido', 400);
+    const turns = await deps.teamDebugSessionRepo.getTurnsWithTimestamps(ws, teamId, cid);
+    return reply.send(successEnvelope({ conversationId: cid, turns }));
+  });
+
   app.post('/teams/:id/run', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;

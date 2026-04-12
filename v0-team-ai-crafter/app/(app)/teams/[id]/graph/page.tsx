@@ -85,6 +85,14 @@ export default function GraphEditorPage({
     })
   }, [token, refreshToken, currentWorkspace])
 
+  const agentDisplayNamesForDebug = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const a of agents) {
+      m[a.id] = a.name
+    }
+    return m
+  }, [agents])
+
   useEffect(() => {
     if (liveMode) setLiveSheetOpen(true)
     else setLiveSheetOpen(false)
@@ -525,7 +533,9 @@ export default function GraphEditorPage({
               <TeamDebugConsole
                 teamId={id}
                 api={api}
+                coordinatorAgentId={team.coordinatorId}
                 coordinatorLabel={agents.find((a) => a.id === team.coordinatorId)?.name}
+                agentDisplayNames={agentDisplayNamesForDebug}
                 useStreamRun
                 useHttpRun={false}
                 liveMirrorLines={liveMirrorLines}
