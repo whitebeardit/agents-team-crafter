@@ -14,6 +14,8 @@ Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roa
 
 **Fase actual do produto:** **Loops 82–86** na linha de **team planner + AI Builder** estão **fechados** (inclui execute/bind proporcional, unicidade real de `workflowKey` e inferência conservadora de built-ins — [Loop 86](#loop-86-fechado)). **Próximo slice oficial numerado:** [Loop 87](#loop-87-oficial) — especialistas operacionais (schemas, business actions, CRM, slot-filling, contexto no debug); especificação [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); plano mestre [§ Loop 87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
+**Após o Loop 87**, a sequência **recomendada** no plano mestre passa a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar esta sequência como **backlog recomendado / candidatos**, **não** como entregue até haver secção **Loop N (fechado)** e linha **entregue** na tabela de loops.
+
 Regras de uso:
 
 - ler este arquivo antes de iniciar o próximo loop
@@ -93,7 +95,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 
 Registo **operacional** para não perder contexto entre ciclos. Plano mestre: [§14.8 — gaps por domínio](agents-team-crafter-plano-evolucao.md#148-runtime-dominios-negocio-gaps); exemplo **CRM** (âncora legada): [§14.8 — CRM](agents-team-crafter-plano-evolucao.md#148-runtime-crm-clientes-gaps).
 
-**Norma:** os mesmos tipos de sintoma observados em CRM — schema de catálogo inválido, parâmetros obrigatórios pouco naturais, contrato genérico em `internal_action`, fluxos de escrita sem elicitação em lote — **aplicam-se a qualquer pack** (finanças, care, agendamento, …). A correção é **em duas camadas**: (1) **fundação transversal** no [Loop 87](#loop-87-oficial); (2) **vertical por domínio** em **Loops 88+**, um recorte coerente por ciclo.
+**Norma:** os mesmos tipos de sintoma observados em CRM — schema de catálogo inválido, parâmetros obrigatórios pouco naturais, contrato genérico em `internal_action`, fluxos de escrita sem elicitação em lote — **aplicam-se a qualquer pack** (finanças, care, agendamento, …). A correção é **em duas camadas**: (1) **fundação transversal** no [Loop 87](#loop-87-oficial); (2) **vertical por domínio** em **Loops 96+** (verticais por `packId`), um recorte coerente por ciclo — ver [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack). A macro-onda de **operação / UX 88–95** ([plano](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)) é **outra frente** (readiness, cockpit, debug narrativo, etc.), **não** substitui verticais por pack.
 
 | Sintoma (transversal) | Notas |
 | --- | --- |
@@ -108,7 +110,36 @@ Registo **operacional** para não perder contexto entre ciclos. Plano mestre: [�
 | Listar clientes / clientes ativos | Invocação sem **`query`** ou sem semântica de “ativo”; alinhar schema, modelo de dados e ações `crm_*`. |
 | Cadastro de cliente | Ver linha “cadastro / escrita” na tabela transversal. |
 
-**Estado:** **fundação + piloto CRM** em tratamento no [Loop 87](#loop-87-oficial); **verticais adicionais** (finanças, care, …) em slices posteriores — não dispersar correções fora do recorte sem actualizar o anexo [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md) ou o ledger do loop numerado correspondente.
+**Estado:** **fundação + piloto CRM** em tratamento no [Loop 87](#loop-87-oficial); **verticais adicionais** (finanças, care, …) em **Loops 96+** — não dispersar correções fora do recorte sem actualizar o anexo [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md) ou o ledger do loop numerado correspondente.
+
+### Diagnóstico operacional pós Loops 82–86
+
+Os **Loops 82–86** fecharam grande parte da **criação assistida** (team planner + AI Builder). O **[Loop 87](#loop-87-oficial)** é a ponte para **especialistas operacionais** em runtime (schemas, CRM, slot-filling, contexto no debug). O **próximo backlog recomendado** no plano mestre é a **operação real de times**: confiança, rapidez e pouca fricção ao validar, corrigir e produzir.
+
+**Gaps de produto observados (orientação; não antecipam entregas):**
+
+- **AI Builder** ainda denso numa única superfície para quem só quer «criar e ir»
+- **Página do time** sem cockpit de **prontidão** consolidada
+- **Console de debug** ainda mais próximo de ferramenta técnica do que de investigação narrativa rápida
+- **Runs** pouco legíveis para troubleshooting
+- Falta de fluxo claro de **resolver pendências** a partir do estado do time (CTAs directos)
+
+Ver [backlog candidato 88–95](#backlog-recomendado-após-o-loop-87) e o [plano mestre §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting).
+
+<a id="backlog-recomendado-após-o-loop-87"></a>
+
+## Backlog recomendado após o Loop 87
+
+| Loop | Tema | Estado |
+| ---- | ---- | ------ |
+| 88 | Preflight operacional / readiness do time | candidato |
+| 89 | AI Builder — modo simples por defeito, avançado sob demanda | candidato |
+| 90 | Cockpit operacional do time | candidato |
+| 91 | Console conversacional com sessões e timeline | candidato |
+| 92 | Resolver pendências com CTA directo | candidato |
+| 93 | Runs legíveis, replay e troubleshooting | candidato |
+| 94 | Templates operacionais e cenários dourados | candidato |
+| 95 | Polimento UI padrão e responsiva da operação | candidato |
 
 ### Admin global da plataforma: norma vs implementação actual
 
@@ -752,10 +783,13 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Próximo slice oficial (numerado):** **[Loop 87](#loop-87-oficial)** — especialistas fiáveis em runtime: schemas estritos (`catalog_*`, custom tools), desambiguação builtin vs `internal_action`, presets/catálogo/definitions com contrato, CRM (listagem/status/cadastro), slot-filling + erros estruturados, `conversationId` e histórico no debug. Especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md). Plano mestre: [§ Loop 87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional).
 
+**O próximo loop oficial continua a ser o [87](#loop-87-oficial).** **Após o 87**, a ordem **recomendada** no plano mestre para a macro-onda de operação é **88 → 89 → 90 → 91 → 92 → 93 → 94 → 95** (todos **candidatos** até haver secção fechada no ledger); verticais por `packId` seguem em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**. Isto fica explícito aqui para orientar o próximo ciclo **sem** criar um documento paralelo ao plano + ledger.
+
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
 | **1** | **Loop 87** — especialistas operacionais | [plano §87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional), [anexo](ralph-loop-87-especialistas-operacionais.md), [ledger](#loop-87-oficial) |
-| **2+** | **Loops 88+** — verticais por pack *(após 87)* | [plano §88+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar ao abrir cada slice |
+| **2–9** | **Loops 88–95** — operação real, UX, troubleshooting *(candidatos / após 87)* | [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
+| **10+** | **Loops 96+** — verticais por pack *(após 87 ou em paralelo)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -1810,7 +1844,73 @@ Fechar a lacuna entre arquitectura pronta e **especialistas utilizáveis** em co
 
 ### Gaps CRM / clientes
 
-O registo [Gaps — domínios de negócio](#gap-runtime-dominios-negocio) (inclui o exemplo CRM) deve ser **actualizado** quando o Loop 87 fechar na parte **transversal + piloto CRM**; verticais finanças/care/etc. seguem em **Loops 88+** com entradas próprias no ledger.
+O registo [Gaps — domínios de negócio](#gap-runtime-dominios-negocio) (inclui o exemplo CRM) deve ser **actualizado** quando o Loop 87 fechar na parte **transversal + piloto CRM**; verticais finanças/care/etc. seguem em **Loops 96+** com entradas próprias no ledger; a macro-onda de **operação 88–95** é independente (ver [backlog recomendado](#backlog-recomendado-após-o-loop-87)).
+
+---
+
+## Loop 88 (candidato) — Preflight operacional / readiness do time
+
+- **Etapa / prioridade:** altíssima (primeiro da sequência recomendada após o 87)  
+- **Objectivo do slice:** readiness / preflight do time e do plano antes e depois do execute.  
+- **Foco:** consolidar canais, integrações, tool definitions, bind, builtins e blockers; modelo `ready` / `attention` / `blocked`; lista curta de pendências.  
+- **Critério de saída:** utilizador percebe em &lt; 30 s se o time está pronto; cada pendência tem próximo passo; gate + ledger.  
+- **Escopo Ralph:** contrato de readiness + UI mínima primeiro; **não** misturar redesenho completo do AI Builder nem do debug neste slice.
+
+## Loop 89 (candidato) — AI Builder simples por defeito, avançado sob demanda
+
+- **Etapa / prioridade:** altíssima  
+- **Objectivo do slice:** reduzir carga cognitiva do AI Builder sem perder poder.  
+- **Foco:** modo simples vs avançado; progressive disclosure; mesmo caminho gerar → rever → executar.  
+- **Critério de saída:** utilizador novo não é forçado ao bind preview denso; avançado continua completo; gate + ledger.  
+- **Escopo Ralph:** UX apenas; **não** reescrever lógica de bind neste slice.
+
+## Loop 90 (candidato) — Cockpit operacional do time
+
+- **Etapa / prioridade:** alta  
+- **Objectivo do slice:** página do time como painel de operação, não só configuração.  
+- **Foco:** readiness, última run/teste, canais, capabilities, pendências, «o que resolver agora».  
+- **Critério de saída:** respostas rápidas a pronto / falta / última actividade / testar agora; gate + ledger.  
+- **Escopo Ralph:** uma visão executiva acrescida; evitar reimplementar todas as abas num único PR.
+
+## Loop 91 (candidato) — Console conversacional com sessões e timeline
+
+- **Etapa / prioridade:** alta  
+- **Objectivo do slice:** debug operacional com narrativa (utilizador → coordenador → especialista → tools → resposta).  
+- **Foco:** sessão reutilizável; timeline legível; JSON como avançado.  
+- **Critério de saída:** troubleshooting sem depender de JSON cru para o caso médio; gate + ledger.  
+- **Escopo Ralph:** não expandir para observabilidade completa da plataforma num só slice.
+
+## Loop 92 (candidato) — Resolver pendências com CTA directo
+
+- **Etapa / prioridade:** alta  
+- **Objectivo do slice:** fechar «detetado» → «corrigido» com menos cliques.  
+- **Foco:** CTA por blocker (definition, integração, canal, política, agente, tool).  
+- **Critério de saída:** transição `blocked` → `ready`/`attention` com navegação mínima; gate + ledger.  
+- **Escopo Ralph:** padrão de resolução guiada; evitar mapa de navegação genérico sem acções concretas.
+
+## Loop 93 (candidato) — Runs legíveis, replay e troubleshooting
+
+- **Etapa / prioridade:** média-alta  
+- **Objectivo do slice:** runs úteis para operação e reprodução.  
+- **Foco:** leitura humana; timeline resumida; filtros; replay quando fizer sentido.  
+- **Critério de saída:** run problemática localizável e reproduzível rapidamente; gate + ledger.  
+- **Escopo Ralph:** não fundir com o console 91 num único ciclo.
+
+## Loop 94 (candidato) — Templates operacionais e cenários dourados
+
+- **Etapa / prioridade:** média  
+- **Objectivo do slice:** templates que acelerem **validação** em produção, não só criação de entidades.  
+- **Foco:** caso de uso, pré-requisitos, como validar, prompts de teste, comportamento esperado.  
+- **Critério de saída:** aplicar template reduz tempo até operação confiável; gate + ledger.  
+- **Escopo Ralph:** smoke tests manuais / cenários dourados; evitar suite E2E completa como scope único.
+
+## Loop 95 (candidato) — Polimento UI padrão e responsivo da operação
+
+- **Etapa / prioridade:** média  
+- **Objectivo do slice:** consistência visual e responsiva nas superfícies operacionais (Builder avançado, cockpit, console, runs).  
+- **Foco:** cards/drawers/CTA; estados `ready`/`attention`/`blocked` claros.  
+- **Critério de saída:** desktop/tablet/mobile usáveis nas rotas operacionais; gate + ledger.  
+- **Escopo Ralph:** polimento; **não** reabrir funcionalidades core já cobertas nos 88–94.
 
 ---
 
