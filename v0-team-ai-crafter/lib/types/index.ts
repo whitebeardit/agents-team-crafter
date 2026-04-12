@@ -44,6 +44,8 @@ export interface TeamRunRequest {
   locale?: string
   requestedAccessLevel?: AccessLevel
   taskType?: string
+  /** Memória de conversa no console de debug (histórico no servidor). */
+  conversationId?: string
 }
 
 export interface TeamRunExternalImageAttachment {

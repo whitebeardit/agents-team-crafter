@@ -2,6 +2,15 @@ import type { WorkspaceToolDefinitionRepository } from '../../tool-definitions/i
 import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
 import { actionIdToToolSlug } from './planner-pack-presets.js';
 
+function isGenericInternalActionPlaceholder(schema: Record<string, unknown> | undefined): boolean {
+  if (!schema || typeof schema !== 'object') return true;
+  return (
+    schema.type === 'object' &&
+    schema.additionalProperties === true &&
+    !schema.properties
+  );
+}
+
 /**
  * Garante uma `WorkspaceToolDefinition` por actionId (kind internal_action), reutilizando slug estável.
  */
@@ -19,24 +28,33 @@ export async function ensureInternalActionDefinitions(
     seen.add(actionId);
 
     const slug = actionIdToToolSlug(actionId);
+    const preset = getBusinessActionPreset(actionId);
+    const canonicalSchema =
+      preset?.inputSchema && typeof preset.inputSchema === 'object'
+        ? (preset.inputSchema as Record<string, unknown>)
+        : ({
+            type: 'object',
+            additionalProperties: true,
+            description: `Parâmetros para a ação interna ${actionId}`,
+          } as Record<string, unknown>);
+
     const existing = await repo.findBySlug(workspaceId, slug);
     if (existing) {
+      const js = existing.jsonSchema as Record<string, unknown> | undefined;
+      if (isGenericInternalActionPlaceholder(js) && preset?.inputSchema) {
+        await repo.update(workspaceId, existing.id, { jsonSchema: canonicalSchema });
+      }
       definitionIds.push(existing.id);
       continue;
     }
 
     try {
-      const preset = getBusinessActionPreset(actionId);
       const displayName = preset?.title?.trim() ? preset.title.trim() : `Negócio: ${actionId}`;
       const created = await repo.create(workspaceId, {
         name: displayName,
         slug,
         kind: 'internal_action',
-        jsonSchema: {
-          type: 'object',
-          additionalProperties: true,
-          description: `Parâmetros para a ação interna ${actionId}`,
-        },
+        jsonSchema: canonicalSchema,
         config: { actionId },
       });
       definitionIds.push(created.id);

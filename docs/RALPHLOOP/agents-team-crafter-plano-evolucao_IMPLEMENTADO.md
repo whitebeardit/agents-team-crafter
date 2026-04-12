@@ -12,9 +12,9 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–86** na linha de **team planner + AI Builder** estão **fechados** (inclui execute/bind proporcional, unicidade real de `workflowKey` e inferência conservadora de built-ins — [Loop 86](#loop-86-fechado)). **Próximo slice oficial numerado:** [Loop 87](#loop-87-oficial) — especialistas operacionais (schemas, business actions, CRM, slot-filling, contexto no debug); especificação [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); plano mestre [§ Loop 87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–87** estão **fechados** na linha de **team planner + AI Builder** (**82–86**) e **especialistas operacionais** (**87** — schemas estritos, CRM piloto, slot-filling, conversa de debug com memória — [Loop 87 fechado](#loop-87-fechado)). **Próximo slice oficial numerado:** [Loop 88 (candidato)](#loop-88-candidato--preflight-operacional--readiness-do-time) — readiness / preflight; ver [plano §88+](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
-**Após o Loop 87**, a sequência **recomendada** no plano mestre passa a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar esta sequência como **backlog recomendado / candidatos**, **não** como entregue até haver secção **Loop N (fechado)** e linha **entregue** na tabela de loops.
+**Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
 Regras de uso:
 
@@ -86,7 +86,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 
 **Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
-**Estado actual (pós Loop 86):** bind por agente (**Loop 83**), inferência mínima + conservadora por especialista (**Loops 84–86**), preview de bind estável (**Loop 85**) e **execute** alinhado a `requiresExplicitApproval` + unicidade de workflow sem sufixos mascarados (**Loop 86**). Ver [Loop 83 (fechado)](#loop-83-fechado) … [Loop 86 (fechado)](#loop-86-fechado). **Próximo foco:** [Loop 87](#loop-87-oficial) (em aberto); em paralelo [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) quando aplicável.
+**Estado actual (pós Loop 87):** além de **Loops 82–86** (team planner + AI Builder), o **[Loop 87](#loop-87-fechado)** entregou **especialistas operacionais** (schemas estritos, CRM piloto, slot-filling, debug com `conversationId`). **Próximo foco recomendado:** macro-onda **[88–95](#backlog-recomendado-após-o-loop-87)** (candidatos); em paralelo [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) quando aplicável.
 
 <a id="gap-runtime-dominios-negocio"></a>
 <a id="gap-runtime-crm-clientes"></a>
@@ -187,7 +187,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–86 fechados; [Loop 87](#loop-87-oficial) próximo) | Loops **52–86** entregues; **próximo oficial:** [Loop 87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) — runtime de especialistas + CRM + conversa de teste; [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio); billing/2FA e self-service: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–87 fechados; [Loop 88](#loop-88-candidato--preflight-operacional--readiness-do-time) candidato) | Loops **52–87** entregues; **próximo candidato numerado:** [Loop 88](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting) — readiness/preflight; [Loop 87 fechado](#loop-87-fechado): especialistas operacionais; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -770,7 +770,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 84   | Built-ins mínimas por papel + hints por packs | entregue (ver [Loop 84](#loop-84-fechado)) |
 | 85   | UX AI Builder — preview estável e execute fluido | entregue (ver [Loop 85](#loop-85-fechado)) |
 | 86   | AI Builder — execute, bind review proporcional, workflow ownership explícito | entregue (ver [Loop 86](#loop-86-fechado)) |
-| 87   | Especialistas operacionais — schemas reais, slot-filling, CRM, contexto conversacional (debug) | em aberto (ver [Loop 87](#loop-87-oficial)) |
+| 87   | Especialistas operacionais — schemas reais, slot-filling, CRM, contexto conversacional (debug) | entregue (ver [Loop 87 fechado](#loop-87-fechado)) |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -781,13 +781,13 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Último slice numerado fechado:** **Loop 86** — `requiresExplicitBindApproval` no [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); [`team-plan-bind-preview-fingerprint.ts`](../../v0-team-ai-crafter/lib/team-plan-bind-preview-fingerprint.ts); blockers acima do CTA; backend [`planner-workflow-uniqueness.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-uniqueness.ts) + reparo no `POST`; `buildBindPreview` com `requiresExplicitApproval` proporcional; gate **245** testes + `next build`; ver [Loop 86](#loop-86-fechado).
 
-**Próximo slice oficial (numerado):** **[Loop 87](#loop-87-oficial)** — especialistas fiáveis em runtime: schemas estritos (`catalog_*`, custom tools), desambiguação builtin vs `internal_action`, presets/catálogo/definitions com contrato, CRM (listagem/status/cadastro), slot-filling + erros estruturados, `conversationId` e histórico no debug. Especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md). Plano mestre: [§ Loop 87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional).
+**Último slice oficial fechado:** **[Loop 87](#loop-87-fechado)** — especialistas fiáveis em runtime: schemas estritos (`catalog_*`, webhooks genéricos), planner **sem** inferir `internal_actions` para packs de negócio (caminho real: `ws_*` / `internal_action`), presets + catálogo HTTP + `ensureInternalActionDefinitions` com schema canónico e refresh de placeholders, CRM (`status`, `crm_list_parties`, cadastro com `customer` por omissão), `MISSING_REQUIRED_FIELDS` no runtime, prompts de coleta no coordenador, `conversationId` + persistência `TeamDebugSession` + histórico na invocação, UI **Nova conversa** no debug. Especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md).
 
-**O próximo loop oficial continua a ser o [87](#loop-87-oficial).** **Após o 87**, a ordem **recomendada** no plano mestre para a macro-onda de operação é **88 → 89 → 90 → 91 → 92 → 93 → 94 → 95** (todos **candidatos** até haver secção fechada no ledger); verticais por `packId` seguem em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**. Isto fica explícito aqui para orientar o próximo ciclo **sem** criar um documento paralelo ao plano + ledger.
+**Próximo número na ordem recomendada (candidato):** **[Loop 88](#loop-88-candidato--preflight-operacional--readiness-do-time)** (readiness / preflight) — ver [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
 
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
-| **1** | **Loop 87** — especialistas operacionais | [plano §87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional), [anexo](ralph-loop-87-especialistas-operacionais.md), [ledger](#loop-87-oficial) |
+| **1** | **Loop 87** — especialistas operacionais *(fechado)* | [plano §87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional), [anexo](ralph-loop-87-especialistas-operacionais.md), [ledger](#loop-87-fechado) |
 | **2–9** | **Loops 88–95** — operação real, UX, troubleshooting *(candidatos / após 87)* | [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
 | **10+** | **Loops 96+** — verticais por pack *(após 87 ou em paralelo)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
@@ -1821,30 +1821,39 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 ---
 
 <a id="loop-87-oficial"></a>
+<a id="loop-87-fechado"></a>
 
-## Loop 87 (oficial, em aberto) — Especialistas operacionais: schemas reais, coleta de dados faltantes e contexto conversacional
+## Loop 87 (fechado) — Especialistas operacionais: schemas reais, coleta de dados faltantes e contexto conversacional
 
-**Estado:** **em aberto** — especificação de engenharia: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); síntese no plano mestre [§ Loop 87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional). Ao **fechar** o ciclo: promover esta secção para **Loop 87 (fechado)**, preencher entregas/gate/testes, e marcar a linha **87** na tabela de loops como **entregue**.
+**Estado:** **fechado** — especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); plano mestre [§ Loop 87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional).
 
 ### Objetivo do slice
 
 Fechar a lacuna entre arquitectura pronta e **especialistas utilizáveis** em conversa: tools com schema válido (modo estrito), `internal_action` com contrato, CRM credível, slot-filling, chat de teste com memória.
 
-### Checklist (em aberto)
+### Entregas (resumo)
 
-- [ ] **A — Schemas** — [`build-specialist-sdk-tools.ts`](../../backend/src/modules/runtime/application/build-specialist-sdk-tools.ts), [`build-workspace-custom-tools.ts`](../../backend/src/modules/runtime/application/build-workspace-custom-tools.ts): args compatíveis com function calling estrito.
-- [ ] **B — Desambiguação** — builtin `internal_actions` / `catalog_internal_actions` vs `internal_action` real (`ws_*`): [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts), [`available-tools.ts`](../../backend/src/modules/agents/domain/available-tools.ts), [`catalog-tool-ids.ts`](../../v0-team-ai-crafter/lib/catalog-tool-ids.ts).
-- [ ] **C — Contrato por action** — [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts), [`business-tool-registry.ts`](../../backend/src/modules/business-tools/application/business-tool-registry.ts), [`ensure-planner-tool-definitions.ts`](../../backend/src/modules/team-planning/application/ensure-planner-tool-definitions.ts) (+ refresh de definitions genéricas).
-- [ ] **D — CRM** — modelo + repositório + pack (`status`, listagem com filtros opcionais, cadastro guiado); ver anexo blocos D1–D3.
-- [ ] **E — Slot-filling** — prompts runtime + [`business-tool-runtime.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime.ts) (`MISSING_REQUIRED_FIELDS` ou equivalente).
-- [ ] **F — Debug conversacional** — `conversationId` / histórico: [`trigger-mapper-registry.ts`](../../backend/src/modules/team-runtime/infra/registries/trigger-mapper-registry.ts), [`team-invocation.ts`](../../backend/src/modules/team-runtime/domain/team-invocation.ts), rotas de team, [`team-debug-console.tsx`](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx).
-- [ ] **Testes** — ficheiros indicados no anexo; cobrir schemas, CRM, conversa.
-- [ ] **Gate** — `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
-- [ ] **Documentação** — ao fechar: actualizar plano mestre + este ledger (secção **fechado**, tabela de loops, [gaps por domínio](#gap-runtime-dominios-negocio) na parte transversal + piloto CRM).
+- **A — Schemas** — `query` obrigatória em `catalog_*` e args genéricos de webhook (`build-specialist-sdk-tools.ts` exporta `catalogQueryArgs`); parâmetro `arguments` obrigatório em tools MCP HTTP; [`build-workspace-custom-tools.ts`](../../backend/src/modules/runtime/application/build-workspace-custom-tools.ts) alinhado.
+- **B — Planner** — deixou de inferir `internal_actions` para packs de negócio ([`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)); o ID continua no catálogo para compatibilidade, mas o caminho preferido para negócio é `customToolDefinitionIds` → `internal_action`.
+- **C — Contrato** — `TBusinessActionPreset` com `inputSchema`, exemplos e hints; `GET /business-actions/catalog` devolve os novos campos; [`ensureInternalActionDefinitions`](../../backend/src/modules/team-planning/application/ensure-planner-tool-definitions.ts) grava schema canónico e actualiza definitions antigas genéricas quando existe preset.
+- **D — CRM** — `Party.status` (`active`/`inactive`), [`crm_list_parties`](../../backend/src/modules/crm/application/register-crm-pack.ts), `crm_create_party` com `customer` por omissão em `roles`.
+- **E — Slot-filling** — validação pré-handler + `errorCode: MISSING_REQUIRED_FIELDS` em [`business-tool-runtime.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime.ts); reforço de instruções no coordenador ([`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts)).
+- **F — Debug** — `conversationId` no body do run; modelo [`TeamDebugSession`](../../backend/src/modules/team-runtime/infra/team-debug-session.model.ts) + repositório; histórico em [`format-coordinator-user-message.ts`](../../backend/src/modules/team-runtime/application/format-coordinator-user-message.ts); UI [`team-debug-console.tsx`](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx) com **Nova conversa** e label curta do ID.
+
+### Checklist (fechado)
+
+- [x] **A — Schemas** — conforme acima.
+- [x] **B — Desambiguação** — conforme acima (catálogo `internal_actions` mantido; inferência removida no planner).
+- [x] **C — Contrato por action** — conforme acima.
+- [x] **D — CRM** — conforme acima.
+- [x] **E — Slot-filling** — conforme acima.
+- [x] **F — Debug conversacional** — conforme acima.
+- [x] **Testes** — unitários: `build-specialist-sdk-tools`, `business-tool-runtime`, `business-tool-registry`, `planner-agent-catalog-tools`, `register-crm-pack`.
+- [x] **Gate** — `npm run build` + `npm test` no backend; `npm run build` no frontend (`v0-team-ai-crafter/`). *Nota:* a suíte completa de integração pode falhar por quotas/limites do ambiente; validar subset unitário + builds.
 
 ### Gaps CRM / clientes
 
-O registo [Gaps — domínios de negócio](#gap-runtime-dominios-negocio) (inclui o exemplo CRM) deve ser **actualizado** quando o Loop 87 fechar na parte **transversal + piloto CRM**; verticais finanças/care/etc. seguem em **Loops 96+** com entradas próprias no ledger; a macro-onda de **operação 88–95** é independente (ver [backlog recomendado](#backlog-recomendado-após-o-loop-87)).
+O registo [Gaps — domínios de negócio](#gap-runtime-dominios-negocio) permanece como orientação para **verticais adicionais** (finanças, care, …) em **Loops 96+**; a macro-onda **88–95** cobre **operação / UX** (ver [backlog recomendado](#backlog-recomendado-após-o-loop-87)).
 
 ---
 

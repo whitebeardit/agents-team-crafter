@@ -6,12 +6,17 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
     const data = input as Record<string, unknown>;
     const displayName = typeof data.displayName === 'string' ? data.displayName : '';
     if (!displayName.trim()) throw new Error('displayName obrigatorio');
-    const roles = Array.isArray(data.roles)
+    let roles = Array.isArray(data.roles)
       ? data.roles.filter((x): x is string => typeof x === 'string')
       : [];
+    if (roles.length === 0) roles = ['customer'];
+    const rawStatus = typeof data.status === 'string' ? data.status : '';
+    const status =
+      rawStatus === 'inactive' ? 'inactive' : rawStatus === 'active' ? 'active' : undefined;
     return parties.create(workspaceId, {
       displayName: displayName.trim(),
       roles,
+      status,
       email: typeof data.email === 'string' ? data.email : undefined,
       phone: typeof data.phone === 'string' ? data.phone : undefined,
       notes: typeof data.notes === 'string' ? data.notes : undefined,
@@ -41,6 +46,9 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
       if (t) set.notes = t;
       else unset.push('notes');
     }
+    if (data.status === 'active' || data.status === 'inactive') {
+      set.status = data.status;
+    }
     if (Object.keys(set).length === 0 && unset.length === 0) {
       throw new Error('Nenhum campo para atualizar');
     }
@@ -69,5 +77,25 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
     const role = typeof data.role === 'string' ? data.role : '';
     if (!role.trim()) throw new Error('role obrigatorio');
     return { parties: await parties.listByRole(workspaceId, role) };
+  });
+
+  registry.register('crm_list_parties', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const query = typeof data.query === 'string' ? data.query : '';
+    const roles = Array.isArray(data.roles)
+      ? data.roles.filter((x): x is string => typeof x === 'string')
+      : undefined;
+    const st = typeof data.status === 'string' ? data.status : '';
+    const status =
+      st === 'active' || st === 'inactive' ? (st as 'active' | 'inactive') : undefined;
+    const limit = typeof data.limit === 'number' && Number.isFinite(data.limit) ? data.limit : undefined;
+    return {
+      parties: await parties.listParties(workspaceId, {
+        query,
+        roles,
+        status,
+        limit,
+      }),
+    };
   });
 }

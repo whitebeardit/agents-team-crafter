@@ -9,5 +9,15 @@ export function formatCoordinatorUserMessage(invocation: ITeamInvocation): strin
   if (c.taskType) meta.push(`taskType=${c.taskType}`);
   if (c.requestedAccessLevel) meta.push(`access=${c.requestedAccessLevel}`);
   const prefix = meta.length > 0 ? `[${meta.join('] [')}] ` : '';
-  return `${prefix}${invocation.message}`;
+
+  const conv = invocation.conversation;
+  if (!conv?.history?.length) {
+    return `${prefix}${invocation.message}`;
+  }
+  const histLines = conv.history
+    .map((t) =>
+      t.role === 'user' ? `Utilizador: ${t.content}` : `Assistente: ${t.content}`,
+    )
+    .join('\n');
+  return `${prefix}## Histórico recente da conversa\n${histLines}\n\n## Mensagem atual\n${invocation.message}`;
 }

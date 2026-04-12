@@ -19,6 +19,7 @@ import { AuditLogRepository } from '../modules/audit/infra/audit-log.repository.
 import { OpenAIAgentsRuntimeProvider } from '../modules/runtime/infra/openai-agents-runtime.provider.js';
 import { SpecialistRegistry } from '../modules/team-runtime/infra/registries/specialist-registry.js';
 import { CoordinatorOrchestratorService } from '../modules/team-runtime/application/coordinator-orchestrator.service.js';
+import { TeamDebugSessionRepository } from '../modules/team-runtime/infra/team-debug-session.repository.js';
 import {
   createTeamLiveBroadcaster,
   type TeamLiveBroadcaster,
@@ -94,6 +95,7 @@ export interface IAppDeps {
    */
   redis: Redis | null;
   partyRepo: PartyRepository;
+  teamDebugSessionRepo: TeamDebugSessionRepository;
 }
 
 export function createDeps(env: IEnv): IAppDeps {
@@ -166,6 +168,7 @@ export function createDeps(env: IEnv): IAppDeps {
   );
   const redis = createRedisAppClient(env.REDIS_URL);
   const teamLiveBroadcaster = createTeamLiveBroadcaster(redis);
+  const teamDebugSessionRepo = new TeamDebugSessionRepository();
   const authenticate = buildAuthenticate(env.JWT_SECRET, { platformAdminEmails });
   const requirePlatformAdmin = buildRequirePlatformAdmin();
   const requireTenant = buildRequireTenant(memberRepo);
@@ -207,6 +210,7 @@ export function createDeps(env: IEnv): IAppDeps {
     teamLiveBroadcaster,
     redis,
     partyRepo,
+    teamDebugSessionRepo,
   };
 }
 

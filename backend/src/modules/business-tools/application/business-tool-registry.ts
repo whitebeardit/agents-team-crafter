@@ -17,6 +17,10 @@ export interface IBusinessActionCatalogItem {
   title: string;
   description: string;
   packId?: string;
+  inputSchema?: Record<string, unknown>;
+  requiredFieldLabels?: string[];
+  examples?: Array<Record<string, unknown>>;
+  slotFillingPromptHint?: string;
 }
 
 export class BusinessToolRegistry {
@@ -48,6 +52,10 @@ export class BusinessToolRegistry {
         title: preset?.title ?? actionId,
         description: preset?.description ?? '',
         packId: preset?.packId,
+        inputSchema: preset?.inputSchema,
+        requiredFieldLabels: preset?.requiredFieldLabels,
+        examples: preset?.examples,
+        slotFillingPromptHint: preset?.slotFillingPromptHint,
       });
     }
     items.sort((a, b) => a.title.localeCompare(b.title, 'pt'));

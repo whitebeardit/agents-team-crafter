@@ -43,6 +43,9 @@ const COORDINATOR_SPECIALIST_TOOL_GUIDANCE = `
 ## Ferramentas de especialistas
 Cada chamada recebe o parâmetro \`instruction\`. O sistema repassa automaticamente a **mensagem completa do utilizador** ao especialista quando ainda não estiver incluída nessa instrução; podes focar a \`instruction\` na tarefa e confiar nesse reenvio para código ou texto longo.
 
+## Ações de negócio (internal_action / ws_*)
+Para criar ou alterar dados, **não invoques** a tool enquanto faltarem campos obrigatórios do contrato. Identifica o que falta e faz **uma** pergunta compacta com todos os itens em falta; depois executa a tool. Se o runtime devolver erro de campos em falta, usa essa lista na próxima resposta em vez de repetir a chamada vazia.
+
 ## Resposta final ao utilizador (imagens)
 Quando um especialista devolver uma **URL HTTPS** de imagem gerada (por exemplo após usar a tool de geração de imagens) ou Markdown \`![descricao](https://...)\`, **inclui obrigatoriamente** essa linha Markdown na tua resposta final, para a interface e o Telegram mostrarem a imagem. Não substituas por apenas uma descrição textual se existir URL disponível.`;
 

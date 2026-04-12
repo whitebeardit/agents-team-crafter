@@ -6,7 +6,11 @@ import { logToolInvocation } from './tool-invocation-logger.js';
 import { jsonSchemaToZodParams } from './json-schema-to-zod-params.js';
 
 const genericArgs = z.object({
-  query: z.string().optional().describe('Payload or query string for the tool'),
+  query: z
+    .string()
+    .describe(
+      'Payload ou texto de consulta para a ferramenta; use string vazia quando não aplicável.',
+    ),
 });
 
 function slugToToolName(slug: string): string {

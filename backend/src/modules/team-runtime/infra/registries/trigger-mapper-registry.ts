@@ -7,6 +7,8 @@ export const teamRunBodySchema = z.object({
   locale: z.string().optional(),
   requestedAccessLevel: z.enum(['read', 'write', 'restricted']).optional(),
   taskType: z.string().optional(),
+  /** Identidade estável da conversa (ex.: console de debug); histórico carregado no servidor. */
+  conversationId: z.string().min(1).max(128).optional(),
 });
 
 export type ITeamRunBody = z.infer<typeof teamRunBodySchema>;
@@ -37,6 +39,7 @@ export function buildManualTeamInvocation(
   coordinatorId: string,
   body: ITeamRunBody,
   correlationId?: string,
+  conversation?: ITeamInvocation['conversation'],
 ): ITeamInvocation {
   return {
     trigger: 'manual',
@@ -51,6 +54,7 @@ export function buildManualTeamInvocation(
       requestedAccessLevel: body.requestedAccessLevel,
     },
     ...(correlationId ? { metadata: { correlationId } } : {}),
+    ...(conversation ? { conversation } : {}),
   };
 }
 

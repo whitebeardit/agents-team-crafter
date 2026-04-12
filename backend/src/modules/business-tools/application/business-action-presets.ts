@@ -7,6 +7,14 @@ export type TBusinessActionPreset = {
   description: string;
   /** Alinhado a packs do planner quando aplicável */
   packId?: string;
+  /** JSON Schema do corpo esperado pela ação (campos obrigatórios em `required`). */
+  inputSchema?: Record<string, unknown>;
+  /** Rótulos humanos dos obrigatórios (UI / prompts). */
+  requiredFieldLabels?: string[];
+  /** Exemplos de payload válido. */
+  examples?: Array<Record<string, unknown>>;
+  /** Texto curto para o modelo pedir dados em falta de uma vez. */
+  slotFillingPromptHint?: string;
 };
 
 const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
@@ -17,8 +25,28 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'crm_create_party': {
     title: 'CRM — Criar parte',
-    description: 'Cria registo de pessoa/organização (party) no workspace.',
+    description:
+      'Cria registo de pessoa/organização (party). Para “cadastrar cliente”, usa roles que incluam `customer` (omissão: só customer).',
     packId: 'crm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        displayName: { type: 'string', description: 'Nome de exibição do cliente' },
+        roles: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Papéis, ex.: customer, payer',
+        },
+        email: { type: 'string' },
+        phone: { type: 'string' },
+        notes: { type: 'string' },
+      },
+      required: ['displayName'],
+    },
+    requiredFieldLabels: ['Nome (displayName)'],
+    examples: [{ displayName: 'Maria Silva', roles: ['customer'], email: 'maria@exemplo.pt' }],
+    slotFillingPromptHint:
+      'Se faltar o nome, pergunta numa única mensagem: nome, email, telefone e observações opcionais.',
   },
   'crm_update_party': {
     title: 'CRM — Atualizar parte',
@@ -27,8 +55,15 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'crm_find_party': {
     title: 'CRM — Procurar parte',
-    description: 'Pesquisa parties por texto.',
+    description: 'Pesquisa parties por texto no nome.',
     packId: 'crm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Texto de busca; use string vazia só se quiseres listagem geral (prefere crm_list_parties).' },
+      },
+      required: ['query'],
+    },
   },
   'crm_get_party_summary': {
     title: 'CRM — Resumo da parte',
@@ -37,8 +72,40 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'crm_list_parties_by_role': {
     title: 'CRM — Listar por papel',
-    description: 'Lista parties filtradas por papel.',
+    description: 'Lista parties filtradas por um único papel.',
     packId: 'crm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        role: { type: 'string', description: 'Papel, ex.: customer' },
+      },
+      required: ['role'],
+    },
+  },
+  'crm_list_parties': {
+    title: 'CRM — Listar parties',
+    description:
+      'Lista parties com filtros opcionais: texto, papéis, estado ativo/inativo. Use query vazia para “todos os clientes cadastrados”; status active + roles customer para “clientes ativos”.',
+    packId: 'crm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Filtro por nome; string vazia lista sem filtro de texto.',
+        },
+        roles: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Filtrar por papéis (ex.: ["customer"]).',
+        },
+        status: { type: 'string', enum: ['active', 'inactive'], description: 'Estado da party no CRM.' },
+        limit: { type: 'number', description: 'Máximo de registos (cap no servidor).' },
+      },
+      required: ['query'],
+    },
+    slotFillingPromptHint:
+      'Não é necessário pedir IDs ao utilizador para listar; usa query \"\" e roles/status conforme o pedido.',
   },
   'care_create_subject': {
     title: 'Care — Criar sujeito de cuidado',

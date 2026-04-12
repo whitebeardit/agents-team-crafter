@@ -1,5 +1,6 @@
 import type { BusinessToolRegistry } from './business-tool-registry.js';
 import type { BusinessToolAuditRepository } from '../infra/business-tool-audit.repository.js';
+import { validateBusinessActionInput } from './business-action-input-validation.js';
 
 export interface IBusinessToolRuntime {
   execute(params: {
@@ -37,6 +38,27 @@ export class BusinessToolRuntime implements IBusinessToolRuntime {
         correlationId: params.correlationId,
       });
       return { ok: false, error: `Acao interna desconhecida: ${actionId}`, errorCode: 'UNKNOWN_ACTION' };
+    }
+
+    const validation = validateBusinessActionInput(actionId, params.input);
+    if (!validation.ok) {
+      const missing = validation.missingFields;
+      await this.auditRepo.append({
+        workspaceId: params.workspaceId,
+        toolDefinitionId: params.toolDefinitionId,
+        actionId,
+        ok: false,
+        errorCode: 'MISSING_REQUIRED_FIELDS',
+        input: params.input,
+        result: { missingFields: missing },
+        correlationId: params.correlationId,
+      });
+      return {
+        ok: false,
+        errorCode: 'MISSING_REQUIRED_FIELDS',
+        error: `Campos obrigatorios em falta: ${missing.join(', ')}`,
+        result: { missingFields: missing },
+      };
     }
 
     try {

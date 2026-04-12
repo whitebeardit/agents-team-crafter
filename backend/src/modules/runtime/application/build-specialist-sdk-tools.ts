@@ -56,8 +56,13 @@ const CATALOG_STUB: Record<
   },
 };
 
-const catalogArgs = z.object({
-  query: z.string().optional().describe('Optional query, path, or SQL depending on the tool'),
+/** Modo estrito OpenAI: propriedades em `properties` devem constar em `required`; usar "" quando não houver filtro. */
+export const catalogQueryArgs = z.object({
+  query: z
+    .string()
+    .describe(
+      'Texto de consulta, caminho relativo ou SQL conforme a ferramenta. Use string vazia quando não houver filtro específico.',
+    ),
 });
 
 /**
@@ -109,7 +114,7 @@ export function buildCapabilityCatalogTools(
           name: `catalog_${id}`.slice(0, 64),
           description:
             'Run a read-only SQL query against the workspace Postgres (SELECT/WITH only, LIMIT applied).',
-          parameters: catalogArgs,
+          parameters: catalogQueryArgs,
           execute: async (input) =>
             executeDatabaseQuery(ctx, input as { query?: string }, {
               workspaceId: meta.workspaceId,
@@ -124,7 +129,7 @@ export function buildCapabilityCatalogTools(
         tool({
           name: `catalog_${id}`.slice(0, 64),
           description: 'GET calendar REST endpoint; query field is relative path.',
-          parameters: catalogArgs,
+          parameters: catalogQueryArgs,
           execute: async (input) =>
             executeCalendarAccess(ctx, input as { query?: string }, {
               workspaceId: meta.workspaceId,
@@ -157,7 +162,7 @@ export function buildCapabilityCatalogTools(
       tool({
         name: `catalog_${id}`.slice(0, 64),
         description: metaStub.description,
-        parameters: catalogArgs,
+        parameters: catalogQueryArgs,
         execute: async (input) => {
           logToolInvocation({
             workspaceId: meta.workspaceId,
@@ -195,8 +200,9 @@ export function buildMcpSdkTools(
       parameters: z.object({
         arguments: z
           .string()
-          .optional()
-          .describe('JSON or free-form payload for the MCP tool'),
+          .describe(
+            'JSON ou texto livre para a ferramenta MCP; use string vazia quando não houver payload.',
+          ),
       }),
       needsApproval: spec.requiresApproval,
       execute: async (input) => {
@@ -211,7 +217,10 @@ export function buildMcpSdkTools(
               body: JSON.stringify({
                 tool: spec.toolName,
                 bindingId: spec.bindingId,
-                arguments: input,
+                arguments:
+                  typeof input === 'object' && input !== null && 'arguments' in input
+                    ? String((input as { arguments: string }).arguments)
+                    : '',
               }),
               signal: AbortSignal.timeout(60_000),
             });

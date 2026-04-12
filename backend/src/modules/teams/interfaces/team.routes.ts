@@ -22,7 +22,21 @@ import { productChannelTypeSchema } from '../../channels/domain/product-channel-
 import {
   buildManualTeamInvocation,
   teamRunBodySchema,
+  type ITeamRunBody,
 } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
+import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
+
+async function loadTeamRunConversation(
+  deps: IAppDeps,
+  workspaceId: string,
+  teamId: string,
+  body: ITeamRunBody,
+): Promise<ITeamInvocation['conversation'] | undefined> {
+  const cid = body.conversationId?.trim();
+  if (!cid) return undefined;
+  const history = await deps.teamDebugSessionRepo.getRecentTurns(workspaceId, teamId, cid);
+  return { id: cid, history };
+}
 
 const listTeamsQuery = paginationQuerySchema.merge(
   z.object({
@@ -425,15 +439,28 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
     const startedAt = new Date();
+    const conversation = await loadTeamRunConversation(deps, ws, teamId, body);
     const invocation = buildManualTeamInvocation(
       ws,
       String(t['id']),
       String(t['coordinatorId']),
       body,
       req.requestId,
+      conversation,
     );
     try {
       const result = await invokeTeam(deps.coordinatorOrchestrator, invocation);
+      if (body.conversationId?.trim()) {
+        const assistantText = result.externalResponse?.text?.trim() ?? '';
+        await deps.teamDebugSessionRepo.appendExchange(
+          ws,
+          teamId,
+          body.conversationId.trim(),
+          req.user?.sub,
+          body.message,
+          assistantText || '(sem texto)',
+        );
+      }
       await deps.runRecorderService.recordCompleted({
         workspaceId: ws,
         teamId,
@@ -560,12 +587,14 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
     const startedAt = new Date();
+    const conversation = await loadTeamRunConversation(deps, ws, teamId, body);
     const invocation = buildManualTeamInvocation(
       ws,
       String(t['id']),
       String(t['coordinatorId']),
       body,
       req.requestId,
+      conversation,
     );
 
     const stream = new PassThrough();
@@ -604,6 +633,17 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
             }
           },
         });
+        if (body.conversationId?.trim()) {
+          const assistantText = result.externalResponse?.text?.trim() ?? '';
+          await deps.teamDebugSessionRepo.appendExchange(
+            ws,
+            teamId,
+            body.conversationId.trim(),
+            req.user?.sub,
+            body.message,
+            assistantText || '(sem texto)',
+          );
+        }
         const complete = {
           runId: result.runId,
           teamId: result.teamId,

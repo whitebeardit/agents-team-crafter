@@ -1,5 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
-import { buildCapabilityCatalogTools, imageGenerationArgs } from './build-specialist-sdk-tools.js';
+import {
+  buildCapabilityCatalogTools,
+  catalogQueryArgs,
+  imageGenerationArgs,
+} from './build-specialist-sdk-tools.js';
 import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
 
 const validBase = {
@@ -31,6 +35,14 @@ describe('imageGenerationArgs (strict OpenAI function schema)', () => {
   it('rejeita size invalido', () => {
     const r = imageGenerationArgs.safeParse({ ...validBase, size: '400x400' });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('catalogQueryArgs (modo estrito OpenAI)', () => {
+  it('exige query (string vazia permitida)', () => {
+    expect(catalogQueryArgs.safeParse({}).success).toBe(false);
+    expect(catalogQueryArgs.safeParse({ query: '' }).success).toBe(true);
+    expect(catalogQueryArgs.safeParse({ query: 'x' }).success).toBe(true);
   });
 });
 

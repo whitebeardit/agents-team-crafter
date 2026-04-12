@@ -99,14 +99,14 @@ describe('planner-agent-catalog-tools', () => {
     expect(spec('A', 0)).toEqual(['web_search']);
   });
 
-  it('packs scheduling/reminders reforçam calendar_access e internal_actions', () => {
+  it('packs scheduling/reminders reforçam calendar_access (Loop 87: sem internal_actions stub)', () => {
     const t = inferCatalogToolsForPlanAgent(specialistBase('S'), {
       specialistIndex: 0,
       requiredPacksLower: ['scheduling'],
     });
     expect(t).toContain('web_search');
     expect(t).toContain('calendar_access');
-    expect(t).toContain('internal_actions');
+    expect(t).not.toContain('internal_actions');
   });
 
   it('inferCatalogPackContextLower usa requiredPackIds do agente quando preenchido', () => {

@@ -6,19 +6,6 @@ type TPlanAgent = TPlannerOutput['agents'][number];
 /** Packs que justificam `calendar_access` quando não há texto explícito (Loop 84). */
 const PACK_IDS_CALENDAR_HINT = new Set(['scheduling', 'reminders']);
 
-/** Packs de negócio que justificam `internal_actions` para aceder a tools internas (Loop 84). */
-const PACK_IDS_INTERNAL_ACTIONS_HINT = new Set([
-  'crm',
-  'care',
-  'clinical',
-  'finance',
-  'services_sales',
-  'packages_encounters',
-  'scheduling',
-  'reminders',
-  'github_ops',
-]);
-
 function dedupeLowerPacks(packs: readonly string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -58,9 +45,7 @@ function applyPackHintsToPicked(packsLower: readonly string[], picked: Set<strin
   if (packsLower.some((p) => PACK_IDS_CALENDAR_HINT.has(p))) {
     picked.add('calendar_access');
   }
-  if (packsLower.some((p) => PACK_IDS_INTERNAL_ACTIONS_HINT.has(p))) {
-    picked.add('internal_actions');
-  }
+  /** Loop 87: não inferir `internal_actions` (stub de catálogo); ações de negócio reais vêm de `customToolDefinitionIds` → `ws_*` / `internal_action`. */
 }
 
 function agentTextBlob(agent: TPlanAgent): string {

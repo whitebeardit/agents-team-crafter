@@ -127,6 +127,11 @@ export function TeamDebugConsole({
 }: TeamDebugConsoleProps) {
   const compact = variant === "compact"
   const useHttpRun = useHttpRunProp ?? !useStreamRun
+  const [conversationId, setConversationId] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `dbg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+  )
   const [input, setInput] = useState("")
   const [lines, setLines] = useState<ChatLine[]>([])
   const [lastRaw, setLastRaw] = useState<TeamRunResponse | null>(null)
@@ -147,7 +152,7 @@ export function TeamDebugConsole({
 
       await api.streamTeamRun(
         teamId,
-        { message, channel: "debug" },
+        { message, channel: "debug", conversationId },
         {
           onAgentStatus: (e) => {
             onLiveAgentStatus?.(e.agentId, {
@@ -213,6 +218,7 @@ export function TeamDebugConsole({
         const res = await api.post<TeamRunResponse>(`/teams/${teamId}/run`, {
           message,
           channel: "debug",
+          conversationId,
         })
         setLastRaw(res.data)
         const er = res.data.externalResponse
@@ -245,6 +251,7 @@ export function TeamDebugConsole({
     teamId,
     useHttpRun,
     useStreamRun,
+    conversationId,
   ])
 
   return (
@@ -269,6 +276,10 @@ export function TeamDebugConsole({
               Canal local <code className="text-[10px] bg-muted px-1 rounded">debug</code>
               {coordinatorLabel ? ` · ${coordinatorLabel}` : ""}
               {useStreamRun ? " · SSE live" : ""}
+              {" · "}
+              <span className="font-mono text-[10px]" title="ID da conversa (memória no servidor)">
+                {conversationId.slice(0, 8)}…
+              </span>
             </p>
           </div>
         </div>
@@ -364,10 +375,29 @@ export function TeamDebugConsole({
           }}
           className="resize-none"
         />
-        <Button type="button" className="gap-2" disabled={busy || !input.trim()} onClick={() => void send()}>
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          {busy ? "A executar..." : "Enviar"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" className="gap-2" disabled={busy || !input.trim()} onClick={() => void send()}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {busy ? "A executar..." : "Enviar"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setConversationId(
+                typeof crypto !== "undefined" && "randomUUID" in crypto
+                  ? crypto.randomUUID()
+                  : `dbg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              )
+              setLines([])
+              setLastRaw(null)
+            }}
+          >
+            Nova conversa
+          </Button>
+        </div>
 
         {lastRaw ? (
           <Collapsible open={rawOpen} onOpenChange={setRawOpen}>

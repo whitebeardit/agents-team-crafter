@@ -30,4 +30,9 @@ export interface ITeamInvocation {
   coordinatorExternalContext: ICoordinatorExternalContext;
   actor?: ITeamInvocationActor;
   metadata?: Record<string, unknown>;
+  /** Loop 87 — histórico recente reutilizado no console de debug / conversas com memória. */
+  conversation?: {
+    id: string;
+    history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  };
 }
