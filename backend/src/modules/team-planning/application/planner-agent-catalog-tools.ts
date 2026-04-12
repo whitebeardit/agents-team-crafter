@@ -3,13 +3,55 @@ import type { TPlannerOutput } from './team-plan-planner-output.schema.js';
 
 type TPlanAgent = TPlannerOutput['agents'][number];
 
-const SPECIALIST_DEFAULT_ROTATION: readonly (readonly string[])[] = [
-  ['web_search', 'file_search'],
-  ['web_search', 'code_execution'],
-  ['web_search', 'database_query'],
-  ['web_search', 'calendar_access'],
-  ['web_search', 'email_send'],
-];
+/** Packs que justificam `calendar_access` quando não há texto explícito (Loop 84). */
+const PACK_IDS_CALENDAR_HINT = new Set(['scheduling', 'reminders']);
+
+/** Packs de negócio que justificam `internal_actions` para aceder a tools internas (Loop 84). */
+const PACK_IDS_INTERNAL_ACTIONS_HINT = new Set([
+  'crm',
+  'care',
+  'clinical',
+  'finance',
+  'services_sales',
+  'packages_encounters',
+  'scheduling',
+  'reminders',
+  'github_ops',
+]);
+
+function dedupeLowerPacks(packs: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of packs) {
+    const k = raw.trim().toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out;
+}
+
+/**
+ * Loop 84 — contexto de packs para inferência de builtins: por agente se `requiredPackIds`
+ * não vazio; senão `requiredPacks` globais (legado). Coordenador usa só globais.
+ */
+export function inferCatalogPackContextLower(agent: TPlanAgent, plan: TPlannerOutput): string[] {
+  if (agent.role === 'coordinator') {
+    return dedupeLowerPacks(plan.requiredPacks ?? []);
+  }
+  const agentPacks = dedupeLowerPacks(agent.requiredPackIds ?? []);
+  if (agentPacks.length > 0) return agentPacks;
+  return dedupeLowerPacks(plan.requiredPacks ?? []);
+}
+
+function applyPackHintsToPicked(packsLower: readonly string[], picked: Set<string>): void {
+  if (packsLower.some((p) => PACK_IDS_CALENDAR_HINT.has(p))) {
+    picked.add('calendar_access');
+  }
+  if (packsLower.some((p) => PACK_IDS_INTERNAL_ACTIONS_HINT.has(p))) {
+    picked.add('internal_actions');
+  }
+}
 
 function agentTextBlob(agent: TPlanAgent): string {
   const parts = [
@@ -17,6 +59,7 @@ function agentTextBlob(agent: TPlanAgent): string {
     agent.description,
     agent.objective,
     agent.category,
+    agent.workflowKey,
     ...(agent.skills ?? []),
     ...(agent.responsibilities ?? []),
   ];
@@ -25,15 +68,18 @@ function agentTextBlob(agent: TPlanAgent): string {
 
 /**
  * Heurística quando o planner não envia `catalogTools` (fallback/template ou modelo antigo).
- * Coordenador: mínimo (`web_search`). Especialistas: keywords → subconjunto; senão rotação por índice para diferenciar.
+ * Loop 84: **sem** rotação por índice; fallback mínimo `web_search`; packs (por agente ou globais)
+ * reforçam hints controlados (calendar / internal_actions).
  */
 export function inferCatalogToolsForPlanAgent(
   agent: TPlanAgent,
   ctx: {
     specialistIndex: number;
+    /** Packs em contexto lower-case (ver `inferCatalogPackContextLower`). */
     requiredPacksLower: readonly string[];
   },
 ): string[] {
+  void ctx.specialistIndex;
   if (agent.role === 'coordinator') {
     const packs = ctx.requiredPacksLower;
     if (packs.some((p) => p.includes('scheduling') || p.includes('reminders'))) {
@@ -52,16 +98,9 @@ export function inferCatalogToolsForPlanAgent(
   if (/agenda|calend[aá]rio|hor[aá]rio|agendamento|appointment|lembrete/.test(t)) picked.add('calendar_access');
   if (/documento|pdf|arquivo|pesquisa|literatura|nota t[eé]cnica/.test(t)) picked.add('file_search');
 
-  if (ctx.requiredPacksLower.some((p) => p === 'scheduling' || p === 'reminders') && picked.size === 1) {
-    picked.add('calendar_access');
-  }
+  applyPackHintsToPicked(ctx.requiredPacksLower, picked);
 
-  if (picked.size > 1) {
-    return normalizeCatalogToolIds([...picked]);
-  }
-
-  const rot = SPECIALIST_DEFAULT_ROTATION[ctx.specialistIndex % SPECIALIST_DEFAULT_ROTATION.length]!;
-  return normalizeCatalogToolIds([...rot]);
+  return normalizeCatalogToolIds([...picked]);
 }
 
 export function resolveCatalogToolsForPlanAgent(
@@ -70,7 +109,7 @@ export function resolveCatalogToolsForPlanAgent(
 ): string[] {
   const normalized = normalizeCatalogToolIds(agent.catalogTools ?? []);
   if (normalized.length > 0) return normalized;
-  const requiredPacksLower = (ctx.plan.requiredPacks ?? []).map((p) => p.trim().toLowerCase());
+  const requiredPacksLower = inferCatalogPackContextLower(agent, ctx.plan);
   return inferCatalogToolsForPlanAgent(agent, {
     specialistIndex: ctx.specialistIndex,
     requiredPacksLower,

@@ -21,6 +21,11 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/requiredTools.*actionIds/i);
   });
 
+  it('Loop 84 — prompt menciona inferência mínima sem rotação por posição', () => {
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/Loop 84.*inferência no servidor/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/não.*rotação automática por posição/i);
+  });
+
   it('exemplo JSON inclui catalogTools, requiredPacks e requiredTools', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toContain('"catalogTools": ["web_search"]');
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toContain('"requiredPacks": []');

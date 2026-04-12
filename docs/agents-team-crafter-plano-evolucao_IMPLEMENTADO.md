@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/agents-team-crafter-plano-evolucao.md`.
 
-**Fase actual do produto:** **bind preview/execute por agente** quando o plano tem listas por agente (**Loop 83**) está **entregue**; o foco **actual** é **inferência default** de built-ins agressiva em `planner-agent-catalog-tools.ts` ([Loop 84](#loop-84-planeado)) e **AI Builder** com atrito no preview/aprovação ([Loop 85](#loop-85-planeado)). **Próximo slice oficial:** [Loop 84](#loop-84-planeado) (built-ins mínimas + enforcement por workflow).
+**Fase actual do produto:** **inferência mínima** de built-ins em `planner-agent-catalog-tools.ts` (**Loop 84**) está **entregue**; o foco **actual** é **AI Builder** com atrito no preview/aprovação ([Loop 85](#loop-85-planeado)). **Próximo slice oficial:** [Loop 85](#loop-85-planeado) (preview estável + execute fluido).
 
 Regras de uso:
 
@@ -84,7 +84,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 
 **Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
-**Estado actual (pós Loop 83):** com listas por agente no plano, `buildBindPreview` / execute usam candidatos **por agente**; modo **global** legado quando ninguém preenche listas por agente; UI com badge **por agente** no preview. Ver [Loop 83 (fechado)](#loop-83-fechado). **Continuação planeada:** [Loops 84–85](#loop-84-planeado) (built-ins mínimas, UX fluida).
+**Estado actual (pós Loop 84):** com listas por agente no plano, `buildBindPreview` / execute usam candidatos **por agente**; modo **global** legado quando ninguém preenche listas por agente; UI com badge **por agente** no preview; inferência de `catalogTools` **mínima** no servidor (sem rotação por índice). Ver [Loop 83 (fechado)](#loop-83-fechado), [Loop 84 (fechado)](#loop-84-fechado). **Continuação planeada:** [Loop 85](#loop-85-planeado) (UX fluida no AI Builder).
 
 ### Admin global da plataforma: norma vs implementação actual
 
@@ -712,7 +712,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 81   | AI Builder — preview simples, tools focalizadas, camadas (UX assistido) | entregue (ver [Loop 81](#loop-81-fechado)) |
 | 82   | Contrato do planner por agente + workflow ownership | entregue (ver [Loop 82](#loop-82-fechado)) |
 | 83   | Bind preview e execute per-agent (fim do bind global) | entregue (ver [Loop 83](#loop-83-fechado)) |
-| 84   | Built-ins mínimas por papel + workflow uniqueness | planeado (ver [Loop 84](#loop-84-planeado)) |
+| 84   | Built-ins mínimas por papel + hints por packs | entregue (ver [Loop 84](#loop-84-fechado)) |
 | 85   | UX AI Builder — preview estável e execute fluido | planeado (ver [Loop 85](#loop-85-planeado)) |
 
 
@@ -722,16 +722,15 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 83** — `computePlannerBindActionUniverse` + `buildBindPreview` / execute por agente quando há listas por agente; `bindResolutionMode` na API; badge no AI Builder; testes em `planner-pack-presets.test.ts`; ver [Loop 83](#loop-83-fechado).
+**Último slice numerado fechado:** **Loop 84** — remoção da rotação por índice em `inferCatalogToolsForPlanAgent`; `inferCatalogPackContextLower` (packs por agente vs globais); hints controlados por packs; prompt Loop 84; testes; gate **237** testes + `next build`; ver [Loop 84](#loop-84-fechado).
 
-**Próximo slice oficial (numerado):** **Loop 84 — Built-ins mínimas por papel + enforcement por workflow** — ver [Loop 84 (planeado)](#loop-84-planeado) e [checklist](#checklist-do-loop-84-proximo); plano mestre: [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow).
+**Próximo slice oficial (numerado):** **Loop 85 — UX do AI Builder: preview estável e execute fluido** — ver [Loop 85 (planeado)](#loop-85-planeado); plano mestre: [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido).
 
 **Em paralelo (não substitui o foco 82–85):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace).
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
-| 1 | **84** | Built-ins mínimas + enforcement por workflow | [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow) |
-| 2 | 85 | UX AI Builder estável / execute fluido | [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido) |
+| 1 | **85** | UX AI Builder estável / execute fluido | [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido) |
 | — | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -764,13 +763,21 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 - [x] `normalizeBindOverrides` em `updatePlan` / `updateBindOverrides` com universo capped alinhado
 - [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **232** testes backend; `next build` OK
 
-<a id="checklist-do-loop-84-proximo"></a>
+<a id="checklist-do-loop-84-fechado"></a>
 
-## Checklist do Loop 84 (próximo)
+## Checklist do Loop 84 (fechado)
 
-- [ ] Reduzir inferência agressiva em [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts); alinhar com `workflowKey` / [Loop 84 plano](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)
-- [ ] Testes de borda + gate Ralph
-- [ ] Commit + push; ledger → **Loop 84 (fechado)** e **Próximo loop oficial** → Loop 85
+- [x] [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): removida rotação por índice; `inferCatalogPackContextLower`; hints por packs (`calendar_access`, `internal_actions`) conservadores
+- [x] [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): regra Loop 84 (inferência mínima; sem rotação)
+- [x] Testes: [`planner-agent-catalog-tools.test.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), [`team-plan-planner-prompt.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts)
+- [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes backend; `next build` OK
+
+<a id="checklist-do-loop-85-proximo"></a>
+
+## Checklist do Loop 85 (próximo)
+
+- [ ] Preview estável / execute fluido no AI Builder — [Loop 85 plano](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)
+- [ ] Commit + push; ledger → **Loop 85 (fechado)** e **Próximo loop oficial** → *(14.8 ou slice numerado seguinte)*
 
 ---
 
@@ -1338,7 +1345,7 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - objetivo do slice: cada agente do plano (coordenador e especialistas) passa a ter **builtins do catálogo** (`capabilities.tools`) **materializadas** — subconjunto mínimo por papel, diferenciado entre especialistas quando o planner não define lista explícita; AI Builder permite **edição manual** antes de salvar/executar.
 - **entregue no repositório:**
   - [`available-tools.ts`](../backend/src/modules/agents/domain/available-tools.ts): `normalizeCatalogToolIds`
-  - [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): inferência por keywords + rotação por índice de especialista; `resolveCatalogToolsForPlanAgent`
+  - [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): inferência por keywords (+ [Loop 84](#loop-84-fechado): hints por packs, sem rotação por índice); `resolveCatalogToolsForPlanAgent`
   - [`team-plan-planner-output.schema.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): `agents[].catalogTools` normalizado
   - [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts): materialização em `createPlan` / `updatePlan`; `executePlan` grava `capabilities.tools` em agentes **novos**
   - [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): instruções + JSON com `catalogTools`
@@ -1697,14 +1704,14 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 - **Testes / gate:** [`planner-pack-presets.test.ts`](../backend/src/modules/team-planning/application/planner-pack-presets.test.ts); `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **232** testes.
 - **referência no plano mestre:** [Loop 83](agents-team-crafter-plano-evolucao.md#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global)
 
-<a id="loop-84-planeado"></a>
+<a id="loop-84-fechado"></a>
 
-## Loop 84 (planeado) — Built-ins mínimas por papel + workflow uniqueness
+## Loop 84 (fechado) — Built-ins mínimas por papel + hints por packs
 
-- **etapa/prioridade:** ETAPA 9 (inferência + unicidade) / alta
-- **objetivo do slice:** reduzir fallback agressivo em [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts); built-ins mínimas por papel; articul unicidade de `workflowKey` com exclusividade de builtins em [`planner-specialist-catalog-uniqueness.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts).
-- **foco:** heurísticas + prompt [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts); articular com [Loops 77–80](#loop-77-fechado).
-- **critério de saída:** menos ruído nas fichas; testes de borda; gate Ralph.
+- **etapa/prioridade:** ETAPA 9 (inferência) / alta
+- **objetivo do slice:** reduzir inferência agressiva quando `catalogTools` vem vazio — sem rotação por índice; fallback mínimo (`web_search`); packs por agente (`requiredPackIds`) ou globais reforçam hints controlados (`calendar_access`, `internal_actions`).
+- **Backend:** [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts) — `inferCatalogPackContextLower`, `inferCatalogToolsForPlanAgent`; [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) — parágrafo Loop 84.
+- **Testes / gate:** [`planner-agent-catalog-tools.test.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), [`team-plan-planner-prompt.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts); `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes.
 - **referência no plano mestre:** [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)
 
 <a id="loop-85-planeado"></a>

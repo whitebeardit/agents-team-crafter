@@ -1,5 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
-import { inferCatalogToolsForPlanAgent, resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
+import {
+  inferCatalogPackContextLower,
+  inferCatalogToolsForPlanAgent,
+  resolveCatalogToolsForPlanAgent,
+} from './planner-agent-catalog-tools.js';
 import type { TPlannerOutput } from './team-plan-planner-output.schema.js';
 
 const wf82 = {
@@ -21,6 +25,22 @@ function basePlan(agents: TPlannerOutput['agents'], requiredPacks: string[] = []
     executionChecklist: [],
     requiredPacks,
     requiredTools: [],
+  };
+}
+
+function specialistBase(name: string, overrides: Partial<TPlannerOutput['agents'][number]> = {}): TPlannerOutput['agents'][number] {
+  return {
+    name,
+    role: 'specialist',
+    description: 'x',
+    objective: 'y',
+    responsibilities: [],
+    skills: [],
+    category: 'geral',
+    channels: [],
+    catalogTools: [],
+    ...wf82,
+    ...overrides,
   };
 }
 
@@ -47,14 +67,14 @@ describe('planner-agent-catalog-tools', () => {
     expect(t).toEqual(['web_search']);
   });
 
-  it('especialistas genéricos diferenciam por índice', () => {
-    const spec = (name: string, idx: number) =>
-      inferCatalogToolsForPlanAgent(
+  it('coordenador com scheduling nos packs globais recebe web_search e calendar_access', () => {
+    const plan = basePlan(
+      [
         {
-          name,
-          role: 'specialist',
-          description: 'x',
-          objective: 'y',
+          name: 'Coord',
+          role: 'coordinator',
+          description: '',
+          objective: '',
           responsibilities: [],
           skills: [],
           category: 'geral',
@@ -62,9 +82,41 @@ describe('planner-agent-catalog-tools', () => {
           catalogTools: [],
           ...wf82,
         },
-        { specialistIndex: idx, requiredPacksLower: [] },
-      );
-    expect(spec('A', 0).sort()).not.toEqual(spec('B', 1).sort());
+      ],
+      ['scheduling'],
+    );
+    const t = inferCatalogToolsForPlanAgent(plan.agents[0]!, {
+      specialistIndex: 0,
+      requiredPacksLower: inferCatalogPackContextLower(plan.agents[0]!, plan),
+    });
+    expect(t.sort()).toEqual(['calendar_access', 'web_search'].sort());
+  });
+
+  it('especialistas genéricos sem packs não diferenciam por índice (Loop 84)', () => {
+    const spec = (name: string, idx: number) =>
+      inferCatalogToolsForPlanAgent(specialistBase(name), { specialistIndex: idx, requiredPacksLower: [] });
+    expect(spec('A', 0).sort()).toEqual(spec('B', 1).sort());
+    expect(spec('A', 0)).toEqual(['web_search']);
+  });
+
+  it('packs scheduling/reminders reforçam calendar_access e internal_actions', () => {
+    const t = inferCatalogToolsForPlanAgent(specialistBase('S'), {
+      specialistIndex: 0,
+      requiredPacksLower: ['scheduling'],
+    });
+    expect(t).toContain('web_search');
+    expect(t).toContain('calendar_access');
+    expect(t).toContain('internal_actions');
+  });
+
+  it('inferCatalogPackContextLower usa requiredPackIds do agente quando preenchido', () => {
+    const plan = basePlan([specialistBase('S', { requiredPackIds: ['crm'] })], ['scheduling']);
+    expect(inferCatalogPackContextLower(plan.agents[0]!, plan)).toEqual(['crm']);
+  });
+
+  it('inferCatalogPackContextLower herda requiredPacks globais quando agente não tem packs', () => {
+    const plan = basePlan([specialistBase('S')], ['finance']);
+    expect(inferCatalogPackContextLower(plan.agents[0]!, plan)).toEqual(['finance']);
   });
 
   it('resolveCatalogToolsForPlanAgent respeita lista explícita do planner', () => {
