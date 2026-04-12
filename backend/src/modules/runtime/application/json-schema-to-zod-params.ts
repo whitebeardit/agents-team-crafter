@@ -8,21 +8,17 @@ export function jsonSchemaToZodParams(
   schema: Record<string, unknown>,
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   if (!schema || typeof schema !== 'object') {
-    return z.object({}).passthrough();
+    return z.object({});
   }
   const t = schema['type'];
   if (t !== 'object') {
-    return z.object({}).passthrough();
+    return z.object({});
   }
   const props = schema['properties'];
   if (!props || typeof props !== 'object') {
-    return z.object({}).passthrough();
+    return z.object({});
   }
-  const required = new Set(
-    Array.isArray(schema['required'])
-      ? (schema['required'] as unknown[]).filter((x): x is string => typeof x === 'string')
-      : [],
-  );
+  const required = new Set(Array.isArray(schema['required']) ? (schema['required'] as string[]) : []);
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const [key, raw] of Object.entries(props as Record<string, unknown>)) {
     const p = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
@@ -32,10 +28,12 @@ export function jsonSchemaToZodParams(
     else if (pt === 'number' || pt === 'integer') zf = z.number();
     else if (pt === 'boolean') zf = z.boolean();
     else if (pt === 'array') zf = z.array(z.unknown());
-    else if (pt === 'object') zf = z.record(z.string(), z.unknown());
+    else if (pt === 'object') zf = z.object({});
     else zf = z.unknown();
-    if (!required.has(key)) zf = zf.optional();
+    if (!required.has(key)) {
+      zf = z.union([zf, z.null()]).describe('Opcional: use null quando não precisar preencher este campo.');
+    }
     shape[key] = zf;
   }
-  return z.object(shape).passthrough();
+  return z.object(shape);
 }
