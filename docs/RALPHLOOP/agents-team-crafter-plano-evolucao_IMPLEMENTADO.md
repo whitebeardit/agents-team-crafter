@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–94** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)), **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)), **runs legíveis / troubleshooting** (**93** — [Loop 93 fechado](#loop-93-fechado)) e **templates operacionais / cenários dourados** (**94** — [Loop 94 fechado](#loop-94-fechado)). **Próximo slice oficial numerado:** [Loop 95 (candidato)](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação) — polimento UI operacional; ver [plano §95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–94** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)), **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)), **runs legíveis / troubleshooting** (**93** — [Loop 93 fechado](#loop-93-fechado)) e **templates operacionais / cenários dourados** (**94** — [Loop 94 fechado](#loop-94-fechado)). **Próximo slice oficial em aberto:** [Loop 98.1](#loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools) — norma transversal de contrato de tools; ver [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md). **Loop 95** permanece candidato de polimento UX operacional. **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 **Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
@@ -786,7 +786,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 **Penúltimo slice fechado:** **[Loop 93](#loop-93-fechado)** — runs legíveis (ficha do time + lista global `/runs` com filtros).
 
-**Próximo número na ordem recomendada (candidato):** **[Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação)** (polimento responsivo / operação) — ver [plano §Loop 95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
+**Próximo slice oficial (aberto):** **[Loop 98.1](#loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools)** — norma oficial de produto/engenharia para endurecimento de contrato de tools (transversal). Mantém-se [Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação) como candidato de UX operacional e as verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
 
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
@@ -799,7 +799,8 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | **7** | **Loop 93** — runs legíveis / troubleshooting *(fechado)* | [plano §93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido), [ledger](#loop-93-fechado) |
 | **8** | **Loop 94** — templates operacionais / cenários dourados *(fechado)* | [plano §94](agents-team-crafter-plano-evolucao.md#loop-94--templates-operacionais-e-cenários-dourados-de-validação), [ledger](#loop-94-fechado) |
 | **9** | **Loop 95** — polimento UI operacional *(candidato)* | [plano §95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
-| **10+** | **Loops 96+** — verticais por pack | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
+| **10** | **Loop 98** — endurecimento de contrato de tools *(oficial, em aberto no slice 98.1)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [plano §Loops 96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack), [ledger §Loop 98.1](#loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools) |
+| **11+** | **Loops 96+** — verticais por pack | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -2004,6 +2005,21 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 
 - [x] Critérios do plano (validação + prompts + comportamento esperado) reflectidos em dados e UI.
 - [x] Gate: `npm run build` backend + `npm run build` frontend.
+
+<a id="loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools"></a>
+
+## Loop 98.1 (oficial, em aberto) — Norma oficial de contrato de tools
+
+- **Etapa / prioridade:** ETAPA 9 / alta (transversal de runtime e produto).
+- **Objetivo do slice:** registrar formalmente que **prompt-only não garante contrato**; a garantia vem de schema canónico + normalização controlada + validação estrita + retry seguro + observabilidade.
+- **Referências cruzadas:** [Loop 87](#loop-87-fechado) (fundação) e [Loop 97](ralph-loop-97-garantia-schema-crm-displayname.md) (caso CRM `displayName`).
+- **Documento base:** [`ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md`](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md).
+- **Critério de saída:** posição oficial inequívoca no `docs/RALPHLOOP` + roadmap 98.1→98.9 explícito e auditável no plano/ledger.
+
+**Próximo slice recomendado após 98.1:** **98.2 — pipeline canónico do boundary da tool**.
+
+---
+
 
 <a id="loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação"></a>
 
