@@ -119,7 +119,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–75); **76–78 planeados** (cards + IA team planner) | Loops 52–75 entregues; **76** = cards em `/templates`; **77–78** = prompts/enforcement criação de times por IA ([plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–76); **77–78 planeados** (IA team planner) | Loops 52–76 entregues (incl. listagens densas `/runs`→`/templates`); **77–78** = prompts/enforcement criação de times por IA ([plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -691,7 +691,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 73   | Listagens densas — vista em cards (mobile/tablet)             | entregue (ver [Loop 73](#loop-73-fechado))                                                      |
 | 74   | Listagens densas — cards em `/governance`                     | entregue (ver [Loop 74](#loop-74-fechado))                                                      |
 | 75   | Listagens densas — cards em `/tool-definitions`              | entregue (ver [Loop 75](#loop-75-fechado))                                                      |
-| 76   | Listagens densas — cards em `/templates`                     | planeado — candidato (ver [Loop 76](#loop-76-candidato))                      |
+| 76   | Listagens densas — cards em `/templates`                     | entregue (ver [Loop 76](#loop-76-fechado))                                                      |
 | 77   | Prompts do planner — domínio, builtin e anti-duplicação       | planeado — candidato (ver [Loop 77](#loop-77-candidato))                        |
 | 78   | Enforcement / UX — builtins de negócio sem ambiguidade       | planeado — candidato (ver [Loop 78](#loop-78-candidato))                        |
 
@@ -702,15 +702,16 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 75** — tabela em `md+` e cartões em `<md` em `/tool-definitions` (ver [Loop 75](#loop-75-fechado)).
+**Último slice numerado fechado:** **Loop 76** — tabela em `md+` e `TemplateCard` em `<md` em `/templates` (ver [Loop 76](#loop-76-fechado)).
 
-**Próximo slice numerado recomendado:** **Loop 76** (cards em `/templates`). Depois, candidatos de produto não UX (ex.: billing/2FA) — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+**Próximo slice numerado recomendado:** **Loops 77–78** (team planner / AI Builder — prompts e enforcement). Candidatos de produto não UX (ex.: billing/2FA) — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
-| 1 | **76** | Cards em listagens densas — `/templates` | [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates) |
+| 1 | **77** | Prompts do planner — domínio e builtins | [Loop 77](agents-team-crafter-plano-evolucao.md#loop-77-planner-prompts-builtin-domain) |
+| 2 | **78** | Enforcement — builtins de negócio | [Loop 78](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity) |
 
-**Outros candidatos** (paralelos ou após 74–76): **Loops 77–78** — endurecer [prompts do team planner](agents-team-crafter-plano-evolucao.md#loop-77-planner-prompts-builtin-domain) e [enforcement/UX](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity) para domínio único por especialista e unicidade de builtins de negócio (ver [norma §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas](#micro-etapas-ralph-criacao-times-ia)). Também: billing/2FA, self-service de workspace — [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+**Também fora dos loops 77–78 numerados:** billing/2FA, self-service de workspace — [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto). Norma de domínio / builtins: [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas](#micro-etapas-ralph-criacao-times-ia).
 
 **Regra Ralph:** um slice coerente por ciclo; fechar com gate (`./scripts/ralph-loop-gate.sh`, com `RALPH_LOOP_INCLUDE_FRONTEND=1` se tocar no Next), commit + push, depois atualizar tabela acima e a secção **Loop N (fechado)** abaixo.
 
@@ -1517,23 +1518,38 @@ Paginação, exportação CSV/JSON, limpeza de auditoria e políticas do workspa
 
 <a id="loop-75-candidato"></a>
 
-<a id="loop-76-candidato"></a>
+<a id="loop-76-fechado"></a>
 
-## Loop 76 (candidato — detalhe Ralph)
+## Loop 76 (fechado)
 
-- **Estado:** não iniciado; dependência: [Loop 75 (fechado)](#loop-75-fechado).
 - **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
-- **objetivo:** cartões para o catálogo de **templates** em **`/templates`** (metadados, origem, ações de aplicar/abrir).
-- **Ficheiros prováveis:** [`templates/page.tsx`](../v0-team-ai-crafter/app/(app)/templates/page.tsx) (ajustar se o path real divergir no repo).
-- **Critério de saída:** matriz no ledger; paridade com filtros e CTAs da vista em tabela.
-- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
-- **Ao fechar:** linha 76 → entregue; **Próximo loop oficial** → candidatos [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) ou nova expansão (ex.: `/agents`, `/teams`); plano mestre [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates).
+- **objetivo:** em **`/templates`**, **tabela** do catálogo em **`md+`** e **`TemplateCard`** empilhados em **`<md`**, mantendo os **Tabs** de filtro por origem e as mesmas ações que nos cartões.
+- **Política de breakpoint:** [Loop 73 (fechado)](#loop-73-fechado) — `≥md` → `ResponsiveTableScroll` + `Table`; **`<md`** → grelha só com [`TemplateCard`](../v0-team-ai-crafter/components/templates/template-card.tsx) (uma coluna).
+- **Ficheiros:** [`templates/page.tsx`](../v0-team-ai-crafter/app/(app)/templates/page.tsx).
+
+### Catálogo (linha da tabela ↔ cartão)
+
+| Coluna (tabela) | Campo no cartão (`TemplateCard`) | CTA / ações |
+| --- | --- | --- |
+| Template | título + vertical opcional | — |
+| Origem | `Badge` origem (cores no cartão) | — |
+| v / Categoria | linha versão + categoria | — |
+| Agentes | “N no modelo” | — |
+| Descrição | parágrafo `line-clamp` | — |
+| Ações | “Usar Template” + Share (empresa) | **Usar** → dialog aplicar; **Share** → toast (empresa) |
+
+Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **e** à tabela (`filteredTemplates`).
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
+- **referência no plano mestre:** [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates)
+
+<a id="loop-76-candidato"></a>
 
 <a id="loop-77-candidato"></a>
 
 ## Loop 77 (candidato — detalhe Ralph)
 
-- **Estado:** não iniciado; pode correr **em paralelo** aos Loops 74–76 se equipa e prioridade o permitirem (outro slice coerente).
+- **Estado:** não iniciado; slices de listagem **74–76** fechados; pode correr em paralelo a outras frentes se a equipa priorizar.
 - **etapa/prioridade:** ETAPA 9 (team planner / AI Builder) / alta
 - **objetivo:** endurecer **system prompt**, exemplos e instruções auxiliares em [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) para que o modelo (1) declare **domínio de assunto** por especialista, (2) liste **`catalogTools`** de forma intencional, (3) **não** atribua o **mesmo ID de builtin de negócio** a dois especialistas, (4) distinga packs / `requiredPacks` de builtins de catálogo.
 - **Micro-etapas (ledger):** declarar cobertura das linhas A–D em [Metodologia Ralph — micro-etapas](#micro-etapas-ralph-criacao-times-ia).

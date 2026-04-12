@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { FileStack } from "lucide-react"
+import { Download, FileStack, Info, Share2 } from "lucide-react"
 import { TemplateCard } from "@/components/templates/template-card"
 import type { AgentOrigin, Channel, Template } from "@/lib/types"
 import { toast } from "sonner"
@@ -24,10 +24,23 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
-import { Info } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
 
 type TemplateApplyDetail = Template & {
   agents?: Array<{ id?: string; name?: string; role?: string }>
+}
+
+const TEMPLATE_ORIGIN_LABELS: Record<AgentOrigin, string> = {
+  whitebeard: "Whitebeard",
+  company: "Minha Empresa",
 }
 
 export default function TemplatesPage() {
@@ -186,18 +199,86 @@ export default function TemplatesPage() {
         </TabsList>
       </Tabs>
 
-      {/* Templates Grid */}
+      {/* Catálogo: cartões (TemplateCard) vs tabela — Loop 76 */}
       {filteredTemplates.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTemplates.map((template) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              onImport={handleImport}
-              onShare={handleShare}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 md:hidden">
+            {filteredTemplates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                onImport={handleImport}
+                onShare={handleShare}
+              />
+            ))}
+          </div>
+          <div className="hidden md:block">
+            <ResponsiveTableScroll>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Template</TableHead>
+                    <TableHead>Origem</TableHead>
+                    <TableHead className="whitespace-nowrap">v / Categoria</TableHead>
+                    <TableHead className="text-right">Agentes</TableHead>
+                    <TableHead className="min-w-[160px]">Descrição</TableHead>
+                    <TableHead className="w-[200px] text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTemplates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell>
+                        <div className="font-medium">{template.name}</div>
+                        {template.vertical ? (
+                          <div className="text-xs text-muted-foreground">Vertical: {template.vertical}</div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {TEMPLATE_ORIGIN_LABELS[template.origin]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        v{template.version} · {template.category}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{template.agentCount}</TableCell>
+                      <TableCell
+                        className="max-w-[280px] truncate text-sm text-muted-foreground"
+                        title={template.description}
+                      >
+                        {template.description}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleImport(template)}
+                            className="gap-1"
+                          >
+                            <Download className="h-4 w-4 shrink-0" />
+                            Usar
+                          </Button>
+                          {template.origin === "company" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="shrink-0"
+                              onClick={() => handleShare(template)}
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ResponsiveTableScroll>
+          </div>
+        </>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <FileStack className="w-12 h-12 text-muted-foreground mb-4" />

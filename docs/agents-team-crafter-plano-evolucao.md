@@ -1345,7 +1345,7 @@ Vista em cartões para a listagem de **definições de tools** do workspace em *
 
 <a id="loop-76-cards-templates"></a>
 
-## Loop 76 — Listagens densas: cards em `/templates` (candidato Ralph)
+## Loop 76 — Listagens densas: cards em `/templates` (entregue no ledger)
 
 ### Objetivo
 
@@ -1357,9 +1357,9 @@ Vista em cartões para o **catálogo de templates** em **`/templates`**, preserv
 
 ### Critério de saída
 
-- Matriz no ledger; paridade com filtros e ações; gate; **Loop 76 (fechado)** quando implementado.
+- Matriz no ledger; paridade com filtros e ações; gate; **Loop 76 (fechado)**.
 
-**Estado (ledger):** **candidato** — [`Loop 76 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-76-candidato).
+**Estado (ledger):** **entregue** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 76 (fechado)**.
 
 ---
 
@@ -1446,7 +1446,7 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 22. **Loop 73** — listagens densas com **vista em cards** em mobile/tablet (entregue no ledger, piloto `/runs`; ver [Loop 73](#loop-73-listagens-cards)).
 23. **Loop 74** — cards em **`/governance`** (entregue; ver [Loop 74](#loop-74-cards-governance)).
 24. **Loop 75** — tabela `md+` + cards `<md` em **`/tool-definitions`** (entregue; ver [Loop 75](#loop-75-cards-tool-definitions)).
-25. **Loop 76** — replicar cards em **`/templates`** (candidato; ver [Loop 76](#loop-76-cards-templates)).
+25. **Loop 76** — tabela `md+` + cartões `<md` em **`/templates`** (entregue; ver [Loop 76](#loop-76-cards-templates)).
 26. **Loop 77** — prompts do planner: domínio, builtins e anti-duplicação (candidato; ver [Loop 77](#loop-77-planner-prompts-builtin-domain)).
 27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (candidato; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
 
