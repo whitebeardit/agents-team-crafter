@@ -119,7 +119,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–74); **75–78 planeados** (cards + IA team planner) | Loops 52–74 entregues; **75–76** = cards em listagens (restante); **77–78** = prompts/enforcement criação de times por IA ([plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–75); **76–78 planeados** (cards + IA team planner) | Loops 52–75 entregues; **76** = cards em `/templates`; **77–78** = prompts/enforcement criação de times por IA ([plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -690,7 +690,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 72   | Tours — spotlight / ancoragem DOM (opcional por passo)       | entregue (ver [Loop 72](#loop-72-fechado))                                                      |
 | 73   | Listagens densas — vista em cards (mobile/tablet)             | entregue (ver [Loop 73](#loop-73-fechado))                                                      |
 | 74   | Listagens densas — cards em `/governance`                     | entregue (ver [Loop 74](#loop-74-fechado))                                                      |
-| 75   | Listagens densas — cards em `/tool-definitions`              | planeado — candidato (ver [Loop 75](#loop-75-candidato))                |
+| 75   | Listagens densas — cards em `/tool-definitions`              | entregue (ver [Loop 75](#loop-75-fechado))                                                      |
 | 76   | Listagens densas — cards em `/templates`                     | planeado — candidato (ver [Loop 76](#loop-76-candidato))                      |
 | 77   | Prompts do planner — domínio, builtin e anti-duplicação       | planeado — candidato (ver [Loop 77](#loop-77-candidato))                        |
 | 78   | Enforcement / UX — builtins de negócio sem ambiguidade       | planeado — candidato (ver [Loop 78](#loop-78-candidato))                        |
@@ -702,14 +702,13 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 74** — vista em cards para listagens densas em `/governance` (ver [Loop 74](#loop-74-fechado)).
+**Último slice numerado fechado:** **Loop 75** — tabela em `md+` e cartões em `<md` em `/tool-definitions` (ver [Loop 75](#loop-75-fechado)).
 
-**Próximo slice numerado recomendado:** **Loop 75** → **76** (expansão do padrão de cards; **um loop por rota**). Depois, candidatos de produto não UX (ex.: billing/2FA) — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+**Próximo slice numerado recomendado:** **Loop 76** (cards em `/templates`). Depois, candidatos de produto não UX (ex.: billing/2FA) — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
-| 1 | **75** | Cards em listagens densas — `/tool-definitions` | [Loop 75](agents-team-crafter-plano-evolucao.md#loop-75-cards-tool-definitions) |
-| 2 | **76** | Cards em listagens densas — `/templates` | [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates) |
+| 1 | **76** | Cards em listagens densas — `/templates` | [Loop 76](agents-team-crafter-plano-evolucao.md#loop-76-cards-templates) |
 
 **Outros candidatos** (paralelos ou após 74–76): **Loops 77–78** — endurecer [prompts do team planner](agents-team-crafter-plano-evolucao.md#loop-77-planner-prompts-builtin-domain) e [enforcement/UX](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity) para domínio único por especialista e unicidade de builtins de negócio (ver [norma §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas](#micro-etapas-ralph-criacao-times-ia)). Também: billing/2FA, self-service de workspace — [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
@@ -1491,23 +1490,38 @@ Paginação, exportação CSV/JSON, limpeza de auditoria e políticas do workspa
 
 <a id="loop-74-candidato"></a>
 
-<a id="loop-75-candidato"></a>
+<a id="loop-75-fechado"></a>
 
-## Loop 75 (candidato — detalhe Ralph)
+## Loop 75 (fechado)
 
-- **Estado:** não iniciado; dependência: [Loop 74 (fechado)](#loop-74-fechado).
 - **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
-- **objetivo:** cartões para a listagem densa de **tool definitions** em **`/tool-definitions`** (colunas tipo, estado, ids, ações).
-- **Ficheiros prováveis:** [`tool-definitions/page.tsx`](../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx) ou equivalente em `app/(app)/`; componente espelhando o padrão do Loop 73.
-- **Critério de saída:** matriz no ledger; paridade com edição/ativação/navegação existentes na tabela.
-- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
-- **Ao fechar:** linha 75 → entregue; **Próximo loop oficial** → **76**; plano mestre [Loop 75](agents-team-crafter-plano-evolucao.md#loop-75-cards-tool-definitions).
+- **objetivo:** em **`/tool-definitions`**, **tabela densa** em **`md+`** e **cartões** em **`<md`**, com as **mesmas** ações (ativar/desativar, remover) e os mesmos dados resumidos.
+- **Política de breakpoint:** [Loop 73 (fechado)](#loop-73-fechado) — `≥md` → `ResponsiveTableScroll` + `Table`; **`<md`** → `ToolDefinitionsListMobileCards`.
+- **Ficheiros:** [`tool-definitions/page.tsx`](../v0-team-ai-crafter/app/(app)/tool-definitions/page.tsx), [`tool-definitions-list-mobile-cards.tsx`](../v0-team-ai-crafter/components/tool-definitions/tool-definitions-list-mobile-cards.tsx), [`tool-definitions-display.ts`](../v0-team-ai-crafter/lib/tool-definitions-display.ts) (helpers partilhados).
+
+### Lista de tools
+
+| Coluna (tabela) | Campo no cartão | CTA / ações |
+| --- | --- | --- |
+| Estado | `Badge` Ativa / Desativada (topo com nome e tipo) | — |
+| Nome | título (`font-medium`) | — |
+| Slug | `font-mono` | — |
+| Tipo | `Badge` outline (`kind`) | — |
+| Resumo | linha `describeToolConfig` | — |
+| Ações | `Switch` + ícone remover | **Switch** — ativar/desativar; **Trash** — eliminar definição |
+
+**Nota:** nos cartões, o texto longo de **dependências** (`describeToolDependencies`) permanece visível para leitura em ecrã estreito; na tabela desktop o detalhe fica implícito no resumo e na documentação da página.
+
+- Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend + `next build` no encerramento deste slice).
+- **referência no plano mestre:** [Loop 75](agents-team-crafter-plano-evolucao.md#loop-75-cards-tool-definitions)
+
+<a id="loop-75-candidato"></a>
 
 <a id="loop-76-candidato"></a>
 
 ## Loop 76 (candidato — detalhe Ralph)
 
-- **Estado:** não iniciado; dependência: [Loop 73 (fechado)](#loop-73-fechado).
+- **Estado:** não iniciado; dependência: [Loop 75 (fechado)](#loop-75-fechado).
 - **etapa/prioridade:** ETAPA 9 (UX responsiva — listagens) / média
 - **objetivo:** cartões para o catálogo de **templates** em **`/templates`** (metadados, origem, ações de aplicar/abrir).
 - **Ficheiros prováveis:** [`templates/page.tsx`](../v0-team-ai-crafter/app/(app)/templates/page.tsx) (ajustar se o path real divergir no repo).

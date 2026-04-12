@@ -26,6 +26,21 @@ import { Plus, Trash2, Wrench } from "lucide-react"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
+import { ToolDefinitionsListMobileCards } from "@/components/tool-definitions/tool-definitions-list-mobile-cards"
+import {
+  describeToolConfig,
+  type TBusinessCatalogItem,
+  type ToolDefinitionRow,
+} from "@/lib/tool-definitions-display"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -33,65 +48,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-type TBusinessCatalogItem = {
-  actionId: string
-  title: string
-  description: string
-  packId?: string
-}
-
 type ToolKindCreate = "http_webhook" | "builtin_ref" | "internal_action"
-
-type ToolDef = {
-  id: string
-  name: string
-  slug: string
-  kind: "builtin_ref" | "http_webhook" | "mcp_ref" | "internal_action"
-  enabled: boolean
-  config: Record<string, unknown>
-}
-
-function describeToolConfig(tool: ToolDef, catalogByActionId?: Record<string, TBusinessCatalogItem>): string {
-  if (tool.kind === "internal_action") {
-    const aid = typeof tool.config?.actionId === "string" ? tool.config.actionId : ""
-    if (!aid) return "Acao interna do backend"
-    const meta = catalogByActionId?.[aid]
-    return meta ? `${meta.title} — ${aid}` : `Acao interna: ${aid}`
-  }
-  if (tool.kind === "http_webhook") {
-    return typeof tool.config.url === "string" ? tool.config.url : "Webhook HTTP"
-  }
-  if (tool.kind === "builtin_ref") {
-    return typeof tool.config.builtinId === "string"
-      ? `Builtin: ${tool.config.builtinId}`
-      : "Referencia builtin"
-  }
-  if (tool.kind === "mcp_ref") {
-    return typeof tool.config.toolName === "string"
-      ? `MCP tool: ${tool.config.toolName}`
-      : "Referencia MCP"
-  }
-  return "Sem configuracao adicional"
-}
-
-function describeToolDependencies(tool: ToolDef): string {
-  switch (tool.kind) {
-    case "internal_action":
-      return "Executa uma acao registada na plataforma (MongoDB / dominio de negocio). Escolha a acao pelo catalogo ao criar a definicao — nao e necessario digitar o actionId."
-    case "http_webhook":
-      return "O runtime faz HTTP para o URL indicado; o seu servico deve estar acessivel e validar autenticacao."
-    case "builtin_ref":
-      return "Alias no workspace (sem URL nesta definicao). Execucao completa: catalogo no agente + Integracoes."
-    case "mcp_ref":
-      return "Requer MCP ligado no workspace e permissoes na ferramenta remota."
-    default:
-      return ""
-  }
-}
 
 export default function ToolDefinitionsPage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
-  const [items, setItems] = useState<ToolDef[]>([])
+  const [items, setItems] = useState<ToolDefinitionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -123,7 +84,7 @@ export default function ToolDefinitionsPage() {
     if (!api) return
     setLoading(true)
     try {
-      const r = await api.get<ToolDef[]>("/tool-definitions")
+      const r = await api.get<ToolDefinitionRow[]>("/tool-definitions")
       setItems(r.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Falha ao listar tools"
@@ -209,7 +170,7 @@ export default function ToolDefinitionsPage() {
         }
         setBulkSubmitting(true)
         type TBulkRes = {
-          created: ToolDef[]
+          created: ToolDefinitionRow[]
           skipped: { actionId: string; reason: string }[]
           errors: { actionId: string; message: string }[]
         }
@@ -277,7 +238,7 @@ export default function ToolDefinitionsPage() {
     return m
   }, [catalog])
 
-  const handleToggleEnabled = async (item: ToolDef, enabled: boolean) => {
+  const handleToggleEnabled = async (item: ToolDefinitionRow, enabled: boolean) => {
     if (!api) return
     setTogglingId(item.id)
     try {
@@ -548,42 +509,65 @@ export default function ToolDefinitionsPage() {
           ) : items.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma tool registada.</p>
           ) : (
-            <ul className="space-y-3">
-              {items.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{t.name}</p>
-                      <Badge variant={t.enabled ? "default" : "secondary"}>
-                        {t.enabled ? "Ativa" : "Desativada"}
-                      </Badge>
-                      <Badge variant="outline">{t.kind}</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground font-mono">{t.slug}</p>
-                    <p className="text-xs text-muted-foreground mt-1 break-all">{describeToolConfig(t, catalogByActionId)}</p>
-                    <p className="text-xs text-muted-foreground mt-1.5 border-l-2 border-primary/30 pl-2">
-                      {describeToolDependencies(t)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:justify-start">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Ativa</span>
-                      <Switch
-                        checked={t.enabled}
-                        disabled={togglingId === t.id}
-                        onCheckedChange={(checked) => void handleToggleEnabled(t, checked)}
-                      />
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => void handleDelete(t.id)}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ToolDefinitionsListMobileCards
+                items={items}
+                catalogByActionId={catalogByActionId}
+                togglingId={togglingId}
+                onToggle={(t, enabled) => void handleToggleEnabled(t, enabled)}
+                onDelete={(id) => void handleDelete(id)}
+              />
+              <div className="hidden md:block">
+                <ResponsiveTableScroll>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Slug</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead className="min-w-[180px]">Resumo</TableHead>
+                        <TableHead className="w-[120px] text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell>
+                            <Badge variant={t.enabled ? "default" : "secondary"}>
+                              {t.enabled ? "Ativa" : "Desativada"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{t.name}</TableCell>
+                          <TableCell className="font-mono text-xs">{t.slug}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{t.kind}</Badge>
+                          </TableCell>
+                          <TableCell
+                            className="max-w-[280px] truncate text-xs text-muted-foreground"
+                            title={describeToolConfig(t, catalogByActionId)}
+                          >
+                            {describeToolConfig(t, catalogByActionId)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Switch
+                                checked={t.enabled}
+                                disabled={togglingId === t.id}
+                                onCheckedChange={(checked) => void handleToggleEnabled(t, checked)}
+                              />
+                              <Button variant="ghost" size="icon" onClick={() => void handleDelete(t.id)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableScroll>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
