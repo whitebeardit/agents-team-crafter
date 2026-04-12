@@ -694,8 +694,9 @@ Slices oficiais numerados **após o Loop 81** (ETAPA 9 continua; ver [§14](#14-
 - **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — **entregue** — destravar **Executar**, bind review proporcional (`requiresExplicitApproval`), ownership real de workflow (sem sufixos silenciosos), inferência conservadora de built-ins para especialistas — ledger: [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado)
 - **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** — **entregue** — fundação transversal (schemas estritos, `internal_action` com contrato, slot-filling, chat de teste com memória) + **piloto CRM**; o mesmo modelo aplica-se depois a finanças/care/etc. ([§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps)) — especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); ledger: [Loop 87 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-fechado)
 - **[Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)** — **entregue** — readiness / preflight (`GET /teams/:id/readiness`, UI na ficha do time) — ledger: [Loop 88 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado)
-- **[Loops 89–95](#loops-88-operacao-real-ux-troubleshooting)** — **candidatos (backlog recomendado após o 88)** — continuação da macro-onda de **operação real**: AI Builder simples vs avançado, cockpit do time, console conversacional, CTAs de resolução, runs legíveis, templates operacionais, polimento responsivo; detalhe na secção dedicada.
-- **[Loops 96+](#loops-88-mais-verticais-de-negócio-por-pack)** — **planeados** — um slice Ralph por vertical (ou grupo justificado) alinhado a `packId` (`care`, `finance`, `scheduling`, …), **após** a onda operacional 89–95 ou em paralelo conforme priorização; numerar ao abrir; detalhe na secção dedicada.
+- **[Loop 89](#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda)** — **entregue** — AI Builder modo simples vs avançado (progressive disclosure; sem mudar bind no servidor) — ledger: [Loop 89 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-89-fechado)
+- **[Loops 90–95](#loops-88-operacao-real-ux-troubleshooting)** — **candidatos (backlog recomendado após o 89)** — continuação da macro-onda de **operação real**: cockpit do time, console conversacional, CTAs de resolução, runs legíveis, templates operacionais, polimento responsivo; detalhe na secção dedicada.
+- **[Loops 96+](#loops-88-mais-verticais-de-negócio-por-pack)** — **planeados** — um slice Ralph por vertical (ou grupo justificado) alinhado a `packId` (`care`, `finance`, `scheduling`, …), **após** a onda operacional 90–95 ou em paralelo conforme priorização; numerar ao abrir; detalhe na secção dedicada.
 
 *Base factual no código actual:* quando o plano tem listas por agente (`requiredBusinessActionIds` / `requiredPackIds`), `computePlannerBindActionUniverse` em [`planner-pack-presets.ts`](../../backend/src/modules/team-planning/application/planner-pack-presets.ts) + `buildBindPreview` em [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) calculam candidatos **por agente**; sem essas listas, mantém-se o modo **global** legado. Schema [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): **Loop 82** entregue.
 
@@ -814,9 +815,9 @@ Em paralelo, continuam válidos como macro-evolução de negócio:
 # 12. Próxima ação recomendada
 
 ## Próximo loop recomendado
-**Último slice numerado fechado:** **[Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)** — ledger [Loop 88 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado). **Loops 82–87** fecharam **team planner + AI Builder** e **especialistas operacionais**; o **88** fecha **readiness / preflight** operacional (contrato + UI mínima na ficha do time).
+**Último slice numerado fechado:** **[Loop 89](#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda)** — ledger [Loop 89 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-89-fechado). **Loops 82–88** cobrem planner, AI Builder core, especialistas e readiness; o **89** fecha **modo simples vs avançado** no AI Builder (progressive disclosure, sem mudar lógica de bind no servidor).
 
-**Próximo recorte recomendado (candidato numerado):** **[Loop 89](#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda)** (AI Builder simples vs avançado), seguido da macro-onda **[Loops 89–95](#loops-88-operacao-real-ux-troubleshooting)**; verticais por `packId` **[96+](#loops-88-mais-verticais-de-negócio-por-pack)** quando aplicável.
+**Próximo recorte recomendado (candidato numerado):** **[Loop 90](#loop-90--cockpit-operacional-do-team)** (cockpit operacional do time), seguido da macro-onda **[Loops 90–95](#loops-88-operacao-real-ux-troubleshooting)**; verticais por `packId` **[96+](#loops-88-mais-verticais-de-negócio-por-pack)** quando aplicável.
 
 **Macro-evolução em paralelo:** [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
@@ -1866,7 +1867,7 @@ Criar uma superfície de **prontidão operacional** simples e inequívoca para t
 
 <a id="loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda"></a>
 
-### Loop 89 — AI Builder com modo simples por defeito e avançado sob demanda
+### Loop 89 — AI Builder com modo simples por defeito e avançado sob demanda *(fechado — ver [ledger Loop 89](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-89-fechado))*
 
 **Objetivo**  
 Reduzir drasticamente a carga cognitiva do AI Builder sem perder poder operacional.
@@ -1885,6 +1886,8 @@ Reduzir drasticamente a carga cognitiva do AI Builder sem perder poder operacion
 **Observação Ralph** — Não reescrever a lógica de bind neste loop; foco em UX e *progressive disclosure*.
 
 ---
+
+<a id="loop-90--cockpit-operacional-do-team"></a>
 
 ### Loop 90 — Cockpit operacional do team
 
@@ -1989,15 +1992,14 @@ Garantir padrão visual consistente e responsividade forte nas superfícies mais
 
 ---
 
-### Ordem recomendada após o Loop 88 (candidatos 89–95)
+### Ordem recomendada após o Loop 89 (candidatos 90–95)
 
-1. Loop 89 — AI Builder simples vs avançado  
-2. Loop 90 — cockpit do time  
-3. Loop 91 — console conversacional  
-4. Loop 92 — resolver pendências  
-5. Loop 93 — runs / replay / troubleshooting  
-6. Loop 94 — templates operacionais  
-7. Loop 95 — polimento responsivo final  
+1. Loop 90 — cockpit do time  
+2. Loop 91 — console conversacional  
+3. Loop 92 — resolver pendências  
+4. Loop 93 — runs / replay / troubleshooting  
+5. Loop 94 — templates operacionais  
+6. Loop 95 — polimento responsivo final  
 
 ---
 
@@ -2105,8 +2107,9 @@ Referência de `packId` em [`business-action-presets.ts`](../../backend/src/modu
 35. **Loop 86** — AI Builder: execute fluido, bind proporcional, workflow ownership explícito *(entregue; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*.
 36. **Loop 87** — Especialistas operacionais: schemas reais, slot-filling, CRM utilizável, contexto no debug *(fechado; ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) e [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md))*.
 37. **Loop 88** — Readiness / preflight operacional *(fechado; ver [Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado))*.
-38. **Loops 89–95** — macro-onda de **operação real** (AI Builder simples vs avançado, cockpit do time, console conversacional, CTAs, runs, templates, polimento) *(candidatos / backlog recomendado após o 88; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*.
-39. **Loops 96+** — verticais por `packId` (care, finance, scheduling, …) *(planeados; numerar a partir de 96 ao abrir cada slice; ver [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack))*.
+38. **Loop 89** — AI Builder modo simples vs avançado *(fechado; ver [Loop 89](#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-89-fechado))*.
+39. **Loops 90–95** — macro-onda de **operação real** (cockpit do time, console conversacional, CTAs, runs, templates, polimento) *(candidatos / backlog recomendado após o 89; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*.
+40. **Loops 96+** — verticais por `packId` (care, finance, scheduling, …) *(planeados; numerar a partir de 96 ao abrir cada slice; ver [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack))*.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`

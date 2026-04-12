@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Loader2, Sparkles, Play, PencilLine, AlertTriangle, ChevronDown } from "lucide-react"
+import { Loader2, Sparkles, Play, PencilLine, AlertTriangle, ChevronDown, Settings2 } from "lucide-react"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import type {
@@ -279,6 +279,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const [openaiKeyConfiguredInWorkspace, setOpenaiKeyConfiguredInWorkspace] = useState<boolean | null>(null)
   const [teamPlanningPolicy, setTeamPlanningPolicy] = useState<TeamPlanningPolicy | null>(null)
   const [overlapMode, setOverlapMode] = useState<GovernanceOverlapMode>("blocking")
+  /** Loop 89 — modo simples por defeito; avançado mostra preview de bind completo e blocos técnicos. */
+  const [builderAdvancedUi, setBuilderAdvancedUi] = useState(false)
 
   const previewGraphNodes = useMemo(() => (plan ? enrichPreviewNodes(plan) : []), [plan])
   const previewGraphEdges = useMemo(
@@ -639,6 +641,25 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       .catch(() => {})
   }, [api])
 
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("team-ai-builder-advanced") === "1") {
+        setBuilderAdvancedUi(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const persistBuilderAdvancedUi = (value: boolean) => {
+    setBuilderAdvancedUi(value)
+    try {
+      localStorage.setItem("team-ai-builder-advanced", value ? "1" : "0")
+    } catch {
+      /* ignore */
+    }
+  }
+
   const generatePlan = async () => {
     if (!api || problem.trim().length < 10) return
     setIsGenerating(true)
@@ -694,7 +715,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     setExecutionDetail("")
     setLastExecutionMeta(null)
     if (requiresExplicitBindApproval && (!bindPreview || !bindPreviewApproved)) {
-      toast.warning("Revise e aprove o preview de bind antes de executar o plano.")
+      toast.warning(
+        builderAdvancedUi
+          ? "Revise e aprove o preview de bind antes de executar o plano."
+          : "Marque a confirmação de bind (cartão «Confirmação rápida») ou abra o modo avançado para rever o preview completo.",
+      )
       setIsExecuting(false)
       return
     }
@@ -835,11 +860,37 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
 
       {plan && (
         <Card>
-          <CardHeader>
-            <CardTitle>Revisar plano</CardTitle>
-            <CardDescription>Edite o plano e confirme reuso, novos agentes e conflitos antes de executar.</CardDescription>
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 space-y-1.5">
+                <CardTitle>Revisar plano</CardTitle>
+                <CardDescription>
+                  Edite o equipa e os objectivos, depois confirme o bind das tools. Use o modo avançado só para
+                  overrides e detalhes técnicos.
+                </CardDescription>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 shrink-0">
+                <Settings2 className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="team-ai-builder-advanced"
+                      checked={builderAdvancedUi}
+                      onCheckedChange={(c) => persistBuilderAdvancedUi(Boolean(c))}
+                    />
+                    <Label htmlFor="team-ai-builder-advanced" className="text-sm font-medium cursor-pointer">
+                      Modo avançado
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground max-w-[220px] leading-snug">
+                    Mostra preview de bind completo, packs em lote, políticas e contrato por agente (Loop 82).
+                  </p>
+                </div>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="flex flex-col gap-6">
+            <div className="order-1 flex flex-col gap-6">
             {plannerFallbackCopy ? (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -862,7 +913,10 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </AlertDescription>
               </Alert>
             ) : null}
-            {hasBindCapabilityHints && (
+            </div>
+            <div className="order-2 flex flex-col gap-6">
+            {hasBindCapabilityHints &&
+              (builderAdvancedUi ? (
               <Alert>
                 <Sparkles className="h-4 w-4" />
                 <AlertTitle>Capabilities sugeridas pelo planner</AlertTitle>
@@ -944,41 +998,145 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                   </p>
                 </AlertDescription>
               </Alert>
-            )}
-            <Card>
+              ) : (
+                <Alert>
+                  <Sparkles className="h-4 w-4" />
+                  <AlertTitle>Capabilities e política de bind</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      O planner sugeriu <strong>{requiredCapabilityCount}</strong> capability(ies). Auto-bind está{" "}
+                      <strong>{teamPlanningPolicy?.autoBindEnabled ? "ligado" : "desligado"}</strong> neste workspace.
+                      {reusedAgentsCount > 0 ? (
+                        <>
+                          {" "}
+                          Há <strong>{reusedAgentsCount}</strong> agente(s) em modo reutilizado.
+                        </>
+                      ) : null}
+                    </p>
+                    <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => persistBuilderAdvancedUi(true)}>
+                      Ver política completa, packs e lista de actionIds
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ))}
+            </div>
+            <div className="order-4 flex flex-col gap-6">
+            <Card className={builderAdvancedUi ? undefined : "border-primary/20"}>
                 <CardHeader>
-                  <CardTitle>Preview de bind</CardTitle>
+                  <CardTitle>{builderAdvancedUi ? "Preview de bind" : "Confirmação rápida de bind"}</CardTitle>
                   <CardDescription>
-                    Mostra o que o backend pretende criar, reutilizar e vincular antes do execute.
-                    {bindPreview?.bindResolutionMode === "per_agent" ? (
-                      <span className="block mt-1.5 text-muted-foreground text-xs leading-relaxed">
-                        Modo por agente: cada papel recebe apenas os <code className="text-[11px]">actionIds</code> do
-                        seu workflow no plano (menos ruído quando há vários especialistas).
-                      </span>
-                    ) : null}
+                    {builderAdvancedUi ? (
+                      <>
+                        Mostra o que o backend pretende criar, reutilizar e vincular antes do execute.
+                        {bindPreview?.bindResolutionMode === "per_agent" ? (
+                          <span className="block mt-1.5 text-muted-foreground text-xs leading-relaxed">
+                            Modo por agente: cada papel recebe apenas os <code className="text-[11px]">actionIds</code> do
+                            seu workflow no plano (menos ruído quando há vários especialistas).
+                          </span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        Resumo para avançar sem listas técnicas. Para overrides por agente e definitions, ligue o modo
+                        avançado.
+                      </>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {bindPreview ? (
-                    <p className="text-sm text-muted-foreground">
-                      {bindPreview.requiresExplicitApproval ? (
+                  {!builderAdvancedUi ? (
+                    <div className="space-y-4">
+                      {bindPreview ? (
                         <>
-                          <span className="font-medium text-foreground">Aprovacao necessaria:</span> ha acoes de bind,
-                          reativacao ou overrides que exigem confirmacao antes do execute.
+                          <p className="text-sm text-muted-foreground">
+                            {bindPreview.requiresExplicitApproval ? (
+                              <span className="text-foreground">
+                                Este plano pede confirmação explícita antes de criar ou reactivar tools no workspace.
+                              </span>
+                            ) : (
+                              <span>
+                                O preview actual não exige aprovação manual — pode executar quando os restantes bloqueios
+                                estiverem resolvidos.
+                              </span>
+                            )}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={bindPreview.effectiveBindEnabled ? "default" : "secondary"}>
+                              {bindPreview.effectiveBindEnabled ? "Bind efetivo" : "Sem bind efetivo"}
+                            </Badge>
+                            <Badge variant="outline">definitions {bindPreview.toolDefinitions.length}</Badge>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void (plan ? refreshBindPreview(plan.id) : Promise.resolve())}
+                              disabled={isBindPreviewLoading || isBindOverrideSaving}
+                            >
+                              {isBindPreviewLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                              Atualizar estado
+                            </Button>
+                            {disabledBindDefinitionActionIds.length > 0 ? (
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                onClick={() => void enableBindDefinitionsInline(disabledBindDefinitionActionIds)}
+                                disabled={
+                                  isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan
+                                }
+                              >
+                                {isBindEnableSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                Ativar definitions inativas ({disabledBindDefinitionActionIds.length})
+                              </Button>
+                            ) : null}
+                          </div>
+                          {bindPreview && requiresExplicitBindApproval ? (
+                            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3">
+                              <Checkbox
+                                id="bind-preview-approved-simple"
+                                checked={bindPreviewApproved}
+                                onCheckedChange={(checked) => setBindPreviewApproved(Boolean(checked))}
+                              />
+                              <Label htmlFor="bind-preview-approved-simple" className="text-sm leading-snug cursor-pointer">
+                                Confirmo que revi o resumo e autorizo executar o plano com o bind actual.
+                              </Label>
+                            </div>
+                          ) : null}
+                          <Button type="button" variant="link" className="h-auto p-0" onClick={() => persistBuilderAdvancedUi(true)}>
+                            Abrir preview completo de bind (por agente, packs, overrides)
+                          </Button>
                         </>
                       ) : (
-                        <>
-                          <span className="font-medium text-foreground">Sem bind de risco imediato:</span> o preview
-                          actual nao exige aprovacao manual (apenas se o plano mudar de forma relevante).
-                        </>
+                        <p className="text-sm text-muted-foreground">
+                          {isBindPreviewLoading
+                            ? "A carregar estado de bind…"
+                            : "Guarde o plano ou aguarde o carregamento automático do preview para ver o resumo."}
+                        </p>
                       )}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Clique em «Atualizar preview» para carregar o contrato do servidor, ou gere um plano com sugestoes
-                      de capabilities para obter o preview automaticamente.
-                    </p>
-                  )}
+                    </div>
+                  ) : null}
+                  {builderAdvancedUi ? (
+                    <>
+                      {bindPreview ? (
+                        <p className="text-sm text-muted-foreground">
+                          {bindPreview.requiresExplicitApproval ? (
+                            <>
+                              <span className="font-medium text-foreground">Aprovacao necessaria:</span> ha acoes de bind,
+                              reativacao ou overrides que exigem confirmacao antes do execute.
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-medium text-foreground">Sem bind de risco imediato:</span> o preview
+                              actual nao exige aprovacao manual (apenas se o plano mudar de forma relevante).
+                            </>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Clique em «Atualizar preview» para carregar o contrato do servidor, ou gere um plano com sugestoes
+                          de capabilities para obter o preview automaticamente.
+                        </p>
+                      )}
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={bindPreview?.effectiveBindEnabled ? "default" : "secondary"}>
                       {bindPreview?.effectiveBindEnabled ? "Bind efetivo" : "Sem bind efetivo"}
@@ -1356,8 +1514,12 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       Salve o plano e use «Atualizar preview» para ver o bind antes de executar.
                     </p>
                   )}
+                    </>
+                  ) : null}
                 </CardContent>
               </Card>
+            </div>
+            <div className="order-5 flex flex-col gap-4">
             {lastExecutionMeta && plan.status === "executed" ? (
               <Alert variant={lastExecutionMeta.effectiveBindEnabled ?? lastExecutionMeta.autoBindEnabled ? "default" : "destructive"}>
                 <Sparkles className="h-4 w-4" />
@@ -1463,6 +1625,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </AlertDescription>
               </Alert>
             ) : null}
+            </div>
+            <div className="order-3 flex flex-col gap-6">
             <div className="space-y-2">
               <Label>Nome do time</Label>
               <Input
@@ -1531,9 +1695,10 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       className="min-h-[72px] resize-y"
                     />
                   </div>
-                  {(agent.workflowKey ||
-                    (agent.requiredPackIds?.length ?? 0) > 0 ||
-                    (agent.requiredBusinessActionIds?.length ?? 0) > 0) && (
+                  {builderAdvancedUi &&
+                    (agent.workflowKey ||
+                      (agent.requiredPackIds?.length ?? 0) > 0 ||
+                      (agent.requiredBusinessActionIds?.length ?? 0) > 0) && (
                     <div className="rounded-md border bg-muted/30 px-3 py-2 space-y-2 text-sm">
                       <p className="text-xs font-medium text-muted-foreground">
                         Plano por agente (contrato do planner — Loop 82)
@@ -1573,9 +1738,21 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Label className="text-sm text-muted-foreground">Ferramentas do catálogo (OpenAI)</Label>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setCatalogToolsEditorIndex(index)}>
-                        Editar ferramentas
-                      </Button>
+                      {builderAdvancedUi ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => setCatalogToolsEditorIndex(index)}>
+                          Editar ferramentas
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => persistBuilderAdvancedUi(true)}
+                        >
+                          Ajustar no modo avançado
+                        </Button>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-1.5 min-h-[24px]">
                       {(agent.catalogTools ?? []).length === 0 ? (
@@ -1717,6 +1894,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </div>
               </CollapsibleContent>
             </Collapsible>
+            </div>
+            <div className="order-6 flex flex-col gap-4">
             {executePlanBlockers.length > 0 ? (
               <Alert variant="secondary">
                 <AlertTriangle className="h-4 w-4" />
@@ -1755,6 +1934,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 {isExecuting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
                 {isExecuting ? "Executando..." : "Executar plano"}
               </Button>
+            </div>
             </div>
           </CardContent>
         </Card>

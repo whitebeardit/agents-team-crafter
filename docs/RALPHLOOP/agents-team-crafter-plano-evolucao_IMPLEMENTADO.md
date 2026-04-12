@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–88** estão **fechados** na linha de **team planner + AI Builder** (**82–86**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)) e **readiness / preflight** (**88** — [Loop 88 fechado](#loop-88-fechado)). **Próximo slice oficial numerado:** [Loop 89 (candidato)](#loop-89-candidato--ai-builder-simples-por-defeito-avançado-sob-demanda) — AI Builder simples vs avançado; ver [plano §89+](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–89** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89** — modo simples/avançado no AI Builder), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)) e **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)). **Próximo slice oficial numerado:** [Loop 90 (candidato)](#loop-90-candidato--cockpit-operacional-do-time) — cockpit operacional do time; ver [plano §90](agents-team-crafter-plano-evolucao.md#loop-90--cockpit-operacional-do-team). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 **Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
@@ -187,7 +187,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–88 fechados; [Loop 89](#loop-89-candidato--ai-builder-simples-por-defeito-avançado-sob-demanda) candidato) | Loops **52–88** entregues; **próximo candidato numerado:** [Loop 89](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda); [Loop 88 fechado](#loop-88-fechado): readiness/preflight; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–89 fechados; [Loop 90](#loop-90-candidato--cockpit-operacional-do-time) candidato) | Loops **52–89** entregues; **próximo candidato numerado:** [Loop 90](agents-team-crafter-plano-evolucao.md#loop-90--cockpit-operacional-do-team); [Loop 89 fechado](#loop-89-fechado): AI Builder simples/avançado; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -772,6 +772,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 86   | AI Builder — execute, bind review proporcional, workflow ownership explícito | entregue (ver [Loop 86](#loop-86-fechado)) |
 | 87   | Especialistas operacionais — schemas reais, slot-filling, CRM, contexto conversacional (debug) | entregue (ver [Loop 87 fechado](#loop-87-fechado)) |
 | 88   | Readiness / preflight operacional do time (`ready` / `attention` / `blocked`) | entregue (ver [Loop 88 fechado](#loop-88-fechado)) |
+| 89   | AI Builder — modo simples vs avançado (progressive disclosure, bind) | entregue (ver [Loop 89 fechado](#loop-89-fechado)) |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -780,18 +781,19 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice oficial fechado:** **[Loop 88](#loop-88-fechado)** — prontidão operacional: [`computeTeamReadiness`](../../backend/src/modules/teams/application/team-readiness.service.ts) + tipos [`team-readiness.types.ts`](../../backend/src/modules/teams/application/team-readiness.types.ts); `GET /api/v1/teams/:id/readiness` em [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts); cartão **Prontidão operacional** na aba Visão geral de [`teams/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx); testes [`team-readiness.service.test.ts`](../../backend/src/modules/teams/application/team-readiness.service.test.ts).
+**Último slice oficial fechado:** **[Loop 89](#loop-89-fechado)** — AI Builder: modo **simples** por defeito (resumo de capabilities, confirmação rápida de bind, ordem visual equipa → bind → acções) e **avançado** persistido em `localStorage` (`team-ai-builder-advanced`); preview de bind completo e bloco «Loop 82» por agente só no avançado; [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx).
 
-**Penúltimo slice fechado:** **[Loop 87](#loop-87-fechado)** — especialistas fiáveis em runtime (schemas, CRM, slot-filling, debug com conversa). Especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md).
+**Penúltimo slice fechado:** **[Loop 88](#loop-88-fechado)** — readiness operacional (`GET /teams/:id/readiness`, cartão na ficha do time).
 
-**Próximo número na ordem recomendada (candidato):** **[Loop 89](#loop-89-candidato--ai-builder-simples-por-defeito-avançado-sob-demanda)** (AI Builder simples vs avançado) — ver [plano §Loop 89](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
+**Próximo número na ordem recomendada (candidato):** **[Loop 90](#loop-90-candidato--cockpit-operacional-do-time)** (cockpit operacional do time) — ver [plano §Loop 90](agents-team-crafter-plano-evolucao.md#loop-90--cockpit-operacional-do-team); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
 
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
 | **1** | **Loop 87** — especialistas operacionais *(fechado)* | [plano §87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional), [anexo](ralph-loop-87-especialistas-operacionais.md), [ledger](#loop-87-fechado) |
 | **2** | **Loop 88** — readiness / preflight *(fechado)* | [plano §88](agents-team-crafter-plano-evolucao.md#loop-88--preflight-operacional-do-team--readiness-do-runtime), [ledger](#loop-88-fechado) |
-| **3–10** | **Loops 89–95** — operação real, UX, troubleshooting *(candidatos / após 88)* | [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
-| **11+** | **Loops 96+** — verticais por pack *(após 88 ou em paralelo)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
+| **3** | **Loop 89** — AI Builder simples / avançado *(fechado)* | [plano §89](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda), [ledger](#loop-89-fechado) |
+| **4–11** | **Loops 90–95** — operação real, UX, troubleshooting *(candidatos / após 89)* | [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
+| **12+** | **Loops 96+** — verticais por pack *(após 89 ou em paralelo)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -1885,13 +1887,27 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 
 ---
 
-## Loop 89 (candidato) — AI Builder simples por defeito, avançado sob demanda
+<a id="loop-89-fechado"></a>
 
-- **Etapa / prioridade:** altíssima  
-- **Objectivo do slice:** reduzir carga cognitiva do AI Builder sem perder poder.  
-- **Foco:** modo simples vs avançado; progressive disclosure; mesmo caminho gerar → rever → executar.  
-- **Critério de saída:** utilizador novo não é forçado ao bind preview denso; avançado continua completo; gate + ledger.  
-- **Escopo Ralph:** UX apenas; **não** reescrever lógica de bind neste slice.
+## Loop 89 (fechado) — AI Builder simples por defeito, avançado sob demanda
+
+**Estado:** **fechado** — plano mestre [§ Loop 89](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda).
+
+### Entregas (resumo)
+
+- **Modo simples (defeito):** alerta curto de capabilities; secção **Confirmação rápida de bind** (badges, atualizar, ativar definitions inativas, checkbox de aprovação quando `requiresExplicitApproval`, link para modo avançado); bloco técnico «Loop 82» por agente oculto; edição de ferramentas de catálogo remetida ao modo avançado.
+- **Modo avançado:** UI anterior do preview de bind completo (sem alteração de lógica de bind no servidor).
+- **Ordem visual:** equipa / agentes / grafo (ordem 3) antes do cartão de bind (ordem 4), via `flex` + `order-*`.
+- **Persistência:** `localStorage` chave `team-ai-builder-advanced` para lembrar o modo avançado.
+- **Ficheiro:** [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx).
+
+### Checklist (fechado)
+
+- [x] Switch modo simples / avançado + cópia de UI.
+- [x] Resumo de bind executável sem listar definitions por defeito.
+- [x] Gate frontend: `npm run build` + eslint no ficheiro tocado.
+
+---
 
 ## Loop 90 (candidato) — Cockpit operacional do time
 
