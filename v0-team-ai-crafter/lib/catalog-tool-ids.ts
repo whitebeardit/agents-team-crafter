@@ -12,6 +12,19 @@ export const CATALOG_TOOL_IDS = [
 
 export type CatalogToolId = (typeof CATALOG_TOOL_IDS)[number]
 
+/**
+ * IDs que não podem repetir entre dois especialistas no mesmo plano (enforcement Loop 78).
+ * Manter alinhado a `SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS` no backend.
+ */
+export const SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS: readonly CatalogToolId[] = [
+  "database_query",
+  "calendar_access",
+  "internal_actions",
+  "email_send",
+  "image_generation",
+  "file_search",
+]
+
 const LABELS_PT: Record<CatalogToolId, string> = {
   web_search: "Pesquisa web",
   file_search: "Busca em ficheiros",

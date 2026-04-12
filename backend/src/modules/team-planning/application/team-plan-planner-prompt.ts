@@ -5,32 +5,17 @@
  */
 
 import { PRODUCT_CHANNEL_TYPES } from '../../channels/domain/product-channel-type.js';
+import { SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS } from '../domain/planner-specialist-catalog-uniqueness.js';
 import { PLANNER_PACK_IDS } from './planner-pack-presets.js';
 
 const PLANNER_PACK_IDS_PROMPT = PLANNER_PACK_IDS.map((p) => `"${p}"`).join(', ');
 
 const PLANNER_CHANNEL_UNION = PRODUCT_CHANNEL_TYPES.map((c) => `"${c}"`).join(' | ');
 
-/**
- * IDs de `catalogTools` cuja funcao primaria liga-se a um dominio de efeito/dados no produto.
- * Entre **especialistas** (role specialist), nenhum destes IDs pode aparecer em mais de um agente
- * (regra de prompt; enforcement servidor = Loop 78).
- *
- * Utilitarios tipicamente transversais: web_search, code_execution — podem repetir-se com moderacao
- * (coordenador + um especialista, ou um dono); evite copiar listas identicas entre especialistas.
- */
-export const PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS = [
-  'database_query',
-  'calendar_access',
-  'internal_actions',
-  'email_send',
-  'image_generation',
-  'file_search',
-] as const;
+/** Reexport — lista canónica em {@link SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS}. */
+export const PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS = SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS;
 
-const SPECIALIST_EXCLUSIVE_IDS_PROMPT = PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS.map((id) => `"${id}"`).join(
-  ', ',
-);
+const SPECIALIST_EXCLUSIVE_IDS_PROMPT = SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS.map((id) => `"${id}"`).join(', ');
 
 export const TEAM_PLANNER_SYSTEM_PROMPT = `Voce e o Whitebeard AI Planner. Sua tarefa e propor um TIME DE AGENTES (coordenador + especialistas) e um objetivo de time alinhados ao PROBLEMA e ao CONTEXTO do usuario.
 

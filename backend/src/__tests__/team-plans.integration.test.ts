@@ -231,4 +231,80 @@ describe('team-plans flow', () => {
     expect(data.plannerMeta.fallbackReason).toBe('openai_request_failed');
     expect(data.team.name.startsWith('Time Precisamos melhorar')).toBe(true);
   });
+
+  it('rejeita criacao quando dois especialistas partilham catalogTools de dominio', async () => {
+    jest.restoreAllMocks();
+    const collisionPlan = {
+      team: {
+        name: 'Time Colisao',
+        objective: 'Testar validacao de ferramentas exclusivas entre especialistas no servidor.',
+        description: 'Teste integracao',
+        channelIds: [],
+      },
+      agents: [
+        {
+          name: 'Coord',
+          role: 'coordinator',
+          description: 'c',
+          objective: 'o',
+          responsibilities: [] as string[],
+          skills: [] as string[],
+          category: 'c',
+          channels: ['api'],
+          catalogTools: ['web_search'],
+        },
+        {
+          name: 'Esp A',
+          role: 'specialist',
+          description: 'd',
+          objective: 'o',
+          responsibilities: [],
+          skills: [],
+          category: 'a',
+          channels: [],
+          catalogTools: ['database_query'],
+        },
+        {
+          name: 'Esp B',
+          role: 'specialist',
+          description: 'd',
+          objective: 'o',
+          responsibilities: [],
+          skills: [],
+          category: 'b',
+          channels: [],
+          catalogTools: ['database_query'],
+        },
+      ],
+      graph: { nodes: [], edges: [] },
+      executionChecklist: [] as string[],
+      requiredPacks: [] as string[],
+      requiredTools: [] as string[],
+    };
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [{ message: { content: JSON.stringify(collisionPlan) } }],
+        }),
+    } as Response);
+
+    const headers = await authHeaders();
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans',
+      headers,
+      payload: {
+        problem: 'Precisamos melhorar o atendimento e reduzir tempo de resposta dos clientes.',
+      },
+    });
+    expect(create.statusCode).toBe(400);
+    const envelope = JSON.parse(create.body) as {
+      success: boolean;
+      error: { code: string; message: string };
+    };
+    expect(envelope.success).toBe(false);
+    expect(envelope.error.code).toBe('VALIDATION_ERROR');
+    expect(envelope.error.message).toContain('database_query');
+  });
 });

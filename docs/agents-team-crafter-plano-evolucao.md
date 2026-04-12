@@ -1380,7 +1380,7 @@ Endurecer **texto de sistema**, **mensagens de utilizador** e **few-shot** do te
 
 ### Fora do MVP deste loop
 
-- Enforcement automático pós-geração (fica para o [Loop 78](#loop-78--enforcement-e-ux-plano-sem-ambiguidade-de-builtins-de-negócio)); alterações grandes no AI Builder além de copy/ajuda inline.
+- Enforcement automático pós-geração — entregue no [Loop 78](#loop-78-enforcement-builtin-ambiguity); alterações grandes no AI Builder além de copy/ajuda inline ficaram para esse slice.
 
 ### Critério de saída
 
@@ -1401,10 +1401,10 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 
 ### Foco (MVP)
 
-- Backend: validação na criação/atualização/execução do team plan (camada a definir no slice: `team-plan.service` e/ou normalização) que detecte colisão de IDs **de negócio** entre especialistas; política explícita para **rejeitar**, **normalizar** (com auditoria) ou **avisar** — escolha documentada no ledger.
-- Catálogo de IDs considerados “negócio” alinhado a [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts) ou lista mantida em código com teste de invariante.
-- Frontend (AI Builder): alerta inline ou bloqueio coerente com o backend; coerência com [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) e checkboxes por agente.
-- Testes unitários/integração cobrindo **colisão** e **caminho feliz** sem colisão.
+- Backend: validação na criação/atualização/execução do team plan (`team-plan.service` + domínio) que detecte colisão de IDs **de domínio** em `catalogTools` entre especialistas; **política: rejeitar** (`400` / `VALIDATION_ERROR`), sem normalização silenciosa — detalhe no ledger.
+- Catálogo de IDs “de domínio” para unicidade: lista canónica partilhada com o prompt do [Loop 77](#loop-77-planner-prompts-builtin-domain) — [`planner-specialist-catalog-uniqueness.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts).
+- Frontend (AI Builder): alertas e bloqueio de ações de persistência/execução coerente com o backend — [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx), constante em [`catalog-tool-ids.ts`](../v0-team-ai-crafter/lib/catalog-tool-ids.ts).
+- Testes unitários e integração cobrindo **colisão** (`POST /api/v1/team-plans`) e **caminho feliz** sem colisão.
 
 ### Fora do MVP
 
@@ -1412,10 +1412,10 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 
 ### Critério de saída
 
-- Caso de teste reproduzível: dois especialistas com o mesmo ID de negócio → erro ou normalização traçada no ledger.
+- Caso de teste reproduzível: dois especialistas com o mesmo ID de domínio → **erro 400** com mensagem acionável.
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
 
-**Estado (ledger):** **candidato** — [`Loop 78 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-78-candidato).
+**Estado (ledger):** **entregue** — [`Loop 78 (fechado)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-78-fechado).
 
 ---
 
@@ -1448,7 +1448,7 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 24. **Loop 75** — tabela `md+` + cards `<md` em **`/tool-definitions`** (entregue; ver [Loop 75](#loop-75-cards-tool-definitions)).
 25. **Loop 76** — tabela `md+` + cartões `<md` em **`/templates`** (entregue; ver [Loop 76](#loop-76-cards-templates)).
 26. **Loop 77** — prompts do planner: domínio, builtins e anti-duplicação (entregue; ver [Loop 77](#loop-77-planner-prompts-builtin-domain)).
-27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (candidato; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
+27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (entregue; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1472,7 +1472,7 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 - **Loop 73:** quando o scroll horizontal não chega para leitura eficiente, **cards** com prioridade de colunas explícita por rota
 - **Loops 74–76:** expandir o **mesmo padrão** de cards (um Ralph Loop por rota: governança, tools do workspace, templates), mantendo paridade e documentação no ledger
 - **Loop 77:** endurecer instruções e exemplos do **team planner** para builtins por domínio e **sem** duplicação de IDs de negócio entre especialistas ([secção dedicada](#loop-77-planner-prompts-builtin-domain))
-- **Loop 78:** **validação e UX** quando o plano violar unicidade de builtins de negócio — alinhado à [metodologia de micro-etapas](#metodologia-ralph-criacao-times-ia)
+- **Loop 78:** **validação e UX** quando o plano violar unicidade de builtins de negócio entre especialistas — entregue; alinhado à [metodologia de micro-etapas](#metodologia-ralph-criacao-times-ia)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.

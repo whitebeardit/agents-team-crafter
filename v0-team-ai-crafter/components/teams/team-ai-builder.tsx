@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Loader2, Sparkles, Play, PencilLine, AlertTriangle } from "lucide-react"
+import { Loader2, Sparkles, Play, PencilLine, AlertTriangle, Info } from "lucide-react"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import type {
@@ -29,7 +29,12 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { createOperationId } from "@/lib/utils/operation-id"
 import { plannerPackLabelPt } from "@/lib/planner-pack-labels"
-import { CATALOG_TOOL_IDS, catalogToolLabelPt } from "@/lib/catalog-tool-ids"
+import {
+  CATALOG_TOOL_IDS,
+  SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS,
+  catalogToolLabelPt,
+  type CatalogToolId,
+} from "@/lib/catalog-tool-ids"
 import { ReactFlow, type Node, type Edge } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { nodeTypes as graphNodeTypes } from "@/components/graph/graph-node"
@@ -284,6 +289,30 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       bindPreview?.toolDefinitions.filter((d) => d.currentStatus === "existing_disabled").map((d) => d.actionId) ?? [],
     [bindPreview],
   )
+
+  /** Espelha validação do backend: IDs de domínio não podem repetir entre especialistas. */
+  const specialistExclusiveCollisions = useMemo((): string[] => {
+    if (!plan) return []
+    const specialists = plan.agents.filter((a) => a.role === "specialist")
+    const exclusive = new Set<string>(SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS)
+    const byTool = new Map<string, string[]>()
+    for (const ag of specialists) {
+      for (const tid of ag.catalogTools ?? []) {
+        if (!exclusive.has(tid)) continue
+        const list = byTool.get(tid) ?? []
+        list.push(ag.name)
+        byTool.set(tid, list)
+      }
+    }
+    const out: string[] = []
+    for (const [tid, names] of byTool.entries()) {
+      if (names.length > 1) {
+        const label = catalogToolLabelPt(tid as CatalogToolId)
+        out.push(`${label} (${tid}): ${names.join(", ")}`)
+      }
+    }
+    return out
+  }, [plan])
 
   const plannerFallbackCopy = useMemo(() => {
     if (!plan?.plannerMeta?.usedFallback) return null
@@ -1247,6 +1276,28 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             </div>
             <div className="space-y-3">
               <Label>Agentes planejados</Label>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Ferramentas por domínio</AlertTitle>
+                <AlertDescription className="text-muted-foreground text-sm">
+                  Cada especialista deve ter um âmbito distinto: as ferramentas marcadas como de domínio (SQL, calendário,
+                  ações internas, e-mail, imagem, ficheiros) não podem ser atribuídas a dois especialistas ao mesmo tempo.
+                  O coordenador pode partilhar utilitários com um especialista sem conflito.
+                </AlertDescription>
+              </Alert>
+              {specialistExclusiveCollisions.length > 0 ? (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Conflito de catalogTools entre especialistas</AlertTitle>
+                  <AlertDescription asChild>
+                    <ul className="list-disc pl-4 text-sm space-y-1">
+                      {specialistExclusiveCollisions.map((line, i) => (
+                        <li key={`exclusive-collision-${i}`}>{line}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               {plan.agents.map((agent, index) => (
                 <div key={`${agent.role}-${index}`} className="border rounded-lg p-3 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1342,7 +1393,12 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <Button variant="outline" onClick={saveEdits} disabled={isSaving} className="w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={saveEdits}
+                disabled={isSaving || specialistExclusiveCollisions.length > 0}
+                className="w-full sm:w-auto"
+              >
                 {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PencilLine className="w-4 h-4 mr-2" />}
                 Salvar ajustes
               </Button>
@@ -1352,6 +1408,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 disabled={
                   isExecuting ||
                   isBindPreviewLoading ||
+                  specialistExclusiveCollisions.length > 0 ||
                   (requiresBindReview && (!bindPreview || !bindPreviewApproved)) ||
                   (overlapMode === "blocking" && (plan.reuseSummary?.conflicts?.length ?? 0) > 0)
                 }

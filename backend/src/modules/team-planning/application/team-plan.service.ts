@@ -18,6 +18,7 @@ import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
 import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
 import { plannerOutputSchema, type TPlannerOutput } from './team-plan-planner-output.schema.js';
 import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
+import { assertSpecialistsExclusiveCatalogTools } from '../domain/planner-specialist-catalog-uniqueness.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
 
@@ -457,6 +458,7 @@ export class TeamPlanService {
       requiredTools: raw.requiredTools,
     });
     const agentsMaterialized = materializePlannerAgentCatalogTools(parsedForGraph);
+    assertSpecialistsExclusiveCatalogTools(agentsMaterialized);
     const graph = this.buildDefaultGraph({ ...parsedForGraph, agents: agentsMaterialized });
     const created = await this.repo.create(workspaceId, {
       problem: input.problem,
@@ -513,6 +515,7 @@ export class TeamPlanService {
       requiredTools: parsed.requiredTools,
     });
     const agentsMaterialized = materializePlannerAgentCatalogTools(fullPlan);
+    assertSpecialistsExclusiveCatalogTools(agentsMaterialized);
     const updated = await this.repo.update(workspaceId, id, {
       team: parsed.team,
       agents: agentsMaterialized.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
@@ -873,6 +876,7 @@ export class TeamPlanService {
       requiredPacks: plan.requiredPacks ?? [],
       requiredTools: plan.requiredTools ?? [],
     });
+    assertSpecialistsExclusiveCatalogTools(materializePlannerAgentCatalogTools(parsed));
     const planAgentKeys = plannerAgentKeys(parsed.agents);
     const coordinator = parsed.agents.find((a) => a.role === 'coordinator');
     if (!coordinator) throw new AppError('VALIDATION_ERROR', 'Plano precisa de um coordenador', 400);
