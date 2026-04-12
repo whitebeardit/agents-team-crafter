@@ -1861,6 +1861,13 @@ Fechar a lacuna entre arquitectura pronta e **especialistas utilizáveis** em co
 
 O registo [Gaps — domínios de negócio](#gap-runtime-dominios-negocio) permanece como orientação para **verticais adicionais** (finanças, care, …) em **Loops 96+**; a macro-onda **89–95** cobre **operação / UX** após o [Loop 88](#loop-88-fechado) (ver [backlog recomendado](#backlog-recomendado-após-o-loop-87)).
 
+### Patch pós-loop 87 — schema inválido em `ws_ba_*` (`additionalProperties`)
+
+- **Sintoma observado em produção:** `400 Invalid schema for function 'ws_ba_crm_update_party': In context=('additionalProperties',), schema must have a 'type' key`.
+- **Causa raiz:** conversão JSON Schema → Zod em [`json-schema-to-zod-params.ts`](../../backend/src/modules/runtime/application/json-schema-to-zod-params.ts) usava `.passthrough()` no objeto raiz/fallback, gerando schema permissivo para `additionalProperties` no registo da function tool.
+- **Correção aplicada:** conversor passou a devolver objetos `.strict()` em todos os caminhos (schema válido e fallback), evitando `additionalProperties` permissivo incompatível com validação estrita do provedor.
+- **Cobertura de regressão:** [`json-schema-to-zod-params.test.ts`](../../backend/src/modules/runtime/application/json-schema-to-zod-params.test.ts) valida rejeição de chaves extra e fallback estrito.
+
 ---
 
 <a id="loop-88-fechado"></a>

@@ -25,6 +25,10 @@ Mas agora existe uma nova classe de falhas que impede o produto de parecer realm
 Este loop não reabre a base arquitetural.
 Este loop fecha a **operabilidade real dos especialistas**.
 
+> **Atualização pós-implementação (runtime `ws_ba_*`):** foi identificado em produção o erro  
+> `400 Invalid schema for function 'ws_ba_crm_update_party': In context=('additionalProperties',), schema must have a 'type' key`.  
+> A correção aplicada no backend foi tornar estrita (`.strict()`) a conversão JSON Schema → Zod em `json-schema-to-zod-params.ts`, eliminando o `additionalProperties` permissivo que quebrava a validação estrita do provedor para tools `ws_*`.
+
 ---
 
 # Diagnóstico factual do código atual

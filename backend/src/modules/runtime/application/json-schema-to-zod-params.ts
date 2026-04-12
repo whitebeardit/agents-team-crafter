@@ -8,15 +8,15 @@ export function jsonSchemaToZodParams(
   schema: Record<string, unknown>,
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   if (!schema || typeof schema !== 'object') {
-    return z.object({}).passthrough();
+    return z.object({}).strict();
   }
   const t = schema['type'];
   if (t !== 'object') {
-    return z.object({}).passthrough();
+    return z.object({}).strict();
   }
   const props = schema['properties'];
   if (!props || typeof props !== 'object') {
-    return z.object({}).passthrough();
+    return z.object({}).strict();
   }
   const required = new Set(
     Array.isArray(schema['required'])
@@ -37,5 +37,5 @@ export function jsonSchemaToZodParams(
     if (!required.has(key)) zf = zf.optional();
     shape[key] = zf;
   }
-  return z.object(shape).passthrough();
+  return z.object(shape).strict();
 }
