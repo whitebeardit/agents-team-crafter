@@ -1396,6 +1396,45 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       className="min-h-[72px] resize-y"
                     />
                   </div>
+                  {(agent.workflowKey ||
+                    (agent.requiredPackIds?.length ?? 0) > 0 ||
+                    (agent.requiredBusinessActionIds?.length ?? 0) > 0) && (
+                    <div className="rounded-md border bg-muted/30 px-3 py-2 space-y-2 text-sm">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Plano por agente (contrato do planner — Loop 82)
+                      </p>
+                      {agent.workflowKey ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-muted-foreground">Workflow</span>
+                          <code className="text-xs rounded bg-muted px-1.5 py-0.5">{agent.workflowKey}</code>
+                        </div>
+                      ) : null}
+                      {(agent.requiredPackIds?.length ?? 0) > 0 ? (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Packs neste agente: </span>
+                          <span className="flex flex-wrap gap-1 mt-1">
+                            {agent.requiredPackIds!.map((p) => (
+                              <Badge key={p} variant="outline" className="text-xs">
+                                {plannerPackLabelPt(p)}
+                              </Badge>
+                            ))}
+                          </span>
+                        </div>
+                      ) : null}
+                      {(agent.requiredBusinessActionIds?.length ?? 0) > 0 ? (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Ações de negócio (actionIds): </span>
+                          <ul className="list-disc list-inside mt-1 text-xs text-muted-foreground">
+                            {agent.requiredBusinessActionIds!.map((t) => (
+                              <li key={t}>
+                                <code>{t}</code>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Label className="text-sm text-muted-foreground">Ferramentas do catálogo (OpenAI)</Label>

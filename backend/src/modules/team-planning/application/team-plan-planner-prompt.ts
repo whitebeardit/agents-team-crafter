@@ -36,6 +36,7 @@ Regras obrigatorias:
 - executionChecklist: lista de passos concretos para colocar o plano em pratica.
 - requiredPacks: lista de identificadores de packs de negocio sugeridos quando o problema claramente exigir capabilities de dominio; use APENAS estes valores (strings exatas): ${PLANNER_PACK_IDS_PROMPT}. Use [] se nao aplicavel. Exemplos: atendimento clinico / prontuario (care, clinical), pacotes e sessoes (packages_encounters), contas a receber (finance), cadastro (crm), agenda (scheduling).
 - requiredTools: lista de actionIds de business tools internas sugeridas (ex.: "crm_create_party", "sales_create_service_order") alinhadas ao problema; use [] se nao aplicavel. Isto e **distinto** de catalogTools: requiredTools sao acoes de negocio MongoDB/registry; catalogTools sao IDs do catálogo OpenAI Agents SDK por agente.
+- **Loop 82 — contrato por agente (workflow ownership):** para cada agente, preencha **workflowKey** (identificador curto e estavel em snake_case ou kebab, ex.: "crm_contas", "agenda_clinica"), **requiredBusinessActionIds** (subconjunto de actionIds de negocio que este agente **possui** neste plano) e **requiredPackIds** (subconjunto dos mesmos valores de pack que em requiredPacks, alinhados ao papel). O **coordenador** pode usar workflowKey "coordination" ou equivalente. **Nao** duplique o **mesmo** workflowKey entre dois especialistas no mesmo plano (dominios distintos = chaves distintas). Os campos **requiredPacks** e **requiredTools** no nivel do plano continuam para visao macro e instalacao; as listas **por agente** dizem **quem** e dono de cada fluxo no time.
 - **requiredPacks vs catalogTools vs requiredTools:** "requiredPacks" = packs de integracao de negocio (strings do preset acima). "catalogTools" por agente = ferramentas **builtin** do catálogo SDK (habilitadas na ficha). "requiredTools" = actionIds de internal actions / negocio. Um plano pode combinar os tres quando fizer sentido (ex.: requiredPacks ["crm"] + especialista com catalogTools ["internal_actions"] + requiredTools com um actionId concreto).
 - catalogTools (por agente): IDs do **catálogo builtins** OpenAI Agents SDK a habilitar nesse agente — subconjunto **mínimo** e **específico do papel**; **não** replique o mesmo pacote para todos os especialistas. IDs permitidos: "web_search", "file_search", "internal_actions", "code_execution", "email_send", "calendar_access", "database_query", "image_generation". Ex.: coordenador costuma precisar só de "web_search"; especialista de arte/social: "image_generation" (e talvez "web_search"); especialista de dados/SQL: "database_query"; de código: "code_execution". Use [] apenas se quiser deixar o servidor inferir (não recomendado — prefira escolher explicitamente).
 - **Unicidade de catalogTools entre ESPECIALISTAS (regra de dominio):** considere apenas agentes com role "specialist". Nenhum ID da lista a seguir pode aparecer em catalogTools de **dois** especialistas diferentes ao mesmo tempo: ${SPECIALIST_EXCLUSIVE_IDS_PROMPT}. O coordenador pode ter catalogTools proprios (ex.: web_search) sem violar esta regra. Utilitarios "web_search" e "code_execution" podem repetir-se entre coordenador e um especialista ou, em casos raros, entre especialistas com papéis claramente desanexados — mas **evite** duplicar sem necessidade. Se dois especialistas precisassem do mesmo ID exclusivo (ex.: dois a usar "database_query"), **unifique** num único especialista de dados ou divida o trabalho para apenas um deles precisar desse ID.
@@ -62,7 +63,10 @@ Estrutura JSON exata das chaves de nivel superior:
       "skills": string[],
       "category": string,
       "channels": (${PLANNER_CHANNEL_UNION})[],
-      "catalogTools": string[]
+      "catalogTools": string[],
+      "workflowKey": string,
+      "requiredBusinessActionIds": string[],
+      "requiredPackIds": string[]
     }
   ],
   "graph": { "nodes": [], "edges": [] },
@@ -89,7 +93,10 @@ Exemplo de FORMA (nao copie conteudos; adapte ao problema real):
       "skills": ["..."],
       "category": "orquestracao",
       "channels": ["api"],
-      "catalogTools": ["web_search"]
+      "catalogTools": ["web_search"],
+      "workflowKey": "coordination",
+      "requiredBusinessActionIds": [],
+      "requiredPackIds": []
     },
     {
       "name": "Especialista em Secure Code Review",
@@ -100,7 +107,10 @@ Exemplo de FORMA (nao copie conteudos; adapte ao problema real):
       "skills": ["..."],
       "category": "seguranca_codigo",
       "channels": [],
-      "catalogTools": ["code_execution"]
+      "catalogTools": ["code_execution"],
+      "workflowKey": "seguranca_codigo",
+      "requiredBusinessActionIds": [],
+      "requiredPackIds": []
     }
   ],
   "graph": { "nodes": [], "edges": [] },
@@ -121,7 +131,7 @@ export function buildTeamPlannerUserMessage(problem: string, context?: string): 
     'Antes do JSON final: faca uma matriz mental "especialista -> catalogTools" e confira que cada ID exclusivo (' +
       SPECIALIST_EXCLUSIVE_IDS_PROMPT +
       ') aparece no maximo em UM especialista (o coordenador nao conta para esta regra).',
-    'Em seguida emita o JSON: dominio de assunto distinto por especialista (category + textos); catalogTools minimos; alinhe requiredPacks a packs de negocio e requiredTools a actionIds internos.',
+    'Em seguida emita o JSON: dominio de assunto distinto por especialista (category + textos); catalogTools minimos; workflowKey unico por especialista; requiredBusinessActionIds e requiredPackIds por agente quando aplicavel; alinhe requiredPacks globais a packs de negocio e requiredTools globais a actionIds internos.',
   ].join('\n');
 }
 
@@ -140,6 +150,7 @@ Regras:
 - O coordenador pode manter catalogTools proprios; a regra aplica-se so entre agentes com role "specialist".
 - Voce pode: remover um ID duplicado de um dos especialistas, fundir dois especialistas num so se o dominio for o mesmo, ou redistribuir responsabilidades — preserve a intencao do usuario.
 - Mantenha team.name curto; graph sempre "graph": { "nodes": [], "edges": [] }.
+- Preserve por agente: workflowKey, requiredBusinessActionIds, requiredPackIds (Loop 82); ajuste se estiverem em conflito com a unicidade de catalogTools.
 - Estrutura de nivel superior identica ao planner principal: team, agents, graph, executionChecklist, requiredPacks, requiredTools.`;
 
 export function buildTeamPlannerRepairUserMessage(params: {

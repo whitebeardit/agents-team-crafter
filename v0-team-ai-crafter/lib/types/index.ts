@@ -407,6 +407,12 @@ export interface TeamPlanAgentDraft {
   channels: ChannelType[]
   /** Builtins do catálogo OpenAI Agents SDK por agente (Loop 64). */
   catalogTools?: string[]
+  /** Loop 82 — domínio de workflow (único entre especialistas no plano). */
+  workflowKey?: string
+  /** Loop 82 — actionIds de negócio atribuídos a este agente. */
+  requiredBusinessActionIds?: string[]
+  /** Loop 82 — pack ids atribuídos a este agente. */
+  requiredPackIds?: string[]
   planningMode?: "existing" | "new" | "split_required" | "conflict"
   existingAgentId?: string | null
   overlapScore?: number

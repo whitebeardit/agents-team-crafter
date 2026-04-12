@@ -683,6 +683,17 @@ Mas, como fundação de negócio, `CRM + Care + Services & Sales` continuam send
 
 # 9. Nova priorização do backlog
 
+## P0 — Foco imediato (precisão operacional do team planner e AI Builder)
+
+Slices oficiais numerados **após o Loop 81** (ETAPA 9 continua; ver [§14](#14-etapa-9--paridade-de-produção-configurações-e-operação)):
+
+- **[Loop 82](#loop-82-contrato-do-planner-por-agente-e-ownership-por-workflow)** — **entregue** — contrato do planner por agente (`workflowKey`, `requiredBusinessActionIds`, `requiredPackIds`) e ownership de workflow no mesmo team plan (ledger: [Loop 82 fechado](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-82-fechado))
+- **[Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global)** — bind preview/execute orientados por agente (fim do *candidate set* global demasiado largo)
+- **[Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)** — built-ins mínimas por papel; rever inferência default e rotação em [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)
+- **[Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)** — UX do AI Builder: preview estável, executar só bloqueado por *blocker* real
+
+*Base factual no código actual:* `collectPlannerActionIds` + `buildBindPreview` em [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts) derivam um conjunto único de `actionIds` a partir de `requiredTools`/`requiredPacks` do plano e aplicam-no a **todos** os agentes elegíveis (`actionIdsCandidate`) — **Loop 83** deve alinhar isto às listas por agente; o schema [`team-plan-planner-output.schema.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts) já modela **`workflowKey`**, **`requiredBusinessActionIds`** e **`requiredPackIds`** por agente (**Loop 82** entregue).
+
 ## P1 — Entregar primeiro
 - Foundation de Business Tools
 - CRM Pack
@@ -776,33 +787,33 @@ O produto passa a fechar o ciclo operacional entre venda, agenda, comparecimento
 # 11. Recomendação final
 
 ## Recomendação objetiva
-**Aproveitar a base atual e expandi-la.**
+**Aproveitar a base actual e refiná-la onde o produto já opera — precisão de bind, ownership explícito e UX.**
 
 ## O que realmente precisa mudar agora
-A próxima grande evolução não é mais sobre:
-- governança de domínio de agentes
-- grafo
-- runs
-- flags
+A arquitectura base (governança, grafo, runs, flags, business tools, planner com reparo **Loops 77–80**, AI Builder **Loop 81**, contrato por agente **Loop 82**) **já está sólida**. O problema actual **não** é reescrever pilares; é **precisão operacional**:
 
-Esses pilares já estão amadurecidos.
+- **bind de business tools** demasiado **global** no preview/execute (mesmo *pool* de `actionIds` para agentes elegíveis — ver `buildBindPreview` em `team-plan.service.ts`; correcção **Loop 83**)
+- **planner** já persiste **por agente** `workflowKey`, `requiredBusinessActionIds` e `requiredPackIds` (**Loop 82**); falta o bind operacional consumir estas listas de forma **fina** (**Loop 83**)
+- **inferência default de built-ins** em [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts) **agressiva** (rotação `SPECIALIST_DEFAULT_ROTATION` quando o texto não dispara heurísticas)
+- **UX do AI Builder** com atrito: edições cosméticas limpam `bindPreview` / aprovação; **Executar** exige preview aprovado quando há capabilities sugeridas — pode parecer “travado” sem *blocker* de governança real
 
-A próxima grande evolução é:
-- **Business Tools Platform**
-- **packs multi-tenant**
-- **capabilities reais de negócio**
-- **AI Builder com bind automático dessas capabilities**
+Em paralelo, continuam válidos como macro-evolução de negócio:
+
+- **Business Tools Platform** e **packs multi-tenant**
+- **capabilities reais de negócio** e **AI Builder** com bind **correcto** por especialista
 
 ---
 
 # 12. Próxima ação recomendada
 
 ## Próximo loop recomendado
-A **ativação inline** de `tool definitions` inativas no preview do bind foi entregue no **[Loop 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado)** (`POST .../bind-enable-definitions`, cartões por definition, lote). O **[Loop 79](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-79-fechado)** completou o mesmo tema com **atalhos por agente/ação** no preview (checkbox bloqueado até reativar + botão **Ativar definition** na linha da ação).
+**Slice oficial seguinte: [Loop 83 — Bind preview e execute per-agent](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global)** (ledger: [checklist Loop 83](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#checklist-do-loop-83-proximo)).
+
+Trabalho já entregue que contextualiza o próximo slice: **Loops 77–82** fecharam prompts, enforcement, reparo IA, atalhos de definition inactiva, UX em camadas no [`TeamAiBuilder`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) e **contrato JSON por agente** (`workflowKey`, listas de negócio). A **ativação inline** de definitions inactivas permanece documentada nos **[Loops 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado)** e **[79](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-79-fechado)**.
 
 ### Próximas melhorias não numeradas (produto)
 - ver [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace)
-- refinamentos de UX no AI Builder podem continuar como slices ad hoc documentados no ledger
+- após **Loops 82–85**, novos refinamentos entram no ledger como slices coerentes (Ralph), não como terceira fonte de roadmap
 
 ---
 
@@ -851,6 +862,15 @@ Hoje o produto já tem uma base forte para runtime, business tools e AI Builder,
 
 ### Diagnóstico consolidado
 As anotações levantadas continuam válidas em grande parte, com o seguinte recorte:
+
+### Nova classe de problemas (pós Loops 77–81)
+O **AI Builder** e o **planner** já cobrem uma fase importante (prompts, unicidade de builtins entre especialistas com reparo **Loop 80**, UX em camadas **Loop 81**). O *gap* actual é **precisão de bind e de modelo**:
+
+- preview e execute derivam um conjunto de `actionIds` a partir de `requiredTools` + `requiredPacks` **do plano** e repetem candidatos para **vários** agentes — gera preview denso e sensação de erro quando tools aparecem em papéis que não as precisam
+- **Regra de produto:** dentro do **mesmo** team plan, **um** especialista **dono** de cada workflow/domínio; duplicidade só fora desse plano (outro time, outro workflow, outro workspace)
+- o schema JSON do planner **já expõe** **`workflowKey`**, **`requiredBusinessActionIds`** e **`requiredPackIds` por agente** (**Loop 82** entregue); falta o **bind** consumir estas listas (**Loops 83–85** — [P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder))
+- **Built-ins:** a inferência por omissão em `planner-agent-catalog-tools.ts` pode acrescentar IDs além do mínimo (rotação por índice); alinhar com [Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)
+- **UX:** no cliente, edições ao plano limpam preview/aprovação e o botão **Executar** exige aprovação de bind quando há packs/tools sugeridos — distinguir *blocker* real de mera revisão pendente é objectivo do [Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)
 
 ### Já funcionam hoje
 - `API keys` do workspace
@@ -1546,6 +1566,109 @@ Reduzir **poluição visual** e **carga cognitiva** no assistente **Criar time**
 
 ---
 
+<a id="loop-82-contrato-do-planner-por-agente-e-ownership-por-workflow"></a>
+
+## Loop 82 — Contrato do planner por agente e ownership por workflow *(entregue)*
+
+### Objetivo do slice
+O **contrato JSON** do planner declara, **por agente**, quais **business tools** e **packs** pertencem a **esse** papel, e qual o **workflow/domínio** (`workflowKey`) que o especialista possui no time.
+
+### Implementação (código)
+- [`team-plan-planner-output.schema.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): por agente — `workflowKey`, `requiredBusinessActionIds`, `requiredPackIds` (normalização + passo `ensurePlannerAgentWorkflowKeys`).
+- [`planner-workflow-ownership.ts`](../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts): unicidade de `workflowKey` entre especialistas (desambiguação automática).
+- [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): instruções e exemplo JSON; reparo Loop 80 inclui os novos campos no payload.
+- [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts): `buildFallback`, `agentGraphData`, `formatPlanPayloadForRepair`; **bind preview/execute global** inalterado — [Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global).
+- [`team-plan.model.ts`](../backend/src/modules/team-planning/infra/team-plan.model.ts); [`v0-team-ai-crafter/lib/types/index.ts`](../v0-team-ai-crafter/lib/types/index.ts); [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — cartão “Plano por agente”.
+
+### Relação com §2.6 e loops seguintes
+- [Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow): inferência mínima e enforcement cruzado com `workflowKey`.
+- **Bind operacional por agente:** [Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global).
+
+**Estado:** **entregue** — ledger: [Loop 82 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-82-fechado).
+
+---
+
+<a id="loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global"></a>
+
+## Loop 83 — Bind preview e execute per-agent (fim do bind global) *(planeado)*
+
+### Objetivo do slice
+Deixar de distribuir **business actionIds** e *bindings* como se **todo** o conjunto `requiredTools`/`requiredPacks` fosse candidato **por defeito** a **cada** agente elegível no plano.
+
+### Contexto factual (código actual)
+Em [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts), `buildBindPreview` calcula `actionIds` via `collectPlannerActionIds(parsed.requiredTools, parsed.requiredPacks)` e, por agente, `actionIdsCandidate` a partir desse **mesmo** vector — correcto para instalação global, **impreciso** quando só um especialista devia receber certas acções.
+
+### O que o slice deve entregar
+- **Preview** e **execute** orientados por **agente** e **workflow** (alinhado aos campos do [Loop 82](#loop-82-contrato-do-planner-por-agente-e-ownership-por-workflow)).
+- **Packs** podem permanecer **globais** para resolução de definitions / visão de pacote; **actions** e **tool bindings** devem refletir o dono do workflow.
+- Correcções esperadas: menos tools em agentes errados, preview menos poluído, packs sem “capability overload” perceptual, menos sensação de bug de UI quando a raiz é a lógica de bind.
+
+### Ficheiros-alvo (sugeridos)
+- [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts)
+- [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)
+- [`v0-team-ai-crafter/lib/types/index.ts`](../v0-team-ai-crafter/lib/types/index.ts)
+
+### Critério de saída
+- `bind-preview` e `execute` coerentes com listas **por agente**; testes de integração cobrindo cenários multi-especialista; gate Ralph; ledger actualizado.
+
+**Estado:** **planeado**.
+
+---
+
+<a id="loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow"></a>
+
+## Loop 84 — Built-ins mínimas por papel + enforcement por workflow *(planeado)*
+
+### Objetivo do slice
+Reduzir **built-ins** desnecessárias e alinhar a selecção mínima ao **papel** real do agente, articulando com **unicidade** de workflow no team plan e com a lista **exclusiva** já existente.
+
+### Contexto factual (código actual)
+- [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): `inferCatalogToolsForPlanAgent` usa keywords e, se não bastar, **`SPECIALIST_DEFAULT_ROTATION`** — pode acrescentar `database_query`, `calendar_access`, `email_send`, etc. sem necessidade explícita no texto.
+- [`planner-specialist-catalog-uniqueness.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts) + [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts): já tratam **exclusividade** de IDs “de domínio” entre especialistas (**Loops 77–80**); **workflowKey** e ownership por agente estão no planner (**[Loop 82](#loop-82-contrato-do-planner-por-agente-e-ownership-por-workflow)** entregue) — falta **cruzar inferência e enforcement** com estes dados de forma estrita (**Loop 84**).
+
+### O que o slice deve clarificar no produto
+- Built-ins **intencionais**, **mínimas** e **justificadas** pelo papel; não cair por hábito em `database_query`, `calendar_access`, `email_send`, etc.
+- Validação que combina: **unicidade por `workflowKey`** no team plan (quando modelado) + **exclusividade** de builtins de domínio entre especialistas + distinção **packs de negócio** vs **utilitários transversais** (`web_search`, `code_execution`).
+
+### Ficheiros-alvo (sugeridos)
+- [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)
+- [`planner-specialist-catalog-uniqueness.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts)
+- [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts)
+
+### Critério de saída
+- Inferência menos agressiva (ou desactivada onde o planner passar a preencher explicitamente); testes de borda; prompts alinhados; gate Ralph; ledger actualizado.
+
+**Estado:** **planeado**.
+
+---
+
+<a id="loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido"></a>
+
+## Loop 85 — UX do AI Builder: preview estável e execute fluido *(planeado)*
+
+### Objetivo do slice
+Tornar o assistente **muito fácil**: poucos cliques, **preview** que não “expira” por edições **cosméticas**, e botão **Executar plano** bloqueado só por **blockers** reais (governança, colisão, dependência de bind), não por ruído de revisão.
+
+### Contexto factual (código actual)
+[`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx): vários `onChange` chamam `setBindPreview(null)` e `setBindPreviewApproved(false)`; `executePlan` exige `bindPreviewApproved` quando `requiresBindReview` — correcto para segurança, mas pode **exagerar** o atrito se mudanças não afectarem bind.
+
+### O que o slice deve entregar
+- Distinguir na UI: **blocker** de governança / colisão / dependência real vs **preview desactualizado** vs **edição cosmética** sem impacto no bind.
+- Review mais legível: tools **por agente**, **porquê** naquele agente, **plano vs override**.
+- Ligação com o estado actual: mantém-se o cartão de preview e políticas de auto-bind; melhora-se **quando** exigir nova revisão e **o quê** precisa de re-aprovação.
+
+### Ficheiros-alvo (sugeridos)
+- [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)
+- [`v0-team-ai-crafter/lib/types/index.ts`](../v0-team-ai-crafter/lib/types/index.ts)
+- Endpoints/handlers de preview apenas se o contrato de “hash”/versão do bind o exigir
+
+### Critério de saída
+- Fluxo documentado + testes manuais mínimos ou e2e opcional; gate Ralph com frontend; ledger actualizado.
+
+**Estado:** **planeado**.
+
+---
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1579,6 +1702,10 @@ Reduzir **poluição visual** e **carga cognitiva** no assistente **Criar time**
 28. **Loop 79** — AI Builder: atalhos por agente/ação com definition inativa no bind preview (entregue; ver [Loop 79](#loop-79-ai-builder-bind-inactive-per-action)).
 29. **Loop 80** — planner: matriz pré-JSON + outer loop de auto-reparo pela IA (entregue; ver [Loop 80](#loop-80-planner-auto-repair-ia)).
 30. **Loop 81** — AI Builder: preview simples, chips de tools, edição focalizada, progressive disclosure *(entregue; ver [Loop 81](#loop-81-ai-builder-ux-preview-simples))*.
+31. **Loop 82** — contrato do planner por agente (`workflowKey`, `requiredBusinessActionIds`, `requiredPackIds`) e ownership de workflow *(entregue; ver [Loop 82](#loop-82-contrato-do-planner-por-agente-e-ownership-por-workflow))*.
+32. **Loop 83** — bind preview e execute per-agent, fim do *candidate set* global demasiado largo *(planeado; ver [Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global))*.
+33. **Loop 84** — built-ins mínimas por papel; rever inferência e rotação em `planner-agent-catalog-tools` *(planeado; ver [Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow))*.
+34. **Loop 85** — UX AI Builder: preview estável, execute fluido, blockers reais vs cosméticos *(planeado; ver [Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido))*.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1606,6 +1733,7 @@ Reduzir **poluição visual** e **carga cognitiva** no assistente **Criar time**
 - **Loop 79:** completar o fluxo do [Loop 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado) com **resolução por linha** no impacto por agente (definition inativa + override granular)
 - **Loop 80:** **auto-reparo pela IA** no `POST` de criação de plano quando o modelo violar unicidade (micro-etapas **F** e **G**); **PUT** manual continua com **400** do [Loop 78](#loop-78-enforcement-builtin-ambiguity) — entregue ([secção dedicada](#loop-80-planner-auto-repair-ia))
 - **Loop 81:** **UX do AI Builder** — preview legível, tools resumidas, avançado recolhido; micro-etapas **H–K** — *entregue* ([Loop 81](#loop-81-ai-builder-ux-preview-simples))
+- **Loops 83–85:** **próxima onda** — precisão de bind por agente, fim do bind “global” no preview/execute, built-ins mínimas por papel, UX fluida *(planeados; ver secções [Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global)–[Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)); **Loop 82** entregue*
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1616,6 +1744,8 @@ Ela funciona como a macrofase seguinte para:
 - reduzir discrepâncias entre UI e backend
 - preparar o produto para uso real com menos atrito operacional
 
+**Fase actual (pós Loops 77–82):** a base arquitectural está **madura** e o planner já tem **contrato por agente**; o foco imediato é **precisão operacional** — **bind** demasiado global (**Loop 83**), **built-ins** inferidas de forma agressiva (**Loop 84**), **AI Builder** com atrito no preview/executar (**Loop 85**). O **próximo slice oficial** é o [Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global).
+
 ## 14.8 Riscos e decisões em aberto
 - o provider de billing ainda não está decidido
 - 2FA pode exigir slice próprio, caso o MVP mínimo de conta precise sair antes
@@ -1623,4 +1753,4 @@ Ela funciona como a macrofase seguinte para:
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
 - responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
-- criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); **Loop 81** (superfície do assistente mais simples — **entregue**; [§ estado actual](#sec-ux-ai-builder-estado-atual)); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia), [Loop 80](#loop-80-planner-auto-repair-ia) e [Loop 81](#loop-81-ai-builder-ux-preview-simples)
+- criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); **Loop 81** (superfície do assistente mais simples — **entregue**; [§ estado actual](#sec-ux-ai-builder-estado-atual)); **Loop 82** — contrato por agente (`workflowKey`, listas de negócio) **entregue**; **Loops 83–85** — *planeados* para bind per-agent, built-ins mínimas e UX fluida ([§ P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia), [Loop 80](#loop-80-planner-auto-repair-ia) e [Loop 81](#loop-81-ai-builder-ux-preview-simples)

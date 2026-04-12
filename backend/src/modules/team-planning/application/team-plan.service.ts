@@ -232,6 +232,9 @@ export class TeamPlanService {
           category: 'planejamento',
           channels: ['api'],
           catalogTools: ['web_search'],
+          workflowKey: 'coordination',
+          requiredBusinessActionIds: [],
+          requiredPackIds: [],
         },
         {
           name: 'Especialista de Dominio',
@@ -243,6 +246,9 @@ export class TeamPlanService {
           category: 'execucao',
           channels: [],
           catalogTools: ['web_search', 'file_search'],
+          workflowKey: 'execucao',
+          requiredBusinessActionIds: [],
+          requiredPackIds: [],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -269,6 +275,7 @@ export class TeamPlanService {
       objective: agent.objective ?? '',
       skills: agent.skills ?? [],
       responsibilities: agent.responsibilities ?? [],
+      workflowKey: agent.workflowKey ?? '',
     };
   }
 
@@ -420,6 +427,9 @@ export class TeamPlanService {
         category: agent.category,
         channels: agent.channels,
         catalogTools: ev.agentsMaterialized[i]?.catalogTools ?? [],
+        workflowKey: agent.workflowKey,
+        requiredBusinessActionIds: agent.requiredBusinessActionIds,
+        requiredPackIds: agent.requiredPackIds,
       })),
       graph: { nodes: [] as unknown[], edges: [] as unknown[] },
       executionChecklist: ev.parsedForGraph.executionChecklist,

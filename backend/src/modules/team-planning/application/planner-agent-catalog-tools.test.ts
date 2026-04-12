@@ -2,6 +2,12 @@ import { describe, expect, it } from '@jest/globals';
 import { inferCatalogToolsForPlanAgent, resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
 import type { TPlannerOutput } from './team-plan-planner-output.schema.js';
 
+const wf82 = {
+  workflowKey: '',
+  requiredBusinessActionIds: [] as string[],
+  requiredPackIds: [] as string[],
+};
+
 function basePlan(agents: TPlannerOutput['agents'], requiredPacks: string[] = []): TPlannerOutput {
   return {
     team: {
@@ -31,6 +37,7 @@ describe('planner-agent-catalog-tools', () => {
         category: 'geral',
         channels: [],
         catalogTools: [],
+        ...wf82,
       },
     ]);
     const t = inferCatalogToolsForPlanAgent(plan.agents[0]!, {
@@ -53,6 +60,7 @@ describe('planner-agent-catalog-tools', () => {
           category: 'geral',
           channels: [],
           catalogTools: [],
+          ...wf82,
         },
         { specialistIndex: idx, requiredPacksLower: [] },
       );
@@ -71,6 +79,7 @@ describe('planner-agent-catalog-tools', () => {
         category: 'geral',
         channels: [],
         catalogTools: ['image_generation', 'web_search'],
+        ...wf82,
       },
     ]);
     const out = resolveCatalogToolsForPlanAgent(plan.agents[0]!, { plan, specialistIndex: 0 });

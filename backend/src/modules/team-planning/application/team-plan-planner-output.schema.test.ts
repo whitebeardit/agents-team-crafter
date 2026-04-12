@@ -106,4 +106,66 @@ describe('plannerOutputSchema', () => {
       expect(parsed.data.agents[0]!.catalogTools).toEqual(['web_search']);
     }
   });
+
+  it('Loop 82: dedupe requiredBusinessActionIds e lower-case requiredPackIds; workflowKey por especialista', () => {
+    const raw = {
+      team: {
+        name: 'Time Workflow',
+        objective: 'Objetivo minimo de dez caracteres.',
+        description: '',
+        channelIds: [],
+      },
+      agents: [
+        {
+          name: 'Coord',
+          role: 'coordinator',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'geral',
+          channels: ['api'],
+          requiredBusinessActionIds: ['  a  ', 'a'],
+          requiredPackIds: ['CRM', 'crm'],
+        },
+        {
+          name: 'Esp A',
+          role: 'specialist',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'alpha',
+          channels: [],
+          workflowKey: 'alpha_flow',
+          requiredBusinessActionIds: [],
+          requiredPackIds: [],
+        },
+        {
+          name: 'Esp B',
+          role: 'specialist',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'beta',
+          channels: [],
+          workflowKey: '',
+          catalogTools: ['web_search'],
+        },
+      ],
+      graph: { nodes: [], edges: [] },
+      executionChecklist: [],
+      requiredPacks: [],
+      requiredTools: [],
+    };
+    const parsed = plannerOutputSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.agents[0]!.requiredBusinessActionIds).toEqual(['a']);
+    expect(parsed.data.agents[0]!.requiredPackIds).toEqual(['crm']);
+    expect(parsed.data.agents[0]!.workflowKey).toBe('coordination');
+    expect(parsed.data.agents[1]!.workflowKey).toBe('alpha_flow');
+    expect(parsed.data.agents[2]!.workflowKey).toBe('beta');
+  });
 });

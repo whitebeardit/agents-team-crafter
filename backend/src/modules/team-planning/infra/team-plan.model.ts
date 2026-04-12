@@ -20,6 +20,12 @@ const TeamPlanAgentSchema = new Schema(
     overlapReason: { type: String, default: '' },
     /** Catálogo OpenAI Agents SDK por agente (Loop 64). */
     catalogTools: [{ type: String }],
+    /** Loop 82 — domínio de workflow (único entre especialistas no plano). */
+    workflowKey: { type: String, default: '' },
+    /** Loop 82 — actionIds de negócio por agente. */
+    requiredBusinessActionIds: [{ type: String }],
+    /** Loop 82 — pack ids por agente. */
+    requiredPackIds: [{ type: String }],
   },
   { _id: false },
 );
