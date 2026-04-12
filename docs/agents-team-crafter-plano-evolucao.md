@@ -1365,7 +1365,7 @@ Vista em cartões para o **catálogo de templates** em **`/templates`**, preserv
 
 <a id="loop-77-planner-prompts-builtin-domain"></a>
 
-## Loop 77 — Prompts do planner: domínio, builtin e anti-duplicação
+## Loop 77 — Prompts do planner: domínio, builtin e anti-duplicação (entregue no ledger)
 
 ### Objetivo
 
@@ -1387,7 +1387,7 @@ Endurecer **texto de sistema**, **mensagens de utilizador** e **few-shot** do te
 - Ledger descreve **trechos** do prompt alterados e **comportamento esperado** do modelo face a duplicação de domínio / IDs de negócio.
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` se o slice tocar `v0-team-ai-crafter` (copy); caso contrário gate backend.
 
-**Estado (ledger):** **candidato** — [`Loop 77 (candidato)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-77-candidato).
+**Estado (ledger):** **entregue** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 77 (fechado)**.
 
 ---
 
@@ -1447,7 +1447,7 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 23. **Loop 74** — cards em **`/governance`** (entregue; ver [Loop 74](#loop-74-cards-governance)).
 24. **Loop 75** — tabela `md+` + cards `<md` em **`/tool-definitions`** (entregue; ver [Loop 75](#loop-75-cards-tool-definitions)).
 25. **Loop 76** — tabela `md+` + cartões `<md` em **`/templates`** (entregue; ver [Loop 76](#loop-76-cards-templates)).
-26. **Loop 77** — prompts do planner: domínio, builtins e anti-duplicação (candidato; ver [Loop 77](#loop-77-planner-prompts-builtin-domain)).
+26. **Loop 77** — prompts do planner: domínio, builtins e anti-duplicação (entregue; ver [Loop 77](#loop-77-planner-prompts-builtin-domain)).
 27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (candidato; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
 
 ### Justificativa

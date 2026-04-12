@@ -119,7 +119,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–76); **77–78 planeados** (IA team planner) | Loops 52–76 entregues (incl. listagens densas `/runs`→`/templates`); **77–78** = prompts/enforcement criação de times por IA ([plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–77); **78 planeado** (enforcement team planner) | Loops 52–77 entregues; **78** = enforcement/UX builtins de negócio ([plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -692,7 +692,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 74   | Listagens densas — cards em `/governance`                     | entregue (ver [Loop 74](#loop-74-fechado))                                                      |
 | 75   | Listagens densas — cards em `/tool-definitions`              | entregue (ver [Loop 75](#loop-75-fechado))                                                      |
 | 76   | Listagens densas — cards em `/templates`                     | entregue (ver [Loop 76](#loop-76-fechado))                                                      |
-| 77   | Prompts do planner — domínio, builtin e anti-duplicação       | planeado — candidato (ver [Loop 77](#loop-77-candidato))                        |
+| 77   | Prompts do planner — domínio, builtin e anti-duplicação       | entregue (ver [Loop 77](#loop-77-fechado))                                                      |
 | 78   | Enforcement / UX — builtins de negócio sem ambiguidade       | planeado — candidato (ver [Loop 78](#loop-78-candidato))                        |
 
 
@@ -702,14 +702,13 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 76** — tabela em `md+` e `TemplateCard` em `<md` em `/templates` (ver [Loop 76](#loop-76-fechado)).
+**Último slice numerado fechado:** **Loop 77** — prompts do team planner (domínio, `catalogTools`, unicidade entre especialistas, `requiredPacks` vs catálogo; ver [Loop 77](#loop-77-fechado)).
 
-**Próximo slice numerado recomendado:** **Loops 77–78** (team planner / AI Builder — prompts e enforcement). Candidatos de produto não UX (ex.: billing/2FA) — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
+**Próximo slice numerado recomendado:** **Loop 78** (enforcement servidor + UX AI Builder para colisão de builtins de negócio). Candidatos de produto não UX (ex.: billing/2FA) — ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
-| 1 | **77** | Prompts do planner — domínio e builtins | [Loop 77](agents-team-crafter-plano-evolucao.md#loop-77-planner-prompts-builtin-domain) |
-| 2 | **78** | Enforcement — builtins de negócio | [Loop 78](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity) |
+| 1 | **78** | Enforcement — builtins de negócio | [Loop 78](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity) |
 
 **Também fora dos loops 77–78 numerados:** billing/2FA, self-service de workspace — [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto). Norma de domínio / builtins: [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas](#micro-etapas-ralph-criacao-times-ia).
 
@@ -1545,24 +1544,34 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 
 <a id="loop-76-candidato"></a>
 
-<a id="loop-77-candidato"></a>
+<a id="loop-77-fechado"></a>
 
-## Loop 77 (candidato — detalhe Ralph)
+## Loop 77 (fechado)
 
-- **Estado:** não iniciado; slices de listagem **74–76** fechados; pode correr em paralelo a outras frentes se a equipa priorizar.
 - **etapa/prioridade:** ETAPA 9 (team planner / AI Builder) / alta
-- **objetivo:** endurecer **system prompt**, exemplos e instruções auxiliares em [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) para que o modelo (1) declare **domínio de assunto** por especialista, (2) liste **`catalogTools`** de forma intencional, (3) **não** atribua o **mesmo ID de builtin de negócio** a dois especialistas, (4) distinga packs / `requiredPacks` de builtins de catálogo.
-- **Micro-etapas (ledger):** declarar cobertura das linhas A–D em [Metodologia Ralph — micro-etapas](#micro-etapas-ralph-criacao-times-ia).
-- **Ficheiros prováveis:** `team-plan-planner-prompt.ts`; testes em `team-plan-planner-output.schema.test.ts` ou fixtures de regressão de texto; frontend só se copy/ajuda em `team-ai-builder.tsx`.
-- **Critério de saída:** excertos do prompt novos ou alterados citados no ledger; exemplos positivo/negativo; gate verde (frontend se tocar no Next).
-- **Gate:** `./scripts/ralph-loop-gate.sh` ou `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`
-- **Ao fechar:** linha 77 → entregue; plano mestre [Loop 77](agents-team-crafter-plano-evolucao.md#loop-77-planner-prompts-builtin-domain); **próximo** candidato lógico: [Loop 78](#loop-78-candidato) (enforcement).
+- **objetivo:** endurecer **system prompt** e **mensagem de utilizador** (`buildTeamPlannerUserMessage`) para domínio por especialista, `catalogTools` intencionais, **anti-duplicação** de IDs de catálogo entre especialistas (lista `PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS`), e distinção **`requiredPacks` / `requiredTools` / `catalogTools`**.
+- **Ficheiros:** [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts), [`team-plan-planner-prompt.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts) (regressão de texto).
+- **IDs exclusivos entre especialistas (prompt):** `database_query`, `calendar_access`, `internal_actions`, `email_send`, `image_generation`, `file_search` — ver constante exportada no ficheiro; enforcement automático no servidor fica para [Loop 78](#loop-78-candidato).
+
+### Micro-etapas Ralph (A–D) — cobertura neste slice
+
+| ID | Cobertura |
+| --- | --- |
+| **A** Partição de domínios | Prompt exige `category` distinto por especialista e texto anti-sobreposição de assunto. |
+| **B** Inventário de builtins | Instruções para `catalogTools` mínimos por papel; exemplo JSON com `catalogTools` por agente. |
+| **C** Unicidade entre especialistas | Secção "Unicidade de catalogTools entre ESPECIALISTAS" + contra-exemplo `database_query` duplicado. |
+| **D** JSON válido + normalização | Alinhado a `plannerOutputSchema` / `normalizeCatalogToolIds`; sem alteração de schema neste slice. |
+
+- Gate: `./scripts/ralph-loop-gate.sh` (**214** testes backend no encerramento deste slice; frontend não tocado).
+- **referência no plano mestre:** [Loop 77](agents-team-crafter-plano-evolucao.md#loop-77-planner-prompts-builtin-domain)
+
+<a id="loop-77-candidato"></a>
 
 <a id="loop-78-candidato"></a>
 
 ## Loop 78 (candidato — detalhe Ralph)
 
-- **Estado:** não iniciado; recomenda-se ordenar **após** [Loop 77](#loop-77-candidato) quando o enforcement depender do contrato de prompt estável.
+- **Estado:** não iniciado; recomenda-se ordenar **após** [Loop 77 (fechado)](#loop-77-fechado) — contrato de prompt estável no servidor para mensagens alinhadas ao enforcement.
 - **etapa/prioridade:** ETAPA 9 (team plan / AI Builder) / alta
 - **objetivo:** **validação servidor** (create/update/execute de team plan) e **UX** no AI Builder para impedir ou corrigir planos em que **dois especialistas** partilham o mesmo **builtin de negócio**; mensagens acionáveis alinhadas à [norma](#norma-builtin-dominio-agente).
 - **Ficheiros prováveis:** [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts), lista de IDs de negócio (alinhar [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts)), [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); testes cobrindo colisão e caminho feliz.
