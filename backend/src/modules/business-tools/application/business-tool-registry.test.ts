@@ -21,4 +21,15 @@ describe('BusinessToolRegistry', () => {
     expect(cat[0].actionId).toBe('crm_create_party');
     expect(cat[1].actionId).toBe('z_last');
   });
+
+  it('exposes explicit schema for crm_update_party (avoids generic additionalProperties schema)', () => {
+    const registry = new BusinessToolRegistry();
+    registry.register('crm_update_party', async () => ({}));
+
+    const cat = registry.listCatalog();
+    const update = cat.find((x) => x.actionId === 'crm_update_party');
+    expect(update?.packId).toBe('crm');
+    expect((update?.inputSchema as { required?: string[] })?.required).toContain('partyId');
+    expect((update?.inputSchema as { properties?: Record<string, unknown> })?.properties).toHaveProperty('partyId');
+  });
 });

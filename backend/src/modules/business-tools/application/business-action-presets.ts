@@ -52,6 +52,26 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     title: 'CRM — Atualizar parte',
     description: 'Atualiza dados de uma party existente.',
     packId: 'crm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        partyId: { type: 'string', description: 'ID da party a ser atualizada.' },
+        displayName: { type: 'string', description: 'Nome atualizado da party.' },
+        roles: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Papéis atualizados, ex.: customer, payer.',
+        },
+        status: { type: 'string', enum: ['active', 'inactive'], description: 'Estado da party no CRM.' },
+        email: { type: 'string', description: 'Email (string vazia limpa o campo).' },
+        phone: { type: 'string', description: 'Telefone (string vazia limpa o campo).' },
+        notes: { type: 'string', description: 'Observações (string vazia limpa o campo).' },
+      },
+      required: ['partyId'],
+    },
+    requiredFieldLabels: ['ID da parte (partyId)'],
+    slotFillingPromptHint:
+      'Se faltar partyId, peça primeiro o identificador da party e os campos que devem ser alterados.',
   },
   'crm_find_party': {
     title: 'CRM — Procurar parte',

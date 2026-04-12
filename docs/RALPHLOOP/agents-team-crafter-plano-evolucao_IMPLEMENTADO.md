@@ -1847,6 +1847,7 @@ Fechar a lacuna entre arquitectura pronta e **especialistas utilizáveis** em co
 - **B — Planner** — deixou de inferir `internal_actions` para packs de negócio ([`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)); o ID continua no catálogo para compatibilidade, mas o caminho preferido para negócio é `customToolDefinitionIds` → `internal_action`.
 - **C — Contrato** — `TBusinessActionPreset` com `inputSchema`, exemplos e hints; `GET /business-actions/catalog` devolve os novos campos; [`ensureInternalActionDefinitions`](../../backend/src/modules/team-planning/application/ensure-planner-tool-definitions.ts) grava schema canónico e actualiza definitions antigas genéricas quando existe preset.
 - **D — CRM** — `Party.status` (`active`/`inactive`), [`crm_list_parties`](../../backend/src/modules/crm/application/register-crm-pack.ts), `crm_create_party` com `customer` por omissão em `roles`.
+- **D.1 — CRM update schema (hotfix pós-loop)** — `crm_update_party` passou a publicar `inputSchema` explícito em [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts) com `partyId` obrigatório e campos opcionais (`displayName`, `roles`, `status`, `email`, `phone`, `notes`), evitando fallback genérico de schema em tools `ws_*` sob validação estrita.
 - **E — Slot-filling** — validação pré-handler + `errorCode: MISSING_REQUIRED_FIELDS` em [`business-tool-runtime.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime.ts); reforço de instruções no coordenador ([`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts)).
 - **F — Debug** — `conversationId` no body do run; modelo [`TeamDebugSession`](../../backend/src/modules/team-runtime/infra/team-debug-session.model.ts) + repositório; histórico em [`format-coordinator-user-message.ts`](../../backend/src/modules/team-runtime/application/format-coordinator-user-message.ts); UI [`team-debug-console.tsx`](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx) com **Nova conversa** e label curta do ID.
 
@@ -1856,6 +1857,7 @@ Fechar a lacuna entre arquitectura pronta e **especialistas utilizáveis** em co
 - [x] **B — Desambiguação** — conforme acima (catálogo `internal_actions` mantido; inferência removida no planner).
 - [x] **C — Contrato por action** — conforme acima.
 - [x] **D — CRM** — conforme acima.
+- [x] **D.1 — Hotfix schema `crm_update_party`** — preset com contrato explícito + teste de regressão em [`business-tool-registry.test.ts`](../../backend/src/modules/business-tools/application/business-tool-registry.test.ts).
 - [x] **E — Slot-filling** — conforme acima.
 - [x] **F — Debug conversacional** — conforme acima.
 - [x] **Testes** — unitários: `build-specialist-sdk-tools`, `business-tool-runtime`, `business-tool-registry`, `planner-agent-catalog-tools`, `register-crm-pack`.
