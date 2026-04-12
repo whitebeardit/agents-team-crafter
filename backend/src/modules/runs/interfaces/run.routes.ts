@@ -7,6 +7,14 @@ import { AppError } from '../../../shared/errors/app-error.js';
 const listQuerySchema = z.object({
   teamId: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).optional(),
+  status: z.enum(['running', 'completed', 'failed']).optional(),
+  source: z.enum(['manual', 'inbound', 'planner']).optional(),
+});
+
+const teamRunsQuerySchema = z.object({
+  limit: z.coerce.number().min(1).max(100).optional().default(50),
+  status: z.enum(['running', 'completed', 'failed']).optional(),
+  source: z.enum(['manual', 'inbound', 'planner']).optional(),
 });
 
 export async function registerRunRoutes(app: FastifyInstance, deps: IAppDeps) {
@@ -15,7 +23,12 @@ export async function registerRunRoutes(app: FastifyInstance, deps: IAppDeps) {
   app.get('/runs', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const q = listQuerySchema.parse(req.query);
-    const runs = await deps.runRepo.listRuns(ws, { teamId: q.teamId, limit: q.limit });
+    const runs = await deps.runRepo.listRuns(ws, {
+      teamId: q.teamId,
+      limit: q.limit,
+      status: q.status,
+      source: q.source,
+    });
     return reply.send(successEnvelope(runs));
   });
 
@@ -40,7 +53,13 @@ export async function registerRunRoutes(app: FastifyInstance, deps: IAppDeps) {
   app.get('/teams/:id/runs', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
-    const runs = await deps.runRepo.listRuns(ws, { teamId, limit: 30 });
+    const q = teamRunsQuerySchema.parse(req.query);
+    const runs = await deps.runRepo.listRuns(ws, {
+      teamId,
+      limit: q.limit,
+      status: q.status,
+      source: q.source,
+    });
     return reply.send(successEnvelope(runs));
   });
 }

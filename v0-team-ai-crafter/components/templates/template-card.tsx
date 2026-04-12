@@ -66,6 +66,12 @@ export function TemplateCard({ template, onImport, onShare }: TemplateCardProps)
           </p>
         ) : null}
 
+        {(template.validationSteps?.length ?? 0) > 0 || (template.goldenPrompts?.length ?? 0) > 0 ? (
+          <p className="text-xs text-muted-foreground mt-2">
+            Inclui guia de validação e prompts de teste — ver ao aplicar.
+          </p>
+        ) : null}
+
         <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
             <AgentWhitebeardIcon className="w-4 h-4" />

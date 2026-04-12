@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Download, FileStack, Info, Share2 } from "lucide-react"
+import { Copy, Download, FileStack, Info, Share2 } from "lucide-react"
 import { TemplateCard } from "@/components/templates/template-card"
 import type { AgentOrigin, Channel, Template } from "@/lib/types"
 import { toast } from "sonner"
@@ -38,12 +39,20 @@ type TemplateApplyDetail = Template & {
   agents?: Array<{ id?: string; name?: string; role?: string }>
 }
 
+type TemplateApplyResponse = {
+  teamId: string
+  name: string
+  status: string
+  message: string
+}
+
 const TEMPLATE_ORIGIN_LABELS: Record<AgentOrigin, string> = {
   whitebeard: "Whitebeard",
   company: "Minha Empresa",
 }
 
 export default function TemplatesPage() {
+  const router = useRouter()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [originFilter, setOriginFilter] = useState<AgentOrigin | "all">("all")
   const [templates, setTemplates] = useState<Template[]>([])
@@ -144,17 +153,28 @@ export default function TemplatesPage() {
     })
     setIsApplying(true)
     try {
-      await api.post(`/templates/${selectedTemplate.id}/apply`, {
+      const res = await api.post<TemplateApplyResponse>(`/templates/${selectedTemplate.id}/apply`, {
         teamName: teamName.trim(),
         teamDescription: teamDescription.trim() || undefined,
         channelIds: selectedChannelIds,
       })
-      toast.success("Template aplicado com sucesso")
+      const teamId = res.data.teamId
+      toast.success("Template aplicado — a abrir o time na consola de teste.")
       resetApplyModal()
+      router.push(`/teams/${teamId}?tab=debug`)
     } catch {
       toast.error("Falha ao aplicar template")
     } finally {
       setIsApplying(false)
+    }
+  }
+
+  const copyGoldenPrompt = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success("Prompt copiado")
+    } catch {
+      toast.error("Não foi possível copiar")
     }
   }
 
@@ -327,6 +347,56 @@ export default function TemplatesPage() {
                   {applyDetail.applyBehavior}
                 </AlertDescription>
               </Alert>
+            ) : null}
+
+            {applyDetail?.validationSteps && applyDetail.validationSteps.length > 0 ? (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Como validar após criar o time</AlertTitle>
+                <AlertDescription asChild>
+                  <ol className="list-decimal pl-4 text-sm space-y-1 mt-2">
+                    {applyDetail.validationSteps.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ol>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {applyDetail?.expectedOutcome ? (
+              <Alert variant="default" className="border-border bg-muted/30">
+                <AlertTitle className="text-sm">Comportamento esperado (cenário feliz)</AlertTitle>
+                <AlertDescription className="text-sm text-muted-foreground mt-1">{applyDetail.expectedOutcome}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {applyDetail?.goldenPrompts && applyDetail.goldenPrompts.length > 0 ? (
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <p className="text-sm font-medium">Prompts de teste (consola Debug)</p>
+                <p className="text-xs text-muted-foreground">
+                  Copie para a consola do time após aplicar — são cenários dourados sugeridos, não garantias de produção.
+                </p>
+                <ul className="space-y-2">
+                  {applyDetail.goldenPrompts.map((p, i) => (
+                    <li
+                      key={i}
+                      className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between rounded-md bg-secondary/40 p-2 text-sm"
+                    >
+                      <span className="min-w-0 flex-1">{p}</span>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="shrink-0 gap-1"
+                        onClick={() => void copyGoldenPrompt(p)}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copiar
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
 
             {applyDetail?.agents && applyDetail.agents.length > 0 ? (

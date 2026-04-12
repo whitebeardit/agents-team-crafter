@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–92** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)) e **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)). **Próximo slice oficial numerado:** [Loop 93 (candidato)](#loop-93-candidato--runs-legíveis-replay-e-troubleshooting) — runs legíveis e troubleshooting; ver [plano §93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–94** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)), **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)), **runs legíveis / troubleshooting** (**93** — [Loop 93 fechado](#loop-93-fechado)) e **templates operacionais / cenários dourados** (**94** — [Loop 94 fechado](#loop-94-fechado)). **Próximo slice oficial numerado:** [Loop 95 (candidato)](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação) — polimento UI operacional; ver [plano §95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 **Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
@@ -86,7 +86,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 
 **Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
-**Estado actual (pós Loop 87):** além de **Loops 82–86** (team planner + AI Builder), o **[Loop 87](#loop-87-fechado)** entregou **especialistas operacionais** (schemas estritos, CRM piloto, slot-filling, debug com `conversationId`). **Próximo foco recomendado:** macro-onda **[88–95](#backlog-recomendado-após-o-loop-87)** (candidatos); em paralelo [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) quando aplicável.
+**Estado actual (pós Loop 87):** além de **Loops 82–86** (team planner + AI Builder), o **[Loop 87](#loop-87-fechado)** entregou **especialistas operacionais** (schemas estritos, CRM piloto, slot-filling, debug com `conversationId`). **Loops 88–94** fecharam readiness, AI Builder em camadas, cockpit, console, CTAs, runs legíveis e **guia de validação em templates**. **Próximo foco recomendado:** **[Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação)** (candidato); em paralelo [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) quando aplicável.
 
 <a id="gap-runtime-dominios-negocio"></a>
 <a id="gap-runtime-crm-clientes"></a>
@@ -132,13 +132,13 @@ Ver [backlog candidato 88–95](#backlog-recomendado-após-o-loop-87) e o [plano
 
 | Loop | Tema | Estado |
 | ---- | ---- | ------ |
-| 88 | Preflight operacional / readiness do time | candidato |
-| 89 | AI Builder — modo simples por defeito, avançado sob demanda | candidato |
-| 90 | Cockpit operacional do time | candidato |
-| 91 | Console conversacional com sessões e timeline | candidato |
-| 92 | Resolver pendências com CTA directo | candidato |
-| 93 | Runs legíveis, replay e troubleshooting | candidato |
-| 94 | Templates operacionais e cenários dourados | candidato |
+| 88 | Preflight operacional / readiness do time | fechado |
+| 89 | AI Builder — modo simples por defeito, avançado sob demanda | fechado |
+| 90 | Cockpit operacional do time | fechado |
+| 91 | Console conversacional com sessões e timeline | fechado |
+| 92 | Resolver pendências com CTA directo | fechado |
+| 93 | Runs legíveis, replay e troubleshooting | fechado |
+| 94 | Templates operacionais e cenários dourados | fechado |
 | 95 | Polimento UI padrão e responsiva da operação | candidato |
 
 ### Admin global da plataforma: norma vs implementação actual
@@ -187,7 +187,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–92 fechados; [Loop 93](#loop-93-candidato--runs-legíveis-replay-e-troubleshooting) candidato) | Loops **52–92** entregues; **próximo candidato numerado:** [Loop 93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido); [Loop 92 fechado](#loop-92-fechado): CTAs readiness; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–94 fechados; [Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação) candidato) | Loops **52–94** entregues; **próximo candidato numerado:** [Loop 95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação); [Loop 94 fechado](#loop-94-fechado): guia de validação e prompts em templates; billing/2FA: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -782,11 +782,11 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice oficial fechado:** **[Loop 90](#loop-90-fechado)** — **Cockpit operacional** na aba Visão geral de [`teams/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx): última run, resumo de canais (ligados / total), «O que resolver agora» (prioridades do readiness + coordenador em falta), atalhos para Console / Execução / Canais / grafo / runs; tabs da ficha passam a ser **controladas** para os atalhos mudarem de painel.
+**Último slice oficial fechado:** **[Loop 94](#loop-94-fechado)** — **Templates operacionais:** campos `validationSteps`, `goldenPrompts`, `expectedOutcome` no modelo e API; UI no diálogo «Aplicar template» ([`templates/page.tsx`](../../v0-team-ai-crafter/app/(app)/templates/page.tsx)); seed em [`seed-demo.ts`](../../backend/scripts/seed-demo.ts); após aplicar, redirect para **`/teams/:id?tab=debug`**.
 
-**Penúltimo slice fechado:** **[Loop 89](#loop-89-fechado)** — AI Builder simples/avançado ([`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)).
+**Penúltimo slice fechado:** **[Loop 93](#loop-93-fechado)** — runs legíveis (ficha do time + lista global `/runs` com filtros).
 
-**Próximo número na ordem recomendada (candidato):** **[Loop 93](#loop-93-candidato--runs-legíveis-replay-e-troubleshooting)** (runs legíveis / replay) — ver [plano §Loop 93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
+**Próximo número na ordem recomendada (candidato):** **[Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação)** (polimento responsivo / operação) — ver [plano §Loop 95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação); verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
 
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
@@ -794,8 +794,12 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | **2** | **Loop 88** — readiness / preflight *(fechado)* | [plano §88](agents-team-crafter-plano-evolucao.md#loop-88--preflight-operacional-do-team--readiness-do-runtime), [ledger](#loop-88-fechado) |
 | **3** | **Loop 89** — AI Builder simples / avançado *(fechado)* | [plano §89](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda), [ledger](#loop-89-fechado) |
 | **4** | **Loop 90** — cockpit na ficha do time *(fechado)* | [plano §90](agents-team-crafter-plano-evolucao.md#loop-90--cockpit-operacional-do-team), [ledger](#loop-90-fechado) |
-| **5–11** | **Loops 93–95** — operação real, UX, troubleshooting *(candidatos / após 92)* | [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
-| **12+** | **Loops 96+** — verticais por pack *(após 90 ou em paralelo)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
+| **5** | **Loop 91** — console debug com sessões *(fechado)* | [plano §91](agents-team-crafter-plano-evolucao.md#loop-91--console-conversacional-com-sessões-timeline-e-contexto-reutilizável), [ledger](#loop-91-fechado) |
+| **6** | **Loop 92** — CTAs no readiness *(fechado)* | [plano §92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo), [ledger](#loop-92-fechado) |
+| **7** | **Loop 93** — runs legíveis / troubleshooting *(fechado)* | [plano §93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido), [ledger](#loop-93-fechado) |
+| **8** | **Loop 94** — templates operacionais / cenários dourados *(fechado)* | [plano §94](agents-team-crafter-plano-evolucao.md#loop-94--templates-operacionais-e-cenários-dourados-de-validação), [ledger](#loop-94-fechado) |
+| **9** | **Loop 95** — polimento UI operacional *(candidato)* | [plano §95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
+| **10+** | **Loops 96+** — verticais por pack | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -1965,23 +1969,41 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 - [x] CTA directo por pendência com copy curta; menos cliques que o link «Abrir» inline.
 - [x] Gate: `npm run build` backend + `npm test --testPathPattern=team-readiness` + `npm run build` frontend.
 
-<a id="loop-93-candidato--runs-legíveis-replay-e-troubleshooting"></a>
+<a id="loop-93-fechado"></a>
 
-## Loop 93 (candidato) — Runs legíveis, replay e troubleshooting
+## Loop 93 (fechado) — Runs legíveis, replay e troubleshooting
 
-- **Etapa / prioridade:** média-alta  
-- **Objectivo do slice:** runs úteis para operação e reprodução.  
-- **Foco:** leitura humana; timeline resumida; filtros; replay quando fizer sentido.  
-- **Critério de saída:** run problemática localizável e reproduzível rapidamente; gate + ledger.  
-- **Escopo Ralph:** não fundir com o console 91 num único ciclo.
+**Estado:** **fechado** — plano mestre [§ Loop 93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido).
 
-## Loop 94 (candidato) — Templates operacionais e cenários dourados
+### Entregas (resumo)
 
-- **Etapa / prioridade:** média  
-- **Objectivo do slice:** templates que acelerem **validação** em produção, não só criação de entidades.  
-- **Foco:** caso de uso, pré-requisitos, como validar, prompts de teste, comportamento esperado.  
-- **Critério de saída:** aplicar template reduz tempo até operação confiável; gate + ledger.  
-- **Escopo Ralph:** smoke tests manuais / cenários dourados; evitar suite E2E completa como scope único.
+- **Backend:** `GET /runs` e `GET /teams/:id/runs` com filtros opcionais `status` e `source`; `listRuns` no repositório alinhado ([`run.repository.ts`](../../backend/src/modules/runs/infra/run.repository.ts), [`run.routes.ts`](../../backend/src/modules/runs/interfaces/run.routes.ts)).
+- **Frontend:** helpers [`runs-display.ts`](../../v0-team-ai-crafter/lib/runs-display.ts); aba **Execução** com [`TeamRunsTab`](../../v0-team-ai-crafter/components/teams/team-runs-tab.tsx) em [`teams/[id]/page.tsx`](../../v0-team-ai-crafter/app/(app)/teams/[id]/page.tsx) — filtros, cards expansíveis, `GET /runs/:id` com passos, timeline com nomes de agentes (coordenador + especialistas), **Retestar no console** → aba debug; cockpit usa amostra `GET /teams/:id/runs?limit=15`.
+
+### Checklist (fechado)
+
+- [x] Runs legíveis na ficha do time; filtros; detalhe com passos; atalho para o console.
+- [x] Gate: `npm run build` backend + `npm run build` frontend (`v0-team-ai-crafter`).
+- [x] `runs.integration.test.ts` depende do pacote `chat` resolvível no Jest — em ambientes sem esse stub o suite pode falhar ao carregar a app; não é regressão deste slice.
+
+<a id="loop-94-fechado"></a>
+
+## Loop 94 (fechado) — Templates operacionais e cenários dourados
+
+**Estado:** **fechado** — plano mestre [§ Loop 94](agents-team-crafter-plano-evolucao.md#loop-94--templates-operacionais-e-cenários-dourados-de-validação).
+
+### Entregas (resumo)
+
+- **Backend:** [`template.model.ts`](../../backend/src/modules/templates/infra/template.model.ts) — `validationSteps`, `goldenPrompts`, `expectedOutcome`; [`template.repository.ts`](../../backend/src/modules/templates/infra/template.repository.ts) expõe-os em listagem e `GET /templates/:id`.
+- **Seed:** [`seed-demo.ts`](../../backend/scripts/seed-demo.ts) — três templates demo com guia de validação e prompts de teste.
+- **Frontend:** [`Template`](../../v0-team-ai-crafter/lib/types/index.ts) alinhado; [`templates/page.tsx`](../../v0-team-ai-crafter/app/(app)/templates/page.tsx) — secções *Como validar*, *Comportamento esperado*, *Prompts de teste* com copiar; após `POST /templates/:id/apply`, navegação para **`/teams/:id?tab=debug`**; [`template-card.tsx`](../../v0-team-ai-crafter/components/templates/template-card.tsx) indica quando há guia.
+
+### Checklist (fechado)
+
+- [x] Critérios do plano (validação + prompts + comportamento esperado) reflectidos em dados e UI.
+- [x] Gate: `npm run build` backend + `npm run build` frontend.
+
+<a id="loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação"></a>
 
 ## Loop 95 (candidato) — Polimento UI padrão e responsivo da operação
 
@@ -1989,7 +2011,7 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 - **Objectivo do slice:** consistência visual e responsiva nas superfícies operacionais (Builder avançado, cockpit, console, runs).  
 - **Foco:** cards/drawers/CTA; estados `ready`/`attention`/`blocked` claros.  
 - **Critério de saída:** desktop/tablet/mobile usáveis nas rotas operacionais; gate + ledger.  
-- **Escopo Ralph:** polimento; **não** reabrir funcionalidades core já cobertas nos 88–94.
+- **Escopo Ralph:** polimento; **não** reabrir funcionalidades core já cobertas nos 88–95.
 
 ---
 

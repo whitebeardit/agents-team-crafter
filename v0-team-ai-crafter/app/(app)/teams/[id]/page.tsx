@@ -44,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { TeamDebugConsole } from "@/components/teams/team-debug-console"
+import { TeamRunsTab } from "@/components/teams/team-runs-tab"
 
 const statusColors = {
   active: "bg-success/10 text-success border-success/20",
@@ -142,7 +143,8 @@ export default function TeamDetailsPage({
   const [channelsLoading, setChannelsLoading] = useState(false)
   const [channelDraftIds, setChannelDraftIds] = useState<string[]>([])
   const [savingChannelIds, setSavingChannelIds] = useState(false)
-  const [runs, setRuns] = useState<TeamRunRecord[]>([])
+  /** Amostra recente para o cockpit (lista completa na aba Execução). */
+  const [recentRunsForCockpit, setRecentRunsForCockpit] = useState<TeamRunRecord[]>([])
   const [readiness, setReadiness] = useState<TeamReadinessResult | null>(null)
   const [readinessLoading, setReadinessLoading] = useState(false)
   const [mainTab, setMainTab] = useState("overview")
@@ -177,8 +179,8 @@ export default function TeamDetailsPage({
     void (async () => {
       const res = await api.get<any>(`/teams/${id}`)
       setTeam(res.data)
-      const runsRes = await api.get<TeamRunRecord[]>(`/teams/${id}/runs`)
-      setRuns(runsRes.data)
+      const runsRes = await api.get<TeamRunRecord[]>(`/teams/${id}/runs?limit=15`)
+      setRecentRunsForCockpit(runsRes.data ?? [])
       setReadinessLoading(true)
       try {
         const rd = await api.get<TeamReadinessResult>(`/teams/${id}/readiness`)
@@ -237,9 +239,11 @@ export default function TeamDetailsPage({
   }, [team])
 
   const lastRun = useMemo(() => {
-    if (runs.length === 0) return null
-    return [...runs].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0]
-  }, [runs])
+    if (recentRunsForCockpit.length === 0) return null
+    return [...recentRunsForCockpit].sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+    )[0]
+  }, [recentRunsForCockpit])
 
   const channelCockpit = useMemo(() => {
     const total = teamChannels.length
@@ -251,10 +255,15 @@ export default function TeamDetailsPage({
   const agentDisplayNamesForDebug = useMemo(() => {
     const m: Record<string, string> = {}
     if (!team) return m
-    const agents = (team as Team & { agents?: Agent[] }).agents
-    if (!agents) return m
-    for (const a of agents) {
-      if (a.id && a.name) m[a.id] = a.name
+    const t = team as Team & { agents?: Agent[]; coordinator?: Partial<Agent> }
+    if (team.coordinatorId && t.coordinator?.name) {
+      m[team.coordinatorId] = String(t.coordinator.name)
+    }
+    const agents = t.agents
+    if (agents) {
+      for (const a of agents) {
+        if (a.id && a.name) m[a.id] = a.name
+      }
     }
     return m
   }, [team])
@@ -868,36 +877,20 @@ export default function TeamDetailsPage({
             <CardHeader>
               <CardTitle className="text-lg">Runs persistidas</CardTitle>
               <CardDescription>
-                Histórico operacional do time para inspeção rápida, replay manual e auditoria básica.
+                Histórico operacional do time para inspeção rápida, replay manual e auditoria básica. Filtre por estado
+                e origem, expanda para ver passos e reteste no console.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {runs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma run persistida ainda para este time.</p>
+            <CardContent>
+              {debugApi ? (
+                <TeamRunsTab
+                  teamId={team.id}
+                  api={debugApi}
+                  agentNameById={agentDisplayNamesForDebug}
+                  onOpenConsole={() => setMainTab("debug")}
+                />
               ) : (
-                runs.map((run) => (
-                  <div key={run.runId} className="rounded-lg border border-border bg-secondary/30 p-4 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{run.source}</Badge>
-                      <Badge variant={run.status === "completed" ? "secondary" : "outline"}>{run.status}</Badge>
-                      <Badge variant="outline">{run.channel || "debug"}</Badge>
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium">{run.runId}</p>
-                      <p className="text-muted-foreground">
-                        Início: {format(new Date(run.startedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                        {run.finishedAt
-                          ? ` · Fim: ${format(new Date(run.finishedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}`
-                          : ""}
-                      </p>
-                    </div>
-                    {run.externalResponse?.text ? (
-                      <p className="text-sm text-muted-foreground line-clamp-3">{run.externalResponse.text}</p>
-                    ) : run.error?.message ? (
-                      <p className="text-sm text-destructive">{run.error.message}</p>
-                    ) : null}
-                  </div>
-                ))
+                <p className="text-sm text-muted-foreground">Inicie sessão com um workspace para ver as execuções.</p>
               )}
             </CardContent>
           </Card>

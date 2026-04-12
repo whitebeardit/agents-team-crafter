@@ -21,6 +21,12 @@ const TemplateSchema = new Schema(
     prerequisites: [{ type: String }],
     /** Texto honesto sobre o que `apply` faz de facto (nao marketing) */
     applyBehavior: { type: String, default: '' },
+    /** Passos curtos para validar o time apos aplicar o template (Loop 94) */
+    validationSteps: [{ type: String }],
+    /** Mensagens de exemplo para testar no console ou canal */
+    goldenPrompts: [{ type: String }],
+    /** Comportamento esperado num cenario feliz (1–3 frases) */
+    expectedOutcome: { type: String, default: '' },
   },
   { timestamps: true },
 );

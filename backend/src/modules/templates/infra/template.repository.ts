@@ -19,6 +19,9 @@ function toListItem(doc: TemplateDoc) {
     vertical?: string;
     prerequisites?: string[];
     applyBehavior?: string;
+    validationSteps?: string[];
+    goldenPrompts?: string[];
+    expectedOutcome?: string;
   };
   return {
     id: doc._id.toString(),
@@ -31,6 +34,9 @@ function toListItem(doc: TemplateDoc) {
     vertical: typeof d.vertical === 'string' ? d.vertical : '',
     prerequisites: Array.isArray(d.prerequisites) ? d.prerequisites : [],
     applyBehavior: typeof d.applyBehavior === 'string' ? d.applyBehavior : '',
+    validationSteps: Array.isArray(d.validationSteps) ? d.validationSteps : [],
+    goldenPrompts: Array.isArray(d.goldenPrompts) ? d.goldenPrompts : [],
+    expectedOutcome: typeof d.expectedOutcome === 'string' ? d.expectedOutcome : '',
     teamConfig: {
       name: tc['name'] ?? doc.name,
       description: tc['description'] ?? doc.description,
@@ -64,6 +70,9 @@ export class TemplateRepository {
       vertical?: string;
       prerequisites?: string[];
       applyBehavior?: string;
+      validationSteps?: string[];
+      goldenPrompts?: string[];
+      expectedOutcome?: string;
     };
     const tc = (d.teamConfig as Record<string, unknown>) ?? {};
     const agents = (d.agentsSnapshot as Array<{ id?: string; name?: string; role?: string }>) ?? [];
@@ -78,6 +87,9 @@ export class TemplateRepository {
       vertical: typeof d.vertical === 'string' ? d.vertical : '',
       prerequisites: Array.isArray(d.prerequisites) ? d.prerequisites : [],
       applyBehavior: typeof d.applyBehavior === 'string' ? d.applyBehavior : '',
+      validationSteps: Array.isArray(d.validationSteps) ? d.validationSteps : [],
+      goldenPrompts: Array.isArray(d.goldenPrompts) ? d.goldenPrompts : [],
+      expectedOutcome: typeof d.expectedOutcome === 'string' ? d.expectedOutcome : '',
       teamConfig: {
         name: tc['name'] ?? d.name,
         description: tc['description'] ?? d.description,

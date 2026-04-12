@@ -292,6 +292,12 @@ export interface Template {
   prerequisites?: string[]
   /** O que o backend faz ao aplicar (comportamento real, nao marketing) */
   applyBehavior?: string
+  /** Passos sugeridos para validar o time após aplicar (Loop 94) */
+  validationSteps?: string[]
+  /** Mensagens de exemplo para o console ou canal */
+  goldenPrompts?: string[]
+  /** Comportamento esperado num cenário feliz */
+  expectedOutcome?: string
 }
 
 // Channel types

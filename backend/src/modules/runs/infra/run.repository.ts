@@ -94,9 +94,19 @@ export class RunRepository {
     return docs.map((doc) => toEventPublic(doc as RunEventDoc));
   }
 
-  async listRuns(workspaceId: string, filters?: { teamId?: string; limit?: number }) {
+  async listRuns(
+    workspaceId: string,
+    filters?: {
+      teamId?: string;
+      limit?: number;
+      status?: 'running' | 'completed' | 'failed';
+      source?: 'manual' | 'inbound' | 'planner';
+    },
+  ) {
     const query: Record<string, unknown> = { workspaceId: new Types.ObjectId(workspaceId) };
     if (filters?.teamId) query.teamId = new Types.ObjectId(filters.teamId);
+    if (filters?.status) query.status = filters.status;
+    if (filters?.source) query.source = filters.source;
     const docs = await RunModel.find(query)
       .sort({ startedAt: -1 })
       .limit(filters?.limit ?? 50)

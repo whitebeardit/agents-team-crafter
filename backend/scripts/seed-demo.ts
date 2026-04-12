@@ -225,6 +225,17 @@ async function main() {
       ],
       applyBehavior:
         'Cria `Team` em estado rascunho, copia o grafo guardado no template e associa IDs de agentes encontrados por nome. Nao provisiona canais nem MCPs.',
+      validationSteps: [
+        'Active o time (ou deixe em rascunho) e abra a aba Debug.',
+        'Envie um prompt de teste; confira a run em Execução.',
+        'Se o readiness mostrar bloqueios (canais, tools), resolva na ficha do time.',
+      ],
+      goldenPrompts: [
+        'Olá, preciso de ajuda com um pedido de suporte.',
+        'Qual o horário de atendimento?',
+      ],
+      expectedOutcome:
+        'O coordenador responde de forma útil; em cenários reais o especialista seria acionado quando configurado no grafo e nas tools.',
       teamConfig: {
         name: 'Atendimento Omnichannel',
         description: 'Time de atendimento multicanal',
@@ -259,6 +270,17 @@ async function main() {
       ],
       applyBehavior:
         'Cria time rascunho; associa o coordenador por regra do servidor e inclui o especialista se o nome existir. Revise o grafo no editor de times apos aplicar.',
+      validationSteps: [
+        'Revise o readiness e ligue canais se necessário.',
+        'Na aba Debug, teste um prompt de triagem.',
+        'Verifique em Execução se os passos batem com o esperado.',
+      ],
+      goldenPrompts: [
+        'Quero marcar uma primeira consulta de psicologia para a próxima semana.',
+        'Estou com ansiedade e gostaria de ser encaminhado.',
+      ],
+      expectedOutcome:
+        'Resposta acolhedora; triagem ou pedido de dados em falta conforme prompts do especialista de saúde mental.',
       teamConfig: {
         name: 'Clinica — triagem',
         description: 'Fluxo de triagem e encaminhamento (demo)',
@@ -281,6 +303,12 @@ async function main() {
       agentCount: 1,
       prerequisites: ['Mesmos agentes e nomes que no momento em que o template foi gravado.'],
       applyBehavior: 'Equivalente aos outros templates de empresa: reaproveita agentes por nome.',
+      validationSteps: [
+        'Confirme que os nomes dos agentes no workspace ainda coincidem com o modelo.',
+        'Aplique e abra o Debug para validar uma mensagem simples.',
+      ],
+      goldenPrompts: ['Teste de mensagem após aplicar template da empresa.'],
+      expectedOutcome: 'Time criado em rascunho com grafo e agentes associados por nome quando existirem.',
       teamConfig: { name: team.name, description: team.description },
       graph: { nodes: [], edges: [] },
       agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
