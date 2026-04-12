@@ -20,6 +20,7 @@ import {
   Calendar,
   MessageSquareCode,
   ShieldCheck,
+  LayoutDashboard,
 } from "lucide-react"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
@@ -144,6 +145,7 @@ export default function TeamDetailsPage({
   const [runs, setRuns] = useState<TeamRunRecord[]>([])
   const [readiness, setReadiness] = useState<TeamReadinessResult | null>(null)
   const [readinessLoading, setReadinessLoading] = useState(false)
+  const [mainTab, setMainTab] = useState("overview")
 
   const debugApi = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -220,6 +222,31 @@ export default function TeamDetailsPage({
     })()
   }, [token, refreshToken, currentWorkspace])
 
+  const teamChannels = useMemo((): Channel[] => {
+    if (!team) return []
+    return ((team as { channels?: Channel[] }).channels ?? []) as Channel[]
+  }, [team])
+
+  const lastRun = useMemo(() => {
+    if (runs.length === 0) return null
+    return [...runs].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0]
+  }, [runs])
+
+  const channelCockpit = useMemo(() => {
+    const total = teamChannels.length
+    const connected = teamChannels.filter((c) => c.status === "connected").length
+    const notConnected = teamChannels.filter((c) => c.status !== "connected")
+    return { total, connected, notConnected }
+  }, [teamChannels])
+
+  const cockpitPriorities = useMemo(() => {
+    if (!readiness?.items?.length) return [] as TeamReadinessResult["items"]
+    const rank: Record<string, number> = { blocked: 0, attention: 1, info: 2 }
+    return [...readiness.items]
+      .sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9))
+      .slice(0, 4)
+  }, [readiness])
+
   if (!team) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -230,7 +257,7 @@ export default function TeamDetailsPage({
 
   const coordinator = (team as any).coordinator as Partial<Agent> | undefined
   const specialists = ((team as any).agents as Agent[] | undefined) ?? []
-  const channels = ((team as any).channels as Channel[] | undefined) ?? []
+  const channels = teamChannels
 
   const createdAt = format(new Date(team.createdAt), "dd 'de' MMMM 'de' yyyy", {
     locale: ptBR,
@@ -363,7 +390,7 @@ export default function TeamDetailsPage({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview">
+      <Tabs value={mainTab} onValueChange={setMainTab}>
         <div className="-mx-1 w-full overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] lg:mx-0 lg:overflow-visible lg:pb-0">
           <TabsList className="inline-flex h-auto min-h-10 w-max gap-1 bg-secondary p-1 lg:grid lg:h-auto lg:w-full lg:grid-cols-5 lg:gap-1">
             <TabsTrigger value="overview" className="shrink-0">
@@ -488,6 +515,155 @@ export default function TeamDetailsPage({
                 </p>
               </CardContent>
             ) : null}
+          </Card>
+
+          {/* Loop 90 — cockpit: última atividade, canais, prioridades, atalhos */}
+          <Card className="border-border bg-card border-dashed">
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="rounded-lg bg-accent/10 p-2">
+                  <LayoutDashboard className="h-5 w-5 text-accent" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-lg">Cockpit operacional</CardTitle>
+                  <CardDescription className="mt-0.5">
+                    Última actividade, canais e atalhos para testar ou corrigir — sem substituir as abas abaixo.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border border-border bg-secondary/20 px-3 py-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Última run</p>
+                  {lastRun ? (
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={lastRun.status === "completed" ? "secondary" : "outline"}>{lastRun.status}</Badge>
+                        <Badge variant="outline">{lastRun.source}</Badge>
+                        {lastRun.channel ? <Badge variant="outline">{lastRun.channel}</Badge> : null}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(lastRun.startedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        {lastRun.finishedAt
+                          ? ` → ${format(new Date(lastRun.finishedAt), "HH:mm", { locale: ptBR })}`
+                          : ""}
+                      </p>
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        onClick={() => setMainTab("runs")}
+                      >
+                        Abrir histórico de execução
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">Ainda não há runs persistidas para este time.</p>
+                  )}
+                </div>
+                <div className="rounded-lg border border-border bg-secondary/20 px-3 py-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Canais no time</p>
+                  {channelCockpit.total === 0 ? (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Nenhum canal associado. Ligue instâncias em{" "}
+                      <button
+                        type="button"
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                        onClick={() => setMainTab("channels")}
+                      >
+                        Canais
+                      </button>{" "}
+                      para receber tráfego externo.
+                    </p>
+                  ) : (
+                    <div className="mt-2 space-y-1.5">
+                      <p className="text-2xl font-semibold tabular-nums">
+                        {channelCockpit.connected}/{channelCockpit.total}
+                        <span className="text-sm font-normal text-muted-foreground"> ligados</span>
+                      </p>
+                      {channelCockpit.notConnected.length > 0 ? (
+                        <p className="text-sm text-warning">
+                          {channelCockpit.notConnected.length} canal(is) não estão em estado ligado.
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Todos os canais associados estão ligados.</p>
+                      )}
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        onClick={() => setMainTab("channels")}
+                      >
+                        Gerir canais do time
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {(cockpitPriorities.length > 0 || !coordinator) && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    O que resolver agora
+                  </p>
+                  <ul className="space-y-2">
+                    {!coordinator ? (
+                      <li className="flex gap-2 text-sm">
+                        <Badge variant="outline" className="shrink-0 border-destructive/40 text-destructive">
+                          Bloqueio
+                        </Badge>
+                        <span>Coordenador em falta — corrija na ficha do time ou em Agentes.</span>
+                      </li>
+                    ) : null}
+                    {cockpitPriorities.map((item, idx) => (
+                      <li key={`${item.code}-${idx}`} className="flex flex-wrap items-start gap-2 text-sm">
+                        <Badge
+                          variant="outline"
+                          className={
+                            item.severity === "blocked"
+                              ? "shrink-0 border-destructive/40 text-destructive"
+                              : item.severity === "attention"
+                                ? "shrink-0 border-warning/40 text-warning"
+                                : "shrink-0"
+                          }
+                        >
+                          {item.severity === "blocked" ? "Bloqueio" : item.severity === "attention" ? "Atenção" : "Info"}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          <span className="font-medium text-foreground">{item.title}</span>
+                          {item.routeHint ? (
+                            <>
+                              {" "}
+                              <Link href={item.routeHint} className="text-primary underline-offset-4 hover:underline">
+                                Abrir
+                              </Link>
+                            </>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => setMainTab("debug")}>
+                  <MessageSquareCode className="h-3.5 w-3.5" />
+                  Testar no console
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setMainTab("runs")}>
+                  Execução
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setMainTab("channels")}>
+                  Canais
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link href={`/teams/${team.id}/graph`}>Editor de grafo</Link>
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link href="/runs">Todas as runs</Link>
+                </Button>
+              </div>
+            </CardContent>
           </Card>
 
           {/* Stats */}
