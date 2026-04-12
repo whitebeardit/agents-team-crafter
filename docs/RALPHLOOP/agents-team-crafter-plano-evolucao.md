@@ -2071,6 +2071,27 @@ Referência de `packId` em [`business-action-presets.ts`](../../backend/src/modu
 2. Secção neste plano mestre (ou referência a anexo) com: **objetivo**, **pack(s)**, **fora de escopo**, **critérios de aceite**, **testes**.  
 3. Actualizar [§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps) se o slice fechar sintomas para aquele domínio.
 
+
+### Loop 98 — endurecimento transversal de contrato de tools (norma oficial)
+
+Além das verticais por `packId`, o roadmap admite **slices transversais** quando o risco é de contrato/runtime (não apenas de domínio). O **Loop 98** formaliza essa trilha com anexo próprio: [`ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md`](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md).
+
+**Decisão de produto:** prompt não garante contrato sozinho; a garantia vem de schema canónico + normalização controlada por `actionId` + validação estrita + retry seguro + auditoria.
+
+**Slices oficiais do Loop 98 (ordem):**
+
+1. **98.1** — norma oficial de produto e engenharia para contrato de tools
+2. **98.2** — pipeline canónico do boundary (`rawInput` → `normalizedInput` → validação → execução → auditoria)
+3. **98.3** — observabilidade obrigatória de erro de contrato
+4. **98.4** — retry seguro e limitado
+5. **98.5** — contrato explícito de prompts (coordenador/especialista)
+6. **98.6** — biblioteca de normalização controlada por action
+7. **98.7** — matriz de segurança por action
+8. **98.8** — debug conversacional e UX de incidente
+9. **98.9** — regressão de contrato por pack
+
+**Relação com loops anteriores:** o Loop 98 **não substitui** o [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) (fundação) nem o [Loop 97](ralph-loop-97-garantia-schema-crm-displayname.md) (caso CRM `displayName`); ele **generaliza** a política para todos os packs.
+
 ---
 
 ## 14.6 Ordem recomendada
