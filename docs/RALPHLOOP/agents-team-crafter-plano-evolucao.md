@@ -2113,8 +2113,10 @@ Referência de `packId` em [`business-action-presets.ts`](../../backend/src/modu
 37. **Loop 88** — Readiness / preflight operacional *(fechado; ver [Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado))*.
 38. **Loop 89** — AI Builder modo simples vs avançado *(fechado; ver [Loop 89](#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-89-fechado))*.
 39. **Loop 90** — Cockpit operacional na ficha do time *(fechado; ver [Loop 90](#loop-90--cockpit-operacional-do-team) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-90-fechado))*.
-40. **Loops 93–95** — macro-onda de **operação real** (runs, templates, polimento) *(candidatos / backlog recomendado após o 92; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*.
-41. **Loops 96+** — verticais por `packId` (care, finance, scheduling, …) *(planeados; numerar a partir de 96 ao abrir cada slice; ver [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack))*.
+40. **Loop 91** — Console conversacional: sessões, narrativa da última execução *(fechado; ver [Loop 91](#loop-91--console-conversacional-com-sessões-timeline-e-contexto-reutilizável) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-91-fechado))*.
+41. **Loop 92** — CTAs directos no readiness *(fechado; ver [Loop 92](#loop-92--resolver-pendências-com-cta-directo) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-92-fechado))*.
+42. **Loops 93–95** — macro-onda de **operação real** (runs, templates, polimento) *(candidatos / backlog recomendado após o 92; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*.
+43. **Loops 96+** — verticais por `packId` (care, finance, scheduling, …) *(planeados; numerar a partir de 96 ao abrir cada slice; ver [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack))*.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
