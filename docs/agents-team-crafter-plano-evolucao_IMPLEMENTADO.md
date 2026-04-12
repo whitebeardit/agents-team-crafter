@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/agents-team-crafter-plano-evolucao.md`.
 
-**Fase actual do produto:** **inferência mínima** de built-ins em `planner-agent-catalog-tools.ts` (**Loop 84**) está **entregue**; o foco **actual** é **AI Builder** com atrito no preview/aprovação ([Loop 85](#loop-85-planeado)). **Próximo slice oficial:** [Loop 85](#loop-85-planeado) (preview estável + execute fluido).
+**Fase actual do produto:** **Loops 82–85** na linha de **team planner + AI Builder** estão **fechados** (bind por agente, inferência mínima de built-ins, preview de bind estável em edições cosméticas). **Próximo foco macro:** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service) ou novo slice numerado quando definido.
 
 Regras de uso:
 
@@ -84,7 +84,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 
 **Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
-**Estado actual (pós Loop 84):** com listas por agente no plano, `buildBindPreview` / execute usam candidatos **por agente**; modo **global** legado quando ninguém preenche listas por agente; UI com badge **por agente** no preview; inferência de `catalogTools` **mínima** no servidor (sem rotação por índice). Ver [Loop 83 (fechado)](#loop-83-fechado), [Loop 84 (fechado)](#loop-84-fechado). **Continuação planeada:** [Loop 85](#loop-85-planeado) (UX fluida no AI Builder).
+**Estado actual (pós Loop 85):** bind por agente (**Loop 83**), inferência mínima de built-ins (**Loop 84**), e no AI Builder preview de bind **estável** em edições cosméticas + `requiresBindReview` com hints por agente (**Loop 85**). Ver [Loop 83 (fechado)](#loop-83-fechado), [Loop 84 (fechado)](#loop-84-fechado), [Loop 85 (fechado)](#loop-85-fechado). **Macro seguinte:** [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) ou novo slice numerado quando definido.
 
 ### Admin global da plataforma: norma vs implementação actual
 
@@ -713,7 +713,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 82   | Contrato do planner por agente + workflow ownership | entregue (ver [Loop 82](#loop-82-fechado)) |
 | 83   | Bind preview e execute per-agent (fim do bind global) | entregue (ver [Loop 83](#loop-83-fechado)) |
 | 84   | Built-ins mínimas por papel + hints por packs | entregue (ver [Loop 84](#loop-84-fechado)) |
-| 85   | UX AI Builder — preview estável e execute fluido | planeado (ver [Loop 85](#loop-85-planeado)) |
+| 85   | UX AI Builder — preview estável e execute fluido | entregue (ver [Loop 85](#loop-85-fechado)) |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -722,16 +722,13 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 84** — remoção da rotação por índice em `inferCatalogToolsForPlanAgent`; `inferCatalogPackContextLower` (packs por agente vs globais); hints controlados por packs; prompt Loop 84; testes; gate **237** testes + `next build`; ver [Loop 84](#loop-84-fechado).
+**Último slice numerado fechado:** **Loop 85** — `teamPlanBindFingerprint` + `proposePlanUpdate` no [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); `requiresBindReview` alinhado a hints por agente; `Salvar` não esvazia o preview antes do refresh; gate **237** testes + `next build`; ver [Loop 85](#loop-85-fechado).
 
-**Próximo slice oficial (numerado):** **Loop 85 — UX do AI Builder: preview estável e execute fluido** — ver [Loop 85 (planeado)](#loop-85-planeado); plano mestre: [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido).
+**Próximo slice oficial (numerado):** *(a definir)* — após **Loops 82–85**, o roadmap numerado volta quando houver novo slice coerente; ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) para trabalho em paralelo.
 
-**Em paralelo (não substitui o foco 82–85):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace).
-
-| Ordem | Loop | Tema | Plano mestre |
-| --- | --- | --- | --- |
-| 1 | **85** | UX AI Builder estável / execute fluido | [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido) |
-| — | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| Ordem | Tema | Plano mestre |
+| --- | --- | --- |
+| *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
 
@@ -772,12 +769,15 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 - [x] Testes: [`planner-agent-catalog-tools.test.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), [`team-plan-planner-prompt.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts)
 - [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes backend; `next build` OK
 
-<a id="checklist-do-loop-85-proximo"></a>
+<a id="checklist-do-loop-85-fechado"></a>
 
-## Checklist do Loop 85 (próximo)
+## Checklist do Loop 85 (fechado)
 
-- [ ] Preview estável / execute fluido no AI Builder — [Loop 85 plano](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)
-- [ ] Commit + push; ledger → **Loop 85 (fechado)** e **Próximo loop oficial** → *(14.8 ou slice numerado seguinte)*
+- [x] [`team-plan-bind-fingerprint.ts`](../v0-team-ai-crafter/lib/team-plan-bind-fingerprint.ts): `teamPlanBindFingerprint`, `planHasBindReviewHints`
+- [x] [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx): `proposePlanUpdate` — invalida preview/aprovação só quando o fingerprint de bind muda; edições cosméticas e `catalogTools` não limpam o preview
+- [x] `requiresBindReview` / contagens incluem `requiredBusinessActionIds` / `requiredPackIds` por agente; alerta “Capabilities sugeridas” coerente
+- [x] `saveEdits` mantém o preview até o novo `bind-preview` regressar do servidor
+- [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes; `next build` OK
 
 ---
 
@@ -1714,14 +1714,14 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 - **Testes / gate:** [`planner-agent-catalog-tools.test.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts), [`team-plan-planner-prompt.test.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.test.ts); `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **237** testes.
 - **referência no plano mestre:** [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)
 
-<a id="loop-85-planeado"></a>
+<a id="loop-85-fechado"></a>
 
-## Loop 85 (planeado) — UX do AI Builder: preview estável e execute fluido
+## Loop 85 (fechado) — UX do AI Builder: preview estável e execute fluido
 
 - **etapa/prioridade:** ETAPA 9 (AI Builder) / alta
-- **objetivo do slice:** preview não invalidado por edição cosmética; distinguir blockers reais (governança, colisão, bind) de revisão pendente desnecessária; botão **Executar** menos rígido quando não há risco real.
-- **foco:** [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) (estado `bindPreview` / `bindPreviewApproved`); tipos.
-- **critério de saída:** fluxo validado + gate com frontend.
+- **objetivo do slice:** não invalidar preview/aprovação de bind por edições que **não** afectam o cálculo de bind no servidor; alinhar “há revisão de bind?” a hints globais **e** por agente.
+- **Frontend:** [`team-plan-bind-fingerprint.ts`](../v0-team-ai-crafter/lib/team-plan-bind-fingerprint.ts); [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — `proposePlanUpdate`, `planHasBindReviewHints`.
+- **critério de saída:** gate com frontend.
 - **referência no plano mestre:** [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)
 
 ---

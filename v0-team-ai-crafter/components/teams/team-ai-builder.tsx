@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { createOperationId } from "@/lib/utils/operation-id"
+import { planHasBindReviewHints, teamPlanBindFingerprint } from "@/lib/team-plan-bind-fingerprint"
 import { plannerPackLabelPt } from "@/lib/planner-pack-labels"
 import {
   CATALOG_UTILITY_TOOL_IDS,
@@ -283,9 +284,18 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     () => (plan?.graph?.edges ?? []).map(toEdge).filter(Boolean) as Edge[],
     [plan],
   )
-  const requiredCapabilityCount = (plan?.requiredPacks?.length ?? 0) + (plan?.requiredTools?.length ?? 0)
   const reusedAgentsCount = plan?.agents.filter((agent) => agent.planningMode === "existing").length ?? 0
-  const requiresBindReview = requiredCapabilityCount > 0
+  const requiresBindReview = useMemo(() => (plan ? planHasBindReviewHints(plan) : false), [plan])
+  const requiredCapabilityCount = useMemo(() => {
+    if (!plan) return 0
+    const g = (plan.requiredPacks?.length ?? 0) + (plan.requiredTools?.length ?? 0)
+    const pa = plan.agents.reduce(
+      (acc, a) =>
+        acc + (a.requiredBusinessActionIds?.length ?? 0) + (a.requiredPackIds?.length ?? 0),
+      0,
+    )
+    return g + pa
+  }, [plan])
   const bindDiffAgents = useMemo(
     () =>
       bindPreview?.agents.filter(
@@ -298,6 +308,15 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       bindPreview?.toolDefinitions.filter((d) => d.currentStatus === "existing_disabled").map((d) => d.actionId) ?? [],
     [bindPreview],
   )
+
+  /** Loop 85 — só invalida preview/aprovação quando mudam inputs que afectam bind no servidor. */
+  const proposePlanUpdate = (nextPlan: TeamPlanDraft) => {
+    if (plan && teamPlanBindFingerprint(plan) !== teamPlanBindFingerprint(nextPlan)) {
+      setBindPreview(null)
+      setBindPreviewApproved(false)
+    }
+    setPlan(nextPlan)
+  }
 
   /** Espelha validação do backend: IDs de domínio não podem repetir entre especialistas. */
   const specialistExclusiveCollisions = useMemo((): string[] => {
@@ -355,9 +374,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       cur.delete(tid)
     }
     agents[agentIndex] = { ...agent, catalogTools: [...cur] }
-    setBindPreview(null)
-    setBindPreviewApproved(false)
-    setPlan({ ...plan, agents })
+    proposePlanUpdate({ ...plan, agents })
   }
 
   const plannerFallbackCopy = useMemo(() => {
@@ -539,7 +556,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       setBindPreview(null)
       setBindPreviewApproved(false)
       setPlan(res.data)
-      if ((res.data.requiredPacks?.length ?? 0) > 0 || (res.data.requiredTools?.length ?? 0) > 0) {
+      if (planHasBindReviewHints(res.data)) {
         void refreshBindPreview(res.data.id)
       }
       const meta = res.data.plannerMeta as TeamPlanPlannerMeta | undefined
@@ -565,7 +582,6 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
         graph: plan.graph,
       })
       setPlan(res.data)
-      setBindPreview(null)
       await refreshBindPreview(res.data.id)
       toast.success("Plano atualizado")
     } catch (e) {
@@ -751,7 +767,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </AlertDescription>
               </Alert>
             ) : null}
-            {((plan.requiredPacks?.length ?? 0) > 0 || (plan.requiredTools?.length ?? 0) > 0) && (
+            {requiresBindReview && (
               <Alert>
                 <Sparkles className="h-4 w-4" />
                 <AlertTitle>Capabilities sugeridas pelo planner</AlertTitle>
@@ -1336,9 +1352,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
               <Input
                 value={plan.team.name}
                 onChange={(e) => {
-                  setBindPreview(null)
-                  setBindPreviewApproved(false)
-                  setPlan({ ...plan, team: { ...plan.team, name: e.target.value } })
+                  proposePlanUpdate({ ...plan, team: { ...plan.team, name: e.target.value } })
                 }}
               />
             </div>
@@ -1347,9 +1361,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
               <Textarea
                 value={plan.team.objective}
                 onChange={(e) => {
-                  setBindPreview(null)
-                  setBindPreviewApproved(false)
-                  setPlan({ ...plan, team: { ...plan.team, objective: e.target.value } })
+                  proposePlanUpdate({ ...plan, team: { ...plan.team, objective: e.target.value } })
                 }}
               />
             </div>
@@ -1387,9 +1399,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     onChange={(e) => {
                       const agents = [...plan.agents]
                       agents[index] = { ...agents[index], name: e.target.value }
-                      setBindPreview(null)
-                      setBindPreviewApproved(false)
-                      setPlan({ ...plan, agents })
+                      proposePlanUpdate({ ...plan, agents })
                     }}
                   />
                   <div className="space-y-1.5">
@@ -1399,9 +1409,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       onChange={(e) => {
                         const agents = [...plan.agents]
                         agents[index] = { ...agents[index], objective: e.target.value }
-                        setBindPreview(null)
-                        setBindPreviewApproved(false)
-                        setPlan({ ...plan, agents })
+                        proposePlanUpdate({ ...plan, agents })
                       }}
                       rows={3}
                       className="min-h-[72px] resize-y"
@@ -1478,9 +1486,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                         onChange={(e) => {
                           const agents = [...plan.agents]
                           agents[index] = { ...agents[index], description: e.target.value }
-                          setBindPreview(null)
-                          setBindPreviewApproved(false)
-                          setPlan({ ...plan, agents })
+                          proposePlanUpdate({ ...plan, agents })
                         }}
                         placeholder="Descrição do papel"
                       />
@@ -1489,9 +1495,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                         onChange={(e) => {
                           const agents = [...plan.agents]
                           agents[index] = { ...agents[index], skills: parseCsv(e.target.value) }
-                          setBindPreview(null)
-                          setBindPreviewApproved(false)
-                          setPlan({ ...plan, agents })
+                          proposePlanUpdate({ ...plan, agents })
                         }}
                         placeholder="Skills separadas por vírgula"
                       />
