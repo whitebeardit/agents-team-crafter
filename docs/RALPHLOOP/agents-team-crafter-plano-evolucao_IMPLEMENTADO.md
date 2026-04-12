@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–85** na linha de **team planner + AI Builder** estão **fechados** (bind por agente, inferência mínima de built-ins, preview de bind estável em edições cosméticas). **Próximo foco macro:** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service) ou novo slice numerado quando definido.
+**Fase actual do produto:** **Loops 82–86** na linha de **team planner + AI Builder** estão **fechados** (inclui execute/bind proporcional, unicidade real de `workflowKey` e inferência conservadora de built-ins — [Loop 86](#loop-86-fechado)). **Próximo foco macro:** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service) ou novo slice numerado quando definido.
 
 Regras de uso:
 
@@ -74,7 +74,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 | D | JSON válido + normalização no servidor | `plannerOutputSchema` / `catalogTools`; fallback honesto ([Loop 62](#loop-62-fechado)). |
 | E | Gate `./scripts/ralph-loop-gate.sh` (+ frontend se Next) | Commit + push antes de marcar loop fechado. |
 | F | Matriz pré-JSON (planeamento) | Antes do JSON final: uma linha por especialista com `catalogTools` mínimas; cada ID exclusivo em **no máximo** um especialista. |
-| G | Outer loop de auto-reparo IA ([Loop 80](#loop-80-fechado)) | Gerar → `getSpecialistsCatalogToolConflicts` → se falhar, **reemitir** com diagnóstico (segunda chamada OpenAI); limite `TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS` + `plannerMeta.catalogToolRepairAttempts` / `catalogUniquenessRepaired`. |
+| G | Outer loop de auto-reparo IA ([Loop 80](#loop-80-fechado), estendido [Loop 86](#loop-86-fechado)) | Gerar → `getSpecialistsCatalogToolConflicts` **e** `getSpecialistWorkflowConflicts` → se falhar, **reemitir** com diagnóstico (segunda chamada OpenAI); limite `TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS` + `plannerMeta.catalogToolRepairAttempts` / `catalogUniquenessRepaired`. |
 | H | Leitura rápida do plano ([Loop 81](#loop-81-fechado)) | Primeiro ecrã: equipa + agentes + **objectives**; sem grelha completa de tools por defeito. |
 | I | Tools resumidas + edição focalizada ([Loop 81](#loop-81-fechado)) | Chips com tools activas; modal/drawer para toggles completos; colisão só para `SPECIALIST_EXCLUSIVE_*` entre especialistas. |
 | J | Progressive disclosure ([Loop 81](#loop-81-fechado)) | Grafo e detalhes longos do agente em **Collapsible**; bind/packs mantêm cartão dedicado quando aplicável. |
@@ -84,7 +84,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 
 **Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
-**Estado actual (pós Loop 85):** bind por agente (**Loop 83**), inferência mínima de built-ins (**Loop 84**), e no AI Builder preview de bind **estável** em edições cosméticas + `requiresBindReview` com hints por agente (**Loop 85**). Ver [Loop 83 (fechado)](#loop-83-fechado), [Loop 84 (fechado)](#loop-84-fechado), [Loop 85 (fechado)](#loop-85-fechado). **Próximo slice numerado oficial:** [Loop 86 (oficial)](#loop-86-oficial) — especificação canónica abaixo; após fechar, marcar **(fechado)** aqui e na [secção Loop 86 do plano mestre](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito).
+**Estado actual (pós Loop 86):** bind por agente (**Loop 83**), inferência mínima + conservadora por especialista (**Loops 84–86**), preview de bind estável (**Loop 85**) e **execute** alinhado a `requiresExplicitApproval` + unicidade de workflow sem sufixos mascarados (**Loop 86**). Ver [Loop 83 (fechado)](#loop-83-fechado) … [Loop 86 (fechado)](#loop-86-fechado). **Próximo foco:** macro [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) ou novo slice numerado.
 
 ### Admin global da plataforma: norma vs implementação actual
 
@@ -714,7 +714,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 83   | Bind preview e execute per-agent (fim do bind global) | entregue (ver [Loop 83](#loop-83-fechado)) |
 | 84   | Built-ins mínimas por papel + hints por packs | entregue (ver [Loop 84](#loop-84-fechado)) |
 | 85   | UX AI Builder — preview estável e execute fluido | entregue (ver [Loop 85](#loop-85-fechado)) |
-| 86   | AI Builder — execute, bind review proporcional, workflow ownership explícito | **planeado** (especificação: [Loop 86](#loop-86-oficial)) |
+| 86   | AI Builder — execute, bind review proporcional, workflow ownership explícito | entregue (ver [Loop 86](#loop-86-fechado)) |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -723,13 +723,13 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 85** — `teamPlanBindFingerprint` + `proposePlanUpdate` no [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); `requiresBindReview` alinhado a hints por agente; `Salvar` não esvazia o preview antes do refresh; gate **237** testes + `next build`; ver [Loop 85](#loop-85-fechado).
+**Último slice numerado fechado:** **Loop 86** — `requiresExplicitBindApproval` no [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); [`team-plan-bind-preview-fingerprint.ts`](../../v0-team-ai-crafter/lib/team-plan-bind-preview-fingerprint.ts); blockers acima do CTA; backend [`planner-workflow-uniqueness.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-uniqueness.ts) + reparo no `POST`; `buildBindPreview` com `requiresExplicitApproval` proporcional; gate **245** testes + `next build`; ver [Loop 86](#loop-86-fechado).
 
-**Próximo slice oficial (numerado):** **[Loop 86](#loop-86-oficial)** — destravar **Executar plano** quando não houver blocker real; bind review proporcional (`preview.requiresExplicitApproval`); ownership de workflow sem sufixos silenciosos; inferência de built-ins mais conservadora para especialistas. Plano mestre: [Loop 86](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito).
+**Próximo slice oficial (numerado):** *a definir* — evolução pontual do team planner / AI Builder entra como **Loop 87+** quando houver recorte; em paralelo segue o macro [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto).
 
 | Ordem | Tema | Plano mestre |
 | --- | --- | --- |
-| **1** | **Loop 86** (team planner + AI Builder) | [Loop 86](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito) |
+| *(futuro)* | Loop 87+ (team planner / AI Builder, quando definido) | — |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -1729,93 +1729,26 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 ---
 
 <a id="loop-86-oficial"></a>
+<a id="loop-86-fechado"></a>
 
-## Loop 86 (oficial) — AI Builder: destravar execute, bind review proporcional e workflow ownership explícito
+## Loop 86 (fechado) — AI Builder: destravar execute, bind review proporcional e workflow ownership explícito
 
-**Estado:** **especificação canónica (não fechado)** — este bloco e a [secção homónima no plano mestre](agents-team-crafter-plano-evolucao.md#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito) são a fonte de verdade até o encerramento do loop (commit + push + gate + checklist).
+**Estado:** **fechado** — especificação de engenharia no [anexo](ralph-loop-86-ai-builder-unblock.md); diagnóstico inicial tratado no código abaixo.
 
-### Contexto
+### Entregas
 
-Após **Loops 77–85**, a base está sólida: metadados por agente (`workflowKey`, `requiredBusinessActionIds`, `requiredPackIds`), modo de bind `per_agent`, preview de bind, UX do AI Builder simplificada em parte. Ainda há problemas de produto:
+- **Backend — workflow:** [`planner-workflow-uniqueness.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-uniqueness.ts) (`getSpecialistWorkflowConflicts`, `assertSpecialistWorkflowOwnership`); [`planner-workflow-ownership.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts) já **não** sufixa `workflowKey` duplicado; `evaluateMaterializedPlannerStructure` + mesmo ciclo de reparo OpenAI que [Loop 80](#loop-80-fechado) para conflitos de **catálogo e/ou workflow**; `assertSpecialistWorkflowOwnership` em `createPlan`, `updatePlan`, `executePlan`.
+- **Backend — bind:** [`buildBindPreview`](../../backend/src/modules/team-planning/application/team-plan.service.ts) — `requiresExplicitApproval` só com `selectedActionIds`, operações `create`/`reactivate` em definitions, ou overrides aplicados (não basta `actionIdsFull`).
+- **Backend — inferência:** [`inferCatalogPackContextLower`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts) — se qualquer especialista tiver hints per-agent, os que não têm `requiredPackIds` **não** herdam `requiredPacks` globais.
+- **Prompts:** [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) — reparo menciona `workflowKey`; sistema já pedia workflow único por especialista.
+- **Frontend:** [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — `requiresExplicitBindApproval` a partir de `bindPreview.requiresExplicitApproval`; [`team-plan-bind-preview-fingerprint.ts`](../../v0-team-ai-crafter/lib/team-plan-bind-preview-fingerprint.ts) preserva aprovação quando o preview é semanticamente equivalente; cartão de preview sempre visível; **blockers** resumidos acima do CTA; checkbox de aprovação só quando `requiresExplicitApproval`.
+- **Testes:** [`planner-workflow-uniqueness.test.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-uniqueness.test.ts); [`team-plans.integration.test.ts`](../../backend/src/__tests__/team-plans.integration.test.ts) (reparo workflow + `PUT` 400); [`planner-agent-catalog-tools.test.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.test.ts).
+- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **245** testes backend; `next build` OK.
 
-1. **Executar plano** bloqueia mais do que deveria.
-2. **Revisão de bind** é mais rígida que o risco real.
-3. **Duplicidade de workflow** entre especialistas é mascarada (ex.: sufixos `__1`, `__2` em [`planner-workflow-ownership.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts)) em vez de tratada como erro de desenho do time.
-4. **Inferência de built-ins** ainda pode poluir especialistas quando o plano não é específico (fallback de packs globais em [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)).
+### Micro-etapas Ralph (A–K)
 
-### Diagnóstico factual (código actual)
-
-| Área | Problema |
-| --- | --- |
-| **Execute** | No `TeamAiBuilder`, o CTA desactiva-se com `requiresBindReview` derivado de `planHasBindReviewHints(plan)` — **só a presença de hints** já exige preview + aprovação, mesmo sem bind real a aplicar. |
-| **Backend vs UI** | O backend já expõe `preview.requiresExplicitApproval`; a UI ainda privilegia a heurística `planHasBindReviewHints` em vez do contrato do preview. |
-| **Aprovação** | `refreshBindPreview()` e `saveEdits()` podem derrubar `bindPreviewApproved` sempre (`setBindPreviewApproved(false)`), mesmo para alterações compatíveis. |
-| **Workflow** | `ensurePlannerAgentWorkflowKeys()` gera chaves e **sufixa duplicatas** — evita colisão técnica mas mascara duplicidade no mesmo team plan. Regra de produto: **um especialista dono de cada workflow/domínio** no mesmo time; duplicidade só noutro time/workflow/workspace. |
-| **Built-ins** | `inferCatalogPackContextLower()`: coordenador usa packs globais; especialista com `requiredPackIds` vazio pode cair em `requiredPacks` globais e herdar `internal_actions` / `calendar_access` sem necessidade. |
-
-### Objetivo do Loop 86
-
-1. Destravar **execute** quando não houver blocker real.  
-2. **Bind review** proporcional ao risco real (`requiresExplicitApproval` como contrato).  
-3. **Duplicidade de workflow** = conflito explícito + reparo na geração (padrão [Loop 80](#loop-80-fechado)); `PUT` manual → `400 VALIDATION_ERROR`.  
-4. **Menos poluição** de built-ins por fallback global em especialistas.
-
-### Escopo
-
-**Incluído:** backend (validação de ownership de workflow, heurística de bind review, inferência conservadora); frontend (`bindPreview.requiresExplicitApproval`, preservar aprovação quando preview equivalente, copy de blockers); **docs:** este ledger + plano mestre ao fechar.
-
-**Fora:** redesign completo do AI Builder; wizard multi-passos; reabrir ETAPA 8; templates, scheduling, billing, 2FA.
-
-### Resultado esperado
-
-- **Executar plano** só bloqueado com blocker real.  
-- Sem reaprovação “à toa” do preview.  
-- Duplicidade de workflow entre especialistas = conflito visível e corrigível.  
-- Built-ins por fallback mais conservadores.  
-- UX mais clara sem perder segurança.
-
-### Implementação técnica (resumo)
-
-**Backend — workflow ownership**
-
-- Novo módulo `backend/src/modules/team-planning/domain/planner-workflow-uniqueness.ts`: `getSpecialistWorkflowConflicts`, `assertSpecialistWorkflowOwnership` (ignorar coordenador; comparação case-insensitive; conflitos legíveis).
-- Ajustar [`planner-workflow-ownership.ts`](../../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts): normalizar/gerar faltantes; **não** resolver duplicidade entre especialistas com sufixo silencioso.
-- [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts): `createPlan`, `updatePlan`, `executePlan` — `assertSpecialistWorkflowOwnership`; em geração IA, conflito entra no **ciclo de reparo** (como Loop 80); em `PUT` manual → `400`.
-- [`team-plan-planner-prompt.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) + [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): reforçar “um especialista por workflow”; alinhar validação.
-
-**Backend — bind review**
-
-- [`buildBindPreview`](../../backend/src/modules/team-planning/application/team-plan.service.ts): `requiresExplicitApproval === true` só com risco real (ex.: `selectedActionIds.length > 0`, criação/reativação de definitions, delta relevante de override — rever condição exacta; evitar falso positivo por `actionIdsFull`).
-
-**Frontend — [`team-ai-builder.tsx`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx)**
-
-- `requiresExplicitBindApproval = bindPreview?.requiresExplicitApproval ?? (bindPreview ? false : planHasBindReviewHints(plan))` (ou equivalente); **executePlan** alinhado.
-- `refreshBindPreview` / fingerprint de aprovação: invalidar aprovação só quando o preview mudar semanticamente (helper dedicado, ex. `team-plan-bind-preview-fingerprint.ts` se necessário).
-- Card de preview + lista de **blockers** acima do CTA (workflow duplicado, aprovação pendente, overlap blocking, colisão builtin exclusiva, etc.).
-
-**Backend — built-ins**
-
-- [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts): para **especialistas**, se existir hint per-agent em qualquer especialista (`requiredPackIds` / `requiredBusinessActionIds`), **não** herdar automaticamente packs globais para quem não especificou; coordenador pode continuar com globais.
-
-### Critérios de aceite, testes e gate
-
-- **Aceite:** unicidade de workflow entre especialistas sem sufixo mascarado; reparo IA no `POST`; `PUT` com duplicidade → 400; `requiresExplicitApproval` falso sem bind pendente; inferência sem poluição global indevida; UI usa `requiresExplicitApproval`; execute e aprovação conforme especificação.
-- **Testes:** `planner-workflow-uniqueness.test.ts`; expandir `team-plans.integration.test.ts`, `team-plan-auto-bind.integration.test.ts`, `planner-agent-catalog-tools.test.ts`.
-- **Gate:** `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`.
-
-### Ao fechar o loop
-
-Marcar **Loop 86 (fechado)** neste ficheiro e no plano mestre; registar decisões sobre workflow uniqueness, `requiresExplicitApproval`, preservação de aprovação do preview e impacto na UX.
-
-### Restrições e ordem sugerida
-
-- Não reabrir ETAPA 8; não novo plano oficial paralelo; slice pequeno; gate verde antes de encerrar.
-
-**Ordem:** (1) workflow uniqueness → (2) `requiresExplicitApproval` → (3) inferência built-ins → (4) frontend `requiresExplicitApproval` → (5) preservar aprovação → (6) blockers/copy → (7) testes → (8) gate → (9) docs.
-
-### Resumo executivo
-
-Correção fina de produto: execute previsível, bind alinhado ao risco, ownership de domínio explícito, menos ruído de tools nos especialistas — fiel ao desenho coordinator-first.
+- **C / G:** unicidade de workflow entre especialistas validada e incluída no reparo do `POST`; `PUT` manual continua a devolver `400` em conflito.
+- **H–K:** execute e copy do preview alinhados ao contrato `requiresExplicitApproval`; aprovação não cai em refresh compatível (fingerprint).
 
 ---
 

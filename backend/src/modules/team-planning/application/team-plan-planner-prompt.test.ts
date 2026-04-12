@@ -45,4 +45,8 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
       expect(TEAM_PLANNER_REPAIR_SYSTEM_PROMPT).toContain(`"${id}"`);
     }
   });
+
+  it('TEAM_PLANNER_REPAIR_SYSTEM_PROMPT menciona workflowKey (Loop 86)', () => {
+    expect(TEAM_PLANNER_REPAIR_SYSTEM_PROMPT).toMatch(/workflowKey/i);
+  });
 });

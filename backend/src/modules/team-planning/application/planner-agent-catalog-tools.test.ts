@@ -119,6 +119,14 @@ describe('planner-agent-catalog-tools', () => {
     expect(inferCatalogPackContextLower(plan.agents[0]!, plan)).toEqual(['finance']);
   });
 
+  it('Loop 86: com hints por agente num especialista, outro não herda packs globais', () => {
+    const plan = basePlan(
+      [specialistBase('S1', { requiredPackIds: ['crm'] }), specialistBase('S2')],
+      ['finance'],
+    );
+    expect(inferCatalogPackContextLower(plan.agents[1]!, plan)).toEqual([]);
+  });
+
   it('resolveCatalogToolsForPlanAgent respeita lista explícita do planner', () => {
     const plan = basePlan([
       {

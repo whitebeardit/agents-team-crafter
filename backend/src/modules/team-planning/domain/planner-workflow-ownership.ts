@@ -11,11 +11,10 @@ export type TPlannerAgentWorkflowInput = {
 
 /**
  * Normaliza `workflowKey` por agente: coordenador usa `coordination` se vazio;
- * especialistas recebem chave derivada de `category` se vazia; colisões entre especialistas
- * são resolvidas com sufixos `__1`, `__2`, … (comparação case-insensitive).
+ * especialistas recebem chave derivada de `category` se vazia.
+ * Loop 86: **não** desambigua duplicatas com sufixo — conflitos são validados / reparados pelo pipeline.
  */
 export function ensurePlannerAgentWorkflowKeys<T extends TPlannerAgentWorkflowInput>(agents: T[]): T[] {
-  const specialistKeysLower = new Set<string>();
   return agents.map((agent) => {
     if (agent.role === 'coordinator') {
       const key = agent.workflowKey.trim() || 'coordination';
@@ -25,14 +24,7 @@ export function ensurePlannerAgentWorkflowKeys<T extends TPlannerAgentWorkflowIn
     if (!key) {
       key = slugifyPlannerCategory(agent.category);
     }
-    let candidate = key;
-    let n = 0;
-    while (specialistKeysLower.has(candidate.toLowerCase())) {
-      n += 1;
-      candidate = `${key}__${n}`;
-    }
-    specialistKeysLower.add(candidate.toLowerCase());
-    return { ...agent, workflowKey: candidate };
+    return { ...agent, workflowKey: key };
   });
 }
 

@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { createOperationId } from "@/lib/utils/operation-id"
+import { bindPreviewApprovalFingerprint } from "@/lib/team-plan-bind-preview-fingerprint"
 import { planHasBindReviewHints, teamPlanBindFingerprint } from "@/lib/team-plan-bind-fingerprint"
 import { plannerPackLabelPt } from "@/lib/planner-pack-labels"
 import {
@@ -285,7 +286,16 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     [plan],
   )
   const reusedAgentsCount = plan?.agents.filter((agent) => agent.planningMode === "existing").length ?? 0
-  const requiresBindReview = useMemo(() => (plan ? planHasBindReviewHints(plan) : false), [plan])
+  /** Há hints de capabilities no plano (copy do cartão de sugestões). */
+  const hasBindCapabilityHints = useMemo(() => (plan ? planHasBindReviewHints(plan) : false), [plan])
+  /** Loop 86 — contrato do backend (`requiresExplicitApproval`) com fallback conservador até carregar o preview. */
+  const requiresExplicitBindApproval = useMemo(() => {
+    if (!plan) return false
+    return (
+      bindPreview?.requiresExplicitApproval ??
+      (bindPreview ? false : planHasBindReviewHints(plan))
+    )
+  }, [plan, bindPreview])
   const requiredCapabilityCount = useMemo(() => {
     if (!plan) return 0
     const g = (plan.requiredPacks?.length ?? 0) + (plan.requiredTools?.length ?? 0)
@@ -341,6 +351,60 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     }
     return out
   }, [plan])
+
+  /** Loop 86 — mesmo workflowKey em dois especialistas (validação alinhada ao backend). */
+  const specialistWorkflowDuplicates = useMemo(() => {
+    if (!plan) return [] as string[]
+    const specialists = plan.agents.filter((a) => a.role === "specialist")
+    const lowerToNames = new Map<string, string[]>()
+    const lowerToKey = new Map<string, string>()
+    for (const ag of specialists) {
+      const raw = (ag.workflowKey ?? "").trim()
+      if (!raw) continue
+      const lower = raw.toLowerCase()
+      const list = lowerToNames.get(lower) ?? []
+      list.push(ag.name)
+      lowerToNames.set(lower, list)
+      if (!lowerToKey.has(lower)) lowerToKey.set(lower, raw)
+    }
+    const out: string[] = []
+    for (const [lower, names] of lowerToNames) {
+      if (names.length > 1) {
+        const keyDisp = lowerToKey.get(lower) ?? lower
+        out.push(`Workflow "${keyDisp}" repetido entre: ${names.join(", ")}`)
+      }
+    }
+    return out
+  }, [plan])
+
+  const executePlanBlockers = useMemo(() => {
+    const items: string[] = []
+    if (specialistExclusiveCollisions.length > 0) {
+      items.push("Ferramenta exclusiva de domínio repetida entre especialistas (ajuste as fichas).")
+    }
+    if (specialistWorkflowDuplicates.length > 0) {
+      items.push("Dois ou mais especialistas com o mesmo workflowKey (corrija antes de executar).")
+    }
+    if (requiresExplicitBindApproval && (!bindPreview || !bindPreviewApproved)) {
+      items.push("É necessário rever e aprovar o preview de bind (ou aguardar o carregamento).")
+    }
+    if (overlapMode === "blocking" && (plan?.reuseSummary?.conflicts?.length ?? 0) > 0) {
+      items.push("Conflitos de overlap/reuso bloqueiam a execução com a política atual.")
+    }
+    if (isBindPreviewLoading) {
+      items.push("A carregar preview de bind…")
+    }
+    return items
+  }, [
+    specialistExclusiveCollisions.length,
+    specialistWorkflowDuplicates.length,
+    requiresExplicitBindApproval,
+    bindPreview,
+    bindPreviewApproved,
+    overlapMode,
+    plan?.reuseSummary?.conflicts?.length,
+    isBindPreviewLoading,
+  ])
 
   const [catalogToolsEditorIndex, setCatalogToolsEditorIndex] = useState<number | null>(null)
 
@@ -416,12 +480,23 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const refreshBindPreview = async (planId: string) => {
     if (!api) return
     setIsBindPreviewLoading(true)
-    setBindPreviewApproved(false)
+    const prevPreview = bindPreview
+    const prevApproved = bindPreviewApproved
     try {
       const res = await api.get<TeamPlanBindPreview>(`/team-plans/${planId}/bind-preview`)
-      setBindPreview(res.data)
+      const next = res.data
+      setBindPreview(next)
+      if (
+        prevPreview &&
+        bindPreviewApprovalFingerprint(prevPreview) === bindPreviewApprovalFingerprint(next)
+      ) {
+        setBindPreviewApproved(prevApproved)
+      } else {
+        setBindPreviewApproved(false)
+      }
     } catch (e) {
       setBindPreview(null)
+      setBindPreviewApproved(false)
       const message = e instanceof ApiError ? e.message : "Falha ao gerar preview de bind"
       toast.error(message)
     } finally {
@@ -432,13 +507,23 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const enableBindDefinitionsInline = async (actionIds: string[]) => {
     if (!api || !plan || actionIds.length === 0) return
     setIsBindEnableSaving(true)
-    setBindPreviewApproved(false)
+    const prevPreview = bindPreview
+    const prevApproved = bindPreviewApproved
     try {
       const res = await api.post<{
         preview: TeamPlanBindPreview
         reactivatedToolDefinitionIds: string[]
       }>(`/team-plans/${plan.id}/bind-enable-definitions`, { actionIds })
-      setBindPreview(res.data.preview)
+      const next = res.data.preview
+      setBindPreview(next)
+      if (
+        prevPreview &&
+        bindPreviewApprovalFingerprint(prevPreview) === bindPreviewApprovalFingerprint(next)
+      ) {
+        setBindPreviewApproved(prevApproved)
+      } else {
+        setBindPreviewApproved(false)
+      }
       const n = res.data.reactivatedToolDefinitionIds.length
       if (n > 0) {
         toast.success(`${n} tool definition(s) reativada(s) no workspace. O preview foi atualizado.`)
@@ -456,14 +541,24 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const persistBindOverrides = async (planId: string, bindOverrides: TeamPlanBindOverrides) => {
     if (!api) return
     setIsBindOverrideSaving(true)
-    setBindPreviewApproved(false)
+    const prevPreview = bindPreview
+    const prevApproved = bindPreviewApproved
     try {
       const res = await api.put<{ plan: TeamPlanDraft; preview: TeamPlanBindPreview }>(
         `/team-plans/${planId}/bind-overrides`,
         { bindOverrides: normalizeBindOverrides(bindOverrides) },
       )
       setPlan(res.data.plan)
-      setBindPreview(res.data.preview)
+      const next = res.data.preview
+      setBindPreview(next)
+      if (
+        prevPreview &&
+        bindPreviewApprovalFingerprint(prevPreview) === bindPreviewApprovalFingerprint(next)
+      ) {
+        setBindPreviewApproved(prevApproved)
+      } else {
+        setBindPreviewApproved(false)
+      }
     } catch (e) {
       const message = e instanceof ApiError ? e.message : "Falha ao salvar overrides de bind"
       toast.error(message)
@@ -598,7 +693,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     setExecutionPhase(null)
     setExecutionDetail("")
     setLastExecutionMeta(null)
-    if (requiresBindReview && (!bindPreview || !bindPreviewApproved)) {
+    if (requiresExplicitBindApproval && (!bindPreview || !bindPreviewApproved)) {
       toast.warning("Revise e aprove o preview de bind antes de executar o plano.")
       setIsExecuting(false)
       return
@@ -767,7 +862,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </AlertDescription>
               </Alert>
             ) : null}
-            {requiresBindReview && (
+            {hasBindCapabilityHints && (
               <Alert>
                 <Sparkles className="h-4 w-4" />
                 <AlertTitle>Capabilities sugeridas pelo planner</AlertTitle>
@@ -844,13 +939,13 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     para garantir que as definitions estejam ativas e depois habilite-as nas fichas dos agentes.
                   </p>
                   <p className="text-muted-foreground">
-                    O execute fica liberado apos revisar o preview de bind da ultima versao salva do plano.
+                    O execute so exige aprovacao manual do preview quando o servidor indicar risco real de bind
+                    (campo <code className="text-xs">requiresExplicitApproval</code>).
                   </p>
                 </AlertDescription>
               </Alert>
             )}
-            {requiresBindReview ? (
-              <Card>
+            <Card>
                 <CardHeader>
                   <CardTitle>Preview de bind</CardTitle>
                   <CardDescription>
@@ -864,6 +959,26 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {bindPreview ? (
+                    <p className="text-sm text-muted-foreground">
+                      {bindPreview.requiresExplicitApproval ? (
+                        <>
+                          <span className="font-medium text-foreground">Aprovacao necessaria:</span> ha acoes de bind,
+                          reativacao ou overrides que exigem confirmacao antes do execute.
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-medium text-foreground">Sem bind de risco imediato:</span> o preview
+                          actual nao exige aprovacao manual (apenas se o plano mudar de forma relevante).
+                        </>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Clique em «Atualizar preview» para carregar o contrato do servidor, ou gere um plano com sugestoes
+                      de capabilities para obter o preview automaticamente.
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={bindPreview?.effectiveBindEnabled ? "default" : "secondary"}>
                       {bindPreview?.effectiveBindEnabled ? "Bind efetivo" : "Sem bind efetivo"}
@@ -1223,25 +1338,26 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                           </div>
                         ))}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="bind-preview-approved"
-                          checked={bindPreviewApproved}
-                          onCheckedChange={(checked) => setBindPreviewApproved(Boolean(checked))}
-                        />
-                        <Label htmlFor="bind-preview-approved">
-                          Revisei o preview de bind da ultima versao salva e aprovo executar o plano.
-                        </Label>
-                      </div>
+                      {bindPreview && requiresExplicitBindApproval ? (
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="bind-preview-approved"
+                            checked={bindPreviewApproved}
+                            onCheckedChange={(checked) => setBindPreviewApproved(Boolean(checked))}
+                          />
+                          <Label htmlFor="bind-preview-approved">
+                            Revisei o preview de bind da ultima versao salva e aprovo executar o plano.
+                          </Label>
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Salve o plano e gere o preview para liberar a execucao com visibilidade do bind.
+                      Salve o plano e use «Atualizar preview» para ver o bind antes de executar.
                     </p>
                   )}
                 </CardContent>
               </Card>
-            ) : null}
             {lastExecutionMeta && plan.status === "executed" ? (
               <Alert variant={lastExecutionMeta.effectiveBindEnabled ?? lastExecutionMeta.autoBindEnabled ? "default" : "destructive"}>
                 <Sparkles className="h-4 w-4" />
@@ -1601,11 +1717,24 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </div>
               </CollapsibleContent>
             </Collapsible>
+            {executePlanBlockers.length > 0 ? (
+              <Alert variant="secondary">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Execute bloqueado</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc list-inside text-sm space-y-1">
+                    {executePlanBlockers.map((b, i) => (
+                      <li key={`${i}-${b}`}>{b}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Button
                 variant="outline"
                 onClick={saveEdits}
-                disabled={isSaving || specialistExclusiveCollisions.length > 0}
+                disabled={isSaving || specialistExclusiveCollisions.length > 0 || specialistWorkflowDuplicates.length > 0}
                 className="w-full sm:w-auto"
               >
                 {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PencilLine className="w-4 h-4 mr-2" />}
@@ -1616,10 +1745,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 onClick={executePlan}
                 disabled={
                   isExecuting ||
-                  isBindPreviewLoading ||
                   specialistExclusiveCollisions.length > 0 ||
-                  (requiresBindReview && (!bindPreview || !bindPreviewApproved)) ||
-                  (overlapMode === "blocking" && (plan.reuseSummary?.conflicts?.length ?? 0) > 0)
+                  specialistWorkflowDuplicates.length > 0 ||
+                  (requiresExplicitBindApproval && (!bindPreview || !bindPreviewApproved)) ||
+                  (overlapMode === "blocking" && (plan.reuseSummary?.conflicts?.length ?? 0) > 0) ||
+                  isBindPreviewLoading
                 }
               >
                 {isExecuting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}

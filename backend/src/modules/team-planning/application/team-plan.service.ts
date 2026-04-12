@@ -34,6 +34,12 @@ import {
   getSpecialistsCatalogToolConflicts,
   type ISpecialistCatalogToolConflict,
 } from '../domain/planner-specialist-catalog-uniqueness.js';
+import {
+  assertSpecialistWorkflowOwnership,
+  formatWorkflowConflictsForMessage,
+  getSpecialistWorkflowConflicts,
+  type IPlannerWorkflowConflict,
+} from '../domain/planner-workflow-uniqueness.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
 
@@ -395,14 +401,15 @@ export class TeamPlanService {
     return Math.max(0, Math.min(n, 8));
   }
 
-  private async evaluateMaterializedCatalogUniqueness(
+  private async evaluateMaterializedPlannerStructure(
     workspaceId: string,
     raw: TPlannerOutput,
   ): Promise<{
     reuse: Awaited<ReturnType<TeamPlanService['annotateAgentsWithReuse']>>;
     parsedForGraph: TPlannerOutput;
     agentsMaterialized: TPlannerOutput['agents'];
-    conflicts: ISpecialistCatalogToolConflict[];
+    catalogConflicts: ISpecialistCatalogToolConflict[];
+    workflowConflicts: IPlannerWorkflowConflict[];
   }> {
     const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
     const parsedForGraph = plannerOutputSchema.parse({
@@ -414,8 +421,9 @@ export class TeamPlanService {
       requiredTools: raw.requiredTools,
     });
     const agentsMaterialized = materializePlannerAgentCatalogTools(parsedForGraph);
-    const conflicts = getSpecialistsCatalogToolConflicts(agentsMaterialized);
-    return { reuse, parsedForGraph, agentsMaterialized, conflicts };
+    const catalogConflicts = getSpecialistsCatalogToolConflicts(agentsMaterialized);
+    const workflowConflicts = getSpecialistWorkflowConflicts(parsedForGraph.agents);
+    return { reuse, parsedForGraph, agentsMaterialized, catalogConflicts, workflowConflicts };
   }
 
   private formatPlanPayloadForRepair(ev: {
@@ -492,8 +500,8 @@ export class TeamPlanService {
     let repairsUsed = 0;
 
     while (true) {
-      const ev = await this.evaluateMaterializedCatalogUniqueness(params.workspaceId, current);
-      if (ev.conflicts.length === 0) {
+      const ev = await this.evaluateMaterializedPlannerStructure(params.workspaceId, current);
+      if (ev.catalogConflicts.length === 0 && ev.workflowConflicts.length === 0) {
         return {
           raw: current,
           plannerMetaExtras: {
@@ -516,7 +524,14 @@ export class TeamPlanService {
         };
       }
 
-      const diagnosis = formatCatalogToolConflictsForMessage(ev.conflicts);
+      const diagnosisParts: string[] = [];
+      if (ev.catalogConflicts.length > 0) {
+        diagnosisParts.push(`catalogTools de dominio repetidos: ${formatCatalogToolConflictsForMessage(ev.catalogConflicts)}`);
+      }
+      if (ev.workflowConflicts.length > 0) {
+        diagnosisParts.push(`workflowKey duplicado entre especialistas: ${formatWorkflowConflictsForMessage(ev.workflowConflicts)}`);
+      }
+      const diagnosis = diagnosisParts.join(' | ');
       const invalidPlanJson = this.formatPlanPayloadForRepair(ev);
       const repaired = await this.fetchRepairedPlannerOutput({
         apiKey: params.apiKey,
@@ -658,6 +673,7 @@ export class TeamPlanService {
       requiredTools: raw.requiredTools,
     });
     const agentsMaterialized = materializePlannerAgentCatalogTools(parsedForGraph);
+    assertSpecialistWorkflowOwnership(parsedForGraph.agents);
     assertSpecialistsExclusiveCatalogTools(agentsMaterialized);
     const graph = this.buildDefaultGraph({ ...parsedForGraph, agents: agentsMaterialized });
     const created = await this.repo.create(workspaceId, {
@@ -725,6 +741,7 @@ export class TeamPlanService {
       requiredTools: parsed.requiredTools,
     });
     const agentsMaterialized = materializePlannerAgentCatalogTools(fullPlan);
+    assertSpecialistWorkflowOwnership(fullPlan.agents);
     assertSpecialistsExclusiveCatalogTools(agentsMaterialized);
     const updated = await this.repo.update(workspaceId, id, {
       team: parsed.team,
@@ -930,6 +947,9 @@ export class TeamPlanService {
       }
     }
     const toolDefinitions = actionIds.map((actionId) => definitionPreviewByActionId.get(actionId)!);
+    const needsCreateOrReactivate = toolDefinitions.some(
+      (d) => d.plannedOperation === 'create' || d.plannedOperation === 'reactivate',
+    );
     const bindOverrideAgentCount = agents.filter((agent) => agent.overrideMode !== 'inherit').length;
     const bindOverrideActionCount = agents.reduce(
       (count, agent) => count + agent.actionIdsExcludedByOverride.length,
@@ -990,7 +1010,8 @@ export class TeamPlanService {
         bindOverridesApplied,
         bindOverrideAgentCount,
         bindOverrideActionCount,
-        requiresExplicitApproval: actionIdsFull.length > 0,
+        requiresExplicitApproval:
+          selectedActionIds.length > 0 || needsCreateOrReactivate || bindOverridesApplied,
         bindResolutionMode,
         toolDefinitions,
         suggestedPacks,
@@ -1108,6 +1129,7 @@ export class TeamPlanService {
       requiredPacks: plan.requiredPacks ?? [],
       requiredTools: plan.requiredTools ?? [],
     });
+    assertSpecialistWorkflowOwnership(parsed.agents);
     assertSpecialistsExclusiveCatalogTools(materializePlannerAgentCatalogTools(parsed));
     const planAgentKeys = plannerAgentKeys(parsed.agents);
     const coordinator = parsed.agents.find((a) => a.role === 'coordinator');

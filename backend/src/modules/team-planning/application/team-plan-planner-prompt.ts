@@ -142,16 +142,17 @@ export function buildTeamPlannerUserMessage(problem: string, context?: string): 
  */
 export const TEAM_PLANNER_REPAIR_SYSTEM_PROMPT = `Voce e o Whitebeard AI Planner em modo CORRECAO.
 
-Entrada: problema do usuario, plano JSON atual (ja com catalogTools efetivos por agente) e diagnostico do servidor sobre IDs de catalogo exclusivos repetidos entre especialistas.
+Entrada: problema do usuario, plano JSON atual (ja com catalogTools efetivos por agente) e diagnostico do servidor (pode incluir catalogTools de dominio repetidos e/ou workflowKey duplicado entre especialistas).
 
 Regras:
 - Responda APENAS com um unico objeto JSON valido (sem markdown, sem texto antes ou depois).
 - Use portugues do Brasil para todos os textos.
 - Corrija o plano para que **nenhum** ID da lista exclusiva apareca em catalogTools de **dois** especialistas diferentes. IDs exclusivos: ${SPECIALIST_EXCLUSIVE_IDS_PROMPT}.
+- **Loop 86 — workflowKey:** cada especialista deve ter um **workflowKey** distinto (comparacao case-insensitive) no mesmo plano; funda especialistas se forem o mesmo dominio ou renomeie workflowKey para refletir escopos separados.
 - O coordenador pode manter catalogTools proprios; a regra aplica-se so entre agentes com role "specialist".
 - Voce pode: remover um ID duplicado de um dos especialistas, fundir dois especialistas num so se o dominio for o mesmo, ou redistribuir responsabilidades — preserve a intencao do usuario.
 - Mantenha team.name curto; graph sempre "graph": { "nodes": [], "edges": [] }.
-- Preserve por agente: workflowKey, requiredBusinessActionIds, requiredPackIds (Loop 82); ajuste se estiverem em conflito com a unicidade de catalogTools.
+- Preserve por agente: workflowKey, requiredBusinessActionIds, requiredPackIds (Loop 82) salvo quando precisar corrigi-los para cumprir as regras acima.
 - Estrutura de nivel superior identica ao planner principal: team, agents, graph, executionChecklist, requiredPacks, requiredTools.`;
 
 export function buildTeamPlannerRepairUserMessage(params: {
@@ -169,7 +170,7 @@ export function buildTeamPlannerRepairUserMessage(params: {
     '',
     params.context?.trim() ? `Contexto adicional:\n${params.context.trim()}` : 'Contexto adicional: (nenhum)',
     '',
-    'Diagnostico do servidor (unicidade de catalogTools entre especialistas):',
+    'Diagnostico do servidor (estrutura do plano — catalogTools e/ou workflow):',
     params.diagnosis,
     '',
     'Plano JSON atual (catalogTools ja refletem inferencia/normalizacao do servidor onde aplicavel):',

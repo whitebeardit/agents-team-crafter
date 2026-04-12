@@ -325,6 +325,174 @@ describe('team-plans flow', () => {
     expect(body.data.plannerMeta.usedOpenAi).toBe(true);
   });
 
+  it('repara workflowKey duplicado na criacao com segunda chamada OpenAI (Loop 86)', async () => {
+    jest.restoreAllMocks();
+    const workflowCollisionPlan = {
+      team: {
+        name: 'Time Workflow Dup',
+        objective: 'Testar unicidade de workflow entre especialistas no servidor.',
+        description: 'Teste integracao',
+        channelIds: [],
+      },
+      agents: [
+        {
+          name: 'Coord',
+          role: 'coordinator',
+          description: 'c',
+          objective: 'o',
+          responsibilities: [] as string[],
+          skills: [] as string[],
+          category: 'c',
+          channels: ['api'],
+          catalogTools: ['web_search'],
+          workflowKey: 'coordination',
+          requiredBusinessActionIds: [] as string[],
+          requiredPackIds: [] as string[],
+        },
+        {
+          name: 'Esp A',
+          role: 'specialist',
+          description: 'd',
+          objective: 'o',
+          responsibilities: [],
+          skills: [],
+          category: 'a',
+          channels: [],
+          catalogTools: ['web_search'],
+          workflowKey: 'same_flow',
+          requiredBusinessActionIds: [],
+          requiredPackIds: [],
+        },
+        {
+          name: 'Esp B',
+          role: 'specialist',
+          description: 'd',
+          objective: 'o',
+          responsibilities: [],
+          skills: [],
+          category: 'b',
+          channels: [],
+          catalogTools: ['file_search'],
+          workflowKey: 'same_flow',
+          requiredBusinessActionIds: [],
+          requiredPackIds: [],
+        },
+      ],
+      graph: { nodes: [], edges: [] },
+      executionChecklist: [] as string[],
+      requiredPacks: [] as string[],
+      requiredTools: [] as string[],
+    };
+    const repairedPlan = {
+      ...workflowCollisionPlan,
+      agents: workflowCollisionPlan.agents.map((a, i) =>
+        i === 2 ? { ...a, workflowKey: 'same_flow_b' } : a,
+      ),
+    };
+    let fetchCount = 0;
+    jest.spyOn(global, 'fetch').mockImplementation(async () => {
+      fetchCount++;
+      const payload = fetchCount === 1 ? workflowCollisionPlan : repairedPlan;
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(payload) } }],
+          }),
+      } as Response;
+    });
+
+    const headers = await authHeaders();
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans',
+      headers,
+      payload: {
+        problem: 'Precisamos melhorar o atendimento e reduzir tempo de resposta dos clientes.',
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    expect(fetchCount).toBe(2);
+    const body = JSON.parse(create.body) as {
+      data: { agents: Array<{ workflowKey?: string }> };
+    };
+    expect(body.data.agents[2]!.workflowKey).toBe('same_flow_b');
+  });
+
+  it('rejeita atualizacao manual quando dois especialistas partilham workflowKey (Loop 86)', async () => {
+    const headers = await authHeaders();
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans',
+      headers,
+      payload: {
+        problem: 'Precisamos melhorar o atendimento e reduzir tempo de resposta dos clientes.',
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const planId = (JSON.parse(create.body) as { data: { id: string } }).data.id;
+
+    const agentsBad = [
+      {
+        name: 'Coordenador CX',
+        role: 'coordinator',
+        description: 'Coordena especialistas.',
+        objective: 'Garantir SLA de resposta.',
+        responsibilities: ['Priorizar fila', 'Escalar'],
+        skills: ['comunicacao'],
+        category: 'atendimento',
+        channels: ['api'],
+        catalogTools: ['web_search'],
+        workflowKey: 'coordination',
+        requiredBusinessActionIds: [],
+        requiredPackIds: [],
+      },
+      {
+        name: 'Especialista Resposta',
+        role: 'specialist',
+        description: 'Responde clientes.',
+        objective: 'Resolver tickets.',
+        responsibilities: ['Responder'],
+        skills: ['empatia'],
+        category: 'atendimento',
+        channels: [],
+        catalogTools: ['database_query'],
+        workflowKey: 'wf_dup',
+        requiredBusinessActionIds: [],
+        requiredPackIds: [],
+      },
+      {
+        name: 'Especialista Dados',
+        role: 'specialist',
+        description: 'SQL.',
+        objective: 'Relatorios.',
+        responsibilities: ['Query'],
+        skills: ['sql'],
+        category: 'dados',
+        channels: [],
+        catalogTools: ['calendar_access'],
+        workflowKey: 'wf_dup',
+        requiredBusinessActionIds: [],
+        requiredPackIds: [],
+      },
+    ];
+
+    const update = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/team-plans/${planId}`,
+      headers,
+      payload: { agents: agentsBad },
+    });
+    expect(update.statusCode).toBe(400);
+    const envelope = JSON.parse(update.body) as {
+      success: boolean;
+      error: { code: string; message: string };
+    };
+    expect(envelope.success).toBe(false);
+    expect(envelope.error.code).toBe('VALIDATION_ERROR');
+    expect(envelope.error.message).toMatch(/workflow/i);
+  });
+
   it('rejeita atualizacao manual quando dois especialistas partilham catalogTools de dominio', async () => {
     const headers = await authHeaders();
     const create = await app.inject({

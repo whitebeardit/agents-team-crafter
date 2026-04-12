@@ -32,15 +32,25 @@ function dedupeLowerPacks(packs: readonly string[]): string[] {
 }
 
 /**
- * Loop 84 — contexto de packs para inferência de builtins: por agente se `requiredPackIds`
- * não vazio; senão `requiredPacks` globais (legado). Coordenador usa só globais.
+ * Loop 84/86 — contexto de packs para inferência de builtins.
+ * Coordenador: `requiredPacks` globais.
+ * Especialista: `requiredPackIds` do agente; se o plano tiver hints por agente em qualquer especialista,
+ * não herdar `requiredPacks` globais para quem não especificou (evita poluição de builtins).
  */
 export function inferCatalogPackContextLower(agent: TPlanAgent, plan: TPlannerOutput): string[] {
   if (agent.role === 'coordinator') {
     return dedupeLowerPacks(plan.requiredPacks ?? []);
   }
+  const hasAnyPerAgentHints = plan.agents.some(
+    (a) =>
+      a.role === 'specialist' &&
+      ((a.requiredPackIds?.length ?? 0) > 0 || (a.requiredBusinessActionIds?.length ?? 0) > 0),
+  );
   const agentPacks = dedupeLowerPacks(agent.requiredPackIds ?? []);
   if (agentPacks.length > 0) return agentPacks;
+  if (hasAnyPerAgentHints) {
+    return [];
+  }
   return dedupeLowerPacks(plan.requiredPacks ?? []);
 }
 

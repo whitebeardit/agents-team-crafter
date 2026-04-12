@@ -691,7 +691,7 @@ Slices oficiais numerados **após o Loop 81** (ETAPA 9 continua; ver [§14](#14-
 - **[Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global)** — **entregue** — bind preview/execute orientados por agente (ledger: [Loop 83 fechado](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-83-fechado))
 - **[Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)** — **entregue** — inferência mínima de built-ins; sem rotação por índice; hints por packs (ledger: [Loop 84 fechado](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-84-fechado))
 - **[Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)** — **entregue** — preview de bind estável em edições cosméticas; hints por agente para revisão — ledger: [Loop 85 fechado](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-85-fechado)
-- **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — **planeado** — destravar **Executar**, bind review proporcional (`requiresExplicitApproval`), ownership real de workflow (sem sufixos silenciosos), inferência conservadora de built-ins para especialistas — ledger: [Loop 86 (oficial)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-oficial)
+- **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — **entregue** — destravar **Executar**, bind review proporcional (`requiresExplicitApproval`), ownership real de workflow (sem sufixos silenciosos), inferência conservadora de built-ins para especialistas — ledger: [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado)
 
 *Base factual no código actual:* quando o plano tem listas por agente (`requiredBusinessActionIds` / `requiredPackIds`), `computePlannerBindActionUniverse` em [`planner-pack-presets.ts`](../../backend/src/modules/team-planning/application/planner-pack-presets.ts) + `buildBindPreview` em [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) calculam candidatos **por agente**; sem essas listas, mantém-se o modo **global** legado. Schema [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): **Loop 82** entregue.
 
@@ -797,7 +797,7 @@ A arquitectura base (governança, grafo, runs, flags, business tools, planner co
 - **planner** persiste **por agente** `workflowKey`, `requiredBusinessActionIds` e `requiredPackIds` (**Loop 82**); bind alinhado (**Loop 83**)
 - **inferência default de built-ins** em [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts) — **Loop 84 entregue:** mínimo (`web_search`), keywords e hints controlados por packs por agente ou globais; **sem** rotação por índice
 - **UX do AI Builder** — **Loop 85 entregue:** edições que não alteram inputs de bind (fingerprint alinhada ao servidor) **não** limpam `bindPreview` / aprovação; **Executar** continua a exigir revisão quando há hints de bind (globais ou por agente)
-- **Loop 86 (planeado):** alinhar bloqueio de **Executar** e revisão de bind ao **risco real** (`preview.requiresExplicitApproval`); tratar **duplicidade de workflow** entre especialistas como conflito explícito (reparo no `POST`, `400` no `PUT`); reduzir herança de packs globais nos especialistas quando houver hints per-agent noutros agentes — ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)
+- **Loop 86 (entregue):** bloqueio de **Executar** e revisão de bind alinhados ao **risco real** (`preview.requiresExplicitApproval`); **duplicidade de workflow** como conflito explícito (reparo no `POST`, `400` no `PUT`); herança de packs globais nos especialistas reduzida quando há hints per-agent noutros agentes — ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)
 
 Em paralelo, continuam válidos como macro-evolução de negócio:
 
@@ -809,9 +809,9 @@ Em paralelo, continuam válidos como macro-evolução de negócio:
 # 12. Próxima ação recomendada
 
 ## Próximo loop recomendado
-**Slice numerado em curso / oficial:** **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — especificação canónica no ledger [Loop 86 (oficial)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-oficial). **Loops 82–85** fecharam a primeira onda **team planner + AI Builder** (bind por agente, inferência mínima, preview estável).
+**Último slice numerado fechado:** **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — ledger [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado). **Loops 82–86** fecharam a onda **team planner + AI Builder** (bind por agente, inferência mínima + conservadora, preview estável, execute/bind proporcional, workflow real).
 
-**Macro-evolução em paralelo (não bloqueia Loop 86):** [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Macro-evolução em paralelo:** [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 Trabalho já entregue nessa linha: **Loops 77–85** — prompts, enforcement, reparo IA, atalhos de definition inactiva, UX em camadas no [`TeamAiBuilder`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx), **contrato JSON por agente** (**Loop 82**), **bind preview/execute por agente** (**Loop 83**), **inferência mínima de built-ins** (**Loop 84**), **preview de bind estável** (**Loop 85**). A **ativação inline** de definitions inactivas permanece documentada nos **[Loops 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado)** e **[79](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-79-fechado)**.
 
@@ -875,7 +875,7 @@ O **AI Builder** e o **planner** já cobrem uma fase importante (prompts, unicid
 - o schema JSON do planner **já expõe** **`workflowKey`**, **`requiredBusinessActionIds`** e **`requiredPackIds` por agente** (**Loop 82** entregue); o **bind** preview/execute consome estas listas quando presentes (**Loop 83** entregue); continuam **Loops 84–85** — [P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)
 - **Built-ins:** [Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow) **entregue** — inferência por omissão em `planner-agent-catalog-tools.ts` sem rotação por índice; hints por packs
 - **UX:** [Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido) **entregue** — edições cosméticas não invalidam o preview de bind; revisão obrigatória quando há hints (globais ou por agente)
-- **Próximo recorte (planeado):** [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito) — alinhar bloqueio de **Executar** e revisão ao `requiresExplicitApproval`; validar unicidade de **workflow** sem mascarar duplicados; inferência de built-ins mais conservadora para especialistas
+- **Loop 86 (entregue):** [secção dedicada](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito) — bloqueio de **Executar** e revisão ao `requiresExplicitApproval`; unicidade de **workflow** sem mascarar duplicados; inferência de built-ins mais conservadora para especialistas
 
 ### Já funcionam hoje
 - `API keys` do workspace
@@ -1653,9 +1653,9 @@ Reduzir atrito: **preview** de bind que não “expira” por edições **cosmé
 
 <a id="loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito"></a>
 
-## Loop 86 — AI Builder: destravar execute, bind review proporcional e workflow ownership explícito *(planeado)*
+## Loop 86 — AI Builder: destravar execute, bind review proporcional e workflow ownership explícito *(entregue)*
 
-Esta secção e o [Loop 86 (oficial)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-oficial) no ledger são a **fonte de verdade** até o encerramento do ciclo (implementação + testes + gate + marcação **fechado**).
+Esta secção resume o desenho; o encerramento operacional está no ledger [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado).
 
 ### Contexto e diagnóstico
 
@@ -1691,7 +1691,7 @@ A base pós **Loops 77–85** inclui metadados por agente, bind `per_agent` e pr
 
 ### Critérios de aceite, testes e gate
 
-Conforme [Loop 86 (oficial)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-oficial): aceite backend/frontend/produto; testes unitários e integração indicados; `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`; smoke manual do AI Builder quando aplicável.
+Conforme [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado): aceite backend/frontend/produto; testes unitários e integração indicados; `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`; smoke manual do AI Builder quando aplicável.
 
 ### Restrições e ordem de trabalho
 
@@ -1701,7 +1701,7 @@ Não reabrir ETAPA 8; não criar plano oficial paralelo; manter o slice fecháve
 
 Loop de **correção fina**: AI Builder previsível, bind alinhado ao risco, ownership de domínio visível no comportamento do sistema, menos tools erradas em especialistas.
 
-**Estado:** **planeado** — ledger: [Loop 86 (oficial)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-oficial).
+**Estado:** **entregue** — ledger: [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado).
 
 ---
 
@@ -1742,7 +1742,7 @@ Loop de **correção fina**: AI Builder previsível, bind alinhado ao risco, own
 32. **Loop 83** — bind preview e execute per-agent, fim do *candidate set* global demasiado largo *(entregue; ver [Loop 83](#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global))*.
 33. **Loop 84** — built-ins mínimas por inferência; remoção da rotação por índice em `planner-agent-catalog-tools` *(entregue; ver [Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow))*.
 34. **Loop 85** — UX AI Builder: preview estável, fingerprint de bind *(entregue; ver [Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido))*.
-35. **Loop 86** — AI Builder: execute fluido, bind proporcional, workflow ownership explícito *(planeado; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*.
+35. **Loop 86** — AI Builder: execute fluido, bind proporcional, workflow ownership explícito *(entregue; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1771,7 +1771,7 @@ Loop de **correção fina**: AI Builder previsível, bind alinhado ao risco, own
 - **Loop 80:** **auto-reparo pela IA** no `POST` de criação de plano quando o modelo violar unicidade (micro-etapas **F** e **G**); **PUT** manual continua com **400** do [Loop 78](#loop-78-enforcement-builtin-ambiguity) — entregue ([secção dedicada](#loop-80-planner-auto-repair-ia))
 - **Loop 81:** **UX do AI Builder** — preview legível, tools resumidas, avançado recolhido; micro-etapas **H–K** — *entregue* ([Loop 81](#loop-81-ai-builder-ux-preview-simples))
 - **Loops 82–85:** onda **team planner + AI Builder** *(entregue)* — ver [P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)
-- **Loop 86:** refinamento **team planner + AI Builder** — execute, `requiresExplicitApproval`, unicidade de workflow sem mascarar duplicados, inferência conservadora *(planeado; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*
+- **Loop 86:** refinamento **team planner + AI Builder** — execute, `requiresExplicitApproval`, unicidade de workflow sem mascarar duplicados, inferência conservadora *(entregue; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1782,7 +1782,7 @@ Ela funciona como a macrofase seguinte para:
 - reduzir discrepâncias entre UI e backend
 - preparar o produto para uso real com menos atrito operacional
 
-**Fase actual (pós Loops 77–85):** a onda **team planner + AI Builder** (Loops **82–85**) está **fechada** — bind por agente, inferência mínima de built-ins, preview de bind estável em edições cosméticas. **Próximo slice numerado:** [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito) (especificação no [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-oficial)). **Paralelamente:** [14.8](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual (pós Loops 77–86):** a onda **team planner + AI Builder** (Loops **82–86**) está **fechada** — bind por agente, inferência mínima e conservadora, preview de bind estável, execute e aprovação proporcionais a `requiresExplicitApproval`, workflow único por especialista sem sufixos mascarados. **Paralelamente:** [14.8](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 ## 14.8 Riscos e decisões em aberto
 - o provider de billing ainda não está decidido
@@ -1791,4 +1791,4 @@ Ela funciona como a macrofase seguinte para:
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
 - responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
-- criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); **Loop 81** (superfície do assistente mais simples — **entregue**; [§ estado actual](#sec-ux-ai-builder-estado-atual)); **Loops 82–85** — contrato por agente, bind per-agent, inferência mínima de built-ins, preview estável no AI Builder — **entregues** ([§ P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)); **Loop 86** — refinamento execute/bind/workflow *(planeado; [secção dedicada](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*; ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia), [Loop 80](#loop-80-planner-auto-repair-ia) e [Loop 81](#loop-81-ai-builder-ux-preview-simples)
+- criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); **Loop 81** (superfície do assistente mais simples — **entregue**; [§ estado actual](#sec-ux-ai-builder-estado-atual)); **Loops 82–86** — contrato por agente, bind per-agent, inferência mínima e conservadora, preview estável, execute/bind proporcional — **entregues** ([§ P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia), [Loop 80](#loop-80-planner-auto-repair-ia), [Loop 81](#loop-81-ai-builder-ux-preview-simples) e [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)

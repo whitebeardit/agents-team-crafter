@@ -41,8 +41,8 @@ const plannerAgentSchema = z.object({
   overlapScore: z.number().optional(),
   overlapReason: z.string().optional(),
   /**
-   * Loop 82 — identificador estável do domínio de workflow; por especialista, único no plano
-   * (normalização em `ensurePlannerAgentWorkflowKeys`).
+   * Loop 82/86 — identificador estável do domínio de workflow; por especialista, único no plano
+   * (normalização em `ensurePlannerAgentWorkflowKeys`; duplicatas não são mascaradas com sufixo).
    */
   workflowKey: z
     .string()
