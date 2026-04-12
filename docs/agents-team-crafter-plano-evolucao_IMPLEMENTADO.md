@@ -55,7 +55,7 @@ Requisito explícito alinhado ao plano mestre ([§2.6](agents-team-crafter-plano
 - **Inventário explícito de builtins** — ao desenhar ou gerar especialistas (incluindo IA), deve ficar claro **se** e **quais** IDs do catálogo (`capabilities.tools` / `catalogTools`) cada especialista necessita; não copiar listas entre agentes “por hábito”.
 - **Unicidade de builtins de negócio** — no mesmo time, **dois especialistas não podem** partilhar o **mesmo ID** de builtin cuja função primária é um **domínio de negócio** (critério detalhado no plano mestre; alinhar a [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts) no slice de enforcement). Utilitários genuinamente transversais no catálogo devem ter regra explícita em prompt/código para não mascarar duplicação de domínio.
 
-Slices futuros que toquem no AI Builder, wizard de times ou fichas de agente devem verificar esta norma na UX e na persistência (`capabilities.tools` / binds). Evolução planead nos **Loops 77–78** do plano mestre ([prompts](#loop-77-candidato) + [enforcement](#loop-78-candidato)).
+Slices futuros que toquem no AI Builder, wizard de times ou fichas de agente devem verificar esta norma na UX e na persistência (`capabilities.tools` / binds). Evolução planead nos **Loops 77–78** do plano mestre ([prompts](#loop-77-fechado) + [enforcement](#loop-78-candidato)).
 
 <a id="micro-etapas-ralph-criacao-times-ia"></a>
 
@@ -1291,7 +1291,7 @@ O Loop 59 entregou catálogo read-only e `useMemo` no cliente API. O Loop 61 sub
 - **Critério de produto (executáveis vs stub):** builtins continuam sujeitos à matriz [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md) / [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts); este loop **não** promove integrações novas — apenas **seleção e persistência** por agente.
 - Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**210** testes backend no encerramento deste slice).
 - **referência no plano mestre:** [Loop 64](agents-team-crafter-plano-evolucao.md#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder)
-- **Extensão documentada no plano mestre:** prompts mais rígidos + enforcement de unicidade de builtins de negócio — candidatos [Loop 77](#loop-77-candidato) / [Loop 78](#loop-78-candidato).
+- **Extensão documentada no plano mestre:** prompts mais rígidos + enforcement de unicidade de builtins de negócio — [Loop 77 (fechado)](#loop-77-fechado) / [Loop 78](#loop-78-candidato).
 
 ## Loop 65 (fechado)
 
