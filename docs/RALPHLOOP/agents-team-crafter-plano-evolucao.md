@@ -693,8 +693,9 @@ Slices oficiais numerados **após o Loop 81** (ETAPA 9 continua; ver [§14](#14-
 - **[Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)** — **entregue** — preview de bind estável em edições cosméticas; hints por agente para revisão — ledger: [Loop 85 fechado](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-85-fechado)
 - **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — **entregue** — destravar **Executar**, bind review proporcional (`requiresExplicitApproval`), ownership real de workflow (sem sufixos silenciosos), inferência conservadora de built-ins para especialistas — ledger: [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado)
 - **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** — **entregue** — fundação transversal (schemas estritos, `internal_action` com contrato, slot-filling, chat de teste com memória) + **piloto CRM**; o mesmo modelo aplica-se depois a finanças/care/etc. ([§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps)) — especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); ledger: [Loop 87 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-fechado)
-- **[Loops 88–95](#loops-88-operacao-real-ux-troubleshooting)** — **candidatos (backlog recomendado após o 87)** — macro-onda de **operação real**: readiness, AI Builder simples vs avançado, cockpit do time, console conversacional, CTAs de resolução, runs legíveis, templates operacionais, polimento responsivo; detalhe na secção dedicada; **não** substituem o 87 como slice oficial em aberto.
-- **[Loops 96+](#loops-88-mais-verticais-de-negócio-por-pack)** — **planeados** — um slice Ralph por vertical (ou grupo justificado) alinhado a `packId` (`care`, `finance`, `scheduling`, …), **após** a onda operacional 88–95 ou em paralelo conforme priorização; numerar ao abrir; detalhe na secção dedicada.
+- **[Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)** — **entregue** — readiness / preflight (`GET /teams/:id/readiness`, UI na ficha do time) — ledger: [Loop 88 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado)
+- **[Loops 89–95](#loops-88-operacao-real-ux-troubleshooting)** — **candidatos (backlog recomendado após o 88)** — continuação da macro-onda de **operação real**: AI Builder simples vs avançado, cockpit do time, console conversacional, CTAs de resolução, runs legíveis, templates operacionais, polimento responsivo; detalhe na secção dedicada.
+- **[Loops 96+](#loops-88-mais-verticais-de-negócio-por-pack)** — **planeados** — um slice Ralph por vertical (ou grupo justificado) alinhado a `packId` (`care`, `finance`, `scheduling`, …), **após** a onda operacional 89–95 ou em paralelo conforme priorização; numerar ao abrir; detalhe na secção dedicada.
 
 *Base factual no código actual:* quando o plano tem listas por agente (`requiredBusinessActionIds` / `requiredPackIds`), `computePlannerBindActionUniverse` em [`planner-pack-presets.ts`](../../backend/src/modules/team-planning/application/planner-pack-presets.ts) + `buildBindPreview` em [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) calculam candidatos **por agente**; sem essas listas, mantém-se o modo **global** legado. Schema [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): **Loop 82** entregue.
 
@@ -813,9 +814,9 @@ Em paralelo, continuam válidos como macro-evolução de negócio:
 # 12. Próxima ação recomendada
 
 ## Próximo loop recomendado
-**Último slice numerado fechado:** **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** — ledger [Loop 87 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-fechado). **Loops 82–86** fecharam a onda **team planner + AI Builder**; o **87** fecha **especialistas operacionais** (schemas, CRM piloto, slot-filling, debug com conversa).
+**Último slice numerado fechado:** **[Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)** — ledger [Loop 88 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado). **Loops 82–87** fecharam **team planner + AI Builder** e **especialistas operacionais**; o **88** fecha **readiness / preflight** operacional (contrato + UI mínima na ficha do time).
 
-**Próximo recorte recomendado (candidato numerado):** **[Loops 88–95](#loops-88-operacao-real-ux-troubleshooting)** — começando por **readiness / preflight** (**Loop 88** candidato no ledger); verticais por `packId` **[96+](#loops-88-mais-verticais-de-negócio-por-pack)** quando aplicável.
+**Próximo recorte recomendado (candidato numerado):** **[Loop 89](#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda)** (AI Builder simples vs avançado), seguido da macro-onda **[Loops 89–95](#loops-88-operacao-real-ux-troubleshooting)**; verticais por `packId` **[96+](#loops-88-mais-verticais-de-negócio-por-pack)** quando aplicável.
 
 **Macro-evolução em paralelo:** [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
@@ -1834,13 +1835,15 @@ A **próxima lacuna de produto**, depois do 87, é a **experiência operacional 
 
 <a id="loops-88-operacao-real-ux-troubleshooting"></a>
 
-## Loops 88+ — operação real dos times, UX de operação e troubleshooting *(planeados; sequência recomendada após o [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) — fechado)*
+## Loops 88+ — operação real dos times, UX de operação e troubleshooting *(em curso; [Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime) fechado — ver [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado); continuação **89–95**)*
 
-**Pré-requisito:** **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** está **entregue** (ver [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-fechado)). Não antecipar entregas nem colapsar vários temas num único PR.
+**Pré-requisitos:** **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** e **[Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)** estão **entregues** no [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md). Não antecipar entregas nem colapsar vários temas num único PR.
 
-Os **Loops 88–95** abaixo são a **sequência recomendada** após o 87: cada um deve permanecer **pequeno**, com **gate** (`./scripts/ralph-loop-gate.sh` e frontend quando aplicável) e **documentação** no [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md). **Não** prometer mega-entregas; **evitar** misturar redesenho total do AI Builder, cockpit do time, console de debug e runs no mesmo slice.
+Os **Loops 89–95** abaixo são a **continuação recomendada** após o 88: cada um deve permanecer **pequeno**, com **gate** (`./scripts/ralph-loop-gate.sh` e frontend quando aplicável) e **documentação** no [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md). **Não** prometer mega-entregas; **evitar** misturar redesenho total do AI Builder, cockpit do time, console de debug e runs no mesmo slice.
 
-### Loop 88 — Preflight operacional do team / readiness do runtime
+<a id="loop-88--preflight-operacional-do-team--readiness-do-runtime"></a>
+
+### Loop 88 — Preflight operacional do team / readiness do runtime *(fechado — ver [ledger Loop 88](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado))*
 
 **Objetivo**  
 Criar uma superfície de **prontidão operacional** simples e inequívoca para time e plano, antes e depois do execute.
@@ -1860,6 +1863,8 @@ Criar uma superfície de **prontidão operacional** simples e inequívoca para t
 **Observação Ralph** — Slice pequeno: primeiro o **contrato** de readiness e uma **UI mínima**; não misturar com redesenho completo do AI Builder ou do debug console.
 
 ---
+
+<a id="loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda"></a>
 
 ### Loop 89 — AI Builder com modo simples por defeito e avançado sob demanda
 
@@ -1984,16 +1989,15 @@ Garantir padrão visual consistente e responsividade forte nas superfícies mais
 
 ---
 
-### Ordem recomendada após o Loop 87 (candidatos 88–95)
+### Ordem recomendada após o Loop 88 (candidatos 89–95)
 
-1. Loop 88 — readiness / preflight  
-2. Loop 89 — AI Builder simples vs avançado  
-3. Loop 90 — cockpit do time  
-4. Loop 91 — console conversacional  
-5. Loop 92 — resolver pendências  
-6. Loop 93 — runs / replay / troubleshooting  
-7. Loop 94 — templates operacionais  
-8. Loop 95 — polimento responsivo final  
+1. Loop 89 — AI Builder simples vs avançado  
+2. Loop 90 — cockpit do time  
+3. Loop 91 — console conversacional  
+4. Loop 92 — resolver pendências  
+5. Loop 93 — runs / replay / troubleshooting  
+6. Loop 94 — templates operacionais  
+7. Loop 95 — polimento responsivo final  
 
 ---
 
@@ -2001,7 +2005,7 @@ Garantir padrão visual consistente e responsividade forte nas superfícies mais
 
 ## Loops 96+ — Verticais de negócio por pack *(planeados; numerar ao abrir cada slice)*
 
-Após **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** (fundação transversal + piloto CRM), e em paralelo ou **depois** da macro-onda **[88–95](#loops-88-operacao-real-ux-troubleshooting)** conforme priorização, o roadmap continua com **slices Ralph numerados em sequência a partir do 96**, cada um fechando **operacionalidade conversacional** para um **domínio de negócio** (ou um **grupo de packs** só quando o recorte for inequivocamente um único fluxo).
+Após **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** (fundação transversal + piloto CRM) e **[Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)** (readiness), e em paralelo ou **depois** da macro-onda **[89–95](#loops-88-operacao-real-ux-troubleshooting)** conforme priorização, o roadmap continua com **slices Ralph numerados em sequência a partir do 96**, cada um fechando **operacionalidade conversacional** para um **domínio de negócio** (ou um **grupo de packs** só quando o recorte for inequivocamente um único fluxo).
 
 **Regra de nomenclatura:** **96, 97, 98…** atribuem-se **no momento da priorização** — ao abrir o ciclo, criar secção **Loop N (oficial, em aberto)** no [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md), anexo opcional `ralph-loop-NN-*.md` se o slice for grande, e linha na tabela de loops. **Não** fixar aqui qual pack é “obrigatoriamente” o primeiro vertical; fixar **critérios** e **candidatos**.
 
@@ -2099,9 +2103,10 @@ Referência de `packId` em [`business-action-presets.ts`](../../backend/src/modu
 33. **Loop 84** — built-ins mínimas por inferência; remoção da rotação por índice em `planner-agent-catalog-tools` *(entregue; ver [Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow))*.
 34. **Loop 85** — UX AI Builder: preview estável, fingerprint de bind *(entregue; ver [Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido))*.
 35. **Loop 86** — AI Builder: execute fluido, bind proporcional, workflow ownership explícito *(entregue; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*.
-36. **Loop 87** — Especialistas operacionais: schemas reais, slot-filling, CRM utilizável, contexto no debug *(próximo oficial; ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) e [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md))*.
-37. **Loops 88–95** — macro-onda de **operação real** (readiness, AI Builder simples vs avançado, cockpit do time, console conversacional, CTAs, runs, templates, polimento) *(candidatos / backlog recomendado após o 87; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*.
-38. **Loops 96+** — verticais por `packId` (care, finance, scheduling, …) *(planeados; numerar a partir de 96 ao abrir cada slice; ver [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack))*.
+36. **Loop 87** — Especialistas operacionais: schemas reais, slot-filling, CRM utilizável, contexto no debug *(fechado; ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) e [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md))*.
+37. **Loop 88** — Readiness / preflight operacional *(fechado; ver [Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime) e [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-88-fechado))*.
+38. **Loops 89–95** — macro-onda de **operação real** (AI Builder simples vs avançado, cockpit do time, console conversacional, CTAs, runs, templates, polimento) *(candidatos / backlog recomendado após o 88; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*.
+39. **Loops 96+** — verticais por `packId` (care, finance, scheduling, …) *(planeados; numerar a partir de 96 ao abrir cada slice; ver [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack))*.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -2131,8 +2136,9 @@ Referência de `packId` em [`business-action-presets.ts`](../../backend/src/modu
 - **Loop 81:** **UX do AI Builder** — preview legível, tools resumidas, avançado recolhido; micro-etapas **H–K** — *entregue* ([Loop 81](#loop-81-ai-builder-ux-preview-simples))
 - **Loops 82–85:** onda **team planner + AI Builder** *(entregue)* — ver [P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)
 - **Loop 86:** refinamento **team planner + AI Builder** — execute, `requiresExplicitApproval`, unicidade de workflow sem mascarar duplicados, inferência conservadora *(entregue; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*
-- **Loop 87:** **runtime dos especialistas** — schemas estritos, `internal_action` com contrato, CRM + slot-filling, conversa de teste com histórico *(próximo oficial; ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional))*
-- **Loops 88–95:** **operação real, UX e troubleshooting** — readiness, cockpit, debug narrativo, runs legíveis, etc. *(candidatos; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*
+- **Loop 87:** **runtime dos especialistas** — schemas estritos, `internal_action` com contrato, CRM + slot-filling, conversa de teste com histórico *(fechado; ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional))*
+- **Loop 88:** **readiness / preflight** — contrato + UI mínima na ficha do time *(fechado; ver [Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime))*
+- **Loops 89–95:** **operação real, UX e troubleshooting** — cockpit, debug narrativo, runs legíveis, etc. *(candidatos; ver [Loops 88+ — operação](#loops-88-operacao-real-ux-troubleshooting))*
 - **Loops 96+:** **verticais por pack** — care, finance, scheduling, etc., um slice coerente por ciclo *(planeado; ver [Loops 96+](#loops-88-mais-verticais-de-negócio-por-pack))*
 
 ## 14.7 Recomendação final da ETAPA 9
@@ -2144,9 +2150,9 @@ Ela funciona como a macrofase seguinte para:
 - reduzir discrepâncias entre UI e backend
 - preparar o produto para uso real com menos atrito operacional
 
-**Fase actual (pós Loops 77–87):** a onda **team planner + AI Builder** (Loops **82–86**) está **fechada**; o **Loop 87** fechou **especialistas operacionais** em runtime (schemas, CRM piloto, slot-filling, debug com memória). **Próximo candidato numerado na macro-onda de operação:** [Loops 88–95](#loops-88-operacao-real-ux-troubleshooting) (começando por readiness). **Paralelamente:** [14.8](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual (pós Loops 77–88):** a onda **team planner + AI Builder** (Loops **82–86**) está **fechada**; o **Loop 87** fechou **especialistas operacionais** em runtime; o **Loop 88** fechou **readiness / preflight**. **Próximo candidato numerado na macro-onda de operação:** [Loop 89](#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda) e [Loops 89–95](#loops-88-operacao-real-ux-troubleshooting). **Paralelamente:** [14.8](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
-A fase mais recente consolidou o **planeamento** e a criação assistida; o próximo salto de produto — depois do **Loop 87** — é a **operação confiável**: o utilizador deve **operar**, **validar**, **corrigir** e **colocar times em produção** com muito menos atrito. O produto deve parecer **simples para quem cria**, **seguro para quem governa** e **claro para quem opera**. **Backlog recomendado (candidatos, não entregue):** sequência **[88–95](#loops-88-operacao-real-ux-troubleshooting)**; verticais por domínio **[96+](#loops-88-mais-verticais-de-negócio-por-pack)** quando a prioridade o justificar.
+A fase mais recente consolidou o **planeamento**, a criação assistida e a **visibilidade de prontidão** por time; o próximo salto — depois do **88** — continua a **operação confiável** na UI (AI Builder em camadas, cockpit, debug narrativo, …). **Backlog recomendado (candidatos):** sequência **[89–95](#loops-88-operacao-real-ux-troubleshooting)**; verticais por domínio **[96+](#loops-88-mais-verticais-de-negócio-por-pack)** quando a prioridade o justificar.
 
 ## 14.8 Riscos e decisões em aberto
 
@@ -2159,7 +2165,7 @@ Os sintomas descritos primeiro para **CRM** — schema de catálogo inválido, c
 **Revisão em etapas (norma de produto):**
 
 1. **Fundação transversal** — válida para **todos** os domínios: function tools com JSON Schema aceite em modo estrito; caminho claro para `internal_action` real (sem confundir com stub de catálogo); catálogo HTTP e definitions com `inputSchema` útil; slot-filling e erros estruturados de campos em falta; chat de teste com contexto. **Slice oficial:** [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) — [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md).
-2. **Vertical por domínio** — repetir o mesmo rigor **pack a pack** (ações, estados de negócio, listagens com defaults sensatos, testes de conversa). O Loop 87 inclui o **piloto CRM**; finanças, care e restantes entram como **Loops 96+** — ver secção [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack) (candidatos, critérios de priorização, tamanho do slice). **Não** confundir com a macro-onda de **operação / UX / troubleshooting** **[88–95](#loops-88-operacao-real-ux-troubleshooting)** (readiness, cockpit, debug narrativo, runs, etc.).
+2. **Vertical por domínio** — repetir o mesmo rigor **pack a pack** (ações, estados de negócio, listagens com defaults sensatos, testes de conversa). O Loop 87 inclui o **piloto CRM**; finanças, care e restantes entram como **Loops 96+** — ver secção [Loops 96+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack) (candidatos, critérios de priorização, tamanho do slice). **Não** confundir com a macro-onda de **operação / UX / troubleshooting** **[89–95](#loops-88-operacao-real-ux-troubleshooting)** (cockpit, debug narrativo, runs, etc.; **readiness** no [Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)).
 
 <a id="148-runtime-crm-clientes-gaps"></a>
 
@@ -2186,4 +2192,4 @@ Comportamento **observado** ao pedir a um agente operações sobre **clientes ca
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
 - responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
 - criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); **Loop 81** (superfície do assistente mais simples — **entregue**; [§ estado actual](#sec-ux-ai-builder-estado-atual)); **Loops 82–86** — contrato por agente, bind per-agent, inferência mínima e conservadora, preview estável, execute/bind proporcional — **entregues** ([§ P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia), [Loop 80](#loop-80-planner-auto-repair-ia), [Loop 81](#loop-81-ai-builder-ux-preview-simples) e [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)
-- especialistas em **runtime** (fundação transversal + piloto CRM; depois **operação real 88–95** e **verticais 96+**): **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** — **próximo slice oficial**; continuação recomendada **[Loops 88–95](#loops-88-operacao-real-ux-troubleshooting)** (candidatos) e **[Loops 96+](#loops-88-mais-verticais-de-negócio-por-pack)** (verticais por pack); padrão multi-domínio: [§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps); anexo [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md)
+- especialistas em **runtime** (fundação transversal + piloto CRM) e **readiness** ([Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional), [Loop 88](#loop-88--preflight-operacional-do-team--readiness-do-runtime)); continuação recomendada **[Loops 89–95](#loops-88-operacao-real-ux-troubleshooting)** (candidatos) e **[Loops 96+](#loops-88-mais-verticais-de-negócio-por-pack)** (verticais por pack); padrão multi-domínio: [§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps); anexo [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md)

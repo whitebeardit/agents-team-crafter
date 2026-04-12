@@ -25,6 +25,7 @@ import {
   type ITeamRunBody,
 } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
+import { computeTeamReadiness } from '../application/team-readiness.service.js';
 
 async function loadTeamRunConversation(
   deps: IAppDeps,
@@ -313,6 +314,15 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     const ok = await gallerySvc.deleteFile(ws, teamId, name, subject, filename);
     if (!ok) throw new AppError('NOT_FOUND', 'Ficheiro nao encontrado', 404);
     return reply.send(successEnvelope({ deleted: true }));
+  });
+
+  app.get('/teams/:id/readiness', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await deps.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const data = await computeTeamReadiness(ws, teamId, deps);
+    return reply.send(successEnvelope(data));
   });
 
   app.get('/teams/:id', { preHandler: tenant }, async (req, reply) => {

@@ -240,6 +240,26 @@ export interface Team {
   updatedAt: string
 }
 
+/** Resposta de `GET /api/v1/teams/:id/readiness` (preflight operacional, Loop 88). */
+export type TeamReadinessLevel = "ready" | "attention" | "blocked"
+export type TeamReadinessItemSeverity = "blocked" | "attention" | "info"
+
+export interface TeamReadinessItem {
+  code: string
+  severity: TeamReadinessItemSeverity
+  title: string
+  detail: string
+  nextStep: string
+  routeHint?: string
+}
+
+export interface TeamReadinessResult {
+  level: TeamReadinessLevel
+  headline: string
+  items: TeamReadinessItem[]
+  checkedAt: string
+}
+
 // Template types
 export interface Template {
   id: string

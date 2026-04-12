@@ -19,10 +19,11 @@ import {
   Clock,
   Calendar,
   MessageSquareCode,
+  ShieldCheck,
 } from "lucide-react"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
-import type { Agent, Channel, ChannelType, Team, TeamRunRecord } from "@/lib/types"
+import type { Agent, Channel, ChannelType, Team, TeamReadinessResult, TeamRunRecord } from "@/lib/types"
 import { channelTypeLabels, channelStatusLabels } from "@/lib/constants/channel-labels"
 import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
@@ -141,6 +142,8 @@ export default function TeamDetailsPage({
   const [channelDraftIds, setChannelDraftIds] = useState<string[]>([])
   const [savingChannelIds, setSavingChannelIds] = useState(false)
   const [runs, setRuns] = useState<TeamRunRecord[]>([])
+  const [readiness, setReadiness] = useState<TeamReadinessResult | null>(null)
+  const [readinessLoading, setReadinessLoading] = useState(false)
 
   const debugApi = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -165,6 +168,15 @@ export default function TeamDetailsPage({
       setTeam(res.data)
       const runsRes = await api.get<TeamRunRecord[]>(`/teams/${id}/runs`)
       setRuns(runsRes.data)
+      setReadinessLoading(true)
+      try {
+        const rd = await api.get<TeamReadinessResult>(`/teams/${id}/readiness`)
+        setReadiness(rd.data)
+      } catch {
+        setReadiness(null)
+      } finally {
+        setReadinessLoading(false)
+      }
     })()
   }, [token, refreshToken, currentWorkspace, id])
 
@@ -375,6 +387,109 @@ export default function TeamDetailsPage({
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="mt-6 space-y-6">
+          <Card
+            className={`border-border bg-card ${
+              readiness?.level === "blocked"
+                ? "border-destructive/40"
+                : readiness?.level === "attention"
+                  ? "border-warning/40"
+                  : ""
+            }`}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-primary/10 p-2">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Prontidão operacional</CardTitle>
+                    <CardDescription className="mt-0.5">
+                      {readinessLoading
+                        ? "A avaliar configuração do time…"
+                        : readiness?.headline ?? "Indisponível — tente recarregar a página."}
+                    </CardDescription>
+                  </div>
+                </div>
+                {!readinessLoading && readiness ? (
+                  <Badge
+                    variant="outline"
+                    className={
+                      readiness.level === "ready"
+                        ? "border-success/30 bg-success/10 text-success"
+                        : readiness.level === "attention"
+                          ? "border-warning/30 bg-warning/10 text-warning"
+                          : "border-destructive/30 bg-destructive/10 text-destructive"
+                    }
+                  >
+                    {readiness.level === "ready"
+                      ? "Pronto"
+                      : readiness.level === "attention"
+                        ? "Atenção"
+                        : "Bloqueado"}
+                  </Badge>
+                ) : null}
+              </div>
+            </CardHeader>
+            {readiness && !readinessLoading && readiness.items.length === 0 ? (
+              <CardContent className="pt-0">
+                <p className="text-sm text-muted-foreground">Sem pendências na verificação actual.</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Verificado em{" "}
+                  {format(new Date(readiness.checkedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </p>
+              </CardContent>
+            ) : null}
+            {readiness && !readinessLoading && readiness.items.length > 0 ? (
+              <CardContent className="space-y-3 pt-0">
+                <ul className="space-y-3">
+                  {readiness.items.map((item, idx) => (
+                    <li
+                      key={`${item.code}-${idx}`}
+                      className="rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-sm"
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="font-medium">{item.title}</span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            item.severity === "blocked"
+                              ? "border-destructive/30 text-destructive"
+                              : item.severity === "attention"
+                                ? "border-warning/30 text-warning"
+                                : "text-muted-foreground"
+                          }
+                        >
+                          {item.severity === "blocked"
+                            ? "Bloqueio"
+                            : item.severity === "attention"
+                              ? "Atenção"
+                              : "Info"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">{item.detail}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">Próximo passo:</span> {item.nextStep}
+                        {item.routeHint ? (
+                          <>
+                            {" "}
+                            <Link href={item.routeHint} className="text-primary underline-offset-4 hover:underline">
+                              Abrir
+                            </Link>
+                          </>
+                        ) : null}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted-foreground">
+                  Verificado em{" "}
+                  {format(new Date(readiness.checkedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </p>
+              </CardContent>
+            ) : null}
+          </Card>
+
           {/* Stats */}
           <div className="grid gap-4 md:grid-cols-4">
             <Card className="border-border bg-card">
