@@ -16,7 +16,12 @@ import {
 } from './team-plan-planner-prompt.js';
 import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
-import { actionIdToToolSlug, collectPlannerActionIds, PLANNER_PACK_TO_ACTION_IDS } from './planner-pack-presets.js';
+import {
+  actionIdToToolSlug,
+  computePlannerBindActionUniverse,
+  mergePlannerPackIdsForBind,
+  PLANNER_PACK_TO_ACTION_IDS,
+} from './planner-pack-presets.js';
 import { ensureInternalActionDefinitions } from './ensure-planner-tool-definitions.js';
 import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../../../app/metrics.js';
 import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
@@ -116,6 +121,8 @@ export interface ITeamPlanBindPreview {
   bindOverrideAgentCount: number;
   bindOverrideActionCount: number;
   requiresExplicitApproval: boolean;
+  /** Loop 83 — candidatos por agente quando o plano tem listas por agente. */
+  bindResolutionMode: 'global' | 'per_agent';
   toolDefinitions: ITeamPlanBindPreviewDefinition[];
   suggestedPacks: ITeamPlanBindPreviewPack[];
   diffSummary: ITeamPlanBindDiffSummary;
@@ -693,10 +700,20 @@ export class TeamPlanService {
       requiredPacks: current.requiredPacks ?? [],
       requiredTools: current.requiredTools ?? [],
     });
+    const bindUniverse = computePlannerBindActionUniverse(
+      parsed.agents.map((a) => ({
+        role: a.role,
+        requiredBusinessActionIds: a.requiredBusinessActionIds,
+        requiredPackIds: a.requiredPackIds,
+      })),
+      parsed.requiredTools,
+      parsed.requiredPacks,
+      TEAM_PLAN_AUTO_BIND_MAX_ACTIONS,
+    );
     const normalizedBindOverrides = normalizeBindOverrides(
       patch.bindOverrides ?? current.bindOverrides,
       plannerAgentKeys(parsed.agents),
-      collectPlannerActionIds(parsed.requiredTools, parsed.requiredPacks),
+      bindUniverse.actionIds,
     );
     const reuse = await this.annotateAgentsWithReuse(workspaceId, parsed.agents);
     const fullPlan = plannerOutputSchema.parse({
@@ -742,10 +759,20 @@ export class TeamPlanService {
       requiredPacks: current.requiredPacks ?? [],
       requiredTools: current.requiredTools ?? [],
     });
+    const bindUniverse = computePlannerBindActionUniverse(
+      parsed.agents.map((a) => ({
+        role: a.role,
+        requiredBusinessActionIds: a.requiredBusinessActionIds,
+        requiredPackIds: a.requiredPackIds,
+      })),
+      parsed.requiredTools,
+      parsed.requiredPacks,
+      TEAM_PLAN_AUTO_BIND_MAX_ACTIONS,
+    );
     const normalizedBindOverrides = normalizeBindOverrides(
       rawBindOverrides,
       plannerAgentKeys(parsed.agents),
-      collectPlannerActionIds(parsed.requiredTools, parsed.requiredPacks),
+      bindUniverse.actionIds,
     );
     const updated = await this.repo.update(workspaceId, id, { bindOverrides: normalizedBindOverrides });
     if (!updated) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
@@ -772,11 +799,21 @@ export class TeamPlanService {
     bindOverrides: ITeamPlanBindOverrides;
     preview: ITeamPlanBindPreview;
   }> {
-    const actionIdsFull = collectPlannerActionIds(parsed.requiredTools, parsed.requiredPacks);
-    const actionIdsTruncated = actionIdsFull.length > TEAM_PLAN_AUTO_BIND_MAX_ACTIONS;
-    const actionIds = actionIdsFull.slice(0, TEAM_PLAN_AUTO_BIND_MAX_ACTIONS);
+    const bindUniverse = computePlannerBindActionUniverse(
+      parsed.agents.map((a) => ({
+        role: a.role,
+        requiredBusinessActionIds: a.requiredBusinessActionIds,
+        requiredPackIds: a.requiredPackIds,
+      })),
+      parsed.requiredTools,
+      parsed.requiredPacks,
+      TEAM_PLAN_AUTO_BIND_MAX_ACTIONS,
+    );
+    const { actionIdsFull, actionIds, actionIdsTruncated, perAgentActionIds, usePerAgentMode } = bindUniverse;
+    const bindResolutionMode = usePerAgentMode ? ('per_agent' as const) : ('global' as const);
     const bindOverrides = normalizeBindOverrides(rawBindOverrides, plannerAgentKeys(parsed.agents), actionIds);
-    const packIdsByActionId = buildPackIdsByActionId(parsed.requiredPacks, actionIds);
+    const packIdsMerged = mergePlannerPackIdsForBind(parsed.agents, parsed.requiredPacks);
+    const packIdsByActionId = buildPackIdsByActionId(packIdsMerged, actionIds);
     const allToolDefinitions = await this.deps.workspaceToolDefinitionRepo.list(workspaceId);
 
     const internalActionByActionId = new Map<string, (typeof allToolDefinitions)[number]>();
@@ -821,14 +858,15 @@ export class TeamPlanService {
 
     const agents: ITeamPlanBindPreviewAgent[] = parsed.agents.map((agent, index) => {
       const planAgentKey = agentKeys[index] ?? `agent-${index + 1}`;
+      const agentActionIds = perAgentActionIds[index] ?? [];
       const isExisting = agent.planningMode === 'existing' && Boolean(agent.existingAgentId);
       const targetAgent = isExisting && agent.existingAgentId ? existingAgentsById.get(String(agent.existingAgentId)) : null;
       const alreadyLinkedIds = parseCustomToolDefinitionIds(targetAgent?.capabilities);
-      const actionIdsAlreadyLinked = actionIds.filter((actionId) => {
+      const actionIdsAlreadyLinked = agentActionIds.filter((actionId) => {
         const definition = definitionPreviewByActionId.get(actionId);
         return Boolean(definition?.toolDefinitionId && alreadyLinkedIds.includes(String(definition.toolDefinitionId)));
       });
-      const actionIdsBlockedByDisabledDefinitions = actionIds.filter(
+      const actionIdsBlockedByDisabledDefinitions = agentActionIds.filter(
         (actionId) => definitionPreviewByActionId.get(actionId)?.currentStatus === 'existing_disabled',
       );
       const defaultBindMode: ITeamPlanBindPreviewAgent['defaultBindMode'] = autoBindPolicy.autoBindEnabled
@@ -842,7 +880,7 @@ export class TeamPlanService {
       const agentOverride = bindOverrides.agents[planAgentKey] ?? { mode: 'inherit', excludedActionIds: [] };
       const effectiveBindEnabled =
         agentOverride.mode === 'inherit' ? defaultBindEnabled : agentOverride.mode === 'enabled';
-      const actionIdsCandidate = actionIds.filter((actionId) => !actionIdsAlreadyLinked.includes(actionId));
+      const actionIdsCandidate = agentActionIds.filter((actionId) => !actionIdsAlreadyLinked.includes(actionId));
       const defaultActionIdsToLink = defaultBindEnabled ? [...actionIdsCandidate] : [];
       const actionIdsExcludedByOverride = actionIdsCandidate.filter((actionId) =>
         agentOverride.excludedActionIds.includes(actionId),
@@ -906,7 +944,7 @@ export class TeamPlanService {
       removedActionCount: agents.reduce((count, agent) => count + agent.actionIdsRemovedByOverride.length, 0),
     };
     const suggestedPackIds = [...new Set(
-      (parsed.requiredPacks ?? []).map((packId) => packId.trim().toLowerCase()).filter((packId) => Boolean(PLANNER_PACK_TO_ACTION_IDS[packId])),
+      packIdsMerged.filter((packId) => Boolean(PLANNER_PACK_TO_ACTION_IDS[packId])),
     )];
     const suggestedPacks: ITeamPlanBindPreviewPack[] = suggestedPackIds
       .map((packId) => {
@@ -953,6 +991,7 @@ export class TeamPlanService {
         bindOverrideAgentCount,
         bindOverrideActionCount,
         requiresExplicitApproval: actionIdsFull.length > 0,
+        bindResolutionMode,
         toolDefinitions,
         suggestedPacks,
         diffSummary,

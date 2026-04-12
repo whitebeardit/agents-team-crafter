@@ -839,6 +839,12 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                   <CardTitle>Preview de bind</CardTitle>
                   <CardDescription>
                     Mostra o que o backend pretende criar, reutilizar e vincular antes do execute.
+                    {bindPreview?.bindResolutionMode === "per_agent" ? (
+                      <span className="block mt-1.5 text-muted-foreground text-xs leading-relaxed">
+                        Modo por agente: cada papel recebe apenas os <code className="text-[11px]">actionIds</code> do
+                        seu workflow no plano (menos ruído quando há vários especialistas).
+                      </span>
+                    ) : null}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -846,6 +852,11 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     <Badge variant={bindPreview?.effectiveBindEnabled ? "default" : "secondary"}>
                       {bindPreview?.effectiveBindEnabled ? "Bind efetivo" : "Sem bind efetivo"}
                     </Badge>
+                    {bindPreview?.bindResolutionMode === "per_agent" ? (
+                      <Badge variant="outline" title="Candidatos de acao alinhados ao plano por agente">
+                        por agente
+                      </Badge>
+                    ) : null}
                     <Badge variant="outline">requested {bindPreview?.autoBindActionsRequested ?? 0}</Badge>
                     <Badge variant="outline">applied {bindPreview?.autoBindActionsApplied ?? 0}</Badge>
                     <Badge variant="outline">override agentes {bindPreview?.bindOverrideAgentCount ?? 0}</Badge>

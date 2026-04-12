@@ -4,6 +4,10 @@ import { describe, expect, it } from '@jest/globals';
 import {
   collectPlannerActionIds,
   actionIdToToolSlug,
+  collectAgentBindActionCandidates,
+  computePlannerBindActionUniverse,
+  hasPerAgentBindHints,
+  mergePlannerPackIdsForBind,
   PLANNER_PACK_IDS,
   PLANNER_PACK_TO_ACTION_IDS,
 } from './planner-pack-presets.js';
@@ -58,5 +62,61 @@ describe('PLANNER_PACK_IDS', () => {
 describe('actionIdToToolSlug', () => {
   it('normalizes action id to slug', () => {
     expect(actionIdToToolSlug('crm_create_party')).toBe('ba-crm-create-party');
+  });
+});
+
+describe('Loop 83 — bind per agent', () => {
+  it('hasPerAgentBindHints detecta listas por agente', () => {
+    expect(hasPerAgentBindHints([{ requiredBusinessActionIds: [], requiredPackIds: [] }])).toBe(false);
+    expect(hasPerAgentBindHints([{ requiredBusinessActionIds: ['crm_create_party'], requiredPackIds: [] }])).toBe(
+      true,
+    );
+    expect(hasPerAgentBindHints([{ requiredBusinessActionIds: [], requiredPackIds: ['crm'] }])).toBe(true);
+  });
+
+  it('modo legado: todos os agentes partilham o mesmo conjunto global', () => {
+    const agents = [
+      { role: 'coordinator' as const, requiredBusinessActionIds: [] as string[], requiredPackIds: [] as string[] },
+      { role: 'specialist' as const, requiredBusinessActionIds: [], requiredPackIds: [] },
+    ];
+    const u = computePlannerBindActionUniverse(agents, ['business.ping'], ['crm'], 64);
+    expect(u.usePerAgentMode).toBe(false);
+    expect(u.actionIdsFull).toEqual(collectPlannerActionIds(['business.ping'], ['crm']));
+    expect(u.perAgentActionIds[0]).toEqual(u.perAgentActionIds[1]);
+  });
+
+  it('modo per-agent: especialistas com packs distintos geram candidatos disjuntos', () => {
+    const agents = [
+      { role: 'coordinator' as const, requiredBusinessActionIds: [], requiredPackIds: [] },
+      { role: 'specialist' as const, requiredBusinessActionIds: [], requiredPackIds: ['crm'] },
+      { role: 'specialist' as const, requiredBusinessActionIds: [], requiredPackIds: ['scheduling'] },
+    ];
+    const u = computePlannerBindActionUniverse(agents, [], [], 64);
+    expect(u.usePerAgentMode).toBe(true);
+    expect(u.perAgentActionIds[0]?.length ?? 0).toBe(0);
+    expect(u.perAgentActionIds[1]).toContain('crm_create_party');
+    expect(u.perAgentActionIds[1]!.some((id) => id.startsWith('schedule_'))).toBe(false);
+    expect(u.perAgentActionIds[2]?.some((id) => id.startsWith('schedule_'))).toBe(true);
+    expect(u.perAgentActionIds[2]?.some((id) => id.startsWith('crm_'))).toBe(false);
+    const union = new Set([...u.perAgentActionIds[1]!, ...u.perAgentActionIds[2]!]);
+    expect(union.size).toBe(u.perAgentActionIds[1]!.length + u.perAgentActionIds[2]!.length);
+  });
+
+  it('collectAgentBindActionCandidates em modo per-agent ignora globais', () => {
+    const a = { role: 'specialist' as const, requiredBusinessActionIds: [] as string[], requiredPackIds: ['finance'] };
+    expect(collectAgentBindActionCandidates(a, ['business.ping'], ['crm'], true)).toEqual(
+      collectPlannerActionIds([], ['finance']),
+    );
+  });
+
+  it('mergePlannerPackIdsForBind une global e por agente', () => {
+    expect(
+      new Set(
+        mergePlannerPackIdsForBind(
+          [{ requiredPackIds: ['scheduling'] }, { requiredPackIds: ['crm'] }],
+          ['finance'],
+        ),
+      ),
+    ).toEqual(new Set(['finance', 'scheduling', 'crm']));
   });
 });

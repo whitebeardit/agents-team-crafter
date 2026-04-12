@@ -528,6 +528,8 @@ export interface TeamPlanBindPreview {
   bindOverrideAgentCount: number
   bindOverrideActionCount: number
   requiresExplicitApproval: boolean
+  /** Loop 83 — candidatos por agente quando o plano tem listas por agente. */
+  bindResolutionMode?: "global" | "per_agent"
   toolDefinitions: TeamPlanBindPreviewDefinition[]
   suggestedPacks: TeamPlanBindPreviewPack[]
   diffSummary: TeamPlanBindDiffSummary

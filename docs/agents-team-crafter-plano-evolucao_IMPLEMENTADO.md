@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/agents-team-crafter-plano-evolucao.md`.
 
-**Fase actual do produto:** o **contrato JSON do planner por agente** (**Loop 82** — `workflowKey`, `requiredBusinessActionIds`, `requiredPackIds`) está **entregue**; o problema **actual** é **bind operacional ainda agregado ao plano** no preview/execute (correcção no [Loop 83](#loop-83-planeado)), **inferência default** de built-ins agressiva em `planner-agent-catalog-tools.ts` ([Loop 84](#loop-84-planeado)), e **AI Builder** com atrito no preview/aprovação ([Loop 85](#loop-85-planeado)). **Próximo slice oficial:** [Loop 83](#loop-83-planeado) (bind preview/execute per-agent).
+**Fase actual do produto:** **bind preview/execute por agente** quando o plano tem listas por agente (**Loop 83**) está **entregue**; o foco **actual** é **inferência default** de built-ins agressiva em `planner-agent-catalog-tools.ts` ([Loop 84](#loop-84-planeado)) e **AI Builder** com atrito no preview/aprovação ([Loop 85](#loop-85-planeado)). **Próximo slice oficial:** [Loop 84](#loop-84-planeado) (built-ins mínimas + enforcement por workflow).
 
 Regras de uso:
 
@@ -84,7 +84,7 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 
 **Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
-**Estado actual (pós Loop 82):** o planner persiste **por agente** `workflowKey` (unicidade entre especialistas no plano, com desambiguação automática), `requiredBusinessActionIds` e `requiredPackIds`; prompt e schema alinhados; AI Builder mostra cartão **“Plano por agente”** quando há dados. Ver [Loop 82 (fechado)](#loop-82-fechado). **Continuação planeada:** [Loops 83–85](#loop-83-planeado) (bind per-agent, built-ins mínimas, UX fluida).
+**Estado actual (pós Loop 83):** com listas por agente no plano, `buildBindPreview` / execute usam candidatos **por agente**; modo **global** legado quando ninguém preenche listas por agente; UI com badge **por agente** no preview. Ver [Loop 83 (fechado)](#loop-83-fechado). **Continuação planeada:** [Loops 84–85](#loop-84-planeado) (built-ins mínimas, UX fluida).
 
 ### Admin global da plataforma: norma vs implementação actual
 
@@ -132,7 +132,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–82 fechados; 83+ planeados) | Loops **52–82** entregues (último numerado: [Loop 82](#loop-82-fechado)); continuação: **bind per-agent**, **built-ins mínimas**, **UX** — [Loops 83–85](agents-team-crafter-plano-evolucao.md#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global) *planeados*; [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio); billing/2FA e self-service: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | em curso (52–83 fechados; 84+ planeados) | Loops **52–83** entregues (último numerado: [Loop 83](#loop-83-fechado)); continuação: **built-ins mínimas**, **UX** — [Loops 84–85](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow) *planeados*; [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio); billing/2FA e self-service: [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -711,7 +711,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 80   | Planner — matriz pré-JSON + outer loop auto-reparo IA (unicidade builtins) | entregue (ver [Loop 80](#loop-80-fechado)) |
 | 81   | AI Builder — preview simples, tools focalizadas, camadas (UX assistido) | entregue (ver [Loop 81](#loop-81-fechado)) |
 | 82   | Contrato do planner por agente + workflow ownership | entregue (ver [Loop 82](#loop-82-fechado)) |
-| 83   | Bind preview e execute per-agent (fim do bind global) | planeado (ver [Loop 83](#loop-83-planeado)) |
+| 83   | Bind preview e execute per-agent (fim do bind global) | entregue (ver [Loop 83](#loop-83-fechado)) |
 | 84   | Built-ins mínimas por papel + workflow uniqueness | planeado (ver [Loop 84](#loop-84-planeado)) |
 | 85   | UX AI Builder — preview estável e execute fluido | planeado (ver [Loop 85](#loop-85-planeado)) |
 
@@ -722,17 +722,16 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 82** — Contrato do planner por agente (`workflowKey`, `requiredBusinessActionIds`, `requiredPackIds`), normalização e unicidade de workflow entre especialistas, prompt + Mongoose + tipos frontend + cartão no AI Builder; ver [Loop 82](#loop-82-fechado).
+**Último slice numerado fechado:** **Loop 83** — `computePlannerBindActionUniverse` + `buildBindPreview` / execute por agente quando há listas por agente; `bindResolutionMode` na API; badge no AI Builder; testes em `planner-pack-presets.test.ts`; ver [Loop 83](#loop-83-fechado).
 
-**Próximo slice oficial (numerado):** **Loop 83 — Bind preview e execute per-agent** — ver [Loop 83 (planeado)](#loop-83-planeado) e [checklist](#checklist-do-loop-83-proximo); plano mestre: [Loop 83](agents-team-crafter-plano-evolucao.md#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global).
+**Próximo slice oficial (numerado):** **Loop 84 — Built-ins mínimas por papel + enforcement por workflow** — ver [Loop 84 (planeado)](#loop-84-planeado) e [checklist](#checklist-do-loop-84-proximo); plano mestre: [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow).
 
 **Em paralelo (não substitui o foco 82–85):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace).
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
-| 1 | **83** | Bind preview/execute per-agent | [Loop 83](agents-team-crafter-plano-evolucao.md#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global) |
-| 2 | 84 | Built-ins mínimas + enforcement por workflow | [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow) |
-| 3 | 85 | UX AI Builder estável / execute fluido | [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido) |
+| 1 | **84** | Built-ins mínimas + enforcement por workflow | [Loop 84](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow) |
+| 2 | 85 | UX AI Builder estável / execute fluido | [Loop 85](agents-team-crafter-plano-evolucao.md#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido) |
 | — | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -754,14 +753,24 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 - [x] Testes: `team-plan-planner-output.schema.test.ts`, `planner-workflow-ownership.test.ts`, `planner-agent-catalog-tools.test.ts`
 - [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **227** testes backend; `next build` OK
 
-<a id="checklist-do-loop-83-proximo"></a>
+<a id="checklist-do-loop-83-fechado"></a>
 
-## Checklist do Loop 83 (próximo)
+## Checklist do Loop 83 (fechado)
 
-- [ ] `buildBindPreview` / `executePlan`: candidatos de bind por agente alinhados a `workflowKey` + listas por agente (ver [Loop 83](agents-team-crafter-plano-evolucao.md#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global))
-- [ ] AI Builder: preview menos poluído quando multi-especialista
-- [ ] Testes de integração multi-especialista + gate Ralph (frontend se aplicável)
-- [ ] Commit + push; ledger → **Loop 83 (fechado)** e **Próximo loop oficial** → Loop 84
+- [x] `buildBindPreview` / `executePlan`: candidatos por agente quando `hasPerAgentBindHints` (listas por agente); legado global inalterado
+- [x] [`planner-pack-presets.ts`](../backend/src/modules/team-planning/application/planner-pack-presets.ts): `computePlannerBindActionUniverse`, `mergePlannerPackIdsForBind`, testes Loop 83
+- [x] AI Builder: badge **por agente** + copy quando `bindResolutionMode === per_agent`
+- [x] Tipos `TeamPlanBindPreview.bindResolutionMode`
+- [x] `normalizeBindOverrides` em `updatePlan` / `updateBindOverrides` com universo capped alinhado
+- [x] Gate: `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **232** testes backend; `next build` OK
+
+<a id="checklist-do-loop-84-proximo"></a>
+
+## Checklist do Loop 84 (próximo)
+
+- [ ] Reduzir inferência agressiva em [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts); alinhar com `workflowKey` / [Loop 84 plano](agents-team-crafter-plano-evolucao.md#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)
+- [ ] Testes de borda + gate Ralph
+- [ ] Commit + push; ledger → **Loop 84 (fechado)** e **Próximo loop oficial** → Loop 85
 
 ---
 
@@ -1673,18 +1682,19 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 - **objetivo do slice:** o plano declara por agente **`workflowKey`**, **`requiredBusinessActionIds`** e **`requiredPackIds`**; especialistas não partilham o mesmo `workflowKey` no plano (desambiguação automática com sufixos `__1`, `__2`…); `requiredPacks` / `requiredTools` globais inalterados para visão macro.
 - **Backend:** [`team-plan-planner-output.schema.ts`](../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts) + [`planner-workflow-ownership.ts`](../backend/src/modules/team-planning/domain/planner-workflow-ownership.ts); [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts); [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts) (`buildFallback`, `formatPlanPayloadForRepair`, `agentGraphData`); [`team-plan.model.ts`](../backend/src/modules/team-planning/infra/team-plan.model.ts).
 - **Frontend:** [`v0-team-ai-crafter/lib/types/index.ts`](../v0-team-ai-crafter/lib/types/index.ts); cartão **Plano por agente** em [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx).
-- **Bind operacional ainda global** no preview/execute — [Loop 83](#loop-83-planeado).
+- **Bind operacional por agente** quando há listas por agente — [Loop 83](#loop-83-fechado) (*entregue*).
 - **Testes / gate:** unidade acima + `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **227** testes backend; `next build` OK.
 - **referência no plano mestre:** [Loop 82](agents-team-crafter-plano-evolucao.md#loop-82-contrato-do-planner-por-agente-e-ownership-por-workflow) — **entregue**; ver [checklist](#checklist-do-loop-82-fechado).
 
-<a id="loop-83-planeado"></a>
+<a id="loop-83-fechado"></a>
 
-## Loop 83 (planeado) — Bind preview e execute per-agent
+## Loop 83 (fechado) — Bind preview e execute per-agent
 
 - **etapa/prioridade:** ETAPA 9 (team plan bind) / altíssima
-- **objetivo do slice:** acabar com o **candidate set** partilhado demais: preview e execute usam listas **por agente**; packs podem permanecer globais para definitions.
-- **foco:** [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts) (`buildBindPreview`, `executePlan`); [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); tipos.
-- **critério de saída:** coerência multi-especialista + testes; gate Ralph.
+- **objetivo do slice:** candidatos de `actionId` por agente quando o plano tem `requiredBusinessActionIds` / `requiredPackIds`; caso contrário, modo **global** legado (todos os agentes com o mesmo conjunto derivado de `requiredTools` / `requiredPacks`).
+- **Backend:** [`planner-pack-presets.ts`](../backend/src/modules/team-planning/application/planner-pack-presets.ts) — `computePlannerBindActionUniverse`, `mergePlannerPackIdsForBind`; [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts) — `buildBindPreview`, overrides em `updatePlan` / `updateBindOverrides`; preview inclui `bindResolutionMode`.
+- **Frontend:** [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx); [`lib/types`](../v0-team-ai-crafter/lib/types/index.ts).
+- **Testes / gate:** [`planner-pack-presets.test.ts`](../backend/src/modules/team-planning/application/planner-pack-presets.test.ts); `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` — **232** testes.
 - **referência no plano mestre:** [Loop 83](agents-team-crafter-plano-evolucao.md#loop-83-bind-preview-e-execute-per-agent-fim-do-bind-global)
 
 <a id="loop-84-planeado"></a>
