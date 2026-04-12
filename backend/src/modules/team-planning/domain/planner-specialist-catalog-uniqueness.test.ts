@@ -1,6 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
 import { AppError } from '../../../shared/errors/app-error.js';
-import { assertSpecialistsExclusiveCatalogTools } from './planner-specialist-catalog-uniqueness.js';
+import {
+  assertSpecialistsExclusiveCatalogTools,
+  getSpecialistsCatalogToolConflicts,
+} from './planner-specialist-catalog-uniqueness.js';
 
 describe('assertSpecialistsExclusiveCatalogTools', () => {
   it('nao lanca quando especialistas tem conjuntos disjuntos de IDs exclusivos', () => {
@@ -29,5 +32,26 @@ describe('assertSpecialistsExclusiveCatalogTools', () => {
         { role: 'specialist', name: 'S', catalogTools: ['database_query'] },
       ]),
     ).not.toThrow();
+  });
+});
+
+describe('getSpecialistsCatalogToolConflicts', () => {
+  it('retorna colisoes com nomes dos especialistas', () => {
+    const c = getSpecialistsCatalogToolConflicts([
+      { role: 'specialist', name: 'A', catalogTools: ['internal_actions'] },
+      { role: 'specialist', name: 'B', catalogTools: ['internal_actions'] },
+    ]);
+    expect(c).toHaveLength(1);
+    expect(c[0]?.toolId).toBe('internal_actions');
+    expect(c[0]?.specialistNames.sort()).toEqual(['A', 'B'].sort());
+  });
+
+  it('retorna vazio quando conjuntos sao disjuntos', () => {
+    expect(
+      getSpecialistsCatalogToolConflicts([
+        { role: 'specialist', name: 'A', catalogTools: ['database_query'] },
+        { role: 'specialist', name: 'B', catalogTools: ['calendar_access'] },
+      ]),
+    ).toHaveLength(0);
   });
 });

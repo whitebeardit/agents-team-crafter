@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   buildTeamPlannerUserMessage,
   PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS,
+  TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
   TEAM_PLANNER_SYSTEM_PROMPT,
 } from './team-plan-planner-prompt.js';
 
@@ -26,10 +27,17 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toContain('"requiredTools": []');
   });
 
-  it('buildTeamPlannerUserMessage reforça dominio e IDs exclusivos', () => {
+  it('buildTeamPlannerUserMessage reforça matriz pré-JSON e IDs exclusivos', () => {
     const msg = buildTeamPlannerUserMessage('Preciso de um time para revisar PRs.');
     expect(msg).toContain('Problema principal:');
-    expect(msg).toMatch(/dominio de assunto distinto/i);
-    expect(msg).toMatch(/IDs exclusivos/i);
+    expect(msg).toMatch(/Antes do JSON final/i);
+    expect(msg).toMatch(/matriz mental/i);
+  });
+
+  it('TEAM_PLANNER_REPAIR_SYSTEM_PROMPT lista IDs exclusivos (Loop 80)', () => {
+    expect(TEAM_PLANNER_REPAIR_SYSTEM_PROMPT).toMatch(/modo CORRECAO/i);
+    for (const id of PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS) {
+      expect(TEAM_PLANNER_REPAIR_SYSTEM_PROMPT).toContain(`"${id}"`);
+    }
   });
 });

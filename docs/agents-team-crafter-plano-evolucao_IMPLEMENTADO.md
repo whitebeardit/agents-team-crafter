@@ -28,7 +28,7 @@ Regras de uso:
 4. Se o gate falhar, corrigir no **mesmo** loop até passar — só então avançar.
 5. Fazer **commit de tudo** e **push** do loop/etapa concluído.
 6. Atualizar este ficheiro: tabela de estado, checklist do loop concluído, definição do **próximo** loop oficial.
-7. Se o slice tocar **criação de times por IA** (planner, `team-plan-planner-prompt`, schema, AI Builder): no texto do encerramento, mapear quais **micro-etapas** ([A–E](#micro-etapas-ralph-criacao-times-ia)) passaram a estar garantidas por código ou prompt e quais ficam só na norma.
+7. Se o slice tocar **criação de times por IA** (planner, `team-plan-planner-prompt`, schema, AI Builder): no texto do encerramento, mapear quais **micro-etapas** ([A–G](#micro-etapas-ralph-criacao-times-ia); **F–G** = matriz pré-JSON + outer loop de auto-reparo) passaram a estar garantidas por código ou prompt e quais ficam só na norma.
 
 ### Checklist: ferramentas Agents SDK utilizáveis (após gate verde)
 
@@ -54,8 +54,9 @@ Requisito explícito alinhado ao plano mestre ([§2.6](agents-team-crafter-plano
 - **Um especialista por domínio de assunto** — apenas um agente deve **definir a resposta** e a **propriedade operacional** sobre aquele âmbito temático no time; o coordenador continua a ser a interface externa.
 - **Inventário explícito de builtins** — ao desenhar ou gerar especialistas (incluindo IA), deve ficar claro **se** e **quais** IDs do catálogo (`capabilities.tools` / `catalogTools`) cada especialista necessita; não copiar listas entre agentes “por hábito”.
 - **Unicidade de builtins de negócio** — no mesmo time, **dois especialistas não podem** partilhar o **mesmo ID** de builtin cuja função primária é um **domínio de negócio** (critério detalhado no plano mestre; alinhar a [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts) no slice de enforcement). Utilitários genuinamente transversais no catálogo devem ter regra explícita em prompt/código para não mascarar duplicação de domínio.
+- **Âmbito** — a regra aplica-se ao par **`workspaceId` × mesmo team plan**; **não** colide com outro time no workspace nem com outro workspace.
 
-Slices futuros que toquem no AI Builder, wizard de times ou fichas de agente devem verificar esta norma na UX e na persistência (`capabilities.tools` / binds). Evolução planead nos **Loops 77–78** do plano mestre ([prompts](#loop-77-fechado) + [enforcement](#loop-78-fechado)).
+Slices futuros que toquem no AI Builder, wizard de times ou fichas de agente devem verificar esta norma na UX e na persistência (`capabilities.tools` / binds). **Loops 77–78** do plano mestre: [prompts](#loop-77-fechado) + [enforcement](#loop-78-fechado). **Loop 80** (fechado): [outer loop de auto-reparo pela IA](#loop-80-fechado) no `POST` de criação de plano ([plano mestre § Loop 80](agents-team-crafter-plano-evolucao.md#loop-80-planner-auto-repair-ia)).
 
 <a id="micro-etapas-ralph-criacao-times-ia"></a>
 
@@ -67,11 +68,15 @@ Espelho operacional do plano mestre ([metodologia](agents-team-crafter-plano-evo
 | --- | --- | --- |
 | A | Partição de domínios (1 especialista ↔ 1 domínio de assunto) | Domínio → papel; sem dois papéis no mesmo domínio. |
 | B | Inventário de builtins por especialista | IDs só do catálogo permitido; marcar quais são **de negócio**. |
-| C | Verificação de unicidade entre especialistas | Interseção de IDs de negócio vazia. |
+| C | Verificação de unicidade entre especialistas (mesmo `workspaceId`, mesmo team plan) | Interseção de IDs de negócio vazia **neste** time; outros times/workspaces são independentes. |
 | D | JSON válido + normalização no servidor | `plannerOutputSchema` / `catalogTools`; fallback honesto ([Loop 62](#loop-62-fechado)). |
 | E | Gate `./scripts/ralph-loop-gate.sh` (+ frontend se Next) | Commit + push antes de marcar loop fechado. |
+| F | Matriz pré-JSON (planeamento) | Antes do JSON final: uma linha por especialista com `catalogTools` mínimas; cada ID exclusivo em **no máximo** um especialista. |
+| G | Outer loop de auto-reparo IA ([Loop 80](#loop-80-fechado)) | Gerar → `getSpecialistsCatalogToolConflicts` → se falhar, **reemitir** com diagnóstico (segunda chamada OpenAI); limite `TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS` + `plannerMeta.catalogToolRepairAttempts` / `catalogUniquenessRepaired`. |
 
-**Inner loop:** falha em C ou D → corrigir no **mesmo** Ralph Loop (prompt, schema ou `planner-agent-catalog-tools`), não apenas copy na UI.
+**Inner loop (engenharia Ralph):** falha estrutural em C, D, F ou G → corrigir no **mesmo** Ralph Loop (prompt, schema, serviço de reparo ou `planner-agent-catalog-tools`), não apenas copy na UI.
+
+**Outer loop (produto — geração):** **G** implementa **gerar → validar → reparar com IA → validar** até sucesso ou limite, alinhado à disciplina “gate verde antes de avançar” sem expor `VALIDATION_ERROR` no caminho feliz do assistente ([diagrama no plano mestre](agents-team-crafter-plano-evolucao.md#metodologia-ralph-outer-loop-planner)).
 
 ### Admin global da plataforma: norma vs implementação actual
 
@@ -119,7 +124,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–79) | Loops 52–79 entregues (últimos: [Loop 78](#loop-78-fechado), [Loop 79](#loop-79-fechado); [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA e self-service: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–80) | Loops 52–80 entregues (últimos: [Loop 79](#loop-79-fechado), [Loop 80](#loop-80-fechado); [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA e self-service: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -695,6 +700,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 77   | Prompts do planner — domínio, builtin e anti-duplicação       | entregue (ver [Loop 77](#loop-77-fechado))                                                      |
 | 78   | Enforcement / UX — builtins de negócio sem ambiguidade       | entregue (ver [Loop 78](#loop-78-fechado))                        |
 | 79   | AI Builder — atalhos por agente com definition inativa (bind preview) | entregue (ver [Loop 79](#loop-79-fechado))                        |
+| 80   | Planner — matriz pré-JSON + outer loop auto-reparo IA (unicidade builtins) | entregue (ver [Loop 80](#loop-80-fechado)) |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -703,15 +709,15 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 79** — atalhos no preview de bind por agente/ação quando a tool definition está inativa (checkbox bloqueado + **Ativar definition**; ver [Loop 79](#loop-79-fechado)); base API em [Loop 51](#loop-51-fechado).
+**Último slice numerado fechado:** **Loop 80** — reparo automático do planner quando `catalogTools` materializados colidem entre especialistas (`TEAM_PLANNER_REPAIR_SYSTEM_PROMPT` + `plannerMeta.catalogToolRepairAttempts`); ver [Loop 80](#loop-80-fechado).
 
-**Próximo slice numerado:** não há **Loop 80** no plano mestre; priorizar iniciativas em [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace).
+**Próximo slice numerado:** não há **Loop 81** no plano mestre; priorizar iniciativas em [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace).
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
 | — | *(não numerado)* | Ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) | — |
 
-**Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas](#micro-etapas-ralph-criacao-times-ia); enforcement em [Loop 78](#loop-78-fechado).
+**Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–G](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado).
 
 **Regra Ralph:** um slice coerente por ciclo; fechar com gate (`./scripts/ralph-loop-gate.sh`, com `RALPH_LOOP_INCLUDE_FRONTEND=1` se tocar no Next), commit + push, depois atualizar tabela acima e a secção **Loop N (fechado)** abaixo.
 
@@ -1577,7 +1583,7 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 - **Política:** **rejeitar** com `400` / `VALIDATION_ERROR` (sem normalização silenciosa); mensagem em PT com IDs e nomes dos agentes.
 - **Backend:** [`planner-specialist-catalog-uniqueness.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts) (`assertSpecialistsExclusiveCatalogTools`), chamado desde [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts) após materialização de `catalogTools`; constante reexportada em [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) para uma única fonte de verdade com o prompt.
 - **Frontend:** [`catalog-tool-ids.ts`](../v0-team-ai-crafter/lib/catalog-tool-ids.ts) (`SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS`); [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — alertas e bloqueio de **Salvar** / **Executar** quando há colisão.
-- **Testes:** [`planner-specialist-catalog-uniqueness.test.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.test.ts) (unidade); [`team-plans.integration.test.ts`](../backend/src/__tests__/team-plans.integration.test.ts) (`POST /api/v1/team-plans` com mock OpenAI → 400).
+- **Testes:** [`planner-specialist-catalog-uniqueness.test.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.test.ts) (unidade); [`team-plans.integration.test.ts`](../backend/src/__tests__/team-plans.integration.test.ts) — `POST` com reparo automático ([Loop 80](#loop-80-fechado)); `PUT` manual com colisão → 400.
 - **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**218** testes backend + `next build`).
 - **referência no plano mestre:** [Loop 78](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity)
 
@@ -1590,6 +1596,19 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 - **Frontend:** [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — para `actionId` em `actionIdsBlockedByDisabledDefinitions`: checkbox desativado até o preview refletir definition ativa; botão **Ativar definition** chama `POST /team-plans/:id/bind-enable-definitions` (mesmo endpoint do Loop 51).
 - **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (testes backend inalterados neste slice; `next build` obrigatório).
 - **referência no plano mestre:** [Loop 79](agents-team-crafter-plano-evolucao.md#loop-79-ai-builder-bind-inactive-per-action)
+
+<a id="loop-80-fechado"></a>
+
+## Loop 80 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (team planner / AI Builder) / alta
+- **objetivo:** no **`POST /api/v1/team-plans`** (geração com OpenAI), quando `catalogTools` **materializados** (incl. inferência em [`planner-agent-catalog-tools.ts`](../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts)) colidirem entre especialistas, **rechamar o modelo** com `TEAM_PLANNER_REPAIR_SYSTEM_PROMPT` e plano + diagnóstico, até unicidade ou limite de tentativas; fallback `buildFallback` com `fallbackReason` `catalog_uniqueness_exhausted_repair` ou `catalog_repair_parse_failed`.
+- **Âmbito:** [Loop 78](#loop-78-fechado) inalterado para **`PUT`** / edição manual (`assertSpecialistsExclusiveCatalogTools` continua a devolver 400).
+- **Backend:** [`team-plan.service.ts`](../backend/src/modules/team-planning/application/team-plan.service.ts) — `resolveCatalogUniquenessWithRepair`, `evaluateMaterializedCatalogUniqueness`, `fetchRepairedPlannerOutput`; [`planner-specialist-catalog-uniqueness.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts) — `getSpecialistsCatalogToolConflicts`, `formatCatalogToolConflictsForMessage`; [`team-plan-planner-prompt.ts`](../backend/src/modules/team-planning/application/team-plan-planner-prompt.ts) — `TEAM_PLANNER_REPAIR_SYSTEM_PROMPT`, `buildTeamPlannerRepairUserMessage`, reforço da micro-etapa **F** na mensagem do utilizador principal.
+- **`plannerMeta`:** `catalogToolRepairAttempts`, `catalogUniquenessRepaired` (opcionais); env `TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS` (default 3, máx. 8).
+- **Testes:** [`team-plans.integration.test.ts`](../backend/src/__tests__/team-plans.integration.test.ts) — reparo em 2 chamadas fetch; `PUT` com colisão → 400; unidade em `planner-specialist-catalog-uniqueness.test.ts` e `team-plan-planner-prompt.test.ts`.
+- **Gate:** `./scripts/ralph-loop-gate.sh` (**222** testes backend no encerramento deste slice; frontend não tocado).
+- **referência no plano mestre:** [Loop 80](agents-team-crafter-plano-evolucao.md#loop-80-planner-auto-repair-ia)
 
 ---
 

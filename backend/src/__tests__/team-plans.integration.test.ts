@@ -232,7 +232,7 @@ describe('team-plans flow', () => {
     expect(data.team.name.startsWith('Time Precisamos melhorar')).toBe(true);
   });
 
-  it('rejeita criacao quando dois especialistas partilham catalogTools de dominio', async () => {
+  it('repara colisao de catalogTools na criacao com segunda chamada OpenAI (Loop 80)', async () => {
     jest.restoreAllMocks();
     const collisionPlan = {
       team: {
@@ -281,13 +281,24 @@ describe('team-plans flow', () => {
       requiredPacks: [] as string[],
       requiredTools: [] as string[],
     };
-    jest.spyOn(global, 'fetch').mockResolvedValue({
-      ok: true,
-      text: async () =>
-        JSON.stringify({
-          choices: [{ message: { content: JSON.stringify(collisionPlan) } }],
-        }),
-    } as Response);
+    const repairedPlan = {
+      ...collisionPlan,
+      agents: collisionPlan.agents.map((a, i) =>
+        i === 2 ? { ...a, catalogTools: ['calendar_access'] } : a,
+      ),
+    };
+    let fetchCount = 0;
+    jest.spyOn(global, 'fetch').mockImplementation(async () => {
+      fetchCount++;
+      const payload = fetchCount === 1 ? collisionPlan : repairedPlan;
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(payload) } }],
+          }),
+      } as Response;
+    });
 
     const headers = await authHeaders();
     const create = await app.inject({
@@ -298,8 +309,79 @@ describe('team-plans flow', () => {
         problem: 'Precisamos melhorar o atendimento e reduzir tempo de resposta dos clientes.',
       },
     });
-    expect(create.statusCode).toBe(400);
-    const envelope = JSON.parse(create.body) as {
+    expect(create.statusCode).toBe(201);
+    expect(fetchCount).toBe(2);
+    const body = JSON.parse(create.body) as {
+      data: {
+        plannerMeta: {
+          catalogToolRepairAttempts?: number;
+          catalogUniquenessRepaired?: boolean;
+          usedOpenAi: boolean;
+        };
+      };
+    };
+    expect(body.data.plannerMeta.catalogToolRepairAttempts).toBe(1);
+    expect(body.data.plannerMeta.catalogUniquenessRepaired).toBe(true);
+    expect(body.data.plannerMeta.usedOpenAi).toBe(true);
+  });
+
+  it('rejeita atualizacao manual quando dois especialistas partilham catalogTools de dominio', async () => {
+    const headers = await authHeaders();
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans',
+      headers,
+      payload: {
+        problem: 'Precisamos melhorar o atendimento e reduzir tempo de resposta dos clientes.',
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const planId = (JSON.parse(create.body) as { data: { id: string } }).data.id;
+
+    const agentsBad = [
+      {
+        name: 'Coordenador CX',
+        role: 'coordinator',
+        description: 'Coordena especialistas.',
+        objective: 'Garantir SLA de resposta.',
+        responsibilities: ['Priorizar fila', 'Escalar'],
+        skills: ['comunicacao'],
+        category: 'atendimento',
+        channels: ['api'],
+        catalogTools: ['web_search'],
+      },
+      {
+        name: 'Especialista Resposta',
+        role: 'specialist',
+        description: 'Responde clientes.',
+        objective: 'Resolver tickets.',
+        responsibilities: ['Responder'],
+        skills: ['empatia'],
+        category: 'atendimento',
+        channels: [],
+        catalogTools: ['database_query'],
+      },
+      {
+        name: 'Especialista Dados',
+        role: 'specialist',
+        description: 'SQL.',
+        objective: 'Relatorios.',
+        responsibilities: ['Query'],
+        skills: ['sql'],
+        category: 'dados',
+        channels: [],
+        catalogTools: ['database_query'],
+      },
+    ];
+
+    const update = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/team-plans/${planId}`,
+      headers,
+      payload: { agents: agentsBad },
+    });
+    expect(update.statusCode).toBe(400);
+    const envelope = JSON.parse(update.body) as {
       success: boolean;
       error: { code: string; message: string };
     };

@@ -118,6 +118,51 @@ export function buildTeamPlannerUserMessage(problem: string, context?: string): 
     '',
     context?.trim() ? `Contexto adicional:\n${context.trim()}` : 'Contexto adicional: (nenhum)',
     '',
-    'Antes de responder: garanta um dominio de assunto distinto por especialista (category + textos); catalogTools minimos e sem repetir entre especialistas os IDs exclusivos do system prompt; alinhe requiredPacks a packs de negocio e requiredTools a actionIds internos.',
+    'Antes do JSON final: faca uma matriz mental "especialista -> catalogTools" e confira que cada ID exclusivo (' +
+      SPECIALIST_EXCLUSIVE_IDS_PROMPT +
+      ') aparece no maximo em UM especialista (o coordenador nao conta para esta regra).',
+    'Em seguida emita o JSON: dominio de assunto distinto por especialista (category + textos); catalogTools minimos; alinhe requiredPacks a packs de negocio e requiredTools a actionIds internos.',
+  ].join('\n');
+}
+
+/**
+ * Loop 80 — segunda chamada ao modelo quando o plano viola unicidade de catalogTools entre especialistas
+ * apos normalizacao/inferencia no servidor.
+ */
+export const TEAM_PLANNER_REPAIR_SYSTEM_PROMPT = `Voce e o Whitebeard AI Planner em modo CORRECAO.
+
+Entrada: problema do usuario, plano JSON atual (ja com catalogTools efetivos por agente) e diagnostico do servidor sobre IDs de catalogo exclusivos repetidos entre especialistas.
+
+Regras:
+- Responda APENAS com um unico objeto JSON valido (sem markdown, sem texto antes ou depois).
+- Use portugues do Brasil para todos os textos.
+- Corrija o plano para que **nenhum** ID da lista exclusiva apareca em catalogTools de **dois** especialistas diferentes. IDs exclusivos: ${SPECIALIST_EXCLUSIVE_IDS_PROMPT}.
+- O coordenador pode manter catalogTools proprios; a regra aplica-se so entre agentes com role "specialist".
+- Voce pode: remover um ID duplicado de um dos especialistas, fundir dois especialistas num so se o dominio for o mesmo, ou redistribuir responsabilidades — preserve a intencao do usuario.
+- Mantenha team.name curto; graph sempre "graph": { "nodes": [], "edges": [] }.
+- Estrutura de nivel superior identica ao planner principal: team, agents, graph, executionChecklist, requiredPacks, requiredTools.`;
+
+export function buildTeamPlannerRepairUserMessage(params: {
+  problem: string;
+  context?: string;
+  invalidPlanJson: string;
+  diagnosis: string;
+  repairAttempt: number;
+}): string {
+  return [
+    `Tentativa de correcao: ${params.repairAttempt}`,
+    '',
+    'Problema principal:',
+    params.problem.trim(),
+    '',
+    params.context?.trim() ? `Contexto adicional:\n${params.context.trim()}` : 'Contexto adicional: (nenhum)',
+    '',
+    'Diagnostico do servidor (unicidade de catalogTools entre especialistas):',
+    params.diagnosis,
+    '',
+    'Plano JSON atual (catalogTools ja refletem inferencia/normalizacao do servidor onde aplicavel):',
+    params.invalidPlanJson,
+    '',
+    'Emita o JSON corrigido.',
   ].join('\n');
 }

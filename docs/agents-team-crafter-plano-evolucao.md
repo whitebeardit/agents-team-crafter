@@ -134,8 +134,9 @@ flowchart TB
 5. **Sem duplicação de builtins de negócio entre especialistas** — Duas regras em conjunto:
    - **Definição operacional:** tratam-se como **builtins de negócio** as ferramentas do catálogo cuja função primária é servir um **domínio de negócio** (ex.: CRM, finanças do workspace, cuidados, operações sobre dados de negócio), em contraste com utilitários genéricos de apoio ao raciocínio ou I/O **quando** estes forem claramente transversais e sem semântica de dono único — a lista canónica evolui com o catálogo; ver [`operational-catalog-tools.ts`](../backend/src/modules/agents/domain/operational-catalog-tools.ts) e a matriz em [`UI-RUNTIME-AGENT.md`](UI-RUNTIME-AGENT.md).
    - **Regra de unicidade:** no mesmo time, **dois especialistas não podem partilhar o mesmo ID** de builtin **de negócio**. Se dois papéis parecerem exigir a mesma tool de negócio, o desenho está errado: fundir responsabilidades num único especialista ou repartir **domínios** de forma que cada tool de negócio fique sob **um** dono (o coordenador continua a ser o único interface externo).
+   - **Âmbito da regra:** a unicidade aplica-se ao par **`workspaceId` × team plan (mesmo time em construção)**. **Não** há conflito entre dois times no mesmo workspace, nem entre workspaces distintos: dois especialistas em **times diferentes** (ou tenants diferentes) podem listar o mesmo ID de builtin de negócio sem violar esta norma.
 
-Esta norma complementa [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) (pré-condições de execução) e reforça o objetivo de **especialistas sem sobreposição de função** no [Objetivo](#objetivo). A materialização parcial no código e prompts está no [Loop 64](#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder); o reforço de **prompts, validação e enforcement** está planeado nos [Loops 77–78](#loop-77-planner-prompts-builtin-domain).
+Esta norma complementa [§2.6](#26-ferramentas-openai-agents-sdk-utilizáveis-vs-apenas-habilitadas) (pré-condições de execução) e reforça o objetivo de **especialistas sem sobreposição de função** no [Objetivo](#objetivo). A materialização parcial no código e prompts está no [Loop 64](#loop-64--builtins-por-domínio-criação-de-time-e-ai-builder); o reforço de **prompts, validação e enforcement** está nos [Loops 77–78](#loop-77-planner-prompts-builtin-domain); o **outer loop de auto-reparo pela IA** (em vez de erro ao utilizador no fluxo assistido) está planeado no [Loop 80](#loop-80-planner-auto-repair-ia).
 
 <a id="prompts-team-planner-contrato"></a>
 
@@ -158,13 +159,42 @@ Cada slice que mexer em `team-plan-planner-prompt.ts`, schema do planner ou AI B
 | --- | --- | --- |
 | **A — Partição de domínios** | Extrair do pedido do utilizador **quantos** domínios de assunto existem e **um** especialista candidato por domínio. | Matriz “domínio → nome do papel”; **sem** dois papéis no mesmo domínio. |
 | **B — Inventário de builtins** | Por especialista, decidir **se** precisa de builtins; listar IDs **apenas** do catálogo permitido. | Lista por agente; marcação mental (ou campo futuro) de quais são **de negócio**. |
-| **C — Verificação de unicidade** | Conferir que nenhum ID de builtin de negócio aparece em **mais de um** especialista. | Conjunto de IDs de negócio **disjuntos** entre especialistas; interseção vazia. |
+| **C — Verificação de unicidade** | Conferir que nenhum ID de builtin de negócio aparece em **mais de um** especialista **no mesmo plano de time** (mesmo `workspaceId`). | Conjunto de IDs de negócio **disjuntos** entre especialistas desse time; interseção vazia. |
 | **D — Geração estruturada** | Emitir JSON válido pelo `plannerOutputSchema` (incl. `catalogTools` normalizado). | `safeParse` verde ou fallback honesto com `plannerMeta` preenchido ([Loop 62](#loop-62--transparência-do-fallback-do-team-planner-ai-builder)). |
 | **E — Gate de engenharia** | `./scripts/ralph-loop-gate.sh` (+ frontend se tocar em `v0-team-ai-crafter`). | Build e testes verdes; commit + push antes de fechar o loop no ledger. |
+| **F — Matriz de atribuição (pré-JSON)** | **Antes** da emissão do JSON final, o modelo (ou um passo explícito de chain-of-thought interno) fixa **uma linha por especialista**: domínio → `catalogTools` mínimas → quem “possui” cada builtin de negócio. | Cada ID em `PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS` (ver [Loop 77](#loop-77-planner-prompts-builtin-domain)) aparece **no máximo numa** linha de especialista. |
+| **G — Outer loop de auto-reparo IA** | Após **D**, aplicar o mesmo validador que o servidor ([Loop 78](#loop-78-enforcement-builtin-ambiguity)). Se falhar, **não** devolver `VALIDATION_ERROR` ao utilizador no **fluxo gerado por IA**: segunda chamada (ou ferramenta) com o JSON inválido + diagnóstico (IDs e nomes em colisão) para **reemitir** o plano corrigido. | Plano reemitido passa em `assertSpecialistsExclusiveCatalogTools`; **tentativas máximas** definidas; após o limite, fallback honesto (`plannerMeta`) ou mensagem controlada — ver [Loop 80](#loop-80-planner-auto-repair-ia). |
 
-**Inner loop de correção:** se **C** ou **D** falharem, não “remendar” só na UI: ajustar **prompt**, **schema** ou **normalização no servidor** (`planner-agent-catalog-tools`, etc.) no **mesmo** Ralph Loop, até o critério ficar estável.
+**Inner loop de correção (Ralph no repositório):** se **C**, **D**, **F** ou **G** falharem de forma **estrutural** (prompt/schema/servidor), não “remendar” só na UI: ajustar **prompt**, **schema**, **passo de reparo** ou **normalização** (`planner-agent-catalog-tools`, etc.) no **mesmo** Ralph Loop de engenharia, até o critério ficar estável.
 
-**Anti-padrão:** prometer no ledger “duplicatas resolvidas” sem teste que cubra **dois** especialistas com o mesmo ID de negócio (deve falhar ou ser normalizado com regra documentada).
+**Outer loop de produto (runtime da geração):** **G** é o ciclo **gerar → validar → reparar com IA → validar** até sucesso ou limite; espelha a disciplina Ralph (não avançar com gate vermelho) sem expor erro bruto ao utilizador quando o produto prometer correção automática.
+
+**Anti-padrão:** prometer no ledger “duplicatas resolvidas” sem teste que cubra **dois** especialistas com o mesmo ID de negócio (deve falhar, ser normalizado com regra documentada, ou passar pelo **G** com prova de reemissão).
+
+<a id="metodologia-ralph-outer-loop-planner"></a>
+
+##### Diagrama — outer loop de auto-reparo (alvo Loop 80)
+
+```mermaid
+flowchart LR
+  subgraph plan["Planeamento F"]
+    M[Matriz dominio para especialista para catalogTools]
+  end
+  subgraph gen["Geracao D"]
+    J[JSON plannerOutputSchema]
+  end
+  subgraph val["Validacao servidor"]
+    V{Unicidade OK?}
+  end
+  subgraph repair["Reparo IA G"]
+    R[LLM com plano invalido + diagnostico]
+  end
+  M --> J --> V
+  V -->|sim| OK[Entregar plano]
+  V -->|nao| R --> J
+```
+
+Ver secção dedicada [Loop 80](#loop-80-planner-auto-repair-ia) (secção 14).
 
 ## 2.7 Admin global da plataforma (RBAC cross-tenant)
 
@@ -1433,6 +1463,30 @@ Reduzir atrito quando o utilizador ajusta **overrides por agente** no preview de
 
 ---
 
+<a id="loop-80-planner-auto-repair-ia"></a>
+
+## Loop 80 — Planner: planeamento explícito + outer loop de auto-reparo pela IA *(entregue no ledger)*
+
+### Objetivo
+
+Complementar [Loop 77](#loop-77-planner-prompts-builtin-domain) e [Loop 78](#loop-78-enforcement-builtin-ambiguity): quando a geração assistida produzir **colisão** de builtins de negócio entre especialistas (ex.: `internal_actions` em “Finanças” e “Cadastro”), o sistema **corrige pelo pipeline de IA** (micro-etapas **F** e **G** em [Metodologia Ralph Loop](#metodologia-ralph-criacao-times-ia)) em vez de devolver imediatamente `VALIDATION_ERROR` ao utilizador.
+
+### Foco (MVP)
+
+- **Passo F (prompt ou estágio explícito):** obrigar **matriz pré-JSON** — dono único por ID exclusivo — alinhada ao catálogo partilhado com o servidor (`PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS` / [`planner-specialist-catalog-uniqueness.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.ts)).
+- **Passo G (serviço):** após parse/normalização, chamar `assertSpecialistsExclusiveCatalogTools`; em falha, invocar **reparo** (mensagem de sistema + plano inválido + lista de conflitos) com **limite de tentativas** e telemetria (`plannerMeta.repairAttempts` ou equivalente).
+- **Persistência / API manual:** manter [Loop 78](#loop-78-enforcement-builtin-ambiguity) — edição humana ou integrações que contornam o planner continuam sujeitas a **400** com mensagem acionável; o diferencial do Loop 80 é o **fluxo team planner / AI Builder gerado por modelo**.
+- **Testes:** integração com mock OpenAI — colisão na 1.ª emissão, plano válido na 2.ª; teste de esgotamento de tentativas → fallback alinhado ao [Loop 62](#loop-62--transparência-do-fallback-do-team-planner-ai-builder).
+
+### Critério de saída
+
+- Caso reproduzível (pedido tipo clínica/psicologia com vários domínios): **nenhum** `VALIDATION_ERROR` de unicidade no caminho feliz do assistente após reparo.
+- Gate: `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` se tocar no AI Builder.
+
+**Estado (ledger):** **entregue** — detalhe canónico em [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) secção **Loop 80 (fechado)**.
+
+---
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1464,6 +1518,7 @@ Reduzir atrito quando o utilizador ajusta **overrides por agente** no preview de
 26. **Loop 77** — prompts do planner: domínio, builtins e anti-duplicação (entregue; ver [Loop 77](#loop-77-planner-prompts-builtin-domain)).
 27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (entregue; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
 28. **Loop 79** — AI Builder: atalhos por agente/ação com definition inativa no bind preview (entregue; ver [Loop 79](#loop-79-ai-builder-bind-inactive-per-action)).
+29. **Loop 80** — planner: matriz pré-JSON + outer loop de auto-reparo pela IA (entregue; ver [Loop 80](#loop-80-planner-auto-repair-ia)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1489,6 +1544,7 @@ Reduzir atrito quando o utilizador ajusta **overrides por agente** no preview de
 - **Loop 77:** endurecer instruções e exemplos do **team planner** para builtins por domínio e **sem** duplicação de IDs de negócio entre especialistas ([secção dedicada](#loop-77-planner-prompts-builtin-domain))
 - **Loop 78:** **validação e UX** quando o plano violar unicidade de builtins de negócio entre especialistas — entregue; alinhado à [metodologia de micro-etapas](#metodologia-ralph-criacao-times-ia)
 - **Loop 79:** completar o fluxo do [Loop 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado) com **resolução por linha** no impacto por agente (definition inativa + override granular)
+- **Loop 80:** **auto-reparo pela IA** no `POST` de criação de plano quando o modelo violar unicidade (micro-etapas **F** e **G**); **PUT** manual continua com **400** do [Loop 78](#loop-78-enforcement-builtin-ambiguity) — entregue ([secção dedicada](#loop-80-planner-auto-repair-ia))
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1506,4 +1562,4 @@ Ela funciona como a macrofase seguinte para:
 - a criação de workspace ainda restrita a `platform admin` pode exigir revisão futura de onboarding self-service
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
 - responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
-- criação de times por IA: risco de **ambiguidade** se prompts não obrigarem **domínio único por especialista** e **unicidade de builtins de negócio** — mitigação planead nos **Loops 77–78** (prompts + enforcement); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio) e [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia)
+- criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia) e [Loop 80](#loop-80-planner-auto-repair-ia)

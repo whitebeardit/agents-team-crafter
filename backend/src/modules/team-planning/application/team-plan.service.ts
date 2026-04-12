@@ -8,7 +8,12 @@ import type { IAppDeps } from '../../../config/container.js';
 import type { IGraphNode } from '../../graphs/domain/graph-types.js';
 import type { TeamPlanRepository } from '../infra/team-plan.repository.js';
 import { fetchTeamPlanJsonCompletion, teamPlanModelFromEnv } from './team-plan-json-completion.js';
-import { TEAM_PLANNER_SYSTEM_PROMPT, buildTeamPlannerUserMessage } from './team-plan-planner-prompt.js';
+import {
+  TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
+  TEAM_PLANNER_SYSTEM_PROMPT,
+  buildTeamPlannerRepairUserMessage,
+  buildTeamPlannerUserMessage,
+} from './team-plan-planner-prompt.js';
 import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
 import { actionIdToToolSlug, collectPlannerActionIds, PLANNER_PACK_TO_ACTION_IDS } from './planner-pack-presets.js';
@@ -18,7 +23,12 @@ import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
 import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
 import { plannerOutputSchema, type TPlannerOutput } from './team-plan-planner-output.schema.js';
 import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
-import { assertSpecialistsExclusiveCatalogTools } from '../domain/planner-specialist-catalog-uniqueness.js';
+import {
+  assertSpecialistsExclusiveCatalogTools,
+  formatCatalogToolConflictsForMessage,
+  getSpecialistsCatalogToolConflicts,
+  type ISpecialistCatalogToolConflict,
+} from '../domain/planner-specialist-catalog-uniqueness.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'team-plan' });
 
@@ -41,6 +51,10 @@ export interface ITeamPlannerMeta {
   fallbackReason?: string;
   openaiResolvedFromEnv: boolean;
   parseErrorSummary?: string;
+  /** Loop 80: chamadas de reparo ao modelo apos colisao de catalogTools entre especialistas */
+  catalogToolRepairAttempts?: number;
+  /** Loop 80: plano final passou apos pelo menos uma rodada de reparo */
+  catalogUniquenessRepaired?: boolean;
 }
 
 export interface ITeamPlanBindPreviewDefinition {
@@ -358,6 +372,160 @@ export class TeamPlanService {
     };
   }
 
+  /** Loop 80: max chamadas de reparo OpenAI apos colisao (env `TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS`; default 3). */
+  private teamPlanCatalogRepairMaxAttempts(): number {
+    const raw = process.env.TEAM_PLAN_CATALOG_REPAIR_MAX_ATTEMPTS?.trim();
+    if (raw === undefined || raw === '') return 3;
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n)) return 3;
+    return Math.max(0, Math.min(n, 8));
+  }
+
+  private async evaluateMaterializedCatalogUniqueness(
+    workspaceId: string,
+    raw: TPlannerOutput,
+  ): Promise<{
+    reuse: Awaited<ReturnType<TeamPlanService['annotateAgentsWithReuse']>>;
+    parsedForGraph: TPlannerOutput;
+    agentsMaterialized: TPlannerOutput['agents'];
+    conflicts: ISpecialistCatalogToolConflict[];
+  }> {
+    const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
+    const parsedForGraph = plannerOutputSchema.parse({
+      team: raw.team,
+      agents: reuse.agents,
+      graph: raw.graph,
+      executionChecklist: raw.executionChecklist,
+      requiredPacks: raw.requiredPacks,
+      requiredTools: raw.requiredTools,
+    });
+    const agentsMaterialized = materializePlannerAgentCatalogTools(parsedForGraph);
+    const conflicts = getSpecialistsCatalogToolConflicts(agentsMaterialized);
+    return { reuse, parsedForGraph, agentsMaterialized, conflicts };
+  }
+
+  private formatPlanPayloadForRepair(ev: {
+    parsedForGraph: TPlannerOutput;
+    agentsMaterialized: TPlannerOutput['agents'];
+  }): string {
+    const payload = {
+      team: ev.parsedForGraph.team,
+      agents: ev.parsedForGraph.agents.map((agent, i) => ({
+        name: agent.name,
+        role: agent.role,
+        description: agent.description,
+        objective: agent.objective,
+        responsibilities: agent.responsibilities,
+        skills: agent.skills,
+        category: agent.category,
+        channels: agent.channels,
+        catalogTools: ev.agentsMaterialized[i]?.catalogTools ?? [],
+      })),
+      graph: { nodes: [] as unknown[], edges: [] as unknown[] },
+      executionChecklist: ev.parsedForGraph.executionChecklist,
+      requiredPacks: ev.parsedForGraph.requiredPacks,
+      requiredTools: ev.parsedForGraph.requiredTools,
+    };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  private async fetchRepairedPlannerOutput(params: {
+    apiKey: string;
+    problem: string;
+    context?: string;
+    invalidPlanJson: string;
+    diagnosis: string;
+    repairAttempt: number;
+  }): Promise<TPlannerOutput | null> {
+    const model = teamPlanModelFromEnv();
+    const { content } = await fetchTeamPlanJsonCompletion({
+      apiKey: params.apiKey,
+      model,
+      systemPrompt: TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
+      userMessage: buildTeamPlannerRepairUserMessage({
+        problem: params.problem,
+        context: params.context,
+        invalidPlanJson: params.invalidPlanJson,
+        diagnosis: params.diagnosis,
+        repairAttempt: params.repairAttempt,
+      }),
+    });
+    const extracted = this.extractJsonLoose(content);
+    if (extracted === null) return null;
+    const parsed = plannerOutputSchema.safeParse(extracted);
+    return parsed.success ? parsed.data : null;
+  }
+
+  /**
+   * Loop 80 — ate N chamadas de reparo quando dois especialistas partilham o mesmo builtin de dominio
+   * apos materializar catalogTools (inferencia incluida).
+   */
+  private async resolveCatalogUniquenessWithRepair(params: {
+    workspaceId: string;
+    problem: string;
+    context?: string;
+    initialRaw: TPlannerOutput;
+    apiKey: string;
+  }): Promise<{
+    raw: TPlannerOutput;
+    plannerMetaExtras: Partial<ITeamPlannerMeta>;
+  }> {
+    const maxRepairs = this.teamPlanCatalogRepairMaxAttempts();
+    let current = params.initialRaw;
+    let repairsUsed = 0;
+
+    while (true) {
+      const ev = await this.evaluateMaterializedCatalogUniqueness(params.workspaceId, current);
+      if (ev.conflicts.length === 0) {
+        return {
+          raw: current,
+          plannerMetaExtras: {
+            catalogToolRepairAttempts: repairsUsed,
+            catalogUniquenessRepaired: repairsUsed > 0,
+          },
+        };
+      }
+
+      if (repairsUsed >= maxRepairs) {
+        return {
+          raw: this.buildFallback(params.problem, params.context),
+          plannerMetaExtras: {
+            catalogToolRepairAttempts: repairsUsed,
+            catalogUniquenessRepaired: false,
+            usedOpenAi: false,
+            usedFallback: true,
+            fallbackReason: 'catalog_uniqueness_exhausted_repair',
+          },
+        };
+      }
+
+      const diagnosis = formatCatalogToolConflictsForMessage(ev.conflicts);
+      const invalidPlanJson = this.formatPlanPayloadForRepair(ev);
+      const repaired = await this.fetchRepairedPlannerOutput({
+        apiKey: params.apiKey,
+        problem: params.problem,
+        context: params.context,
+        invalidPlanJson,
+        diagnosis,
+        repairAttempt: repairsUsed + 1,
+      });
+      repairsUsed++;
+      if (!repaired) {
+        return {
+          raw: this.buildFallback(params.problem, params.context),
+          plannerMetaExtras: {
+            catalogToolRepairAttempts: repairsUsed,
+            catalogUniquenessRepaired: false,
+            usedOpenAi: false,
+            usedFallback: true,
+            fallbackReason: 'catalog_repair_parse_failed',
+          },
+        };
+      }
+      current = repaired;
+    }
+  }
+
   /** Extrai JSON do texto (markdown ou puro); null se nao houver objeto parseavel. */
   private extractJsonLoose(text: string): unknown | null {
     const content = text.trim();
@@ -446,6 +614,21 @@ export class TeamPlanService {
           parseErrorSummary: msg.slice(0, 400),
         };
       }
+    }
+
+    if (apiKey && plannerMeta.usedOpenAi && !plannerMeta.usedFallback) {
+      const resolved = await this.resolveCatalogUniquenessWithRepair({
+        workspaceId,
+        problem: input.problem,
+        context: input.context,
+        initialRaw: raw,
+        apiKey,
+      });
+      raw = resolved.raw;
+      plannerMeta = {
+        ...plannerMeta,
+        ...resolved.plannerMetaExtras,
+      };
     }
 
     const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
