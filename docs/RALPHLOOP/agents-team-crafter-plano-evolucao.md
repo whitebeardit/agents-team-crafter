@@ -692,6 +692,8 @@ Slices oficiais numerados **após o Loop 81** (ETAPA 9 continua; ver [§14](#14-
 - **[Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow)** — **entregue** — inferência mínima de built-ins; sem rotação por índice; hints por packs (ledger: [Loop 84 fechado](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-84-fechado))
 - **[Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido)** — **entregue** — preview de bind estável em edições cosméticas; hints por agente para revisão — ledger: [Loop 85 fechado](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-85-fechado)
 - **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — **entregue** — destravar **Executar**, bind review proporcional (`requiresExplicitApproval`), ownership real de workflow (sem sufixos silenciosos), inferência conservadora de built-ins para especialistas — ledger: [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado)
+- **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** — **próximo slice oficial (planeado)** — fundação transversal (schemas estritos, `internal_action` com contrato, slot-filling, chat de teste) + **piloto CRM**; o mesmo modelo aplica-se depois a finanças/care/etc. ([§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps)) — especificação: [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); ledger: [Loop 87 (oficial)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-oficial)
+- **[Loops 88+](#loops-88-mais-verticais-de-negócio-por-pack)** — **planeados** — um slice Ralph por vertical (ou grupo justificado) alinhado a `packId` (`care`, `finance`, `scheduling`, …); numerar ao priorizar; detalhe na secção dedicada.
 
 *Base factual no código actual:* quando o plano tem listas por agente (`requiredBusinessActionIds` / `requiredPackIds`), `computePlannerBindActionUniverse` em [`planner-pack-presets.ts`](../../backend/src/modules/team-planning/application/planner-pack-presets.ts) + `buildBindPreview` em [`team-plan.service.ts`](../../backend/src/modules/team-planning/application/team-plan.service.ts) calculam candidatos **por agente**; sem essas listas, mantém-se o modo **global** legado. Schema [`team-plan-planner-output.schema.ts`](../../backend/src/modules/team-planning/application/team-plan-planner-output.schema.ts): **Loop 82** entregue.
 
@@ -798,6 +800,7 @@ A arquitectura base (governança, grafo, runs, flags, business tools, planner co
 - **inferência default de built-ins** em [`planner-agent-catalog-tools.ts`](../../backend/src/modules/team-planning/application/planner-agent-catalog-tools.ts) — **Loop 84 entregue:** mínimo (`web_search`), keywords e hints controlados por packs por agente ou globais; **sem** rotação por índice
 - **UX do AI Builder** — **Loop 85 entregue:** edições que não alteram inputs de bind (fingerprint alinhada ao servidor) **não** limpam `bindPreview` / aprovação; **Executar** continua a exigir revisão quando há hints de bind (globais ou por agente)
 - **Loop 86 (entregue):** bloqueio de **Executar** e revisão de bind alinhados ao **risco real** (`preview.requiresExplicitApproval`); **duplicidade de workflow** como conflito explícito (reparo no `POST`, `400` no `PUT`); herança de packs globais nos especialistas reduzida quando há hints per-agent noutros agentes — ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)
+- **Loop 87 (próximo oficial):** especialistas **operacionais** em runtime — schemas de tools válidos no modo estrito, caminho claro para `internal_action`, CRM e cadastro utilizáveis, slot-filling, conversa de teste com contexto — ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)
 
 Em paralelo, continuam válidos como macro-evolução de negócio:
 
@@ -811,13 +814,15 @@ Em paralelo, continuam válidos como macro-evolução de negócio:
 ## Próximo loop recomendado
 **Último slice numerado fechado:** **[Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)** — ledger [Loop 86 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-86-fechado). **Loops 82–86** fecharam a onda **team planner + AI Builder** (bind por agente, inferência mínima + conservadora, preview estável, execute/bind proporcional, workflow real).
 
+**Próximo slice oficial numerado:** **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** — operabilidade real dos especialistas (schemas, business actions, CRM, slot-filling, contexto no debug); especificação em [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md); acompanhamento no [ledger — Loop 87](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-oficial).
+
 **Macro-evolução em paralelo:** [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 Trabalho já entregue nessa linha: **Loops 77–85** — prompts, enforcement, reparo IA, atalhos de definition inactiva, UX em camadas no [`TeamAiBuilder`](../../v0-team-ai-crafter/components/teams/team-ai-builder.tsx), **contrato JSON por agente** (**Loop 82**), **bind preview/execute por agente** (**Loop 83**), **inferência mínima de built-ins** (**Loop 84**), **preview de bind estável** (**Loop 85**). A **ativação inline** de definitions inactivas permanece documentada nos **[Loops 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado)** e **[79](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-79-fechado)**.
 
 ### Próximas melhorias não numeradas (produto)
 - ver [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace)
-- refinamentos após **Loop 86** entram no ledger como slices coerentes (Ralph), não como terceira fonte de roadmap
+- refinamentos após **Loop 87** (ou além) entram no ledger como slices coerentes (Ralph), não como terceira fonte de roadmap
 
 ---
 
@@ -1717,6 +1722,140 @@ Loop de **correção fina**: AI Builder previsível, bind alinhado ao risco, own
 
 ---
 
+<a id="loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional"></a>
+
+## Loop 87 — Especialistas operacionais: schemas reais, coleta de dados faltantes e contexto conversacional *(próximo slice oficial)*
+
+Esta secção fixa o **recorte de produto** e os critérios de aceite no plano mestre; a especificação de engenharia completa (blocos A–F, testes, gate, ordem sugerida) está no anexo [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md). O estado de execução e checklist vivem no [ledger — Loop 87](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-oficial).
+
+### Contexto e diagnóstico
+
+Após **Loops 82–86**, a onda **team planner + AI Builder** está estável; persistem falhas que impedem os **especialistas de negócio** de parecerem fiáveis em conversa real:
+
+| Problema | Detalhe |
+| --- | --- |
+| **Schema inválido (modo estrito)** | Tools de catálogo (`catalog_internal_actions`, etc.) com `properties` sem `required` alinhado — falha antes da invocação. |
+| **Stub vs ação real** | Builtin `internal_actions` / `catalog_internal_actions` compete com `internal_action` + `ws_*` ligadas a `actionId`. |
+| **Contrato fraco** | `WorkspaceToolDefinition` e presets com `jsonSchema` genérico; catálogo HTTP sem `inputSchema` rico. |
+| **Domínios concretos (ex.: CRM)** | O mesmo padrão de falha (listagens pouco naturais, estados de negócio em falta, cadastro sem elicitação) **replica-se** em finanças, care, agendamento, etc. quando o pack e os presets não estiverem alinhados ao contrato e à linguagem do utilizador. |
+| **Slot-filling** | Agente não pede obrigatórios de uma vez; runtime sem erro estruturado `MISSING_REQUIRED_FIELDS`. |
+| **Debug console** | Runs isolados — sem `conversationId` / histórico na invocação. |
+
+### Padrão multi-domínio (etapas)
+
+A revisão **não é só CRM**: é um **modelo em duas camadas**, repetível para cada área de negócio:
+
+| Etapa | O quê | Onde no roadmap |
+| --- | --- | --- |
+| **1 — Fundação transversal** | Schemas estritos das tools; desambiguação stub vs `internal_action`; presets + catálogo + definitions com contrato; slot-filling + erros estruturados; conversa de teste com histórico. | **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** (entrega também o **piloto CRM** no bloco D do anexo). |
+| **2 — Vertical por domínio** | Para cada pack (finanças, care, scheduling, …): acções e campos alinhados a pedidos naturais; listagens com filtros opcionais; estados de negócio necessários; presets e testes por domínio. | **[Loops 88+](#loops-88-mais-verticais-de-negócio-por-pack)** (um slice coerente por domínio ou grupo de packs — registar no ledger ao priorizar). |
+
+O **CRM** no Loop 87 serve como **primeira aplicação completa** do padrão; **não** esgota finanças nem care — estas seguem a mesma disciplina nas etapas seguintes ([detalhe](#loops-88-mais-verticais-de-negócio-por-pack)).
+
+### Objetivos
+
+1. Nenhuma function tool exposta ao modelo falha por schema inválido no modo estrito.  
+2. Caminho preferido para negócio: **`customToolDefinitionIds` → `ws_*` → `internal_action`**, não stub de catálogo.  
+3. **Presets + HTTP + definitions** com schema canónico por `actionId`; migração/refresh de definitions antigas genéricas.  
+4. **Piloto CRM** — listagem com filtros opcionais, `status` (ex.: active/inactive), cadastro com intenção clara (o mesmo critério aplica-se depois às outras verticais).  
+5. **Coleta guiada** — uma pergunta compacta com todos os campos em falta antes de executar escrita (transversal a domínios).  
+6. **Chat de teste** com identidade de conversa e histórico reutilizado pelo runtime.
+
+### Escopo
+
+**Incluído:** ver blocos A–F no anexo (schemas, planner/catalog tools, business-tool registry, **piloto** CRM no bloco D, prompts/runtime, `conversationId` + persistência de transcript no debug).
+
+**Fora:** redesign completo do AI Builder; reabrir ETAPA 8; billing; 2FA; self-service; **cobertura completa** de finanças/care/outros packs no mesmo PR — esses ficam para **Loops posteriores** com o mesmo recorte por domínio.
+
+### Implementação (síntese)
+
+- **A** — `build-specialist-sdk-tools.ts`, `build-workspace-custom-tools.ts`: args estritos (ex.: `query` obrigatória com `""` quando sem filtro).  
+- **B** — `planner-agent-catalog-tools.ts`, `available-tools.ts`, `catalog-tool-ids.ts`: não posicionar stub como caminho principal para packs de negócio.  
+- **C** — `business-action-presets.ts`, `business-tool-registry.ts`, rotas de catálogo, `ensure-planner-tool-definitions.ts` (+ refresh).  
+- **D** — modelo Party + `register-crm-pack.ts` + actions (`crm_list_parties`, etc.).  
+- **E** — prompts coordenador/especialista + `business-tool-runtime.ts` (`MISSING_REQUIRED_FIELDS`).  
+- **F** — `trigger-mapper-registry.ts`, `team-invocation.ts`, `team.routes`, `TeamDebugConsole`.
+
+### Critérios de aceite, testes e gate
+
+Conforme anexo Loop 87: testes indicados por ficheiro; `./scripts/ralph-loop-gate.sh` e `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh`; smoke do console de debug.
+
+### Restrições e ordem de trabalho
+
+Um único slice Ralph coerente; ordem sugerida no anexo (schemas → desambiguação → presets/definitions → CRM → slot-filling → conversa → testes → gate → atualizar plano + ledger ao **fechar**).
+
+### Resumo executivo
+
+Passar de “arquitectura pronta” para **especialistas utilizáveis** em tarefas reais: tools válidas, inputs compreensíveis, **piloto** CRM credível, padrão pronto a replicar em finanças/care/etc., e conversa de teste com memória.
+
+**Estado:** **planeado (próximo oficial)** — ledger: [Loop 87](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-oficial).
+
+---
+
+<a id="loops-88-mais-verticais-de-negócio-por-pack"></a>
+
+## Loops 88+ — Verticais de negócio por pack *(planeados; numerar ao abrir cada slice)*
+
+Após **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** (fundação transversal + piloto CRM), o roadmap continua com **slices Ralph numerados em sequência**, cada um fechando **operacionalidade conversacional** para um **domínio de negócio** (ou um **grupo de packs** só quando o recorte for inequivocamente um único fluxo).
+
+**Regra de nomenclatura:** **88, 89, 90…** atribuem-se **no momento da priorização** — ao abrir o ciclo, criar secção **Loop N (oficial, em aberto)** no [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md), anexo opcional `ralph-loop-NN-*.md` se o slice for grande, e linha na tabela de loops. **Não** fixar aqui qual pack é “obrigatoriamente” o 88; fixar **critérios** e **candidatos**.
+
+### Pré-requisito
+
+- **Loop 87 entregue** (schemas transversais, contratos em `internal_action`, slot-filling base, debug com contexto, piloto CRM). Sem isso, verticais adicionais continuam a acumular os mesmos erros transversais.
+
+### O que é um “Loop 88+”
+
+Um slice que, **para um ou mais `packId` relacionados**, entrega:
+
+| Pilar | Conteúdo |
+| --- | --- |
+| **Presets e catálogo** | `business-action-presets` + `GET /business-actions/catalog` com `inputSchema` / labels / exemplos úteis para **cada** `actionId` da vertical em foco. |
+| **Definitions** | `WorkspaceToolDefinition` (`internal_action`) alinhadas aos presets; refresh de definitions genéricas já existentes. |
+| **Modelo e repositório** | Campos e estados de negócio necessários (ex.: filtros, “ativos”, datas, estados de documento) para pedidos naturais do utilizador. |
+| **Actions / runtime** | Handlers coerentes: listagens com filtros opcionais e defaults; escritas com validação e **erros estruturados** (`MISSING_REQUIRED_FIELDS` ou equivalente). |
+| **Prompts** | Coordenador/especialista com regras de slot-filling **específicas** do domínio (uma pergunta compacta com o que falta). |
+| **Prova** | Testes por pack (`register-*-pack` ou equivalente), cenários de conversa no anexo do slice; gate Ralph. |
+
+É o **mesmo espírito** do bloco D do [Loop 87](ralph-loop-87-especialistas-operacionais.md), **sem** reabrir a fundação A–C/F exceto se surgir gap novo transversal (nesse caso: corrigir no loop corrente ou micro-slice, documentar no ledger).
+
+### Tamanho do slice
+
+- **Preferido:** **um pack** por loop — revisão completa de conversa + contratos + testes.
+- **Excepção:** **dois ou mais packs** no mesmo loop **só** com justificativa explícita no plano/ledger (ex.: fluxo único ponta a ponta que cruza packs); caso contrário, dividir.
+
+### Candidatos a vertical (alinhados a `packId` no código)
+
+Referência de `packId` em [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts). **Ordem de execução entre linhas não está fixa** — priorizar por impacto operacional, dependência de dados e risco.
+
+| `packId` | Foco de negócio (resumo) | Notas para o slice |
+| --- | --- | --- |
+| `crm` | Partes / clientes | **Coberto como piloto no Loop 87** — não repetir como 88 salvo extensão explícita (novas actions ou refinamentos). |
+| `care` | Sujeitos de cuidado, procura, resumo | Listagens e cadastro com linguagem natural; alinhar com CRM quando existir party. |
+| `services_sales` | Catálogo de serviços, vendas / pedidos | Consultas agregadas (“top serviços”, histórico) com parâmetros opcionais claros. |
+| `packages_encounters` | Pacotes, saldo, sessões | Semântica de “saldo”, venda a party, atendimentos — cuidado com parâmetros obrigatórios pouco óbvios. |
+| `clinical` | Anamnese, evolução, encontros | Fluxos longos; slot-filling forte; estados de encontro (abrir/fechar). |
+| `finance` | Contas a pagar/receber, atrasos, resumos | Linguagem “em atraso”, “total por pagador” com filtros e defaults. |
+| `reminders` | Lembretes por data, concluir, cancelar | UTC vs TZ do workspace — documentar no slice se for relevante. |
+| `scheduling` | Disponibilidade, compromissos, reagendar, falta, concluir | Pedidos naturais de agenda (“listar o dia”, “marcar falta”) — muitas actions; pode justificar **um loop só scheduling** ou subdividir em dois slices documentados. |
+| `github_ops` | PR, diff, comentário, issues | Dependência de integração GitHub; declarar stub vs operacional no encerramento. |
+| `platform` | Diagnóstico (`business.ping`, etc.) | Normalmente já coberto; vertical dedicada só se o produto exigir. |
+
+### Critérios de priorização (sugestão)
+
+1. **Volume de uso esperado** pelo tenant médio (CRM/care/finance/scheduling costumam competir no topo).  
+2. **Dependência:** ex.: care pode assumir CRM já sólido para ligação a party.  
+3. **Risco:** finanças e clínico exigem testes de borda fortes.  
+4. **Complexidade:** `scheduling` tem muitas actions — avaliar um loop único vs dois slices com entregas declaradas.
+
+### Documentação obrigatória ao abrir o Loop N (88+)
+
+1. Entrada na tabela de loops do [ledger](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md) com estado **em aberto**.  
+2. Secção neste plano mestre (ou referência a anexo) com: **objetivo**, **pack(s)**, **fora de escopo**, **critérios de aceite**, **testes**.  
+3. Actualizar [§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps) se o slice fechar sintomas para aquele domínio.
+
+---
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1755,6 +1894,8 @@ Loop de **correção fina**: AI Builder previsível, bind alinhado ao risco, own
 33. **Loop 84** — built-ins mínimas por inferência; remoção da rotação por índice em `planner-agent-catalog-tools` *(entregue; ver [Loop 84](#loop-84-built-ins-mínimas-por-papel--enforcement-por-workflow))*.
 34. **Loop 85** — UX AI Builder: preview estável, fingerprint de bind *(entregue; ver [Loop 85](#loop-85-ux-do-ai-builder-preview-estável-e-execute-fluido))*.
 35. **Loop 86** — AI Builder: execute fluido, bind proporcional, workflow ownership explícito *(entregue; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*.
+36. **Loop 87** — Especialistas operacionais: schemas reais, slot-filling, CRM utilizável, contexto no debug *(próximo oficial; ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) e [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md))*.
+37. **Loops 88+** — verticais por `packId` (care, finance, scheduling, …) *(planeados; numerar ao abrir cada slice; ver [Loops 88+](#loops-88-mais-verticais-de-negócio-por-pack))*.
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1784,6 +1925,8 @@ Loop de **correção fina**: AI Builder previsível, bind alinhado ao risco, own
 - **Loop 81:** **UX do AI Builder** — preview legível, tools resumidas, avançado recolhido; micro-etapas **H–K** — *entregue* ([Loop 81](#loop-81-ai-builder-ux-preview-simples))
 - **Loops 82–85:** onda **team planner + AI Builder** *(entregue)* — ver [P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)
 - **Loop 86:** refinamento **team planner + AI Builder** — execute, `requiresExplicitApproval`, unicidade de workflow sem mascarar duplicados, inferência conservadora *(entregue; ver [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito))*
+- **Loop 87:** **runtime dos especialistas** — schemas estritos, `internal_action` com contrato, CRM + slot-filling, conversa de teste com histórico *(próximo oficial; ver [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional))*
+- **Loops 88+:** **verticais por pack** — care, finance, scheduling, etc., um slice coerente por ciclo *(planeado; ver [Loops 88+](#loops-88-mais-verticais-de-negócio-por-pack))*
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.
@@ -1794,15 +1937,26 @@ Ela funciona como a macrofase seguinte para:
 - reduzir discrepâncias entre UI e backend
 - preparar o produto para uso real com menos atrito operacional
 
-**Fase actual (pós Loops 77–86):** a onda **team planner + AI Builder** (Loops **82–86**) está **fechada** — bind por agente, inferência mínima e conservadora, preview de bind estável, execute e aprovação proporcionais a `requiresExplicitApproval`, workflow único por especialista sem sufixos mascarados. **Paralelamente:** [14.8](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual (pós Loops 77–86):** a onda **team planner + AI Builder** (Loops **82–86**) está **fechada** — bind por agente, inferência mínima e conservadora, preview de bind estável, execute e aprovação proporcionais a `requiresExplicitApproval`, workflow único por especialista sem sufixos mascarados. **Próximo slice oficial numerado:** [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) (especialistas operacionais em runtime). **Paralelamente:** [14.8](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 ## 14.8 Riscos e decisões em aberto
 
+<a id="148-runtime-dominios-negocio-gaps"></a>
+
+### Gaps em runtime — domínios de negócio (finanças, care, CRM, …)
+
+Os sintomas descritos primeiro para **CRM** — schema de catálogo inválido, contrato fraco em `internal_action`, consultas/listagens pouco naturais, fluxos de escrita sem elicitação em lote — são **o mesmo tipo de gap** que pode aparecer em **finanças**, **cuidados (care)**, **agendamento** e outros packs: dependem de alinhar **tool design**, **presets**, **prompts** e **runtime** ao que o utilizador pede em linguagem natural.
+
+**Revisão em etapas (norma de produto):**
+
+1. **Fundação transversal** — válida para **todos** os domínios: function tools com JSON Schema aceite em modo estrito; caminho claro para `internal_action` real (sem confundir com stub de catálogo); catálogo HTTP e definitions com `inputSchema` útil; slot-filling e erros estruturados de campos em falta; chat de teste com contexto. **Slice oficial:** [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) — [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md).
+2. **Vertical por domínio** — repetir o mesmo rigor **pack a pack** (ações, estados de negócio, listagens com defaults sensatos, testes de conversa). O Loop 87 inclui o **piloto CRM**; finanças, care e restantes entram como **Loops 88+** — ver secção [Loops 88+ — verticais por pack](#loops-88-mais-verticais-de-negócio-por-pack) (candidatos, critérios de priorização, tamanho do slice).
+
 <a id="148-runtime-crm-clientes-gaps"></a>
 
-### Gaps observados em runtime — CRM / clientes (`internal_actions` e catálogo)
+### Exemplo detalhado — CRM / clientes (`internal_actions` e catálogo)
 
-Comportamento **observado** ao pedir a um agente operações sobre **clientes cadastrados** (domínio CRM / pack `crm` / tools de negócio), fora do team planner:
+Comportamento **observado** ao pedir a um agente operações sobre **clientes cadastrados** (domínio CRM / pack `crm` / tools de negócio), fora do team planner — **ilustrativo** do ponto 2 acima; outros domínios devem ser auditados com a mesma grelha:
 
 1. **Erro 400 — schema da function `catalog_internal_actions`**  
    Mensagem típica: `Invalid schema for function 'catalog_internal_actions'`. Detalhe técnico (API / modo strict de JSON Schema): o array `required` deve cobrir as chaves declaradas em `properties`; em cenários reportados faltava **`query`** em `required` face a `properties`, o que invalida o registo da tool antes da invocação.  
@@ -1814,7 +1968,7 @@ Comportamento **observado** ao pedir a um agente operações sobre **clientes ca
 
 3. **Cadastro de cliente — elicitação em lote**  
    Comportamento observado: o agente só **confirma** cadastro quando o utilizador já forneceu **todas** as informações necessárias.  
-   **Expectativa de produto:** o agente deve **reconhecer a intenção** (criar cliente), **identificar os campos obrigatórios** do fluxo e **perguntar de uma vez** (ou num único bloco estruturado) tudo o que falta, em vez de depender de entrada espontânea completa do utilizador. Isto exige combinação de **prompt de sistema**, eventual **tool design** (`internal_action` / `crm_*`) e UX de conversa — candidato a slice **Loop 87+** quando priorizado.
+   **Expectativa de produto:** o agente deve **reconhecer a intenção** (criar cliente), **identificar os campos obrigatórios** do fluxo e **perguntar de uma vez** (ou num único bloco estruturado) tudo o que falta, em vez de depender de entrada espontânea completa do utilizador. Isto exige combinação de **prompt de sistema**, **tool design** (`internal_action` / `crm_*`) e UX de conversa — previsto no [Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional) (blocos D e E do anexo).
 
 - o provider de billing ainda não está decidido
 - 2FA pode exigir slice próprio, caso o MVP mínimo de conta precise sair antes
@@ -1823,3 +1977,4 @@ Comportamento **observado** ao pedir a um agente operações sobre **clientes ca
 - tours contextuais exigem versionamento por tela e disciplina para não apontar para elementos condicionais ou layouts divergentes — **spotlight DOM** amplifica este risco; mitigação proposta no **Loop 72** (fallback obrigatório, piloto pequeno, ADR)
 - responsividade de tabelas densas pode exigir decisões explícitas sobre prioridade de colunas e versões mobile/tablet por rota — **Loop 71** cobre scroll; **Loop 73** cobre vista em **cards** onde fizer sentido; **Loops 74–76** planeados para **replicar** cards em `/governance`, `/tool-definitions` e `/templates` (ver secções dedicadas)
 - criação de times por IA: **Loops 77–78** (prompts + enforcement em API) e **Loop 80** (reparo automático no `POST` do planner quando há colisão de builtins entre especialistas); **Loop 81** (superfície do assistente mais simples — **entregue**; [§ estado actual](#sec-ux-ai-builder-estado-atual)); **Loops 82–86** — contrato por agente, bind per-agent, inferência mínima e conservadora, preview estável, execute/bind proporcional — **entregues** ([§ P0](#p0--foco-imediato-precisão-operacional-do-team-planner-e-ai-builder)); ver [§2.6 — seleção por domínio](#sec-selecao-ferramentas-dominio), [micro-etapas Ralph](#metodologia-ralph-criacao-times-ia), [Loop 80](#loop-80-planner-auto-repair-ia), [Loop 81](#loop-81-ai-builder-ux-preview-simples) e [Loop 86](#loop-86-ai-builder-destravar-execute-bind-review-proporcional-e-workflow-ownership-explícito)
+- especialistas em **runtime** (fundação transversal + piloto CRM; depois verticais por pack): **[Loop 87](#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional)** — **próximo slice oficial**; continuação **[Loops 88+](#loops-88-mais-verticais-de-negócio-por-pack)**; padrão multi-domínio: [§14.8 — gaps por domínio](#148-runtime-dominios-negocio-gaps); anexo [`ralph-loop-87-especialistas-operacionais.md`](ralph-loop-87-especialistas-operacionais.md)
