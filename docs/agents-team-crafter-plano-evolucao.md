@@ -740,18 +740,11 @@ A próxima grande evolução é:
 # 12. Próxima ação recomendada
 
 ## Próximo loop recomendado
-Após a entrega das ações em lote, reset rápido e diff final dos overrides do bind no AI Builder, o próximo loop recomendado é:
+A **ativação inline** de `tool definitions` inativas no preview do bind foi entregue no **[Loop 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado)** (`POST .../bind-enable-definitions`, cartões por definition, lote). O **[Loop 79](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-79-fechado)** completou o mesmo tema com **atalhos por agente/ação** no preview (checkbox bloqueado até reativar + botão **Ativar definition** na linha da ação).
 
-### Ativação inline de `tool definitions` inativas no preview
-- permitir ativar `internal_action` inativas diretamente a partir do preview do bind, sem sair do AI Builder
-- distinguir com clareza o que depende de criação, reuso ou apenas reativação de definition
-- refletir no preview e no feedback final quando uma definition foi reativada para destravar o bind
-- reduzir a ida e volta entre o AI Builder e a tela de `tool-definitions`
-
-### Justificativa
-- o Loop 50 reduziu a microgestão dos overrides, mas ainda sobra atrito quando o preview aponta definitions existentes porém inativas
-- reativação inline fecha o último gargalo operacional frequente do bind dentro do próprio AI Builder
-- isso torna o preview não só explicativo, mas também resolutivo para o caso mais comum de bloqueio operacional
+### Próximas melhorias não numeradas (produto)
+- ver [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace)
+- refinamentos de UX no AI Builder podem continuar como slices ad hoc documentados no ledger
 
 ---
 
@@ -1419,6 +1412,27 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 
 ---
 
+<a id="loop-79-ai-builder-bind-inactive-per-action"></a>
+
+## Loop 79 — AI Builder: atalhos por agente quando a definition está inativa
+
+### Objetivo
+
+Reduzir atrito quando o utilizador ajusta **overrides por agente** no preview de bind e encontra **definitions existentes mas inativas**: permitir **reativar na própria linha da ação** (além dos cartões globais e do lote já entregues no [Loop 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado)) e **bloquear o checkbox** até a reativação refletir no preview.
+
+### Foco (MVP)
+
+- Frontend: [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — para cada `actionId` em `actionIdsBlockedByDisabledDefinitions`, botão **Ativar definition** (chama o mesmo endpoint que o Loop 51) e checkbox desativado até a definition ficar ativa.
+- Sem alteração de contrato OpenAPI neste slice; reutiliza `POST /team-plans/:id/bind-enable-definitions`.
+
+### Critério de saída
+
+- O utilizador não precisa descartar o contexto do agente para reativar uma definition que bloqueia uma única ação.
+
+**Estado (ledger):** **entregue** — [`Loop 79 (fechado)`](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-79-fechado).
+
+---
+
 ## 14.6 Ordem recomendada
 1. Loop 52
 2. Loop 54
@@ -1449,6 +1463,7 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 25. **Loop 76** — tabela `md+` + cartões `<md` em **`/templates`** (entregue; ver [Loop 76](#loop-76-cards-templates)).
 26. **Loop 77** — prompts do planner: domínio, builtins e anti-duplicação (entregue; ver [Loop 77](#loop-77-planner-prompts-builtin-domain)).
 27. **Loop 78** — enforcement e UX contra ambiguidade de builtins de negócio (entregue; ver [Loop 78](#loop-78-enforcement-builtin-ambiguity)).
+28. **Loop 79** — AI Builder: atalhos por agente/ação com definition inativa no bind preview (entregue; ver [Loop 79](#loop-79-ai-builder-bind-inactive-per-action)).
 
 ### Justificativa
 - primeiro corrigir o truthfulness de `/settings`
@@ -1473,6 +1488,7 @@ Garantir que um plano **não** persista ou **não** avance para execução com *
 - **Loops 74–76:** expandir o **mesmo padrão** de cards (um Ralph Loop por rota: governança, tools do workspace, templates), mantendo paridade e documentação no ledger
 - **Loop 77:** endurecer instruções e exemplos do **team planner** para builtins por domínio e **sem** duplicação de IDs de negócio entre especialistas ([secção dedicada](#loop-77-planner-prompts-builtin-domain))
 - **Loop 78:** **validação e UX** quando o plano violar unicidade de builtins de negócio entre especialistas — entregue; alinhado à [metodologia de micro-etapas](#metodologia-ralph-criacao-times-ia)
+- **Loop 79:** completar o fluxo do [Loop 51](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-51-fechado) com **resolução por linha** no impacto por agente (definition inativa + override granular)
 
 ## 14.7 Recomendação final da ETAPA 9
 Esta etapa não substitui a ETAPA 8.

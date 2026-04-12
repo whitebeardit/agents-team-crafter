@@ -119,7 +119,7 @@ Slices futuros que toquem UI/UX devem declarar no ledger:
 | ETAPA 6 - agentes/times da plataforma                  | média-alta | concluído    | catálogo sistêmico inicial publicado                                                                     |
 | ETAPA 7 - governança, auditoria e rollout              | média      | concluído    | loops 5–16 concluídos                                                                                    |
 | ETAPA 8 - Business Tools Platform / Packs Multi-tenant | altíssima  | concluído    | Loops 17–51 entregues; ETAPA 8 encerrada; ETAPA 9 iniciada (Loop 52 entregue)                         |
-| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–78) | Loops 52–78 entregues (último: [Loop 78](#loop-78-fechado) — enforcement/UX de `catalogTools` de domínio entre especialistas; [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA e self-service: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| ETAPA 9 - Paridade de produção, configurações e operação | altíssima | concluída (52–79) | Loops 52–79 entregues (últimos: [Loop 78](#loop-78-fechado), [Loop 79](#loop-79-fechado); [plano mestre §2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio)); billing/2FA e self-service: ver **Próximo loop oficial** e [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 
 ---
@@ -694,6 +694,7 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | 76   | Listagens densas — cards em `/templates`                     | entregue (ver [Loop 76](#loop-76-fechado))                                                      |
 | 77   | Prompts do planner — domínio, builtin e anti-duplicação       | entregue (ver [Loop 77](#loop-77-fechado))                                                      |
 | 78   | Enforcement / UX — builtins de negócio sem ambiguidade       | entregue (ver [Loop 78](#loop-78-fechado))                        |
+| 79   | AI Builder — atalhos por agente com definition inativa (bind preview) | entregue (ver [Loop 79](#loop-79-fechado))                        |
 
 
 **Gate entre loops:** `./scripts/ralph-loop-gate.sh` (backend build + testes; opcional `RALPH_LOOP_INCLUDE_FRONTEND=1` para Next). E2E: `v0-team-ai-crafter` → `npm run test:e2e` (skipped sem `E2E_`*; não entra no gate por defeito).
@@ -702,15 +703,15 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice numerado fechado:** **Loop 78** — enforcement servidor + UX AI Builder para colisão de IDs de `catalogTools` de domínio entre especialistas (ver [Loop 78](#loop-78-fechado)).
+**Último slice numerado fechado:** **Loop 79** — atalhos no preview de bind por agente/ação quando a tool definition está inativa (checkbox bloqueado + **Ativar definition**; ver [Loop 79](#loop-79-fechado)); base API em [Loop 51](#loop-51-fechado).
 
-**Próximo slice numerado:** não há **Loop 79** definido no plano mestre; priorizar iniciativas de produto e operação em [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace). A [secção 12](agents-team-crafter-plano-evolucao.md#12-próxima-ação-recomendada) regista recomendações não numeradas (ex.: reativação inline de definitions no AI Builder).
+**Próximo slice numerado:** não há **Loop 80** no plano mestre; priorizar iniciativas em [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service de workspace).
 
 | Ordem | Loop | Tema | Plano mestre |
 | --- | --- | --- | --- |
-| — | *(não numerado)* | Ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) e [§12](agents-team-crafter-plano-evolucao.md#12-próxima-ação-recomendada) | — |
+| — | *(não numerado)* | Ver [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) | — |
 
-**Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas](#micro-etapas-ralph-criacao-times-ia); enforcement entregue em [Loop 78](#loop-78-fechado).
+**Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas](#micro-etapas-ralph-criacao-times-ia); enforcement em [Loop 78](#loop-78-fechado).
 
 **Regra Ralph:** um slice coerente por ciclo; fechar com gate (`./scripts/ralph-loop-gate.sh`, com `RALPH_LOOP_INCLUDE_FRONTEND=1` se tocar no Next), commit + push, depois atualizar tabela acima e a secção **Loop N (fechado)** abaixo.
 
@@ -1579,6 +1580,16 @@ Filtros por tab (**Todos / Whitebeard / Meus Templates**) aplicam-se à lista **
 - **Testes:** [`planner-specialist-catalog-uniqueness.test.ts`](../backend/src/modules/team-planning/domain/planner-specialist-catalog-uniqueness.test.ts) (unidade); [`team-plans.integration.test.ts`](../backend/src/__tests__/team-plans.integration.test.ts) (`POST /api/v1/team-plans` com mock OpenAI → 400).
 - **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (**218** testes backend + `next build`).
 - **referência no plano mestre:** [Loop 78](agents-team-crafter-plano-evolucao.md#loop-78-enforcement-builtin-ambiguity)
+
+<a id="loop-79-fechado"></a>
+
+## Loop 79 (fechado)
+
+- **etapa/prioridade:** ETAPA 9 (AI Builder / team plan) / média
+- **objetivo:** completar o fluxo do [Loop 51 (fechado)](#loop-51-fechado) quando o utilizador edita **overrides por agente**: reativar definitions inativas **na linha do `actionId`** (sem depender só dos cartões de Tool definitions ou do botão em lote).
+- **Frontend:** [`team-ai-builder.tsx`](../v0-team-ai-crafter/components/teams/team-ai-builder.tsx) — para `actionId` em `actionIdsBlockedByDisabledDefinitions`: checkbox desativado até o preview refletir definition ativa; botão **Ativar definition** chama `POST /team-plans/:id/bind-enable-definitions` (mesmo endpoint do Loop 51).
+- **Gate:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` (testes backend inalterados neste slice; `next build` obrigatório).
+- **referência no plano mestre:** [Loop 79](agents-team-crafter-plano-evolucao.md#loop-79-ai-builder-bind-inactive-per-action)
 
 ---
 

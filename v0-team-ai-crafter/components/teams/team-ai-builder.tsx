@@ -1077,19 +1077,40 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                                 <div className="space-y-2">
                                   {agent.actionIdsCandidate.map((actionId) => {
                                     const checked = agent.actionIdsToLink.includes(actionId)
+                                    const blockedByInactiveDefinition =
+                                      agent.actionIdsBlockedByDisabledDefinitions.includes(actionId)
                                     return (
                                       <label
                                         key={`${agent.planAgentKey}-${actionId}`}
-                                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                                        className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
                                       >
                                         <Checkbox
                                           checked={checked}
-                                          disabled={!agent.effectiveBindEnabled || isBindPreviewLoading || isBindOverrideSaving}
+                                          disabled={
+                                            !agent.effectiveBindEnabled ||
+                                            isBindPreviewLoading ||
+                                            isBindOverrideSaving ||
+                                            blockedByInactiveDefinition
+                                          }
                                           onCheckedChange={(nextChecked) =>
                                             void updateAgentActionOverride(agent, actionId, Boolean(nextChecked))
                                           }
                                         />
                                         <code className="text-xs">{actionId}</code>
+                                        {blockedByInactiveDefinition ? (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="secondary"
+                                            className="h-7 text-xs"
+                                            onClick={() => void enableBindDefinitionsInline([actionId])}
+                                            disabled={
+                                              isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan
+                                            }
+                                          >
+                                            Ativar definition
+                                          </Button>
+                                        ) : null}
                                       </label>
                                     )
                                   })}
@@ -1120,9 +1141,10 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                               </p>
                             ) : null}
                             {agent.actionIdsBlockedByDisabledDefinitions.length > 0 ? (
-                              <p className="text-sm text-amber-500">
-                                Definitions inativas:{" "}
-                                {agent.actionIdsBlockedByDisabledDefinitions.map((actionId) => `\`${actionId}\``).join(", ")}
+                              <p className="text-xs text-muted-foreground">
+                                Com definition inativa, o checkbox fica bloqueado ate reativar com{" "}
+                                <strong>Ativar definition</strong> na linha acima (ou nos cartoes de Tool definitions /
+                                botao em lote).
                               </p>
                             ) : null}
                           </div>
