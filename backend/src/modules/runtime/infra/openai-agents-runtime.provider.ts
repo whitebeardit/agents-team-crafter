@@ -12,14 +12,67 @@ import { formatAgentUserMessage } from '../application/format-agent-user-message
 import { buildCapabilityCatalogTools, buildMcpSdkTools } from '../application/build-specialist-sdk-tools.js';
 import { buildWorkspaceCustomTools } from '../application/build-workspace-custom-tools.js';
 
-function mapNewItemsToEvents(result: { newItems?: unknown[] }): IAgentRunResult['events'] {
+function parseToolOutputPayload(output: unknown): { ok: boolean; errorCode?: string; detail?: string } | null {
+  if (typeof output !== 'string') return null;
+  const trimmed = output.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      ok?: unknown;
+      errorCode?: unknown;
+      error?: unknown;
+      result?: unknown;
+    };
+    if (typeof parsed.ok !== 'boolean') return null;
+    if (parsed.ok) return { ok: true };
+    const detailCandidate =
+      typeof parsed.error === 'string'
+        ? parsed.error
+        : typeof (parsed.result as { message?: unknown } | undefined)?.message === 'string'
+          ? String((parsed.result as { message?: unknown }).message)
+          : undefined;
+    return {
+      ok: false,
+      errorCode: typeof parsed.errorCode === 'string' ? parsed.errorCode : undefined,
+      detail: detailCandidate,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function mapNewItemsToEvents(result: { newItems?: unknown[] }): IAgentRunResult['events'] {
   const items = result.newItems ?? [];
   const events: IAgentRunResult['events'] = [];
+  const byCallId = new Map<string, number>();
   for (const item of items) {
-    const t = item as { type?: string; rawItem?: { type?: string; name?: string; callId?: string } };
+    const t = item as {
+      type?: string;
+      rawItem?: { type?: string; name?: string; callId?: string; output?: unknown };
+    };
     if (t.type === 'tool_call_item' || t.rawItem?.type === 'function_call') {
       const name = t.rawItem?.name ?? 'tool';
-      events.push({ type: 'toolResult', tool: name, status: 'success' });
+      const evIndex = events.push({ type: 'toolResult', tool: name, status: 'success' }) - 1;
+      if (t.rawItem?.callId) byCallId.set(t.rawItem.callId, evIndex);
+      continue;
+    }
+
+    if (t.rawItem?.type === 'function_call_output' && t.rawItem.callId) {
+      const evIndex = byCallId.get(t.rawItem.callId);
+      if (evIndex === undefined) continue;
+      const parsed = parseToolOutputPayload(t.rawItem.output);
+      if (!parsed) continue;
+      if (!parsed.ok) {
+        const current = events[evIndex];
+        if (current?.type === 'toolResult') {
+          events[evIndex] = {
+            ...current,
+            status: 'error',
+            ...(parsed.errorCode ? { errorCode: parsed.errorCode } : {}),
+            ...(parsed.detail ? { detail: parsed.detail } : {}),
+          };
+        }
+      }
     }
   }
   return events;

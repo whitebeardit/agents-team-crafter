@@ -47,11 +47,20 @@ export function buildTeamRunNarrativeLines(
         const tool = ev.tool?.trim()
         const ok = ev.status === "success"
         const err = ev.errorCode ? ` (${ev.errorCode})` : ""
+        const hint =
+          ev.errorCode === "MISSING_REQUIRED_FIELDS"
+            ? " Verifique campos obrigatórios e reenviar uma única vez com os dados faltantes."
+            : ev.errorCode === "EXECUTION_ERROR"
+              ? " Falha de execução: confirme se é transitória antes de tentar novamente."
+              : ev.errorCode === "UNKNOWN_ACTION"
+                ? " Action não reconhecida: use uma alternativa válida."
+                : ""
+        const detail = ev.detail?.trim() ? ` Detalhe: ${truncate(ev.detail, 180)}.` : ""
         lines.push({
           kind: "step",
           text: tool
-            ? `Tool \`${tool}\`: ${ok ? "concluída" : "falhou"}${err}.`
-            : `Resultado de tool: ${ok ? "ok" : "falhou"}${err}.`,
+            ? `Tool \`${tool}\`: ${ok ? "concluída" : "falhou"}${err}.${detail}${hint}`
+            : `Resultado de tool: ${ok ? "ok" : "falhou"}${err}.${detail}${hint}`,
         })
         break
       }

@@ -67,7 +67,12 @@ export function buildWorkspaceCustomTools(
               correlationId: meta.correlationId,
               detail: r.ok ? undefined : { error: r.error },
             });
-            return JSON.stringify(r.result ?? { ok: r.ok, error: r.error });
+            return JSON.stringify({
+              ok: r.ok,
+              error: r.error,
+              errorCode: r.errorCode,
+              result: r.result,
+            });
           },
         }),
       );

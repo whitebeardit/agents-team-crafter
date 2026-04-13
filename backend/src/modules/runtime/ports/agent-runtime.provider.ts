@@ -52,6 +52,7 @@ export type TRuntimeEvent =
       tool: string;
       status: 'success' | 'error';
       errorCode?: string;
+      detail?: string;
       agentId?: string;
     };
 

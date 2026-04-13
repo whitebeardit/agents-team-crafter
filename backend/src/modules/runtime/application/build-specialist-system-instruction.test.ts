@@ -18,6 +18,10 @@ describe('buildSpecialistSystemInstruction', () => {
     expect(text).toContain('## Skills tags');
     expect(text).toContain('sql, ux');
     expect(text).toContain('read');
+    expect(text).toContain('## Tool contract policy (Loop 98.5)');
+    expect(text).toContain('MISSING_REQUIRED_FIELDS');
+    expect(text).toContain('EXECUTION_ERROR');
+    expect(text).toContain('UNKNOWN_ACTION');
   });
 
   it('appends knowledge appendix when provided', () => {
