@@ -38,7 +38,7 @@ describe('binding 1:1 channelId em times ativos', () => {
     await mongoose.connect(env.MONGODB_URI);
 
     const passwordHash = await bcrypt.hash('secret', 10);
-    const ws = await WorkspaceModel.create({ name: 'BindWs', plan: 'free' });
+    const ws = await WorkspaceModel.create({ name: 'BindWs', plan: 'pro' });
     workspaceId = ws._id.toString();
     const u = await UserModel.create({
       email: 'bind@test.com',

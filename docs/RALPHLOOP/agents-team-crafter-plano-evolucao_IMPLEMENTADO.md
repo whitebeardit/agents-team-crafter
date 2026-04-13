@@ -12,7 +12,7 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–94** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)), **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)), **runs legíveis / troubleshooting** (**93** — [Loop 93 fechado](#loop-93-fechado)) e **templates operacionais / cenários dourados** (**94** — [Loop 94 fechado](#loop-94-fechado)). **Próximo slice oficial em aberto:** [Loop 98.1](#loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools) — norma transversal de contrato de tools; ver [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md). **Loop 95** permanece candidato de polimento UX operacional. **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–94** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)), **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)), **runs legíveis / troubleshooting** (**93** — [Loop 93 fechado](#loop-93-fechado)) e **templates operacionais / cenários dourados** (**94** — [Loop 94 fechado](#loop-94-fechado)). Na frente transversal de contrato de tools, **Loops 98.1–98.9** estão **fechados** ([98.1](#loop-981-fechado--norma-oficial-de-contrato-de-tools), [98.2](#loop-982-fechado--pipeline-canónico-do-boundary-da-tool), [98.3](#loop-983-fechado--observabilidade-obrigatória-do-contrato), [98.4](#loop-984-fechado--retry-seguro-e-limitado), [98.5](#loop-985-fechado--contrato-explícito-de-prompts-alinhado-ao-runtime), [98.6](#loop-986-fechado--biblioteca-de-normalização-por-actionid), [98.7](#loop-987-fechado--matriz-de-segurança-por-actionid), [98.8](#loop-988-fechado--debug-conversacional-e-ux-de-incidente), [98.9](#loop-989-fechado--regressão-mínima-por-pack)). **Próximo slice oficial em aberto:** verticais de negócio em **Loops 96+** (a numerar por `packId` prioritário). **Loop 95** permanece candidato de polimento UX operacional. **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 
 **Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
@@ -782,11 +782,11 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 # Próximo loop oficial
 
-**Último slice oficial fechado:** **[Loop 94](#loop-94-fechado)** — **Templates operacionais:** campos `validationSteps`, `goldenPrompts`, `expectedOutcome` no modelo e API; UI no diálogo «Aplicar template» ([`templates/page.tsx`](../../v0-team-ai-crafter/app/(app)/templates/page.tsx)); seed em [`seed-demo.ts`](../../backend/scripts/seed-demo.ts); após aplicar, redirect para **`/teams/:id?tab=debug`**.
+**Último slice oficial fechado:** **[Loop 98.9](#loop-989-fechado--regressão-mínima-por-pack)** — regressão mínima por pack com cenário feliz por vertical prioritária.
 
-**Penúltimo slice fechado:** **[Loop 93](#loop-93-fechado)** — runs legíveis (ficha do time + lista global `/runs` com filtros).
+**Penúltimo slice fechado:** **[Loop 98.8](#loop-988-fechado--debug-conversacional-e-ux-de-incidente)** — debug conversacional e UX de incidente.
 
-**Próximo slice oficial (aberto):** **[Loop 98.1](#loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools)** — norma oficial de produto/engenharia para endurecimento de contrato de tools (transversal). Mantém-se [Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação) como candidato de UX operacional e as verticais por `packId` em **[96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack)**.
+**Próximo slice oficial (aberto):** **Loops 96+ por vertical de pack** — priorizar domínio e numerar o próximo ciclo (ex.: care/finance/scheduling). Mantém-se [Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação) como candidato de UX operacional.
 
 | Ordem | Tema | Plano mestre / anexo |
 | --- | --- | --- |
@@ -799,8 +799,16 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 | **7** | **Loop 93** — runs legíveis / troubleshooting *(fechado)* | [plano §93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido), [ledger](#loop-93-fechado) |
 | **8** | **Loop 94** — templates operacionais / cenários dourados *(fechado)* | [plano §94](agents-team-crafter-plano-evolucao.md#loop-94--templates-operacionais-e-cenários-dourados-de-validação), [ledger](#loop-94-fechado) |
 | **9** | **Loop 95** — polimento UI operacional *(candidato)* | [plano §95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
-| **10** | **Loop 98** — endurecimento de contrato de tools *(oficial, em aberto no slice 98.1)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [plano §Loops 96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack), [ledger §Loop 98.1](#loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools) |
-| **11+** | **Loops 96+** — verticais por pack | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
+| **10** | **Loop 98.1** — norma oficial de contrato de tools *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.1](#loop-981-fechado--norma-oficial-de-contrato-de-tools) |
+| **11** | **Loop 98.2** — pipeline canónico do boundary *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.2](#loop-982-fechado--pipeline-canónico-do-boundary-da-tool) |
+| **12** | **Loop 98.3** — observabilidade obrigatória *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.3](#loop-983-fechado--observabilidade-obrigatória-do-contrato) |
+| **13** | **Loop 98.4** — retry seguro e limitado *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.4](#loop-984-fechado--retry-seguro-e-limitado) |
+| **14** | **Loop 98.5** — contrato explícito de prompts *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.5](#loop-985-fechado--contrato-explícito-de-prompts-alinhado-ao-runtime) |
+| **15** | **Loop 98.6** — biblioteca de normalização por `actionId` *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.6](#loop-986-fechado--biblioteca-de-normalização-por-actionid) |
+| **16** | **Loop 98.7** — matriz de segurança por `actionId` *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.7](#loop-987-fechado--matriz-de-segurança-por-actionid) |
+| **17** | **Loop 98.8** — debug conversacional e UX de incidente *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.8](#loop-988-fechado--debug-conversacional-e-ux-de-incidente) |
+| **18** | **Loop 98.9** — regressão por pack *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.9](#loop-989-fechado--regressão-mínima-por-pack) |
+| **19+** | **Loops 96+** — verticais por pack *(oficial, em aberto)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
 | *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
@@ -2006,17 +2014,422 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 - [x] Critérios do plano (validação + prompts + comportamento esperado) reflectidos em dados e UI.
 - [x] Gate: `npm run build` backend + `npm run build` frontend.
 
-<a id="loop-981-oficial-em-aberto--norma-oficial-de-contrato-de-tools"></a>
+<a id="loop-981-fechado--norma-oficial-de-contrato-de-tools"></a>
 
-## Loop 98.1 (oficial, em aberto) — Norma oficial de contrato de tools
+## Loop 98.1 (fechado) — Norma oficial de contrato de tools
 
 - **Etapa / prioridade:** ETAPA 9 / alta (transversal de runtime e produto).
-- **Objetivo do slice:** registrar formalmente que **prompt-only não garante contrato**; a garantia vem de schema canónico + normalização controlada + validação estrita + retry seguro + observabilidade.
+- **Objetivo do slice:** registar formalmente que **prompt-only não garante contrato**; a garantia vem de schema canónico + normalização controlada + validação estrita + retry seguro + observabilidade.
 - **Referências cruzadas:** [Loop 87](#loop-87-fechado) (fundação) e [Loop 97](ralph-loop-97-garantia-schema-crm-displayname.md) (caso CRM `displayName`).
 - **Documento base:** [`ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md`](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md).
 - **Critério de saída:** posição oficial inequívoca no `docs/RALPHLOOP` + roadmap 98.1→98.9 explícito e auditável no plano/ledger.
 
-**Próximo slice recomendado após 98.1:** **98.2 — pipeline canónico do boundary da tool**.
+### Entregas (resumo)
+
+- Norma oficial consolidada no anexo do Loop 98 e referenciada no ledger como frente transversal.
+
+### Checklist (fechado)
+
+- [x] Regra explícita: contrato garantido pelo sistema (não só por prompts).
+- [x] Referências cruzadas com Loops 87 e 97.
+
+<a id="loop-982-fechado--pipeline-canónico-do-boundary-da-tool"></a>
+
+## Loop 98.2 (fechado) — Pipeline canónico do boundary da tool
+
+- **Objetivo do slice:** formalizar no runtime a sequência canónica `rawInput` → normalização por `actionId` → validação estrita → execução.
+
+### Entregas (resumo)
+
+- [`business-tool-runtime.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime.ts) passou a preservar explicitamente `rawInput`, `normalizedInput` e `submittedInput` em todos os ramos (`UNKNOWN_ACTION`, `MISSING_REQUIRED_FIELDS`, sucesso, `EXECUTION_ERROR`), com `validationResult` coerente por estágio.
+
+### Checklist (fechado)
+
+- [x] Boundary canónico aplicado no runtime por `actionId`.
+- [x] Cobertura unitária de contrato no runtime.
+
+<a id="loop-983-fechado--observabilidade-obrigatória-do-contrato"></a>
+
+## Loop 98.3 (fechado) — Observabilidade obrigatória do contrato
+
+- **Objetivo do slice:** padronizar trilha mínima de diagnóstico para falhas de contrato de tools.
+
+### Entregas (resumo)
+
+- [`business-tool-audit.repository.ts`](../../backend/src/modules/business-tools/infra/business-tool-audit.repository.ts) e [`business-tool-audit.model.ts`](../../backend/src/modules/business-tools/infra/business-tool-audit.model.ts) agora persistem previews por etapa (`rawInputPreview`, `normalizedInputPreview`, `submittedInputPreview`), `missingFields` e `validationResultPreview`.
+- [`business-tool-runtime.test.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime.test.ts) reforça asserções para payload auditado nos cenários de sucesso, validação, normalização e ação desconhecida.
+
+### Checklist (fechado)
+
+- [x] Trilha observável por etapa no audit.
+- [x] Testes unitários alinhados ao contrato.
+
+<a id="loop-984-fechado--retry-seguro-e-limitado"></a>
+
+## Loop 98.4 (fechado) — Retry seguro e limitado
+
+- **Objetivo do slice:** bloquear retry cego de `EXECUTION_ERROR` e permitir retry apenas quando houver diagnóstico de erro transitório e ação idempotente/retry-safe.
+
+### Entregas (resumo)
+
+- [`business-tool-runtime.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime.ts) agora executa com no máximo **1 retry adicional** (`MAX_SAFE_EXECUTION_RETRIES = 1`) somente quando:
+  - o `actionId` é classificado como **retry-safe** (ações de leitura/listagem/sumário e `business.ping`);
+  - a mensagem de erro combina com padrão de **transiente** (`timeout`, `429`, `503`, `econnreset`, etc.).
+- Tentativas com retry passam a ser auditadas com `errorCode: EXECUTION_RETRY`; falha final segue como `EXECUTION_ERROR` com metadados de decisão de retry no payload auditado.
+- [`business-tool-runtime.test.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime.test.ts) cobre:
+  - retry único para ação retry-safe com erro transitório;
+  - ausência de retry para ação não retry-safe, mesmo com erro transitório.
+
+### Checklist (fechado)
+
+- [x] Retry limitado e orientado por diagnóstico.
+- [x] Sem retry automático para `UNKNOWN_ACTION` e `MISSING_REQUIRED_FIELDS` (continua bloqueado no boundary antes da execução).
+- [x] Cobertura unitária do ramo de retry.
+
+<a id="loop-985-fechado--contrato-explícito-de-prompts-alinhado-ao-runtime"></a>
+
+## Loop 98.5 (fechado) — Contrato explícito de prompts alinhado ao runtime
+
+- **Objetivo do slice:** ajustar os prompts de especialistas para colaborar com o boundary endurecido, deixando explícito que prompt sozinho não garante contrato.
+
+### Entregas (resumo)
+
+- [`build-specialist-system-instruction.ts`](../../backend/src/modules/runtime/application/build-specialist-system-instruction.ts) passou a anexar a secção **Tool contract policy (Loop 98.5)** com regras explícitas para:
+  - confirmar obrigatórios antes de chamar tool de negócio;
+  - tratar `MISSING_REQUIRED_FIELDS` usando `missingFields` + `submittedInput` (sem repetir payload inválido);
+  - proibir retry cego em `EXECUTION_ERROR`;
+  - não repetir `UNKNOWN_ACTION` e orientar alternativa.
+- [`build-specialist-system-instruction.test.ts`](../../backend/src/modules/runtime/application/build-specialist-system-instruction.test.ts) ganhou asserções para garantir a presença dessas regras no texto final.
+
+### Checklist (fechado)
+
+- [x] Prompt reforça que runtime é a fonte de verdade do contrato.
+- [x] Sem linguagem de “garantia mágica” por prompt-only.
+- [x] Teste unitário cobre a política de contrato no prompt.
+
+<a id="loop-986-fechado--biblioteca-de-normalização-por-actionid"></a>
+
+## Loop 98.6 (fechado) — Biblioteca de normalização por `actionId`
+
+- **Objetivo do slice:** substituir normalização pontual por uma biblioteca explícita de regras por action, com aliases permitidos e testes por ação.
+
+### Entregas (resumo)
+
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts) evoluiu para uma biblioteca de regras `ACTION_FIELD_NORMALIZATION_RULES` indexada por `actionId`.
+- Regras de alias `displayName` passaram a cobrir `crm_create_party` **e** `crm_update_party`.
+- Normalização permanece **controlada por action**: sem fallback heurístico genérico para actions sem regra.
+- Novo teste dedicado [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) cobre alias por ação, casos sem regra e inputs não-objeto.
+
+### Checklist (fechado)
+
+- [x] Biblioteca de regras por `actionId` implementada.
+- [x] Aliases e transformações simples testados por ação.
+- [x] Sem normalização automática fora da matriz explícita de regras.
+
+<a id="loop-987-fechado--matriz-de-segurança-por-actionid"></a>
+
+## Loop 98.7 (fechado) — Matriz de segurança por `actionId`
+
+- **Objetivo do slice:** classificar ações por segurança de normalização (Classe A/B/C), limitando auto-normalização apenas aos casos seguros.
+
+### Entregas (resumo)
+
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts) agora define `TActionNormalizationSafetyClass` e `ACTION_NORMALIZATION_CONFIGS` com `safetyClass` por ação.
+- Política aplicada no runtime de normalização:
+  - **Classe A**: auto-normalização permitida.
+  - **Classe B/C**: sem auto-normalização por omissão (exige política explícita futura).
+- Exposição de `getActionNormalizationSafetyClass(actionId)` para inspeção e testes.
+- [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) cobre comportamento por classe (`A`, `B`, `C`) e valida que classe `B` não auto-normaliza por padrão.
+
+### Checklist (fechado)
+
+- [x] Matriz de segurança por ação implementada.
+- [x] Classe A/B/C aplicada na decisão de auto-normalização.
+- [x] Cobertura unitária da classificação e comportamento por classe.
+
+<a id="loop-988-fechado--debug-conversacional-e-ux-de-incidente"></a>
+
+## Loop 98.8 (fechado) — Debug conversacional e UX de incidente
+
+- **Objetivo do slice:** tornar falhas de tools legíveis no console/debug com narrativa orientada a incidente (código + detalhe + próximo passo sugerido).
+
+### Entregas (resumo)
+
+- [`openai-agents-runtime.provider.ts`](../../backend/src/modules/runtime/infra/openai-agents-runtime.provider.ts) passa a mapear `function_call_output` para atualizar eventos `toolResult` com `status: error`, `errorCode` e `detail` quando o output JSON da tool indica falha (`ok: false`).
+- [`build-workspace-custom-tools.ts`](../../backend/src/modules/runtime/application/build-workspace-custom-tools.ts) passou a devolver envelope canónico de output para `internal_action` (`ok`, `error`, `errorCode`, `result`) para diagnóstico consistente.
+- [`team-debug-narrative.ts`](../../v0-team-ai-crafter/components/teams/team-debug-narrative.ts) ganhou narrativa de incidente com hints por `errorCode` (`MISSING_REQUIRED_FIELDS`, `EXECUTION_ERROR`, `UNKNOWN_ACTION`) e detalhe truncado amigável.
+- Novo teste [`openai-agents-runtime.provider.test.ts`](../../backend/src/modules/runtime/infra/openai-agents-runtime.provider.test.ts) valida mapeamento de erro de tool para evento `toolResult` com `errorCode`.
+
+### Checklist (fechado)
+
+- [x] Erros de tool chegam ao debug com código e detalhe.
+- [x] Narrativa de incidente orienta próxima ação sem expor JSON cru ao utilizador final.
+- [x] Cobertura unitária do mapeamento de output de tool para evento.
+
+<a id="loop-989-fechado--regressão-mínima-por-pack"></a>
+
+## Loop 98.9 (fechado) — Regressão mínima por pack
+
+- **Objetivo do slice:** garantir um teste mínimo de boundary/runtime para verticais prioritárias de negócio, evitando regressão silenciosa ao evoluir contrato de tools.
+
+### Entregas (resumo)
+
+- Novo teste [`business-tool-runtime-pack-regression.test.ts`](../../backend/src/modules/business-tools/application/business-tool-runtime-pack-regression.test.ts) com cenário feliz por pack prioritário:
+  - CRM (`crm_create_party`)
+  - Care (`care_create_subject`)
+  - Finance (`finance_create_payable`)
+  - Reminders (`schedule_create_reminder`)
+  - Scheduling (`schedule_create_appointment`)
+- O teste valida presença de `packId` no preset e execução `ok` via `BusinessToolRuntime` para cada vertical coberta.
+
+### Checklist (fechado)
+
+- [x] Regressão mínima multi-pack adicionada no backend.
+- [x] Cobertura explícita para CRM, Care, Finance, Reminders e Scheduling.
+- [x] Gate com build + testes verdes.
+
+**Próximo slice recomendado após 98.9:** **Loop 99 — vertical Scheduling/Reminders (contrato explícito + aliases seguros)**.
+
+<a id="loop-99-fechado--vertical-scheduling-contrato-explicito-e-normalizacao-segura"></a>
+
+## Loop 99 (fechado) — Vertical Scheduling: contrato explícito + normalização segura
+
+- **Objetivo do slice:** executar o próximo recorte 96+ por `packId` com foco em `scheduling`/`reminders`, reduzindo falhas por payload incompleto e aliases naturais não reconhecidos.
+
+### Entregas (resumo)
+
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts) recebeu `inputSchema` explícito para ações de lembretes e agenda:
+  - reminders: `schedule_create_reminder`, `schedule_list_reminders_by_date`, `schedule_mark_reminder_done`, `schedule_cancel_reminder`;
+  - scheduling: `schedule_set_availability`, `schedule_create_appointment`, `schedule_reschedule_appointment`, `schedule_cancel_appointment`, `schedule_delete_appointment`, `schedule_confirm_appointment`, `schedule_mark_no_show`, `schedule_complete_appointment`, `schedule_list_agenda_by_date`, `schedule_get_availability`.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts) adicionou normalização classe **A** para aliases seguros no domínio de agenda:
+  - `startAt`/`inicio` → `startsAt`; `endAt`/`fim` → `endsAt`;
+  - `customerId`/`clientId` → `partyId`;
+  - `day`/`dia` → `date`;
+  - `reminderAt` → `remindAt`.
+- Nova cobertura de regressão:
+  - [`business-action-presets.scheduling.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.scheduling.test.ts);
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) para aliases de scheduling.
+
+### Checklist (fechado)
+
+- [x] Ações de Scheduling/Reminders publicam contrato de entrada explícito em presets.
+- [x] Normalização por `actionId` cobre aliases naturais de agenda sem heurística genérica.
+- [x] Cobertura de testes dedicada para schema + normalização da vertical.
+
+**Próximo slice recomendado após o Loop 99:** **Loop 100 — vertical Finance (contrato explícito das ações restantes + aliases seguros mínimos)**.
+
+<a id="loop-100-fechado--vertical-finance-contrato-explicito-e-normalizacao-segura"></a>
+
+## Loop 100 (fechado) — Vertical Finance: contrato explícito + normalização segura
+
+- **Objetivo do slice:** fechar o próximo recorte por `packId` na vertical `finance`, removendo contratos implícitos nas ações de baixa e agregados.
+
+### Entregas (resumo)
+
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts):
+  - adiciona `inputSchema` explícito com `required` para:
+    - `finance_mark_receivable_paid` (`receivableId`);
+    - `finance_mark_payable_paid` (`payableId`);
+  - adiciona schema explícito de objeto vazio (`required: []`) para ações read-only sem parâmetros:
+    - `finance_list_overdue_receivables`,
+    - `finance_list_overdue_payables`,
+    - `finance_total_receivable_by_payer`,
+    - `finance_total_payable_by_destination`.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - normalização classe **A** para aliases seguros em:
+    - `finance_mark_receivable_paid` (`id`/`tituloId` → `receivableId`);
+    - `finance_mark_payable_paid` (`id`/`tituloId` → `payableId`);
+    - `finance_customer_financial_summary` (`customerId`/`clientId` → `partyId`).
+- Cobertura de regressão:
+  - novo [`business-action-presets.finance.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.finance.test.ts);
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) para aliases de finance.
+
+### Checklist (fechado)
+
+- [x] Ações financeiras de baixa e agregados publicam contrato explícito no catálogo.
+- [x] Aliases naturais em ações financeiras críticas foram normalizados por `actionId`.
+- [x] Testes unitários cobrem contratos e normalização da vertical.
+
+**Próximo loop em aberto recomendado após o Loop 100:** **Loop 101 — vertical Care (normalização segura de `subjectKind` + robustez semântica)**.
+
+<a id="loop-101-fechado--vertical-care-normalizacao-semantica-de-subjectkind"></a>
+
+## Loop 101 (fechado) — Vertical Care: normalização semântica de `subjectKind`
+
+- **Objetivo do slice:** reduzir falhas por variação natural de idioma no `care` pack, normalizando de forma determinística valores de tipo de sujeito (`subjectKind`) no boundary.
+
+### Entregas (resumo)
+
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - `TActionFieldNormalizationRule` passou a suportar `valueAliases` por regra;
+  - nova tabela `CARE_SUBJECT_KIND_VALUE_ALIASES` para mapear valores naturais:
+    - `humano`/`pessoa` → `human`;
+    - `pet` → `animal`;
+    - `psicologico`/`psicológico`/`psiquico` → `psych`.
+  - regras de `care_create_subject` e `care_update_subject` aplicam normalização de valor em `subjectKind`.
+- [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts):
+  - cenário de criação com `tipo: "humano"` normalizando para `subjectKind: "human"`;
+  - cenário de atualização com `kind: "pet"` normalizando para `subjectKind: "animal"`.
+
+### Checklist (fechado)
+
+- [x] Normalização do `care` cobre sinónimos frequentes de `subjectKind`.
+- [x] Mapeamento é explícito por `actionId` e sem heurística genérica.
+- [x] Testes unitários cobrem os novos caminhos de normalização semântica.
+
+**Próximo loop em aberto recomendado após o Loop 101:** **Loop 102 — vertical Clinical (contrato explícito das actions clínicas + aliases seguros mínimos)**.
+
+<a id="loop-102-fechado--vertical-clinical-contrato-explicito-e-normalizacao-segura"></a>
+
+## Loop 102 (fechado) — Vertical Clinical: contrato explícito + normalização segura
+
+- **Objetivo do slice:** fechar a vertical `clinical` com contratos explícitos no catálogo e normalização canónica de aliases por `actionId`.
+
+### Entregas (resumo)
+
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts):
+  - `inputSchema` + `requiredFieldLabels` para:
+    - `clinical_create_anamnesis`,
+    - `clinical_add_evolution_note`,
+    - `clinical_list_subject_history`,
+    - `clinical_get_latest_evolution`,
+    - `clinical_open_encounter`,
+    - `clinical_close_encounter`.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - aliases seguros para `careSubjectId` em actions clínicas;
+  - aliases para `partyId` em `clinical_open_encounter`;
+  - aliases para `encounterId` em `clinical_close_encounter`.
+- Cobertura de regressão:
+  - novo [`business-action-presets.clinical.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.clinical.test.ts);
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) com cenários clínicos.
+
+### Checklist (fechado)
+
+- [x] Todas as actions clínicas possuem contrato de input explícito no preset.
+- [x] Normalização por `actionId` cobre aliases clínicos críticos (subject/party/encounter).
+- [x] Cobertura unitária valida contrato + normalização da vertical.
+
+**Próximo loop em aberto recomendado após o Loop 102:** **Loop 103 — vertical Packages/Encounters (contrato explícito das actions de pacote/atendimento + aliases seguros mínimos)**.
+
+<a id="loop-103-fechado--vertical-packages-encounters-contrato-explicito-e-normalizacao-segura"></a>
+
+## Loop 103 (fechado) — Vertical Packages/Encounters: contrato explícito + normalização segura
+
+- **Objetivo do slice:** fechar a vertical `packages_encounters` com contratos explícitos nas actions de pacote/atendimento e aliases seguros de identificação no boundary.
+
+### Entregas (resumo)
+
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts):
+  - `inputSchema` + `requiredFieldLabels` para:
+    - `package_sell_to_party`,
+    - `package_get_balance`,
+    - `attendance_register_session`,
+    - `attendance_list_by_party`,
+    - `attendance_list_by_package_sale`,
+    - `attendance_get_party_care_summary`.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - aliases seguros para IDs de party e venda de pacote (`partyId`, `packageSaleId`);
+  - aliases de nome de pacote em `package_sell_to_party`.
+- Cobertura de regressão:
+  - novo [`business-action-presets.packages-encounters.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.packages-encounters.test.ts);
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) com cenários de pacote/atendimento.
+
+### Checklist (fechado)
+
+- [x] Actions de pacote/atendimento publicam contrato de input explícito no preset.
+- [x] Normalização por `actionId` cobre aliases críticos da vertical.
+- [x] Testes unitários cobrem contrato + normalização de `packages_encounters`.
+
+**Próximo loop em aberto recomendado após o Loop 103:** **Loop 104 — vertical Services/Sales (contrato explícito das actions de serviço/venda + aliases seguros mínimos)**.
+
+<a id="loop-104-fechado--vertical-services-sales-contrato-explicito-e-normalizacao-segura"></a>
+
+## Loop 104 (fechado) — Vertical Services/Sales: contrato explícito + normalização segura
+
+- **Objetivo do slice:** fechar a vertical `services_sales` com contratos explícitos nas actions de catálogo/pedido e aliases seguros de identificação comercial no boundary.
+
+### Entregas (resumo)
+
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts):
+  - `inputSchema` + `requiredFieldLabels` para:
+    - `service_catalog_create_item`,
+    - `service_catalog_list_items`,
+    - `sales_create_service_order`,
+    - `sales_add_service_item`,
+    - `sales_mark_order_paid`,
+    - `sales_get_customer_purchase_history`,
+    - `sales_top_services`,
+    - `sales_total_paid_by_service`.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - aliases seguros para `name` em catálogo de serviços;
+  - aliases para `partyId` em criação/histórico de pedidos;
+  - aliases para `orderId` em adicionar item / marcar pedido pago.
+- Cobertura de regressão:
+  - novo [`business-action-presets.services-sales.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.services-sales.test.ts);
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) com cenários de serviço/venda.
+
+### Checklist (fechado)
+
+- [x] Actions de serviços/vendas publicam contrato explícito no preset.
+- [x] Normalização por `actionId` cobre aliases críticos da vertical.
+- [x] Testes unitários cobrem contrato + normalização da vertical.
+
+**Próximo loop em aberto recomendado após o Loop 104:** **Loop 105 — vertical Github Ops (contrato explícito das actions GitHub + aliases seguros mínimos)**.
+
+<a id="loop-105-fechado--vertical-github-ops-contrato-explicito-e-normalizacao-segura"></a>
+
+## Loop 105 (fechado) — Vertical Github Ops: contrato explícito + normalização segura
+
+- **Objetivo do slice:** fechar a vertical `github_ops` com contratos explícitos nas actions de PR/issue e aliases seguros para campos de owner/repo/comment no boundary.
+
+### Entregas (resumo)
+
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts):
+  - `inputSchema` + `requiredFieldLabels` para:
+    - `github_read_pr`,
+    - `github_read_diff`,
+    - `github_comment_pr`,
+    - `github_list_changed_files`,
+    - `github_get_issue`.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - aliases seguros para `owner` e `repo` em todas as actions GitHub;
+  - aliases para `body` em `github_comment_pr`.
+- Cobertura de regressão:
+  - novo [`business-action-presets.github-ops.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.github-ops.test.ts);
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) com cenários GitHub Ops.
+
+### Checklist (fechado)
+
+- [x] Actions GitHub publicam contrato explícito no preset.
+- [x] Normalização por `actionId` cobre aliases críticos de owner/repo/comment.
+- [x] Testes unitários cobrem contrato + normalização da vertical.
+
+**Próximo loop em aberto recomendado após o Loop 105:** **Loop 106 — vertical Clinical deepening (schemas de conteúdo estruturado + normalização de campos clínicos compostos)**.
+
+<a id="loop-106-fechado--clinical-deepening-schema-estruturado-e-normalizacao-composta"></a>
+
+## Loop 106 (fechado) — Clinical deepening: schema estruturado + normalização composta
+
+- **Objetivo do slice:** aprofundar a vertical `clinical` com contrato estruturado para anamnese e normalização segura de campos compostos de evolução.
+
+### Entregas (resumo)
+
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts):
+  - `clinical_create_anamnesis` passou a expor `content` com propriedades clínicas explícitas (`chiefComplaint`, `history`, `assessment`, `plan`, `tags`);
+  - adicionado `slotFillingPromptHint` clínico para coleta de `careSubjectId` antes da estrutura de conteúdo.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - `clinical_add_evolution_note` passa a normalizar aliases de texto para `body` (`note`, `evolutionNote`, `observacao`) além de `careSubjectId`.
+- Cobertura de regressão:
+  - extensão de [`business-action-presets.clinical.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.clinical.test.ts) para validar `content` estruturado + hint;
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) para alias de nota clínica.
+
+### Checklist (fechado)
+
+- [x] `clinical_create_anamnesis` publica estrutura clínica mínima explícita em `content`.
+- [x] `clinical_add_evolution_note` normaliza aliases compostos para `body`.
+- [x] Testes unitários cobrem schema estruturado + normalização clínica.
+
+**Próximo loop em aberto recomendado após o Loop 106:** **Loop 107 — vertical Platform/Admin (contrato explícito das actions de administração + aliases seguros mínimos)**.
 
 ---
 

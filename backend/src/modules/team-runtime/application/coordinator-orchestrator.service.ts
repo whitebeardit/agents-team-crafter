@@ -70,6 +70,7 @@ function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: strin
     tool: e.tool,
     status: e.status,
     errorCode: e.errorCode,
+    ...(e.detail ? { detail: e.detail } : {}),
     ...(agentId ? { agentId } : {}),
   };
 }

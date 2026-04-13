@@ -38,7 +38,7 @@ describe('DELETE /channels/:id (admin, conflito com times)', () => {
     await mongoose.connect(env.MONGODB_URI);
 
     const passwordHash = await bcrypt.hash('secret', 10);
-    const ws = await WorkspaceModel.create({ name: 'ChDelWs', plan: 'free' });
+    const ws = await WorkspaceModel.create({ name: 'ChDelWs', plan: 'pro' });
     workspaceId = ws._id.toString();
 
     const owner = await UserModel.create({

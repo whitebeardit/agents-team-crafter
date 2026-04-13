@@ -2,6 +2,13 @@
  * Monta o texto de instruções efetivo do especialista a partir do documento Agent
  * e de um apêndice opcional (fontes de conhecimento).
  */
+const TOOL_CONTRACT_PROMPT_POLICY = `## Tool contract policy (Loop 98.5)
+- Prompts ajudam na intenção, mas **não** garantem contrato da tool. O runtime valida schema de forma estrita.
+- Antes de chamar uma tool de negócio (\`internal_action\` / \`ws_*\`), confirma os obrigatórios; se faltar algo, faz **uma** pergunta compacta com todos os campos em falta.
+- Se receber \`MISSING_REQUIRED_FIELDS\`, usa \`missingFields\` e \`submittedInput\` para corrigir a próxima tentativa; não repitas payload inválido.
+- Se receber \`EXECUTION_ERROR\`, não faças retry cego. Só repete quando houver sinal explícito de erro transitório/seguro no diagnóstico devolvido pelo runtime.
+- Se receber \`UNKNOWN_ACTION\`, não tentes novamente a mesma action; explica limitação e pede alternativa válida.`;
+
 export function buildSpecialistSystemInstruction(
   row: Record<string, unknown>,
   knowledgeAppendix?: string,
@@ -58,6 +65,8 @@ export function buildSpecialistSystemInstruction(
   if (knowledgeAppendix?.trim()) {
     chunks.push(knowledgeAppendix.trim());
   }
+
+  chunks.push(TOOL_CONTRACT_PROMPT_POLICY);
 
   return chunks.join('\n\n') || 'You are a helpful specialist agent.';
 }

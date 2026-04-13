@@ -18,7 +18,11 @@ export class BusinessToolAuditRepository {
     actionId: string;
     ok: boolean;
     errorCode?: string;
-    input?: unknown;
+    rawInput?: unknown;
+    normalizedInput?: unknown;
+    submittedInput?: unknown;
+    missingFields?: string[];
+    validationResult?: unknown;
     result?: unknown;
     correlationId?: string;
   }): Promise<void> {
@@ -28,7 +32,12 @@ export class BusinessToolAuditRepository {
       actionId: entry.actionId,
       ok: entry.ok,
       errorCode: entry.errorCode,
-      inputPreview: entry.input !== undefined ? preview(entry.input) : undefined,
+      rawInputPreview: entry.rawInput !== undefined ? preview(entry.rawInput) : undefined,
+      normalizedInputPreview: entry.normalizedInput !== undefined ? preview(entry.normalizedInput) : undefined,
+      submittedInputPreview: entry.submittedInput !== undefined ? preview(entry.submittedInput) : undefined,
+      missingFields: entry.missingFields,
+      validationResultPreview:
+        entry.validationResult !== undefined ? preview(entry.validationResult) : undefined,
       resultPreview: entry.result !== undefined ? preview(entry.result) : undefined,
       correlationId: entry.correlationId,
     });
