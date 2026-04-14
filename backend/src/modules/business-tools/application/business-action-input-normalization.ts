@@ -59,7 +59,12 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   },
   crm_find_party: {
     safetyClass: 'B',
-    rules: [{ targetKey: 'query', aliases: ['query', 'termo', 'search'] }],
+    rules: [
+      { targetKey: 'partyId', aliases: ['partyId', 'id', 'party_id', 'clienteId', 'customerId', 'clientId'] },
+      { targetKey: 'email', aliases: ['email', 'e-mail', 'mail'] },
+      { targetKey: 'phone', aliases: ['phone', 'telefone', 'celular'] },
+      { targetKey: 'query', aliases: ['query', 'termo', 'search', 'nome', 'name'] },
+    ],
   },
   finance_create_receivable: {
     safetyClass: 'A',

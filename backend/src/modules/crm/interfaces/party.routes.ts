@@ -7,6 +7,9 @@ import type { IPartyUpdateOperation } from '../infra/party.repository.js';
 
 const listQuerySchema = z.object({
   q: z.string().optional(),
+  email: z.string().max(320).optional(),
+  phone: z.string().max(40).optional(),
+  status: z.enum(['active', 'inactive']).optional(),
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
@@ -50,8 +53,65 @@ export async function registerPartyRoutes(app: FastifyInstance, deps: IAppDeps) 
     const query = listQuerySchema.parse(req.query);
     const limit = query.limit ?? 30;
     const q = query.q?.trim() ?? '';
-    const rows = q ? await deps.partyRepo.findByQuery(ws, q, limit) : await deps.partyRepo.listRecent(ws, limit);
+    const email = query.email?.trim() ?? '';
+    const phone = query.phone?.trim() ?? '';
+    const rows = email || phone
+      ? await deps.partyRepo.findByEmailOrPhone(ws, { email, phone, limit })
+      : q
+        ? await deps.partyRepo.findByQuery(ws, q, limit)
+        : query.status
+          ? await deps.partyRepo.listParties(ws, { status: query.status, limit })
+          : await deps.partyRepo.listRecent(ws, limit);
     return reply.send(successEnvelope(rows));
+  });
+
+  app.get('/parties/readiness', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const summary = await deps.partyRepo.readinessSummary(ws);
+    req.log.info(
+      {
+        event: 'crm.readiness_snapshot',
+        workspaceId: ws,
+        health: summary.health,
+        total: summary.total,
+        inactive: summary.inactive,
+        withoutEmail: summary.withoutEmail,
+        withoutPhone: summary.withoutPhone,
+      },
+      'crm readiness snapshot generated',
+    );
+    return reply.send(successEnvelope(summary));
+  });
+
+  app.get('/parties/gold-gate', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const gate = await deps.partyRepo.goldGateSummary(ws);
+    req.log.info(
+      {
+        event: 'crm.gold_gate_evaluated',
+        workspaceId: ws,
+        approved: gate.approved,
+        blockingCriteria: gate.blockingCriteria.map((c) => c.code),
+      },
+      'crm gold gate evaluated',
+    );
+    return reply.send(successEnvelope(gate));
+  });
+
+  app.patch('/parties/:id/status', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = z.object({ id: z.string().min(1) }).parse(req.params).id;
+    const body = z
+      .object({
+        status: z.enum(['active', 'inactive']),
+      })
+      .parse(req.body);
+    const row = await deps.partyRepo.update(ws, id, {
+      set: { status: body.status },
+      unset: [],
+    });
+    if (!row) throw new AppError('NOT_FOUND', 'Contato nao encontrado', 404);
+    return reply.send(successEnvelope(row));
   });
 
   app.get('/parties/:id', { preHandler: tenant }, async (req, reply) => {

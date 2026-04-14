@@ -885,6 +885,7 @@ export interface CrmParty {
   id: string
   displayName: string
   roles?: string[]
+  status?: "active" | "inactive"
   email?: string
   phone?: string
   notes?: string

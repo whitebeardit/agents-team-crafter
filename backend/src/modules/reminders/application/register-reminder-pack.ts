@@ -34,4 +34,8 @@ export function registerReminderPack(registry: BusinessToolRegistry, reminders: 
     if (!r) throw new Error('Lembrete nao encontrado');
     return r;
   });
+
+  registry.register('reminders_gold_gate', async ({ workspaceId }) => {
+    return reminders.goldGateSummary(workspaceId);
+  });
 }

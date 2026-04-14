@@ -153,6 +153,12 @@ O utilizador deve conseguir:
 
 Congelar o diagnóstico factual do CRM atual antes de mexer.
 
+### Status
+
+**Fechado neste ciclo** com o artefato:
+
+- [`ralph-loop-120-1-gap-map-crm-atual-vs-gold.md`](./ralph-loop-120-1-gap-map-crm-atual-vs-gold.md)
+
 ### Foco
 
 Mapear explicitamente:
@@ -184,6 +190,16 @@ Não começar implementação do CRM GOLD sem esse mapa explícito.
 ### Objetivo
 
 Fechar o comportamento de conversa para CRUD de clientes sem fricção.
+
+### Status
+
+**Fechado neste ciclo (escopo parcial e validado)** com foco em redução de fricção para busca/listagem:
+
+- `crm_find_party` passou a aceitar identificadores diretos (`partyId`, `email`, `phone`) antes da busca textual por nome.
+- `crm_find_party` e `crm_list_parties` deixaram de exigir `query` como obrigatório no preset, reduzindo falhas por payload conversacional incompleto.
+- Cobertura de testes atualizada para priorização de busca por ID e fallback por email/telefone.
+
+> Nota: os pontos restantes de conversa dourada (principalmente fluxos de confirmação/slot-filling mais amplos no CRUD) seguem para os próximos slices do Loop 120.
 
 ### Foco
 
@@ -243,6 +259,16 @@ Cenários reais do CRM não entram mais em loops de:
 
 Fechar o contrato do pack `crm` do ponto de vista de runtime real.
 
+### Status
+
+**Fechado neste ciclo (escopo parcial e validado)** no boundary de busca CRM:
+
+- `crm_find_party` agora rejeita input vazio com erro explícito (contrato operacional previsível).
+- `crm_find_party` passou a usar fallback controlado: identificadores (`partyId`/`email`/`phone`) e, sem match, `query` textual quando disponível.
+- Testes unitários cobrem o novo contrato de erro e fallback de busca.
+
+> Nota: os restantes pontos de runtime/boundary GOLD do CRM (especialmente criação/atualização com semântica conversacional ampliada) seguem para os próximos slices.
+
 ### Foco
 
 - revisar `crm_create_party`
@@ -270,6 +296,16 @@ O runtime do CRM fica previsível e sem lacunas semânticas conhecidas.
 ### Objetivo
 
 Garantir uma surface HTTP/BFF realmente usável para o CRM.
+
+### Status
+
+**Fechado neste ciclo (escopo parcial e validado)** com reforço da superfície de busca/status:
+
+- `GET /parties` passou a aceitar filtros naturais por `email`, `phone` e `status` além de `q`.
+- Novo endpoint `PATCH /parties/:id/status` para desativar/reativar party de forma explícita no BFF.
+- Testes de integração cobrem filtro por email e transição de status com listagem por estado.
+
+> Nota: ainda permanece em aberto no slice 120.4 a discussão de remoção física e políticas avançadas de paginação/ciclo completo de gestão.
 
 ### Foco
 
@@ -303,6 +339,21 @@ A camada HTTP/BFF sustenta a UI e os testes sem hacks.
 
 Fechar a vertical CRM como produto visível e utilizável.
 
+### Status
+
+**Fechado neste ciclo (escopo parcial e validado)** com uma superfície dedicada de CRM na UI:
+
+- Nova rota `/crm` com:
+  - listagem de contatos;
+  - filtros por nome, email, telefone e status;
+  - criação de contato;
+  - edição de contato;
+  - ação de desativar/reativar status.
+- Link de navegação “CRM” adicionado no menu principal.
+- Fluxo alinhado ao BFF evoluído no Loop 120.4 (`GET /parties` com filtros + `PATCH /parties/:id/status`).
+
+> Nota: ainda fica em aberto para próximos slices o refinamento visual avançado da vertical (cockpit dedicado de CRM, paginação rica e superfícies de detalhe mais profundas).
+
 ### Superfícies mínimas
 
 - lista de clientes
@@ -331,6 +382,16 @@ O CRM pode ser demonstrado como funcional sem depender do console técnico.
 
 Transformar CRM em vertical demonstrável, replicável e validável.
 
+### Status
+
+**Fechado neste ciclo (escopo parcial e validado)** na direção de operação:
+
+- UI `/crm` reposicionada como painel de auditoria manual;
+- entrada padrão explicitada para operar via especialistas (runtime de times);
+- removidas ações diretas de mutação na UI CRM, mantendo consulta/filtros para verificação humana.
+
+> Nota: a parte de templates/golden prompts/validation steps formalizados continua no próximo slice de testes/validação GOLD.
+
 ### Entregáveis
 
 - template CRM operacional
@@ -350,6 +411,15 @@ Qualquer pessoa do time consegue validar o CRM com roteiro simples e repetível.
 ### Objetivo
 
 Fechar o CRM com prova forte de qualidade.
+
+### Status
+
+**Fechado neste ciclo (escopo parcial e validado)** com foco em contrato + integração:
+
+- teste dedicado para contrato de presets CRM (`crm_find_party`/`crm_list_parties`);
+- cenário integrado “caminho dourado” no HTTP (`create → lookup → status toggle → update`).
+
+> Nota: permanecem para o próximo slice os reforços de readiness/troubleshooting/observabilidade específicos de CRM.
 
 ### Cobertura mínima
 
@@ -393,6 +463,23 @@ Fechar a vertical também do ponto de vista operacional.
 
 Suporte consegue diagnosticar falhas reais de CRM sem mergulhar no código-fonte.
 
+### Implementação (entregue)
+
+- `GET /parties/readiness` evoluído para retornar `health` + `checks[]` acionáveis, além dos contadores já existentes.
+- Regras diagnósticas mínimas incluídas:
+  - CRM sem contatos (`critical`);
+  - contatos sem e-mail / sem telefone (`attention`);
+  - carteira sem atualização recente (`attention`);
+  - todos os contatos inativos (`critical`).
+- Evento operacional `crm.readiness_snapshot` emitido na rota de readiness para apoio de troubleshooting.
+- UI `/crm` atualizada para exibir:
+  - saúde geral (`ok|attention|critical`);
+  - timestamp do snapshot;
+  - lista de checks com `nextStep`.
+- Cobertura de testes ampliada para validar contrato de `health` e `checks` no readiness.
+
+> Resultado: suporte passa a ter sinais objetivos e próximos passos no próprio fluxo de CRM, sem depender de leitura direta de código.
+
 ---
 
 ## Slice 120.9 — Gate oficial de aceite do CRM GOLD
@@ -417,6 +504,26 @@ Quando este slice fechar, o CRM passa a ser:
 
 > **a vertical padrão de qualidade do produto.**
 
+### Implementação (entregue)
+
+- Endpoint `GET /parties/gold-gate` adicionado para avaliação oficial do gate CRM GOLD.
+- Resultado do gate padronizado com:
+  - `approved`;
+  - `evaluatedAt`;
+  - `criteria[]` (com `passed`/`detail`);
+  - `blockingCriteria[]`;
+  - snapshot de `readiness`.
+- Critérios mínimos automatizados:
+  - existência de base de contatos;
+  - existência de contatos ativos;
+  - atualização recente da base;
+  - ausência de estado crítico no readiness.
+- Evento operacional `crm.gold_gate_evaluated` para trilha de troubleshooting.
+- UI de auditoria `/crm` atualizada com card de gate (status + critérios).
+- Teste de integração cobrindo contrato de `GET /parties/gold-gate`.
+
+> Resultado: o aceite do CRM GOLD deixa de ser apenas narrativo e passa a ser verificável via endpoint e UI operacional.
+
 ---
 
 # Sequência oficial após CRM GOLD
@@ -437,6 +544,19 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - confirmação / no-show / conclusão
 - integração com reminders e encounters
 - golden tests e UX completa
+
+### Implementação inicial (entregue)
+
+- `GET /schedule/gold-gate?date=YYYY-MM-DD` para avaliação operacional diária da agenda.
+- Critérios iniciais automatizados:
+  - existência de slots;
+  - existência de compromissos não-cancelados;
+  - existência de janelas livres.
+- Evento de troubleshooting `schedule.gold_gate_evaluated`.
+- Card de gate no `/schedule` para visibilidade de aceite diário (Aprovado/Pendente + critérios).
+- Teste de integração cobrindo contrato do gate no Scheduling.
+
+> Resultado: Scheduling passa a ter um primeiro gate GOLD operacional e observável, alinhando a vertical ao padrão de aceite iniciado em CRM.
 
 ---
 
@@ -463,6 +583,20 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - histórico do sujeito
 - conteúdo estruturado + UX real
 
+### Implementação inicial (entregue)
+
+- `clinical_gold_gate` no runtime/business-tools, com avaliação operacional da vertical clínica.
+- Critérios iniciais automatizados:
+  - existência de anamnese;
+  - existência de conteúdo estruturado em anamnese;
+  - existência de notas de evolução;
+  - existência de histórico de encontros clínicos;
+  - ausência de encontros clínicos em aberto.
+- Snapshot operacional com contagens de anamnese, evolução e encontros (abertos/fechados).
+- Testes unitários para contrato do preset e registro do `clinical_gold_gate`.
+
+> Resultado: Clinical passa a ter um gate GOLD operacional observável, alinhado ao padrão já aplicado em CRM, Scheduling e Finance.
+
 ---
 
 ## Loop 124 — Services & Sales GOLD
@@ -476,6 +610,20 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - histórico por cliente
 - top services
 
+### Implementação inicial (entregue)
+
+- `sales_gold_gate` no runtime/business-tools para avaliação operacional de Services & Sales.
+- Critérios iniciais automatizados:
+  - catálogo com itens publicados;
+  - pedidos de serviço registrados;
+  - pelo menos um pedido pago;
+  - totais pagos por serviço consolidados;
+  - volume de pedidos em aberto sob faixa operacional.
+- Snapshot com contagens de catálogo, pedidos (abertos/pagos) e valor bruto pago.
+- Testes unitários cobrindo contrato do preset e registro/dispatch do `sales_gold_gate`.
+
+> Resultado: Services & Sales passa a ter gate GOLD operacional observável, mantendo consistência com CRM, Scheduling, Finance e Clinical.
+
 ---
 
 ## Loop 125 — Packages & Encounters GOLD
@@ -488,6 +636,22 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - sessões/atendimentos
 - resumo por party
 
+### Implementação inicial (entregue)
+
+- `packages_encounters_gold_gate` no runtime/business-tools para aceite operacional da vertical.
+- Snapshot integrado de pacote + atendimento:
+  - vendas totais/ativas/concluídas;
+  - unidades totais/usadas/remanescentes;
+  - atendimentos totais e atendimentos vinculados a pacote.
+- Critérios iniciais automatizados:
+  - existência de vendas de pacote;
+  - consumo de unidades em andamento;
+  - sessões/atendimentos registrados;
+  - vínculo entre atendimento e pacote observado.
+- Testes unitários para contrato do preset e para registro/execução do gate no pack.
+
+> Resultado: Packages & Encounters passa a ter gate GOLD observável e consistente com os gates operacionais das demais verticais já fechadas.
+
 ---
 
 ## Loop 126 — Care GOLD
@@ -499,6 +663,20 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - vínculo com party
 - busca e manutenção operacional
 
+### Implementação inicial (entregue)
+
+- `care_gold_gate` no runtime/business-tools com avaliação operacional da vertical Care.
+- Critérios iniciais automatizados:
+  - existência de sujeitos de cuidado cadastrados;
+  - vínculo sujeito↔party observável;
+  - documentação mínima via notas;
+  - classificação de `subjectKind` presente (`human`/`animal`/`psych`);
+  - carga média de sujeitos por party em faixa operacional.
+- Snapshot consolidado com total de sujeitos, sujeitos com notas, parties vinculadas, média por party e distribuição por tipo.
+- Testes unitários cobrindo contrato do preset e registro/execução da action `care_gold_gate`.
+
+> Resultado: Care passa a ter gate GOLD operacional observável e alinhado ao padrão de aceitação objetiva aplicado nas demais verticais.
+
 ---
 
 ## Loop 127 — Reminders GOLD
@@ -508,6 +686,18 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - criação/listagem/conclusão/cancelamento
 - UX e integração com agenda
 - jornada completa de lembretes
+
+### Implementação inicial (entregue)
+
+- `reminders_gold_gate` no runtime/business-tools com avaliação operacional da vertical de lembretes.
+- Critérios iniciais automatizados:
+  - existência de histórico de lembretes registrados;
+  - evidência de ciclo operacional (conclusão/cancelamento);
+  - controle de lembretes em atraso abertos dentro da faixa operacional.
+- Snapshot consolidado com contagens de total, aberto, concluído, cancelado e atrasado em aberto.
+- Testes unitários cobrindo contrato do preset e registro/execução da action `reminders_gold_gate`.
+
+> Resultado: Reminders passa a ter gate GOLD operacional observável e consistente com o padrão de aceitação objetiva das demais verticais.
 
 ---
 
@@ -522,6 +712,17 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - issue read
 - UX e cenários dourados de operação
 
+### Implementação inicial (entregue)
+
+- `github_ops_gold_gate` no runtime/business-tools para aceite operacional da vertical GitHub Ops.
+- Critérios iniciais automatizados:
+  - presença de credencial (`GITHUB_TOKEN`/`GH_TOKEN`) para operação segura;
+  - validação opcional de conectividade com GitHub API via `checkConnectivity`.
+- Snapshot consolidado com estado de credencial e conectividade (`hasToken`, `checkedConnectivity`, `connectivityOk`, `connectivityError`).
+- Testes unitários cobrindo contrato do preset e comportamento determinístico do gate (sem token e com token).
+
+> Resultado: GitHub Ops passa a ter gate GOLD operacional observável, mantendo paridade com o padrão de aceite das demais verticais GOLD.
+
 ---
 
 ## Loop 129 — Platform/Admin GOLD
@@ -532,6 +733,16 @@ Scheduling já está mais avançado em surface de produto e pode ser consolidado
 - diagnósticos administrativos
 - troubleshooting e UX administrativa mínima
 - tornar a vertical platform/admin realmente produto
+
+### Implementação inicial (entregue)
+
+- Consolidação de modo de auditoria manual nas superfícies operacionais de CRM e Agenda:
+  - UI passa a comunicar explicitamente que a operação padrão é via especialistas;
+  - botões de mutação direta removidos/ocultados nas telas de auditoria.
+- CTA explícito para `/teams` como ponto de entrada padrão do humano para operar o produto via especialistas.
+- Diretriz operacional reforçada no ledger: UI serve para conferência/auditoria humana do que especialistas fizeram.
+
+> Resultado: fluxo humano padrão fica centrado em especialistas; UI permanece como camada de auditoria manual e troubleshooting.
 
 ---
 

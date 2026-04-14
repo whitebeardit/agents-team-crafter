@@ -24,11 +24,13 @@ describe('business-action-presets clinical (Loop 102)', () => {
   it('defines explicit schema for encounter lifecycle actions', () => {
     const openEncounter = getBusinessActionPreset('clinical_open_encounter');
     const closeEncounter = getBusinessActionPreset('clinical_close_encounter');
+    const goldGate = getBusinessActionPreset('clinical_gold_gate');
 
     expect((openEncounter?.inputSchema as { required?: string[] }).required).toEqual([
       'partyId',
       'careSubjectId',
     ]);
     expect((closeEncounter?.inputSchema as { required?: string[] }).required).toEqual(['encounterId']);
+    expect((goldGate?.inputSchema as { required?: string[] }).required).toEqual([]);
   });
 });

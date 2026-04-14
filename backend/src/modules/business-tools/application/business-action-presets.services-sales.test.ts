@@ -17,6 +17,7 @@ describe('business-action-presets services/sales (Loop 104)', () => {
     const history = getBusinessActionPreset('sales_get_customer_purchase_history');
     const topServices = getBusinessActionPreset('sales_top_services');
     const totalPaid = getBusinessActionPreset('sales_total_paid_by_service');
+    const goldGate = getBusinessActionPreset('sales_gold_gate');
 
     expect((createOrder?.inputSchema as { required?: string[] }).required).toEqual(['partyId', 'lines']);
     expect((addItem?.inputSchema as { required?: string[] }).required).toEqual(['orderId', 'line']);
@@ -24,5 +25,6 @@ describe('business-action-presets services/sales (Loop 104)', () => {
     expect((history?.inputSchema as { required?: string[] }).required).toEqual(['partyId']);
     expect((topServices?.inputSchema as { required?: string[] }).required).toEqual([]);
     expect((totalPaid?.inputSchema as { required?: string[] }).required).toEqual([]);
+    expect((goldGate?.inputSchema as { required?: string[] }).required).toEqual([]);
   });
 });

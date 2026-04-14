@@ -51,4 +51,6 @@ export function registerCarePack(registry: BusinessToolRegistry, care: CareSubje
     if (!s) throw new Error('Subject nao encontrado');
     return { summary: s };
   });
+
+  registry.register('care_gold_gate', async ({ workspaceId }) => care.goldGateSummary(workspaceId));
 }

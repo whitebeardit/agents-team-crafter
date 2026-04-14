@@ -125,4 +125,58 @@ export class FinanceRepository {
       openPayables: pay[0]?.total ?? 0,
     };
   }
+
+  async goldGateSummary(workspaceId: string) {
+    const [overdueReceivables, overduePayables, receivableTotals, payableTotals] = await Promise.all([
+      this.listOverdueReceivables(workspaceId),
+      this.listOverduePayables(workspaceId),
+      this.totalReceivableByPayer(workspaceId),
+      this.totalPayableByDestination(workspaceId),
+    ]);
+    const openReceivables = receivableTotals.reduce((acc, item) => acc + item.totalOpen, 0);
+    const openPayables = payableTotals.reduce((acc, item) => acc + item.totalOpen, 0);
+    const criteria = [
+      {
+        code: 'finance_has_open_titles',
+        label: 'Base financeira ativa',
+        passed: openReceivables > 0 || openPayables > 0,
+        detail:
+          openReceivables > 0 || openPayables > 0
+            ? 'Existem títulos financeiros abertos para operação.'
+            : 'Ainda não existem títulos financeiros abertos.',
+      },
+      {
+        code: 'finance_no_overdue_receivables',
+        label: 'Recebíveis vencidos sob controle',
+        passed: overdueReceivables.length === 0,
+        detail:
+          overdueReceivables.length === 0
+            ? 'Não há recebíveis vencidos no momento.'
+            : `Há ${overdueReceivables.length} recebível(is) vencido(s).`,
+      },
+      {
+        code: 'finance_no_overdue_payables',
+        label: 'Pagáveis vencidos sob controle',
+        passed: overduePayables.length === 0,
+        detail:
+          overduePayables.length === 0
+            ? 'Não há pagáveis vencidos no momento.'
+            : `Há ${overduePayables.length} pagável(is) vencido(s).`,
+      },
+    ];
+    const blockingCriteria = criteria.filter((c) => !c.passed);
+    const approved = blockingCriteria.length === 0;
+    return {
+      approved,
+      evaluatedAt: new Date().toISOString(),
+      criteria,
+      blockingCriteria,
+      snapshot: {
+        openReceivables,
+        openPayables,
+        overdueReceivables: overdueReceivables.length,
+        overduePayables: overduePayables.length,
+      },
+    };
+  }
 }

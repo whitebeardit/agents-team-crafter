@@ -59,7 +59,21 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
 
   registry.register('crm_find_party', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const query = typeof data.query === 'string' ? data.query : '';
+    const partyId = typeof data.partyId === 'string' ? data.partyId.trim() : '';
+    if (partyId) {
+      const one = await parties.findById(workspaceId, partyId);
+      return { parties: one ? [one] : [] };
+    }
+    const email = typeof data.email === 'string' ? data.email.trim() : '';
+    const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
+    const query = typeof data.query === 'string' ? data.query.trim() : '';
+    if (email || phone) {
+      const byIdentifier = await parties.findByEmailOrPhone(workspaceId, { email, phone });
+      if (byIdentifier.length > 0 || !query) return { parties: byIdentifier };
+    }
+    if (!query) {
+      throw new Error('Informe partyId, email, phone ou query para localizar cliente');
+    }
     return { parties: await parties.findByQuery(workspaceId, query) };
   });
 

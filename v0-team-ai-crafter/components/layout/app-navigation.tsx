@@ -15,6 +15,7 @@ import {
   History,
   CalendarDays,
   Activity,
+  ContactRound,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { cn } from "@/lib/utils"
@@ -37,6 +38,7 @@ export const APP_NAVIGATION: NavItem[] = [
   { name: "Templates", href: "/templates", icon: FileStack },
   { name: "Canais", href: "/channels", icon: Radio },
   { name: "Agenda", href: "/schedule", icon: CalendarDays },
+  { name: "CRM", href: "/crm", icon: ContactRound },
   { name: "Tools", href: "/tool-definitions", icon: Wrench },
   { name: "Governança", href: "/governance", icon: Gavel },
   { name: "Execuções", href: "/runs", icon: History },

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import { CalendarDays, ChevronsUpDown, Loader2, RefreshCw } from "lucide-react"
 import { ApiError, createApiClient } from "@/lib/api/client"
@@ -41,18 +42,17 @@ import {
 } from "@/components/ui/command"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Switch } from "@/components/ui/switch"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { CreatePartyDialog } from "@/components/schedule/create-party-dialog"
-import { EditPartyDialog } from "@/components/schedule/edit-party-dialog"
+type ScheduleGoldGate = {
+  approved: boolean
+  evaluatedAt: string
+  criteria: Array<{
+    code: string
+    label: string
+    passed: boolean
+    detail: string
+  }>
+}
 function todayDateString() {
   const d = new Date()
   const y = d.getFullYear()
@@ -100,9 +100,8 @@ export default function SchedulePage() {
   const [showCancelled, setShowCancelled] = useState(true)
   const [loading, setLoading] = useState(false)
   const [agenda, setAgenda] = useState<ScheduleAgendaResponse | null>(null)
+  const [goldGate, setGoldGate] = useState<ScheduleGoldGate | null>(null)
   const [partiesById, setPartiesById] = useState<Record<string, CrmParty>>({})
-  const [removeAppointmentId, setRemoveAppointmentId] = useState<string | null>(null)
-  const [removeBusy, setRemoveBusy] = useState(false)
 
   const api = useMemo(
     () =>
@@ -123,8 +122,12 @@ export default function SchedulePage() {
         date,
         includeCancelled: showCancelled ? "true" : "false",
       })
-      const res = await api.get<ScheduleAgendaResponse>(`/schedule/agenda?${qs.toString()}`)
+      const [res, gate] = await Promise.all([
+        api.get<ScheduleAgendaResponse>(`/schedule/agenda?${qs.toString()}`),
+        api.get<ScheduleGoldGate>(`/schedule/gold-gate?date=${encodeURIComponent(date)}`),
+      ])
       setAgenda(res.data)
+      setGoldGate(gate.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar a agenda."
       toast.error(msg)
@@ -161,32 +164,6 @@ export default function SchedulePage() {
     }
   }, [agenda?.appointments, api, token, currentWorkspace])
 
-  async function runMutation(path: string, body?: unknown) {
-    try {
-      await api.post<ScheduleAppointment>(path, body)
-      toast.success("Atualizado")
-      await loadAgenda()
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Operação falhou"
-      toast.error(msg)
-    }
-  }
-
-  async function confirmHardRemove() {
-    if (!removeAppointmentId) return
-    setRemoveBusy(true)
-    try {
-      await api.del(`/schedule/appointments/${removeAppointmentId}`)
-      toast.success("Compromisso removido da base")
-      setRemoveAppointmentId(null)
-      await loadAgenda()
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Falha ao remover"
-      toast.error(msg)
-    } finally {
-      setRemoveBusy(false)
-    }
-  }
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -198,8 +175,7 @@ export default function SchedulePage() {
             Agenda
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Cancelar mantém o registo (soft); remover definitivamente apaga o documento (apenas admin) para estados
-            cancelado ou falta.
+            Painel de auditoria manual. A entrada operacional padrão da agenda continua sendo via especialistas no runtime de times.
           </p>
           <ContextualTourManualTrigger screenKey="schedule" className="mt-3" />
         </div>
@@ -227,21 +203,54 @@ export default function SchedulePage() {
           <Button type="button" variant="outline" size="icon" onClick={() => void loadAgenda()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-          <CreatePartyDialog
-            api={api}
-            trigger={<Button type="button" variant="outline">Novo contato</Button>}
-            onCreated={(p) => setPartiesById((prev) => ({ ...prev, [p.id]: p }))}
-          />
-          <NewAppointmentDialog date={date} onCreated={() => void loadAgenda()} api={api} />
-          <AvailabilityDialog date={date} onCreated={() => void loadAgenda()} api={api} />
+          <Button asChild type="button">
+            <Link href="/teams">Operar via especialista</Link>
+          </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Gate Scheduling GOLD (Loop 121)</CardTitle>
+          <CardDescription>Sinal operacional do aceite GOLD para a agenda do dia.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm">
+            Status:{" "}
+            <strong className={goldGate?.approved ? "text-emerald-600" : "text-amber-600"}>
+              {goldGate?.approved ? "Aprovado" : "Pendente"}
+            </strong>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Avaliado em {goldGate?.evaluatedAt ? new Date(goldGate.evaluatedAt).toLocaleString() : "—"}
+          </p>
+          <div className="space-y-1">
+            {(goldGate?.criteria ?? []).map((item) => (
+              <div key={item.code} className="rounded-md border p-2 text-xs">
+                <p className="font-medium">
+                  {item.passed ? "✅" : "⚠️"} {item.label}
+                </p>
+                <p className="text-muted-foreground">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6 text-sm text-muted-foreground">
+          Este ecrã é exclusivo para <strong>auditoria manual</strong> do que os especialistas fizeram.
+          Para criar/editar/cancelar/reagendar compromissos, utilize um time com especialista de agenda em <strong>/teams</strong>.
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Compromissos</CardTitle>
-            <CardDescription>Horários e estado operacional do dia.</CardDescription>
+            <CardDescription>
+              Horários e estado operacional do dia para auditoria humana (sem mutações diretas por esta tela).
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {!agenda?.appointments?.length ? (
@@ -254,7 +263,7 @@ export default function SchedulePage() {
                       <TableHead>Horário</TableHead>
                       <TableHead>Título</TableHead>
                       <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      <TableHead className="text-right">Auditoria</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -283,12 +292,6 @@ export default function SchedulePage() {
                                 <span className="font-mono">{a.partyId}</span>
                               )}
                             </div>
-                            <EditPartyDialog
-                              api={api}
-                              partyId={a.partyId}
-                              initialParty={partiesById[a.partyId] ?? null}
-                              onUpdated={(p) => setPartiesById((prev) => ({ ...prev, [p.id]: p }))}
-                            />
                           </div>
                         </TableCell>
                         <TableCell>
@@ -296,12 +299,8 @@ export default function SchedulePage() {
                             {STATUS_PT[a.status] ?? a.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <AppointmentActions
-                            appointment={a}
-                            onAction={(p, b) => runMutation(p, b)}
-                            onRequestRemove={(id) => setRemoveAppointmentId(id)}
-                          />
+                        <TableCell className="text-right text-xs text-muted-foreground">
+                          Operar via especialista
                         </TableCell>
                       </TableRow>
                     ))}
@@ -365,78 +364,6 @@ export default function SchedulePage() {
         </Card>
       )}
 
-      <AlertDialog open={Boolean(removeAppointmentId)} onOpenChange={(o) => !o && setRemoveAppointmentId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover definitivamente?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta operação apaga o compromisso da base de dados. Disponível só para administradores do workspace e
-              apenas quando o estado é cancelado ou falta.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={removeBusy}>Voltar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={removeBusy}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={(e) => {
-                e.preventDefault()
-                void confirmHardRemove()
-              }}
-            >
-              {removeBusy ? "A remover..." : "Remover"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
-}
-
-function AppointmentActions({
-  appointment,
-  onAction,
-  onRequestRemove,
-}: {
-  appointment: ScheduleAppointment
-  onAction: (path: string, body?: unknown) => void
-  onRequestRemove: (id: string) => void
-}) {
-  const { id, status } = appointment
-  if (status === "cancelled" || status === "no_show") {
-    return (
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="destructive"
-          className="h-8 text-xs"
-          type="button"
-          onClick={() => onRequestRemove(id)}
-        >
-          Remover da base
-        </Button>
-      </div>
-    )
-  }
-  if (status === "completed") {
-    return <span className="text-xs text-muted-foreground">—</span>
-  }
-  return (
-    <div className="flex flex-wrap justify-end gap-1">
-      {status === "scheduled" && (
-        <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={() => onAction(`/schedule/appointments/${id}/confirm`)}>
-          Confirmar
-        </Button>
-      )}
-      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onAction(`/schedule/appointments/${id}/cancel`)}>
-        Cancelar
-      </Button>
-      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onAction(`/schedule/appointments/${id}/no-show`)}>
-        Falta
-      </Button>
-      <Button size="sm" className="h-8 text-xs" onClick={() => onAction(`/schedule/appointments/${id}/complete`, { durationMinutes: 60 })}>
-        Concluir
-      </Button>
     </div>
   )
 }

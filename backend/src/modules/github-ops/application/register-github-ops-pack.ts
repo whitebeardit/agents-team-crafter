@@ -92,4 +92,55 @@ export function registerGithubOpsPack(registry: BusinessToolRegistry): void {
     if (!owner || !repo || Number.isNaN(issueNumber)) throw new Error('owner, repo e issueNumber obrigatorios');
     return ghJson(`/repos/${owner}/${repo}/issues/${issueNumber}`);
   });
+
+  registry.register('github_ops_gold_gate', async ({ input }) => {
+    const data = input as Record<string, unknown>;
+    const checkConnectivity = data.checkConnectivity === true;
+    const hasToken = Boolean(token());
+
+    const criteria: Array<{ code: string; passed: boolean; detail: string }> = [
+      {
+        code: 'github_token_configured',
+        passed: hasToken,
+        detail: hasToken
+          ? 'Token GitHub configurado no ambiente.'
+          : 'GITHUB_TOKEN/GH_TOKEN não configurado no ambiente.',
+      },
+    ];
+
+    let connectivityOk: boolean | null = null;
+    let connectivityError: string | null = null;
+    if (checkConnectivity && hasToken) {
+      try {
+        await ghJson('/rate_limit');
+        connectivityOk = true;
+      } catch (error) {
+        connectivityOk = false;
+        connectivityError = error instanceof Error ? error.message.slice(0, 180) : 'Falha de conectividade.';
+      }
+      criteria.push({
+        code: 'github_api_connectivity',
+        passed: connectivityOk === true,
+        detail:
+          connectivityOk === true
+            ? 'Conectividade com GitHub API validada.'
+            : `Falha ao validar conectividade GitHub API: ${connectivityError ?? 'erro desconhecido'}`,
+      });
+    }
+
+    const blockingCriteria = criteria.filter((c) => !c.passed);
+    return {
+      approved: blockingCriteria.length === 0,
+      evaluatedAt: new Date().toISOString(),
+      criteria,
+      blockingCriteria,
+      snapshot: {
+        hasToken,
+        checkedConnectivity: checkConnectivity,
+        connectivityOk,
+        connectivityError,
+      },
+    };
+  });
+
 }

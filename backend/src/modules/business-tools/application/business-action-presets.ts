@@ -97,15 +97,23 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'crm_find_party': {
     title: 'CRM — Procurar parte',
-    description: 'Pesquisa parties por texto no nome.',
+    description:
+      'Pesquisa parties por ID, email, telefone ou texto no nome. Para listagem ampla, prefira crm_list_parties.',
     packId: 'crm',
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Texto de busca; use string vazia só se quiseres listagem geral (prefere crm_list_parties).' },
+        partyId: { type: 'string', description: 'ID da party quando já conhecido.' },
+        email: { type: 'string', description: 'Email exato da party.' },
+        phone: { type: 'string', description: 'Telefone exato da party.' },
+        query: {
+          type: 'string',
+          description: 'Texto de busca por nome; use quando não houver ID/email/telefone.',
+        },
       },
-      required: ['query'],
     },
+    slotFillingPromptHint:
+      'Use partyId/email/phone quando o utilizador fornecer identificador direto; use query para busca textual por nome.',
   },
   'crm_get_party_summary': {
     title: 'CRM — Resumo da parte',
@@ -144,7 +152,6 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
         status: { type: 'string', enum: ['active', 'inactive'], description: 'Estado da party no CRM.' },
         limit: { type: 'number', description: 'Máximo de registos (cap no servidor).' },
       },
-      required: ['query'],
     },
     slotFillingPromptHint:
       'Não é necessário pedir IDs ao utilizador para listar; usa query \"\" e roles/status conforme o pedido.',
@@ -212,6 +219,16 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       required: ['subjectId'],
     },
     requiredFieldLabels: ['Sujeito (subjectId)'],
+  },
+  'care_gold_gate': {
+    title: 'Care — Gate GOLD operacional',
+    description: 'Avalia critérios mínimos operacionais para aceite GOLD da vertical Care.',
+    packId: 'care',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
   },
   'service_catalog_create_item': {
     title: 'Serviços — Criar item no catálogo',
@@ -303,6 +320,12 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     packId: 'services_sales',
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
+  'sales_gold_gate': {
+    title: 'Vendas — Gate GOLD operacional',
+    description: 'Avalia critérios mínimos operacionais para aceite GOLD de Services & Sales.',
+    packId: 'services_sales',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
   'package_sell_to_party': {
     title: 'Pacotes — Vender pacote à parte',
     description: 'Regista venda de pacote a uma party.',
@@ -385,6 +408,16 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       required: ['partyId'],
     },
     requiredFieldLabels: ['Party (partyId)'],
+  },
+  'packages_encounters_gold_gate': {
+    title: 'Pacotes/Atendimentos — Gate GOLD operacional',
+    description: 'Avalia critérios mínimos operacionais para aceite GOLD de Packages & Encounters.',
+    packId: 'packages_encounters',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
   },
   'clinical_create_anamnesis': {
     title: 'Clínico — Criar anamnese',
@@ -484,6 +517,16 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       required: ['encounterId'],
     },
     requiredFieldLabels: ['Encontro (encounterId)'],
+  },
+  'clinical_gold_gate': {
+    title: 'Clínico — Gate GOLD operacional',
+    description: 'Avalia critérios mínimos operacionais para aceite GOLD da vertical clínica.',
+    packId: 'clinical',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
   },
   'finance_create_receivable': {
     title: 'Financeiro — Criar conta a receber',
@@ -602,6 +645,16 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     },
     requiredFieldLabels: ['Cliente (partyId)'],
   },
+  'finance_gold_gate': {
+    title: 'Financeiro — Gate GOLD operacional',
+    description: 'Avalia critérios mínimos operacionais para aceite GOLD da vertical financeira.',
+    packId: 'finance',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
   'schedule_create_reminder': {
     title: 'Lembretes — Criar lembrete',
     description: 'Cria lembrete com data/hora.',
@@ -654,6 +707,16 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       required: ['reminderId'],
     },
     requiredFieldLabels: ['Lembrete (reminderId)'],
+  },
+  'reminders_gold_gate': {
+    title: 'Lembretes — Gate GOLD operacional',
+    description: 'Avalia critérios mínimos operacionais para aceite GOLD da vertical de lembretes.',
+    packId: 'reminders',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
   },
   'github_read_pr': {
     title: 'GitHub — Ler PR',
@@ -730,6 +793,21 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       required: ['owner', 'repo', 'issueNumber'],
     },
     requiredFieldLabels: ['Owner (owner)', 'Repo (repo)', 'Issue (issueNumber)'],
+  },
+  'github_ops_gold_gate': {
+    title: 'GitHub Ops — Gate GOLD operacional',
+    description: 'Avalia critérios mínimos operacionais para aceite GOLD da vertical GitHub Ops.',
+    packId: 'github_ops',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        checkConnectivity: {
+          type: 'boolean',
+          description: 'Se true, valida conectividade com GitHub API via rate limit endpoint.',
+        },
+      },
+      required: [],
+    },
   },
   'schedule_set_availability': {
     title: 'Agenda — Definir disponibilidade',

@@ -57,4 +57,6 @@ export function registerClinicalPack(registry: BusinessToolRegistry, clinical: C
     if (!r) throw new Error('Encontro nao encontrado');
     return r;
   });
+
+  registry.register('clinical_gold_gate', async ({ workspaceId }) => clinical.goldGateSummary(workspaceId));
 }
