@@ -262,7 +262,7 @@ describe('team-plans flow', () => {
           skills: [],
           category: 'a',
           channels: [],
-          catalogTools: ['database_query'],
+          catalogTools: ['calendar_access'],
         },
         {
           name: 'Esp B',
@@ -273,7 +273,7 @@ describe('team-plans flow', () => {
           skills: [],
           category: 'b',
           channels: [],
-          catalogTools: ['database_query'],
+          catalogTools: ['calendar_access'],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -284,7 +284,7 @@ describe('team-plans flow', () => {
     const repairedPlan = {
       ...collisionPlan,
       agents: collisionPlan.agents.map((a, i) =>
-        i === 2 ? { ...a, catalogTools: ['calendar_access'] } : a,
+        i === 2 ? { ...a, catalogTools: ['file_search'] } : a,
       ),
     };
     let fetchCount = 0;
@@ -456,7 +456,7 @@ describe('team-plans flow', () => {
         skills: ['empatia'],
         category: 'atendimento',
         channels: [],
-        catalogTools: ['database_query'],
+        catalogTools: ['calendar_access'],
         workflowKey: 'wf_dup',
         requiredBusinessActionIds: [],
         requiredPackIds: [],
@@ -527,7 +527,7 @@ describe('team-plans flow', () => {
         skills: ['empatia'],
         category: 'atendimento',
         channels: [],
-        catalogTools: ['database_query'],
+        catalogTools: ['calendar_access'],
       },
       {
         name: 'Especialista Dados',
@@ -538,7 +538,7 @@ describe('team-plans flow', () => {
         skills: ['sql'],
         category: 'dados',
         channels: [],
-        catalogTools: ['database_query'],
+        catalogTools: ['calendar_access'],
       },
     ];
 
@@ -555,6 +555,6 @@ describe('team-plans flow', () => {
     };
     expect(envelope.success).toBe(false);
     expect(envelope.error.code).toBe('VALIDATION_ERROR');
-    expect(envelope.error.message).toContain('database_query');
+    expect(envelope.error.message).toContain('calendar_access');
   });
 });

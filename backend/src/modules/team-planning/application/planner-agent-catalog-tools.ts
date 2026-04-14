@@ -87,7 +87,6 @@ export function inferCatalogToolsForPlanAgent(
   const picked = new Set<string>(['web_search']);
 
   if (/imagem|visual|arte|dall|capa|banner|instagram|social|midia|m[ií]dia/.test(t)) picked.add('image_generation');
-  if (/sql|postgres|banco de dados|\bdados\b|relat[oó]rio|financeiro|contas|receb|pagar/.test(t)) picked.add('database_query');
   if (/c[oó]digo|code|github|pull request|\bpr\b|script|pipeline|\bci\b|sandbox/.test(t)) picked.add('code_execution');
   if (/email|e-mail|smtp|notifica(c|ç)/.test(t)) picked.add('email_send');
   if (/agenda|calend[aá]rio|hor[aá]rio|agendamento|appointment|lembrete/.test(t)) picked.add('calendar_access');

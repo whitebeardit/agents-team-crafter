@@ -2,9 +2,6 @@
  * Snapshot das integracoes de tools por workspace (sem credenciais em logs).
  */
 export interface IToolIntegrationContext {
-  database?: {
-    postgresReadOnlyUrl?: string;
-  };
   calendar?: {
     restBaseUrl?: string;
     authHeader?: string;

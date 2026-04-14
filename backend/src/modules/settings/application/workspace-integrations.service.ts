@@ -20,7 +20,6 @@ function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): bool
       next.slack &&
         Object.values(next.slack).some((v) => typeof v === 'string' && v.trim().length > 0),
     ) ||
-    Boolean(next.toolDatabase?.postgresReadOnlyUrl?.trim()) ||
     Boolean(next.toolCalendar?.restBaseUrl?.trim() || next.toolCalendar?.authHeader?.trim()) ||
     Boolean(next.imageGenerationModel)
   );
@@ -50,10 +49,11 @@ export class WorkspaceIntegrationsService {
     const k = this.env.ENCRYPTION_MASTER_KEY?.trim();
     if (!k) return null;
     try {
-      const parsed = decryptJson<IWorkspaceIntegrationsPayload & { toolCrm?: unknown }>(k, enc);
+      const parsed = decryptJson<IWorkspaceIntegrationsPayload & { toolCrm?: unknown; toolDatabase?: unknown }>(k, enc);
       if (!parsed) return null;
-      if (parsed.toolCrm !== undefined) {
+      if (parsed.toolCrm !== undefined || parsed.toolDatabase !== undefined) {
         delete parsed.toolCrm;
+        delete parsed.toolDatabase;
         const next = parsed as IWorkspaceIntegrationsPayload;
         if (integrationPayloadHasSecrets(next)) {
           await this.workspaceRepo.setIntegrationSecretsEncrypted(
@@ -104,9 +104,6 @@ export class WorkspaceIntegrationsService {
     const p = await this.getPlainPayload(workspaceId);
     if (!p) return {};
     const out: IToolIntegrationContext = {};
-    if (p.toolDatabase?.postgresReadOnlyUrl?.trim()) {
-      out.database = { postgresReadOnlyUrl: p.toolDatabase.postgresReadOnlyUrl.trim() };
-    }
     if (p.toolCalendar?.restBaseUrl?.trim() || p.toolCalendar?.authHeader?.trim()) {
       out.calendar = {
         restBaseUrl: p.toolCalendar.restBaseUrl?.trim(),

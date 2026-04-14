@@ -10,7 +10,7 @@ import {
 import type { IAppDeps } from '../../../config/container.js';
 import type { ITeamReadinessItem, ITeamReadinessResult, TTeamReadinessLevel } from './team-readiness.types.js';
 
-const CATALOG_NEEDING_INTEGRATION = new Set(['database_query', 'calendar_access', 'image_generation']);
+const CATALOG_NEEDING_INTEGRATION = new Set(['calendar_access', 'image_generation']);
 
 export type TTeamReadinessDeps = Pick<
   IAppDeps,
@@ -183,7 +183,7 @@ export async function computeTeamReadiness(
       severity: 'attention',
       title: 'Integrações em falta para tools de catálogo',
       detail: `Estas tools estão activas em agentes mas sem integração configurada: ${sorted.join(', ')} (execução limitada ou stub).`,
-      nextStep: 'Configure Postgres, calendário ou OpenAI em Configurações > Integrações, conforme cada tool.',
+      nextStep: 'Configure calendário REST e/ou OpenAI em Configurações > Integrações, conforme cada tool.',
       routeHint: '/settings?tab=integrations',
       ctaLabel: 'Abrir integrações',
     });

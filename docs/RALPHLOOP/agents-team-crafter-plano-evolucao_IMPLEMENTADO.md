@@ -2429,7 +2429,360 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 - [x] `clinical_add_evolution_note` normaliza aliases compostos para `body`.
 - [x] Testes unitários cobrem schema estruturado + normalização clínica.
 
-**Próximo loop em aberto recomendado após o Loop 106:** **Loop 107 — vertical Platform/Admin (contrato explícito das actions de administração + aliases seguros mínimos)**.
+**Próximo loop em aberto recomendado após o Loop 106:** **Loop 107 — Fluidez operacional de tools built-in e CRM CRUD**.
+
+<a id="loop-107-fechado--fluidez-operacional-tools-built-in-e-crm-crud"></a>
+
+## Loop 107 (fechado) — Fluidez operacional: tools built-in + CRM CRUD
+
+- **Objetivo do slice:** reduzir fricção conversacional no runtime operacional, removendo superfície legada (`database_query`) e estabelecendo política única de execução/confirmação para fluxos de leitura, escrita e destrutivos.
+
+### Entregas (resumo)
+
+- **Slice 107.1 — remoção segura de `database_query`:**
+  - removido de `AVAILABLE_TOOL_IDS` e incluído em `DEPRECATED_CATALOG_TOOL_IDS` para limpeza silenciosa de payloads legados;
+  - removidos executor e wiring de `catalog_database_query` no runtime;
+  - removido da UI de catálogo (`CATALOG_TOOL_IDS`) e das mensagens/presets do planner;
+  - removido do readiness (`CATALOG_NEEDING_INTEGRATION`) e da resolução de tools operacionais por integração.
+- **Settings/integrations sem Postgres read-only de catálogo:**
+  - removido `toolDatabase.postgresReadOnlyUrl` dos schemas/máscara/merge;
+  - limpeza defensiva de segredo legado (`toolDatabase`) no `WorkspaceIntegrationsService` durante leitura.
+- **Slice 107.2/107.3 — contrato conversacional operacional:**
+  - política `READ/WRITE/DELETE` explicitada nas instruções de especialista e coordenador;
+  - enriquecimento da descrição de `internal_action` com tipo de operação + obrigatórios/hint de slot-filling para reduzir reconfirmações redundantes.
+- **Slice 107.5 — interrupção/cancelamento:**
+  - runtime do coordenador passa a encerrar cedo quando a mensagem do utilizador é de cancelamento/interrupção, devolvendo evento `runCancelled`.
+- **Compatibilidade com legado:**
+  - `toolsSchema` passa a remover `database_query` de forma automática para evitar quebra ao carregar agentes antigos.
+- **Cobertura e contrato atualizado:**
+  - testes de unicidade/planner/integração migrados para IDs ainda oficiais (ex.: `calendar_access`, `file_search`);
+  - documentação de matriz UI ↔ runtime atualizada para refletir catálogo sem `database_query`.
+
+### Checklist (fechado)
+
+- [x] `database_query` removido da superfície oficial (backend + frontend + settings).
+- [x] Compatibilidade de agentes legados preservada via filtro/normalização de IDs removidos.
+- [x] Testes de regressão atualizados e verdes para planner/uniquidade e catálogo operacional.
+- [x] Política conversacional `READ/WRITE/DELETE` aplicada no prompt operacional.
+- [x] Fluxo de cancelamento explícito no runtime (`runCancelled`) coberto por teste de integração.
+
+**Próximo loop em aberto recomendado após o Loop 107:** **Loop 108 — vertical Platform/Admin (contrato explícito das actions de administração + aliases seguros mínimos)**.
+
+<a id="loop-108-fechado--vertical-platformadmin-contrato-explicito-e-aliases-seguros"></a>
+
+## Loop 108 (fechado) — Vertical Platform/Admin: contrato explícito e aliases seguros
+
+- **Objetivo do slice:** consolidar a vertical `platform` com actions de administração/diagnóstico usando contrato explícito de entrada e normalização segura de aliases no boundary.
+
+### Entregas (resumo)
+
+- [`register-core-business-actions.ts`](../../backend/src/modules/business-tools/application/register-core-business-actions.ts):
+  - nova action `platform_status_overview` (status operacional com timestamp opcional);
+  - manutenção de `business.ping` como diagnóstico de eco.
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts):
+  - `inputSchema` e exemplos explícitos para `business.ping`;
+  - novo preset de `platform_status_overview` com `includeTimestamp`.
+- [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts):
+  - aliases seguros para `business.ping.message` (`mensagem`, `texto`);
+  - aliases seguros para `platform_status_overview.includeTimestamp` (`include_time`, `comHorario`).
+- Cobertura de regressão:
+  - novo [`business-action-presets.platform.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.platform.test.ts);
+  - extensão de [`business-action-input-normalization.test.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.test.ts) para casos platform/admin.
+
+### Checklist (fechado)
+
+- [x] Actions da vertical platform/admin publicam contrato explícito no preset.
+- [x] Normalização por `actionId` cobre aliases seguros mínimos da vertical.
+- [x] Testes unitários cobrem contrato + normalização da vertical platform/admin.
+
+**Próximo loop em aberto recomendado após o Loop 108:** **Loop 109 — fluidez de confirmação para CRUD destrutivo com memory-key por conversa (anti-loop de confirmação repetida)**.
+
+---
+
+<a id="loop-109-fechado--confirmacao-unica-destrutivo-com-memory-key-de-conversa"></a>
+
+## Loop 109 (fechado) — Confirmação única destrutivo com memory-key de conversa
+
+- **Objetivo do slice:** eliminar reconfirmações repetidas em pedidos destrutivos, introduzindo memória curta por conversa e confirmação explícita única antes da execução.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - detecção de intenção destrutiva com gate de confirmação (`destructiveConfirmationRequested`);
+  - confirmação explícita (`confirmo`) desbloqueia apenas uma vez por `memoryKey` de conversa;
+  - ajuste da intenção de cancelamento de run para evitar falso positivo em pedidos de negócio com “cancelar”.
+- [`trigger-mapper-registry.ts`](../../backend/src/modules/team-runtime/infra/registries/trigger-mapper-registry.ts):
+  - `conversationId` passa a entrar em `invocation.metadata`, permitindo memória estável por conversa.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) com cenário de confirmação única destrutiva no mesmo `conversationId`.
+
+### Checklist (fechado)
+
+- [x] Pedido destrutivo passa a exigir confirmação explícita única.
+- [x] Confirmação usa memory-key por conversa para evitar loop de reconfirmação.
+- [x] Teste de integração cobre fluxo “pedido destrutivo → confirmo” na mesma conversa.
+
+**Próximo loop em aberto recomendado após o Loop 109:** **Loop 110 — cancelamento assistido por comando estruturado (stop_reason + UX de retomada do run)**.
+
+---
+
+<a id="loop-110-fechado--cancelamento-estruturado-stop_reason-e-retomada-do-run"></a>
+
+## Loop 110 (fechado) — Cancelamento estruturado: `stop_reason` e retomada do run
+
+- **Objetivo do slice:** tornar o cancelamento de run explícito e auditável, com comando estruturado, motivo de parada e orientação de retomada no mesmo payload de resposta.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - parser de comando estruturado (`/stop ...`, `stop_reason: ...`);
+  - evento `runCancelled` agora inclui `stopReason` e `resumeHint`;
+  - resposta externa retorna `stop_reason` quando fornecido e instrução clara de retomada.
+- [`team-execution-result.ts`](../../backend/src/modules/team-runtime/domain/team-execution-result.ts):
+  - contrato de evento ampliado com `stopReason?` e `resumeHint?`.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) para validar comando estruturado e presença de `stopReason`/`resumeHint`.
+
+### Checklist (fechado)
+
+- [x] Cancelamento estruturado por comando explícito entregue no runtime.
+- [x] Evento de cancelamento inclui motivo e hint de retomada.
+- [x] Teste de integração cobre o caminho estruturado de cancelamento.
+
+**Próximo loop em aberto recomendado após o Loop 110:** **Loop 111 — consolidação de memória conversacional para confirmações (janela temporal + limpeza de estado pendente)**.
+
+---
+
+<a id="loop-111-fechado--memoria-conversacional-com-janela-temporal-e-limpeza-de-confirmacao-pendente"></a>
+
+## Loop 111 (fechado) — Memória conversacional com janela temporal e limpeza de confirmação pendente
+
+- **Objetivo do slice:** consolidar o estado de confirmação destrutiva por conversa, evitando reaproveitamento de confirmações antigas e removendo pendências expiradas.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - janela temporal de confirmação (`TTL`) para pendências destrutivas;
+  - rotina de limpeza periódica de estados expirados e limite de entradas em memória;
+  - quando chega `confirmo` sem pendência válida, resposta explícita pedindo reenvio do pedido destrutivo e evento `destructiveConfirmationExpired`.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) para validar expiração da pendência e resposta orientada ao reenvio da intenção.
+
+### Checklist (fechado)
+
+- [x] Janela temporal para confirmação destrutiva aplicada por conversa.
+- [x] Limpeza de estado pendente expirado aplicada no runtime.
+- [x] Fluxo de confirmação sem pendência válida devolve evento/feedback explícitos.
+- [x] Teste de integração cobre o cenário de expiração.
+
+**Próximo loop em aberto recomendado após o Loop 111:** **Loop 112 — confirmação destrutiva resiliente a mudança de contexto (revalidação do alvo antes de executar)**.
+
+---
+
+<a id="loop-112-fechado--confirmacao-destrutiva-resiliente-a-mudanca-de-contexto"></a>
+
+## Loop 112 (fechado) — Confirmação destrutiva resiliente a mudança de contexto
+
+- **Objetivo do slice:** impedir que uma confirmação destrutiva pendente seja aplicada a um alvo diferente quando o contexto muda entre pedido e confirmação.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - memória de confirmação destrutiva passou a guardar `targetHints` (IDs, UUIDs, e-mails) extraídos do pedido original;
+  - ao receber confirmação explícita com alvo divergente, o runtime bloqueia a execução e responde com evento `destructiveConfirmationTargetMismatch`;
+  - mantém o fluxo compatível para confirmação simples (`confirmo`) quando não há divergência explícita de alvo.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) com cenário de mismatch (`cliente 123` → `confirmo ... 999`) validando bloqueio e feedback.
+
+### Checklist (fechado)
+
+- [x] Revalidação de alvo destrutivo antes de aplicar confirmação.
+- [x] Bloqueio explícito quando confirmação aponta para alvo divergente.
+- [x] Teste de integração cobre o cenário de divergência de alvo.
+
+**Próximo loop em aberto recomendado após o Loop 112:** **Loop 113 — histórico curto de segurança para operações destrutivas (auditoria do pedido + confirmação aplicada)**.
+
+---
+
+<a id="loop-113-fechado--historico-curto-de-seguranca-para-operacoes-destrutivas"></a>
+
+## Loop 113 (fechado) — Histórico curto de segurança para operações destrutivas
+
+- **Objetivo do slice:** registrar uma trilha curta do pedido destrutivo e da confirmação aplicada para facilitar auditoria operacional e depuração de conversas.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - memória de auditoria curta por conversa (`requested`, `confirmed`, `expired`, `target_mismatch`);
+  - evento `destructiveAuditSnapshot` devolvido nos fluxos destrutivos relevantes;
+  - confirmação destrutiva aprovada injeta snapshot de auditoria no timeline do run.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) para garantir snapshot de auditoria no pedido de confirmação e após confirmação válida.
+
+### Checklist (fechado)
+
+- [x] Histórico curto de auditoria destrutiva implementado por conversa.
+- [x] Snapshot de auditoria exposto em eventos do runtime.
+- [x] Teste de integração cobre presença do snapshot no fluxo principal de confirmação.
+
+**Próximo loop em aberto recomendado após o Loop 113:** **Loop 114 — persistência opcional de auditoria destrutiva fora de memória (store observável por workspace)**.
+
+---
+
+<a id="loop-114-fechado--persistencia-opcional-de-auditoria-destrutiva-fora-de-memoria"></a>
+
+## Loop 114 (fechado) — Persistência opcional de auditoria destrutiva fora de memória
+
+- **Objetivo do slice:** adicionar uma camada opcional de persistência externa para auditoria destrutiva, mantendo o runtime não-bloqueante e observável por workspace.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - persistência opcional em arquivo NDJSON via `TEAM_RUNTIME_DESTRUCTIVE_AUDIT_FILE`;
+  - cada registro persistido inclui `workspaceId`, `memoryKey`, `stage`, `note` e `at`;
+  - falhas de escrita não interrompem a execução (best-effort).
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) para validar escrita no store externo quando a env var está configurada.
+
+### Checklist (fechado)
+
+- [x] Persistência opcional externa para auditoria destrutiva implementada.
+- [x] Conteúdo persistido contém chave de workspace e estágio da ação.
+- [x] Runtime continua não-bloqueante em caso de falha na escrita.
+- [x] Teste de integração cobre o cenário com store externo.
+
+**Próximo loop em aberto recomendado após o Loop 114:** **Loop 115 — consulta operacional do histórico destrutivo recente por conversa/workspace (endpoint de troubleshooting)**.
+
+---
+
+<a id="loop-115-fechado--consulta-operacional-do-historico-destrutivo-recente"></a>
+
+## Loop 115 (fechado) — Consulta operacional do histórico destrutivo recente
+
+- **Objetivo do slice:** disponibilizar endpoint de troubleshooting para consultar rapidamente histórico destrutivo recente por conversa/workspace.
+
+### Entregas (resumo)
+
+- [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts):
+  - novo endpoint `GET /teams/:id/destructive-audit`;
+  - parâmetros `conversationId` e `limit` com validação;
+  - retorno em envelope com `conversationId` e `items` do histórico consolidado.
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - helper exportado `getDestructiveAuditHistory(workspaceId, conversationId, limit)` que combina memória + store externo opcional.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) validando consulta do endpoint após um pedido destrutivo.
+
+### Checklist (fechado)
+
+- [x] Endpoint operacional de consulta implementado.
+- [x] Consulta filtrada por workspace + conversationId.
+- [x] Teste de integração cobre leitura do histórico via endpoint.
+
+**Próximo loop em aberto recomendado após o Loop 115:** **Loop 116 — filtros avançados e paginação para histórico destrutivo operacional (janela temporal + estágio)**.
+
+---
+
+<a id="loop-116-fechado--filtros-avancados-e-paginacao-do-historico-destrutivo-operacional"></a>
+
+## Loop 116 (fechado) — Filtros avançados e paginação do histórico destrutivo operacional
+
+- **Objetivo do slice:** permitir investigação operacional com recortes por estágio e janela temporal, além de paginação controlada para históricos extensos.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - `getDestructiveAuditHistory` evoluiu para aceitar query avançada (`stage`, `fromAt`, `toAt`, `limit`, `offset`);
+  - retorno agora inclui `items` + `total` para suportar paginação.
+- [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts):
+  - endpoint `GET /teams/:id/destructive-audit` expandido com `stage`, `fromAt`, `toAt`, `limit`, `offset`;
+  - resposta operacional inclui `total`, `limit`, `offset`.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) com cenários de filtro por estágio e paginação por offset.
+
+### Checklist (fechado)
+
+- [x] Filtros avançados por estágio/janela temporal implementados.
+- [x] Paginação (`limit`/`offset`) e `total` expostos no endpoint.
+- [x] Teste de integração cobre filtros e paginação operacional.
+
+**Próximo loop em aberto recomendado após o Loop 116:** **Loop 117 — endpoint operacional com cursor estável para histórico destrutivo (paginação temporal sem offset)**.
+
+---
+
+<a id="loop-117-fechado--cursor-estavel-para-historico-destrutivo-operacional"></a>
+
+## Loop 117 (fechado) — Cursor estável para histórico destrutivo operacional
+
+- **Objetivo do slice:** permitir paginação temporal estável sem dependência de `offset`, reduzindo risco de saltos/duplicações quando novos eventos chegam entre páginas.
+
+### Entregas (resumo)
+
+- [`coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts):
+  - query de histórico passou a aceitar `cursorAt` com semântica temporal (`at < cursorAt`);
+  - quando `cursorAt` é usado, a paginação ignora `offset`.
+- [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts):
+  - endpoint `GET /teams/:id/destructive-audit` aceita `cursorAt`;
+  - resposta retorna `cursorAt` e `nextCursorAt` para navegação estável entre páginas.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) com cenário de paginação por cursor em duas páginas.
+
+### Checklist (fechado)
+
+- [x] Cursor temporal (`cursorAt`) implementado no histórico destrutivo.
+- [x] Endpoint retorna `nextCursorAt` para paginação estável.
+- [x] Teste de integração cobre navegação por cursor.
+
+**Próximo loop em aberto recomendado após o Loop 117:** **Loop 118 — cursor assinado e idempotente para histórico destrutivo (anti-duplicação entre páginas)**.
+
+---
+
+<a id="loop-118-fechado--cursor-assinado-e-idempotente-no-historico-destrutivo"></a>
+
+## Loop 118 (fechado) — Cursor assinado e idempotente no histórico destrutivo
+
+- **Objetivo do slice:** endurecer paginação por cursor com assinatura para evitar manipulação/tampering e garantir continuidade idempotente entre páginas.
+
+### Entregas (resumo)
+
+- [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts):
+  - `cursor` assinado (HMAC) com payload de `conversationId` + `at`;
+  - validação de assinatura e de consistência com `conversationId`;
+  - resposta passou a devolver `nextCursor` além de `nextCursorAt`.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) para paginação com `cursor` assinado e rejeição de cursor inválido (400).
+
+### Checklist (fechado)
+
+- [x] Cursor assinado implementado para paginação destrutiva.
+- [x] Cursor inválido/tamperado é rejeitado no endpoint.
+- [x] Teste de integração cobre fluxo de cursor válido e inválido.
+
+**Próximo loop em aberto recomendado após o Loop 118:** **Loop 119 — cursor versionado com validação de janela temporal (expiração e replay-safe)**.
+
+---
+
+<a id="loop-119-fechado--cursor-versionado-com-validacao-temporal-replay-safe"></a>
+
+## Loop 119 (fechado) — Cursor versionado com validação temporal (replay-safe)
+
+- **Objetivo do slice:** tornar o cursor operacional mais resiliente com versionamento e expiração temporal explícita, reduzindo risco de replay.
+
+### Entregas (resumo)
+
+- [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts):
+  - cursor assinado passou a incluir versão (`v`) e expiração (`exp`);
+  - validação rejeita cursor expirado/inválido;
+  - TTL configurável por `DESTRUCTIVE_AUDIT_CURSOR_TTL_SECONDS`.
+- Cobertura de regressão:
+  - extensão de [`runtime-run.integration.test.ts`](../../backend/src/__tests__/runtime-run.integration.test.ts) para validar recusa de cursor expirado.
+
+### Checklist (fechado)
+
+- [x] Cursor versionado (`v`) aplicado.
+- [x] Expiração temporal (`exp`) validada no endpoint.
+- [x] Teste de integração cobre cursor expirado.
+
+**Próximo loop em aberto recomendado após o Loop 119:** **Loop 120 — cursor com binding de filtros (stage/janela) para consistência forte entre páginas**.
 
 ---
 

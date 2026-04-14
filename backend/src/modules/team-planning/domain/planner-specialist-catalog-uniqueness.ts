@@ -6,7 +6,6 @@ import { AppError } from '../../../shared/errors/app-error.js';
  * Alinhado ao prompt do planner (Loop 77) e enforcement API (Loop 78).
  */
 export const SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS = [
-  'database_query',
   'calendar_access',
   'internal_actions',
   'email_send',

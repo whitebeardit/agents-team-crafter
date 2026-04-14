@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { PassThrough } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -17,6 +17,7 @@ import {
 import { assertActiveChannelBindingUnique } from '../application/assert-active-channel-binding.js';
 import { getTeamGalleryService } from '../application/team-gallery.service.js';
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
+import { getDestructiveAuditHistory } from '../../team-runtime/application/coordinator-orchestrator.service.js';
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import {
@@ -441,9 +442,69 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     return reply.code(201).send(successEnvelope(dup));
   });
 
-  const debugSessionsListQuery = z.object({
-    limit: z.coerce.number().int().min(1).max(50).optional().default(20),
-  });
+const debugSessionsListQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+const destructiveAuditQuery = z.object({
+  conversationId: z.string().min(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+  cursorAt: z.coerce.number().int().optional(),
+  cursor: z.string().min(1).optional(),
+  stage: z.enum(['requested', 'confirmed', 'expired', 'target_mismatch']).optional(),
+  fromAt: z.coerce.number().int().optional(),
+  toAt: z.coerce.number().int().optional(),
+});
+
+function destructiveAuditCursorSecret(): string {
+  return process.env.DESTRUCTIVE_AUDIT_CURSOR_SECRET?.trim() || process.env.JWT_SECRET || 'dev-cursor-secret';
+}
+
+function destructiveAuditCursorTtlSeconds(): number {
+  const raw = Number(process.env.DESTRUCTIVE_AUDIT_CURSOR_TTL_SECONDS ?? 900);
+  if (!Number.isFinite(raw)) return 900;
+  return Math.max(0, Math.floor(raw));
+}
+
+function signDestructiveAuditCursor(payloadB64: string): string {
+  return createHmac('sha256', destructiveAuditCursorSecret()).update(payloadB64).digest('base64url');
+}
+
+function encodeDestructiveAuditCursor(conversationId: string, at: number): string {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const payloadB64 = Buffer.from(
+    JSON.stringify({
+      v: 1,
+      conversationId,
+      at,
+      exp: nowSec + destructiveAuditCursorTtlSeconds(),
+    }),
+    'utf8',
+  ).toString('base64url');
+  return `${payloadB64}.${signDestructiveAuditCursor(payloadB64)}`;
+}
+
+function decodeDestructiveAuditCursor(token: string): { conversationId: string; at: number } | null {
+  const [payloadB64, sig] = token.split('.');
+  if (!payloadB64 || !sig) return null;
+  if (signDestructiveAuditCursor(payloadB64) !== sig) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as {
+      v?: number;
+      conversationId?: string;
+      at?: number;
+      exp?: number;
+    };
+    if (parsed.v !== 1 || !parsed.conversationId || typeof parsed.at !== 'number' || typeof parsed.exp !== 'number') {
+      return null;
+    }
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (parsed.exp < nowSec) return null;
+    return { conversationId: parsed.conversationId, at: parsed.at };
+  } catch {
+    return null;
+  }
+}
 
   app.get('/teams/:id/debug-sessions', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
@@ -465,6 +526,50 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     if (!cid) throw new AppError('VALIDATION_ERROR', 'conversationId invalido', 400);
     const turns = await deps.teamDebugSessionRepo.getTurnsWithTimestamps(ws, teamId, cid);
     return reply.send(successEnvelope({ conversationId: cid, turns }));
+  });
+
+  app.get('/teams/:id/destructive-audit', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await deps.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const q = destructiveAuditQuery.parse(req.query);
+    const conversationId = q.conversationId.trim();
+    const cursorDecoded = q.cursor ? decodeDestructiveAuditCursor(q.cursor) : null;
+    if (q.cursor && !cursorDecoded) {
+      throw new AppError('VALIDATION_ERROR', 'cursor invalido', 400);
+    }
+    if (cursorDecoded && cursorDecoded.conversationId !== conversationId) {
+      throw new AppError('VALIDATION_ERROR', 'cursor nao corresponde ao conversationId', 400);
+    }
+    const history = getDestructiveAuditHistory(ws, conversationId, {
+      limit: q.limit,
+      ...(q.cursorAt !== undefined || cursorDecoded ? {} : { offset: q.offset }),
+      ...(q.cursorAt !== undefined
+        ? { cursorAt: q.cursorAt }
+        : cursorDecoded
+          ? { cursorAt: cursorDecoded.at }
+          : {}),
+      ...(q.stage ? { stage: q.stage } : {}),
+      ...(q.fromAt !== undefined ? { fromAt: q.fromAt } : {}),
+      ...(q.toAt !== undefined ? { toAt: q.toAt } : {}),
+    });
+    const nextCursorAt = history.items.length ? history.items[history.items.length - 1]?.at : undefined;
+    const nextCursor =
+      typeof nextCursorAt === 'number' ? encodeDestructiveAuditCursor(conversationId, nextCursorAt) : undefined;
+    return reply.send(
+      successEnvelope({
+        conversationId,
+        items: history.items,
+        total: history.total,
+        limit: q.limit,
+        offset: q.cursorAt !== undefined || cursorDecoded ? undefined : q.offset,
+        cursorAt: q.cursorAt,
+        cursor: q.cursor,
+        nextCursorAt,
+        nextCursor,
+      }),
+    );
   });
 
   app.post('/teams/:id/run', { preHandler: tenant }, async (req, reply) => {

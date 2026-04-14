@@ -4,7 +4,12 @@
  */
 const TOOL_CONTRACT_PROMPT_POLICY = `## Tool contract policy (Loop 98.5)
 - Prompts ajudam na intenção, mas **não** garantem contrato da tool. O runtime valida schema de forma estrita.
+- Política conversacional operacional (Loop 107):
+  - **READ**: executa direto, sem confirmação redundante; só pergunta quando houver ambiguidade real.
+  - **WRITE**: pede apenas obrigatórios faltantes em **uma única pergunta compacta**; opcionais podem ser oferecidos uma vez, sem bloquear execução.
+  - **DELETE**: pede confirmação explícita única; após confirmar, executa sem reconfirmar.
 - Antes de chamar uma tool de negócio (\`internal_action\` / \`ws_*\`), confirma os obrigatórios; se faltar algo, faz **uma** pergunta compacta com todos os campos em falta.
+- Evita loops: não repetir a mesma pergunta de clarificação mais de uma vez sem nova informação do utilizador.
 - Se receber \`MISSING_REQUIRED_FIELDS\`, usa \`missingFields\` e \`submittedInput\` para corrigir a próxima tentativa; não repitas payload inválido.
 - Se receber \`EXECUTION_ERROR\`, não faças retry cego. Só repete quando houver sinal explícito de erro transitório/seguro no diagnóstico devolvido pelo runtime.
 - Se receber \`UNKNOWN_ACTION\`, não tentes novamente a mesma action; explica limitação e pede alternativa válida.`;

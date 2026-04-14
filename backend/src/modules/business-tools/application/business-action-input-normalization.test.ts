@@ -213,6 +213,18 @@ describe('normalizeBusinessActionInput (Loop 98.6)', () => {
     expect(availability.date).toBe('2026-05-04');
   });
 
+  it('normalizes platform/admin aliases for ping and status overview', () => {
+    const ping = normalizeBusinessActionInput('business.ping', {
+      mensagem: 'ping de suporte',
+    }) as Record<string, unknown>;
+    const status = normalizeBusinessActionInput('platform_status_overview', {
+      comHorario: 'true',
+    }) as Record<string, unknown>;
+
+    expect(ping.message).toBe('ping de suporte');
+    expect(status.includeTimestamp).toBe('true');
+  });
+
   it('exposes normalization safety class per action', () => {
     expect(getActionNormalizationSafetyClass('crm_create_party')).toBe('A');
     expect(getActionNormalizationSafetyClass('crm_find_party')).toBe('B');
@@ -224,6 +236,8 @@ describe('normalizeBusinessActionInput (Loop 98.6)', () => {
     expect(getActionNormalizationSafetyClass('sales_mark_order_paid')).toBe('A');
     expect(getActionNormalizationSafetyClass('github_comment_pr')).toBe('A');
     expect(getActionNormalizationSafetyClass('schedule_create_appointment')).toBe('A');
+    expect(getActionNormalizationSafetyClass('business.ping')).toBe('A');
+    expect(getActionNormalizationSafetyClass('platform_status_overview')).toBe('A');
     expect(getActionNormalizationSafetyClass('finance_total_payable_by_destination')).toBe('C');
   });
 });

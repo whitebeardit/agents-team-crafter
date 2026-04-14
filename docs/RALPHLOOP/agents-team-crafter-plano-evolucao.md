@@ -816,9 +816,18 @@ Em paralelo, continuam válidos como macro-evolução de negócio:
 # 12. Próxima ação recomendada
 
 ## Próximo loop recomendado
-**Último slice numerado fechado:** **[Loop 94](#loop-94--templates-operacionais-e-cenários-dourados-de-validação)** — ledger [Loop 94 (fechado)](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-94-fechado). **Loops 82–93** cobrem planner, AI Builder, especialistas, readiness, cockpit, console, CTAs e runs legíveis; o **94** fecha **guia de validação e prompts** nos templates (cenários dourados em dados + UI).
+**Último slice numerado fechado:** **[Loop 119](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-119-fechado--cursor-versionado-com-validacao-temporal-replay-safe)** — cursor versionado com expiração temporal para paginação destrutiva replay-safe.
 
-**Próximo recorte recomendado (candidato numerado):** **[Loop 95](#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação)** (polimento responsivo da operação); verticais por `packId` **[96+](#loops-88-mais-verticais-de-negócio-por-pack)** quando aplicável.
+**Próximo recorte oficial numerado:** **Loop 120 — cursor com binding de filtros (stage/janela) para consistência forte entre páginas**.
+
+**Foco do Loop 107 (método Ralph):**
+
+1. remover `database_query` da superfície oficial do produto com compatibilidade para legado;
+2. definir contrato conversacional único para `READ` / `CREATE|UPDATE` / `DELETE`;
+3. aplicar memória de coleta de campos (obrigatórios vs opcionais) sem reconfirmação redundante;
+4. reduzir loops de clarificação/confirmação com guardrails explícitos;
+5. suportar cancelamento/interrupção de conversa/run em andamento;
+6. usar CRM CRUD como vertical dourada de validação operacional.
 
 **Macro-evolução em paralelo:** [14.8 — Riscos e decisões em aberto](#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
 

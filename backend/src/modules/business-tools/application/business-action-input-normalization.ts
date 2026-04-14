@@ -41,6 +41,14 @@ const CARE_SUBJECT_KIND_VALUE_ALIASES: Readonly<Record<string, string>> = {
  * Regras explícitas, auditáveis e testáveis; sem heurística genérica.
  */
 const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalizationConfig>> = {
+  'business.ping': {
+    safetyClass: 'A',
+    rules: [{ targetKey: 'message', aliases: ['message', 'mensagem', 'texto'] }],
+  },
+  platform_status_overview: {
+    safetyClass: 'A',
+    rules: [{ targetKey: 'includeTimestamp', aliases: ['includeTimestamp', 'include_time', 'comHorario'] }],
+  },
   crm_create_party: {
     safetyClass: 'A',
     rules: [{ targetKey: 'displayName', aliases: DISPLAY_NAME_ALIASES }],
