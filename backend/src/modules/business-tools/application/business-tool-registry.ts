@@ -1,4 +1,8 @@
 import { getBusinessActionPreset } from './business-action-presets.js';
+import {
+  classifyBusinessActionOperation,
+  type TBusinessActionOperationType,
+} from './business-action-operation-policy.js';
 
 /**
  * Registry of internal business actions keyed by stable `actionId` (e.g. `business.ping`, `crm_create_party`).
@@ -16,6 +20,7 @@ export interface IBusinessActionCatalogItem {
   actionId: string;
   title: string;
   description: string;
+  operationType: TBusinessActionOperationType;
   packId?: string;
   inputSchema?: Record<string, unknown>;
   requiredFieldLabels?: string[];
@@ -51,6 +56,7 @@ export class BusinessToolRegistry {
         actionId,
         title: preset?.title ?? actionId,
         description: preset?.description ?? '',
+        operationType: classifyBusinessActionOperation(actionId),
         packId: preset?.packId,
         inputSchema: preset?.inputSchema,
         requiredFieldLabels: preset?.requiredFieldLabels,

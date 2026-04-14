@@ -6,7 +6,6 @@ import type { IMcpToolSpec } from '../ports/agent-runtime.provider.js';
 import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
 import {
   executeCalendarAccess,
-  executeDatabaseQuery,
   executeImageGeneration,
 } from './tool-builtin-executors.js';
 import { logToolInvocation } from './tool-invocation-logger.js';
@@ -43,11 +42,6 @@ const CATALOG_STUB: Record<
     description: 'Read or write calendar events via REST integration or stub.',
     stubResult: () =>
       '[catalog_stub] calendar_access: configure toolCalendar.restBaseUrl em Integracoes.',
-  },
-  database_query: {
-    description: 'Run a read-only SQL query (Postgres) when URL configured, else stub.',
-    stubResult: () =>
-      '[catalog_stub] database_query: configure toolDatabase.postgresReadOnlyUrl em Integracoes.',
   },
   image_generation: {
     description: 'Generate images via OpenAI (DALL-E 2/3) when API key is configured.',
@@ -108,22 +102,6 @@ export function buildCapabilityCatalogTools(
     if (!isAllowedTool(id)) continue;
     const bid = id as TAvailableToolId;
 
-    if (bid === 'database_query' && ctx.database?.postgresReadOnlyUrl) {
-      out.push(
-        tool({
-          name: `catalog_${id}`.slice(0, 64),
-          description:
-            'Run a read-only SQL query against the workspace Postgres (SELECT/WITH only, LIMIT applied).',
-          parameters: catalogQueryArgs,
-          execute: async (input) =>
-            executeDatabaseQuery(ctx, input as { query?: string }, {
-              workspaceId: meta.workspaceId,
-              correlationId: meta.correlationId,
-            }),
-        }),
-      );
-      continue;
-    }
     if (bid === 'calendar_access' && ctx.calendar?.restBaseUrl) {
       out.push(
         tool({

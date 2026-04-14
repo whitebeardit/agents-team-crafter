@@ -152,7 +152,6 @@ type IntegrationsApiData = {
       clientIdMasked?: string
       clientSecretMasked?: string
     }
-    toolDatabase?: { postgresReadOnlyUrlConfigured: boolean }
     toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean }
     /** Padrao workspace para tool catalog_image_generation quando model=default */
     imageGenerationModel?: "dall-e-2" | "dall-e-3"
@@ -229,7 +228,6 @@ export default function SettingsPage() {
   const [slackClientSecret, setSlackClientSecret] = useState("")
   const [smtpTestTo, setSmtpTestTo] = useState("")
 
-  const [toolDbPostgresUrl, setToolDbPostgresUrl] = useState("")
   const [toolCalRestBase, setToolCalRestBase] = useState("")
   const [toolCalAuthHeader, setToolCalAuthHeader] = useState("")
   const [teamPlanPolicy, setTeamPlanPolicy] = useState<TeamPlanningPolicy | null>(null)
@@ -318,7 +316,6 @@ export default function SettingsPage() {
         setSmtpFrom(sm.from ?? "")
       }
       const tm = integrationsRes.data.secretsMasked
-      setToolDbPostgresUrl("")
       setToolCalRestBase(tm.toolCalendar?.restBaseUrl ?? "")
       setToolCalAuthHeader("")
       setWorkspaceName(workspaceRes.data.name ?? "")
@@ -790,27 +787,6 @@ export default function SettingsPage() {
     }
   }
 
-  const saveToolDatabaseIntegration = async () => {
-    const api = integrationApi()
-    if (!api) return
-    setIntBusy(true)
-    try {
-      const res = await api.put<{
-        message: string
-        secretsMasked: IntegrationsApiData["secretsMasked"]
-      }>("/settings/workspace/integrations", {
-        toolDatabase: { postgresReadOnlyUrl: toolDbPostgresUrl },
-      })
-      setIntegrations(res.data.secretsMasked)
-      setToolDbPostgresUrl("")
-      toast.success("Postgres (somente leitura) guardado")
-    } catch (err) {
-      toastIntegrationRequestError(err, "Falha ao guardar Postgres para tools")
-    } finally {
-      setIntBusy(false)
-    }
-  }
-
   const saveToolCalendarIntegration = async () => {
     const api = integrationApi()
     if (!api) return
@@ -1221,8 +1197,7 @@ export default function SettingsPage() {
                 (Chat SDK ou genericos).
               </p>
               <p>
-                <strong className="text-foreground">Tools do catalogo</strong>: ligue Postgres (somente leitura) para{" "}
-                <code className="text-xs">database_query</code> e/ou calendario REST para{" "}
+                <strong className="text-foreground">Tools do catalogo</strong>: ligue calendario REST para{" "}
                 <code className="text-xs">calendar_access</code>. CRM persistido no produto e via pack de negocio (
                 <code className="text-xs">internal_action</code> / <code className="text-xs">crm_*</code>), nao por URL
                 generica aqui.
@@ -1496,43 +1471,6 @@ export default function SettingsPage() {
               </div>
               <Button onClick={() => void saveSlackIntegration()} disabled={intBusy}>
                 Guardar Slack
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Tools do catalogo — Postgres (database_query)
-              </CardTitle>
-              <CardDescription>
-                Connection string <strong>somente leitura</strong> para a tool <code className="text-xs">database_query</code>.
-                Deixe vazio e guarde para remover. A URL nunca e exibida de volta; apenas se ha credencial configurada.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Estado:{" "}
-                {integrations?.toolDatabase?.postgresReadOnlyUrlConfigured ? (
-                  <Badge variant="secondary">Configurado</Badge>
-                ) : (
-                  <span className="text-amber-600 dark:text-amber-500">Nao configurado</span>
-                )}
-              </p>
-              <div className="space-y-2">
-                <Label htmlFor="tool-pg-url">Nova connection string (postgres://...)</Label>
-                <Input
-                  id="tool-pg-url"
-                  type="password"
-                  autoComplete="off"
-                  value={toolDbPostgresUrl}
-                  onChange={(e) => setToolDbPostgresUrl(e.target.value)}
-                  placeholder={integrations?.toolDatabase?.postgresReadOnlyUrlConfigured ? "(substituir ou limpar)" : ""}
-                />
-              </div>
-              <Button onClick={() => void saveToolDatabaseIntegration()} disabled={intBusy}>
-                Guardar Postgres
               </Button>
             </CardContent>
           </Card>

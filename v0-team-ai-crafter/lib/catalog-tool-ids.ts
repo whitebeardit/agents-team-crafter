@@ -6,7 +6,6 @@ export const CATALOG_TOOL_IDS = [
   "code_execution",
   "email_send",
   "calendar_access",
-  "database_query",
   "image_generation",
 ] as const
 
@@ -17,7 +16,6 @@ export type CatalogToolId = (typeof CATALOG_TOOL_IDS)[number]
  * Manter alinhado a `SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS` no backend.
  */
 export const SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS: readonly CatalogToolId[] = [
-  "database_query",
   "calendar_access",
   "internal_actions",
   "email_send",
@@ -37,7 +35,6 @@ const LABELS_PT: Record<CatalogToolId, string> = {
   code_execution: "Execução de código",
   email_send: "Envio de email",
   calendar_access: "Calendário",
-  database_query: "Consulta SQL (Postgres)",
   image_generation: "Geração de imagens",
 }
 

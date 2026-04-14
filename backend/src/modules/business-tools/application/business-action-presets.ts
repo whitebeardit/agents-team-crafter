@@ -22,6 +22,28 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     title: 'Ping de diagnóstico',
     description: 'Ecoa uma mensagem para validar o runtime de ações internas.',
     packId: 'platform',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'Mensagem de teste para eco (opcional).' },
+      },
+    },
+    examples: [{ message: 'ping do workspace' }],
+  },
+  platform_status_overview: {
+    title: 'Platform/Admin — Status operacional',
+    description: 'Retorna visão rápida do estado operacional da camada platform/admin.',
+    packId: 'platform',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        includeTimestamp: {
+          type: 'boolean',
+          description: 'Quando true, inclui timestamp ISO da resposta.',
+        },
+      },
+    },
+    examples: [{ includeTimestamp: true }],
   },
   'crm_create_party': {
     title: 'CRM — Criar parte',

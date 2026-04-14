@@ -4,6 +4,11 @@ import type { IWorkspaceCustomToolDefinition } from '../ports/agent-runtime.prov
 import type { IBusinessToolRuntime } from '../../business-tools/application/business-tool-runtime.js';
 import { logToolInvocation } from './tool-invocation-logger.js';
 import { jsonSchemaToZodParams } from './json-schema-to-zod-params.js';
+import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
+import {
+  classifyBusinessActionOperation,
+  operationPolicyPromptLine,
+} from '../../business-tools/application/business-action-operation-policy.js';
 
 const genericArgs = z.object({
   query: z
@@ -50,7 +55,18 @@ export function buildWorkspaceCustomTools(
       out.push(
         tool({
           name: toolName,
-          description: `${def.name} (internal business action: ${actionId})`,
+          description: (() => {
+            const preset = getBusinessActionPreset(actionId);
+            const operation = classifyBusinessActionOperation(actionId);
+            const required =
+              preset?.requiredFieldLabels && preset.requiredFieldLabels.length > 0
+                ? ` Obrigatórios: ${preset.requiredFieldLabels.join(', ')}.`
+                : '';
+            const slotHint = preset?.slotFillingPromptHint?.trim()
+              ? ` Hint: ${preset.slotFillingPromptHint.trim()}`
+              : '';
+            return `${def.name} (internal business action: ${actionId}; operation=${operation}). ${operationPolicyPromptLine(operation)}${required}${slotHint}`.trim();
+          })(),
           parameters,
           execute: async (input) => {
             const r = await runtime.execute({

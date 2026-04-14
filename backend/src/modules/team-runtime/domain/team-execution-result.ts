@@ -14,6 +14,10 @@ export interface ITeamExecutionEvent {
   toolInstruction?: string;
   /** Exact user message passed to specialist `runStep` after merge with user invocation (full string). */
   runtimeMessage?: string;
+  /** Structured stop reason (Loop 110) when cancellation is explicit. */
+  stopReason?: string;
+  /** Suggested follow-up command/intent to resume flow after stop. */
+  resumeHint?: string;
 }
 
 export interface ITeamExecutionResult {

@@ -53,7 +53,14 @@ export function buildManualTeamInvocation(
       taskType: body.taskType,
       requestedAccessLevel: body.requestedAccessLevel,
     },
-    ...(correlationId ? { metadata: { correlationId } } : {}),
+    ...((correlationId || body.conversationId?.trim())
+      ? {
+          metadata: {
+            ...(correlationId ? { correlationId } : {}),
+            ...(body.conversationId?.trim() ? { conversationId: body.conversationId.trim() } : {}),
+          },
+        }
+      : {}),
     ...(conversation ? { conversation } : {}),
   };
 }

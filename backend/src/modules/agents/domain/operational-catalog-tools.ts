@@ -8,10 +8,6 @@ export interface IOperationalCatalogTool {
 }
 
 const META: Record<string, { name: string; description: string }> = {
-  database_query: {
-    name: 'Consulta ao Banco',
-    description: 'SQL somente leitura na base Postgres configurada nas integracoes.',
-  },
   calendar_access: {
     name: 'Acesso ao Calendario',
     description: 'Pedidos HTTP ao calendario configurado nas integracoes.',
@@ -28,10 +24,6 @@ const META: Record<string, { name: string; description: string }> = {
  */
 export function resolveOperationalCatalogTools(ctx: IToolIntegrationContext): IOperationalCatalogTool[] {
   const out: IOperationalCatalogTool[] = [];
-  if (ctx.database?.postgresReadOnlyUrl?.trim()) {
-    const m = META.database_query;
-    out.push({ id: 'database_query', ...m });
-  }
   if (ctx.calendar?.restBaseUrl?.trim()) {
     const m = META.calendar_access;
     out.push({ id: 'calendar_access', ...m });

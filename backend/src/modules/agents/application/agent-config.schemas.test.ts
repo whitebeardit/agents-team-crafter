@@ -30,6 +30,13 @@ describe('toolsSchema', () => {
     expect(parsed.tools).toEqual(['web_search']);
   });
 
+  it('remove database_query legado do catálogo (Loop 107)', () => {
+    const parsed = toolsSchema.parse({
+      tools: ['web_search', 'database_query'],
+    });
+    expect(parsed.tools).toEqual(['web_search']);
+  });
+
   it('aceita customToolDefinitionIds opcionais', () => {
     const parsed = toolsSchema.parse({
       tools: ['web_search'],

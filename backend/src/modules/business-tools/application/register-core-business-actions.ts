@@ -16,4 +16,20 @@ export function registerCoreBusinessActions(registry: BusinessToolRegistry): voi
       : 'pong';
     return { ok: true, workspaceId, echo: msg };
   });
+
+  registry.register('platform_status_overview', async ({ workspaceId, input }) => {
+    const includeTimestamp =
+      input &&
+      typeof input === 'object' &&
+      input !== null &&
+      'includeTimestamp' in input &&
+      Boolean((input as { includeTimestamp?: unknown }).includeTimestamp);
+
+    return {
+      ok: true,
+      workspaceId,
+      status: 'operational',
+      ...(includeTimestamp ? { timestamp: new Date().toISOString() } : {}),
+    };
+  });
 }

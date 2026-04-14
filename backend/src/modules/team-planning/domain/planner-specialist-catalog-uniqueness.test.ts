@@ -9,9 +9,9 @@ describe('assertSpecialistsExclusiveCatalogTools', () => {
   it('nao lanca quando especialistas tem conjuntos disjuntos de IDs exclusivos', () => {
     expect(() =>
       assertSpecialistsExclusiveCatalogTools([
-        { role: 'coordinator', name: 'C', catalogTools: ['web_search', 'database_query'] },
-        { role: 'specialist', name: 'A', catalogTools: ['database_query'] },
-        { role: 'specialist', name: 'B', catalogTools: ['calendar_access'] },
+        { role: 'coordinator', name: 'C', catalogTools: ['web_search', 'calendar_access'] },
+        { role: 'specialist', name: 'A', catalogTools: ['calendar_access'] },
+        { role: 'specialist', name: 'B', catalogTools: ['file_search'] },
       ]),
     ).not.toThrow();
   });
@@ -19,8 +19,8 @@ describe('assertSpecialistsExclusiveCatalogTools', () => {
   it('lanca quando dois especialistas partilham o mesmo ID exclusivo', () => {
     expect(() =>
       assertSpecialistsExclusiveCatalogTools([
-        { role: 'specialist', name: 'Primeiro', catalogTools: ['database_query', 'web_search'] },
-        { role: 'specialist', name: 'Segundo', catalogTools: ['database_query'] },
+        { role: 'specialist', name: 'Primeiro', catalogTools: ['calendar_access', 'web_search'] },
+        { role: 'specialist', name: 'Segundo', catalogTools: ['calendar_access'] },
       ]),
     ).toThrow(AppError);
   });
@@ -28,8 +28,8 @@ describe('assertSpecialistsExclusiveCatalogTools', () => {
   it('ignora coordenador com mesmo ID que especialista', () => {
     expect(() =>
       assertSpecialistsExclusiveCatalogTools([
-        { role: 'coordinator', name: 'C', catalogTools: ['database_query'] },
-        { role: 'specialist', name: 'S', catalogTools: ['database_query'] },
+        { role: 'coordinator', name: 'C', catalogTools: ['calendar_access'] },
+        { role: 'specialist', name: 'S', catalogTools: ['calendar_access'] },
       ]),
     ).not.toThrow();
   });
@@ -49,8 +49,8 @@ describe('getSpecialistsCatalogToolConflicts', () => {
   it('retorna vazio quando conjuntos sao disjuntos', () => {
     expect(
       getSpecialistsCatalogToolConflicts([
-        { role: 'specialist', name: 'A', catalogTools: ['database_query'] },
-        { role: 'specialist', name: 'B', catalogTools: ['calendar_access'] },
+        { role: 'specialist', name: 'A', catalogTools: ['calendar_access'] },
+        { role: 'specialist', name: 'B', catalogTools: ['file_search'] },
       ]),
     ).toHaveLength(0);
   });

@@ -24,10 +24,6 @@ export interface IWorkspaceIntegrationsPayload {
     clientId?: string;
     clientSecret?: string;
   };
-  /** Postgres somente leitura para tool catalog_database_query */
-  toolDatabase?: {
-    postgresReadOnlyUrl?: string;
-  };
   /** Base REST para tool catalog_calendar_access (GET path relativo em query) */
   toolCalendar?: {
     restBaseUrl?: string;
@@ -55,11 +51,6 @@ export const putWorkspaceIntegrationsBodySchema = z.object({
       botToken: z.string().optional(),
       clientId: z.string().optional(),
       clientSecret: z.string().optional(),
-    })
-    .optional(),
-  toolDatabase: z
-    .object({
-      postgresReadOnlyUrl: z.string().optional(),
     })
     .optional(),
   toolCalendar: z
@@ -91,7 +82,6 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
     clientIdMasked?: string;
     clientSecretMasked?: string;
   };
-  toolDatabase?: { postgresReadOnlyUrlConfigured: boolean };
   toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean };
   imageGenerationModel?: TImageGenerationModel;
 } {
@@ -128,13 +118,6 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
             ...(slack.clientSecret?.trim()
               ? { clientSecretMasked: maskSecretValue(slack.clientSecret) }
               : {}),
-          },
-        }
-      : {}),
-    ...(payload.toolDatabase?.postgresReadOnlyUrl?.trim()
-      ? {
-          toolDatabase: {
-            postgresReadOnlyUrlConfigured: true,
           },
         }
       : {}),
@@ -205,20 +188,6 @@ export function mergeWorkspaceIntegrationsPayload(
     if (merged.clientSecret?.trim()) cleaned.clientSecret = merged.clientSecret.trim();
     if (Object.keys(cleaned).length === 0) delete next.slack;
     else next.slack = cleaned;
-  }
-
-  if (patch.toolDatabase !== undefined) {
-    const prev = next.toolDatabase ?? {};
-    const merged = {
-      postgresReadOnlyUrl:
-        patch.toolDatabase.postgresReadOnlyUrl !== undefined
-          ? patch.toolDatabase.postgresReadOnlyUrl
-          : prev.postgresReadOnlyUrl,
-    };
-    if (merged.postgresReadOnlyUrl?.trim() === '') delete next.toolDatabase;
-    else if (merged.postgresReadOnlyUrl?.trim()) {
-      next.toolDatabase = { postgresReadOnlyUrl: merged.postgresReadOnlyUrl.trim() };
-    }
   }
 
   if (patch.toolCalendar !== undefined) {

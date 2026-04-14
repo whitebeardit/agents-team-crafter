@@ -1,7 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import bcrypt from 'bcrypt';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { buildApp } from '../app/app.js';
 import type { IEnv } from '../config/env.js';
 import { UserModel } from '../modules/users/infra/user.model.js';
@@ -139,5 +142,384 @@ describe('POST /teams/:id/run (team runtime)', () => {
     expect(body.data).not.toHaveProperty('handoffs');
     expect(body.data).not.toHaveProperty('selectedAgentId');
     expect(Array.isArray(body.data.specialistResults)).toBe(true);
+  });
+
+  it('returns early on structured stop command with stop_reason and resume hint', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: { message: '/stop motivo: revisar briefing', taskType: 'invoice_validation' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      success: boolean;
+      data: {
+        externalResponse: { text?: string };
+        specialistResults?: unknown[];
+        events?: Array<{ type?: string; stopReason?: string; resumeHint?: string }>;
+      };
+    };
+    expect(body.success).toBe(true);
+    expect(body.data.externalResponse.text).toMatch(/stop_reason/i);
+    expect(body.data.specialistResults).toEqual([]);
+    const cancelled = body.data.events?.find((e) => e.type === 'runCancelled');
+    expect(cancelled).toBeDefined();
+    expect(cancelled?.stopReason).toMatch(/motivo: revisar briefing/i);
+    expect(cancelled?.resumeHint).toMatch(/retomar/i);
+  });
+
+  it('requires single explicit confirmation for destructive requests in same conversation', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const conversationId = 'conv-destrutivo-1';
+
+    const ask = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'apagar o cliente 123',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(ask.statusCode).toBe(200);
+    const askBody = JSON.parse(ask.body) as {
+      data: { events?: Array<{ type?: string }>; specialistResults?: unknown[]; externalResponse?: { text?: string } };
+    };
+    expect(askBody.data.events?.some((e) => e.type === 'destructiveConfirmationRequested')).toBe(true);
+    expect(askBody.data.events?.some((e) => e.type === 'destructiveAuditSnapshot')).toBe(true);
+    expect(askBody.data.specialistResults).toEqual([]);
+    expect(askBody.data.externalResponse?.text).toMatch(/confirmo/i);
+
+    const confirm = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'confirmo',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(confirm.statusCode).toBe(200);
+    const confirmBody = JSON.parse(confirm.body) as { data: { events?: Array<{ type?: string }> } };
+    expect(confirmBody.data.events?.some((e) => e.type === 'destructiveConfirmationRequested')).toBe(
+      false,
+    );
+    expect(confirmBody.data.events?.some((e) => e.type === 'destructiveAuditSnapshot')).toBe(true);
+  });
+
+  it('expires pending destructive confirmation by time window and asks to resend intent', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const conversationId = 'conv-destrutivo-expira-1';
+    const baseNow = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(baseNow);
+
+    const ask = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'apagar o cliente 999',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(ask.statusCode).toBe(200);
+
+    nowSpy.mockReturnValue(baseNow + 11 * 60 * 1000);
+    const confirmLate = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'confirmo',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    nowSpy.mockRestore();
+
+    expect(confirmLate.statusCode).toBe(200);
+    const body = JSON.parse(confirmLate.body) as {
+      data: { events?: Array<{ type?: string }>; externalResponse?: { text?: string } };
+    };
+    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationExpired')).toBe(true);
+    expect(body.data.externalResponse?.text).toMatch(/não há confirmação destrutiva pendente/i);
+  });
+
+  it('rejects destructive confirmation when target differs from pending request', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const conversationId = 'conv-destrutivo-mismatch-1';
+
+    const ask = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'apagar o cliente 123',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(ask.statusCode).toBe(200);
+
+    const mismatch = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'confirmo apagar cliente 999',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+
+    expect(mismatch.statusCode).toBe(200);
+    const body = JSON.parse(mismatch.body) as {
+      data: {
+        events?: Array<{ type?: string }>;
+        specialistResults?: unknown[];
+        externalResponse?: { text?: string };
+      };
+    };
+    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationTargetMismatch')).toBe(true);
+    expect(body.data.specialistResults).toEqual([]);
+    expect(body.data.externalResponse?.text).toMatch(/alvo diferente/i);
+  });
+
+  it('persists destructive audit entries to external store when configured', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const tempDir = await mkdtemp(join(tmpdir(), 'destructive-audit-'));
+    const auditPath = join(tempDir, 'audit.ndjson');
+    process.env.TEAM_RUNTIME_DESTRUCTIVE_AUDIT_FILE = auditPath;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'apagar o cliente 555',
+        taskType: 'invoice_validation',
+        conversationId: 'conv-audit-persist-1',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const content = await readFile(auditPath, 'utf8');
+    delete process.env.TEAM_RUNTIME_DESTRUCTIVE_AUDIT_FILE;
+    await rm(tempDir, { recursive: true, force: true });
+
+    const lines = content
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { workspaceId?: string; stage?: string; note?: string });
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.some((l) => l.workspaceId === String((ws as { _id: unknown })._id))).toBe(true);
+    expect(lines.some((l) => l.stage === 'requested')).toBe(true);
+    expect(lines.some((l) => /apagar o cliente 555/i.test(l.note ?? ''))).toBe(true);
+  });
+
+  it('returns destructive audit history by conversation via troubleshooting endpoint', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const conversationId = 'conv-audit-history-1';
+
+    const runRes = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'apagar o cliente 777',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(runRes.statusCode).toBe(200);
+
+    const auditRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    expect(auditRes.statusCode).toBe(200);
+    const body = JSON.parse(auditRes.body) as {
+      data: { conversationId?: string; items?: Array<{ stage?: string; note?: string }>; total?: number; limit?: number; offset?: number };
+    };
+    expect(body.data.conversationId).toBe(conversationId);
+    expect(Array.isArray(body.data.items)).toBe(true);
+    expect(body.data.items?.some((i) => i.stage === 'requested')).toBe(true);
+    expect(body.data.items?.some((i) => /apagar o cliente 777/i.test(i.note ?? ''))).toBe(true);
+    expect(typeof body.data.total).toBe('number');
+    expect(body.data.limit).toBe(20);
+    expect(body.data.offset).toBe(0);
+  });
+
+  it('supports destructive audit filters and pagination in troubleshooting endpoint', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const conversationId = 'conv-audit-filter-1';
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: { message: 'apagar o cliente 888', taskType: 'invoice_validation', conversationId },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: { message: 'confirmo', taskType: 'invoice_validation', conversationId },
+    });
+
+    const filtered = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}&stage=confirmed&limit=1&offset=0`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    expect(filtered.statusCode).toBe(200);
+    const filteredBody = JSON.parse(filtered.body) as {
+      data: { items?: Array<{ stage?: string }>; total?: number; limit?: number; offset?: number };
+    };
+    expect(filteredBody.data.items?.every((i) => i.stage === 'confirmed')).toBe(true);
+    expect(filteredBody.data.limit).toBe(1);
+    expect(filteredBody.data.offset).toBe(0);
+    expect((filteredBody.data.total ?? 0) >= 1).toBe(true);
+
+    const paged = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}&limit=1&offset=1`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    expect(paged.statusCode).toBe(200);
+    const pagedBody = JSON.parse(paged.body) as {
+      data: { items?: unknown[]; total?: number; limit?: number; offset?: number };
+    };
+    expect(pagedBody.data.limit).toBe(1);
+    expect(pagedBody.data.offset).toBe(1);
+    expect((pagedBody.data.total ?? 0) >= 2).toBe(true);
+    expect((pagedBody.data.items?.length ?? 0) <= 1).toBe(true);
+
+    const firstCursorPage = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}&limit=1`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    expect(firstCursorPage.statusCode).toBe(200);
+    const firstCursorBody = JSON.parse(firstCursorPage.body) as {
+      data: { items?: Array<{ at?: number }>; nextCursorAt?: number; nextCursor?: string };
+    };
+    const cursorAt = firstCursorBody.data.nextCursorAt;
+    const nextCursor = firstCursorBody.data.nextCursor;
+    expect(typeof cursorAt).toBe('number');
+    expect(typeof nextCursor).toBe('string');
+
+    const secondCursorPage = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}&limit=1&cursor=${encodeURIComponent(String(nextCursor))}`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    expect(secondCursorPage.statusCode).toBe(200);
+    const secondCursorBody = JSON.parse(secondCursorPage.body) as {
+      data: { items?: Array<{ at?: number }>; cursor?: string };
+    };
+    expect(secondCursorBody.data.cursor).toBe(nextCursor);
+    expect((secondCursorBody.data.items?.length ?? 0) <= 1).toBe(true);
+    if (firstCursorBody.data.items?.[0]?.at && secondCursorBody.data.items?.[0]?.at) {
+      expect((secondCursorBody.data.items[0].at ?? 0) < (firstCursorBody.data.items[0].at ?? 0)).toBe(true);
+    }
+
+    const invalidCursor = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}&cursor=invalid-token`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    expect(invalidCursor.statusCode).toBe(400);
+
+    process.env.DESTRUCTIVE_AUDIT_CURSOR_TTL_SECONDS = '0';
+    const shortTtlPage = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}&limit=1`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    expect(shortTtlPage.statusCode).toBe(200);
+    const shortTtlBody = JSON.parse(shortTtlPage.body) as { data: { nextCursor?: string } };
+    const expiringCursor = shortTtlBody.data.nextCursor;
+    expect(typeof expiringCursor).toBe('string');
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const expiredCursorReq = await app.inject({
+      method: 'GET',
+      url: `/api/v1/teams/${teamId}/destructive-audit?conversationId=${encodeURIComponent(conversationId)}&cursor=${encodeURIComponent(String(expiringCursor))}`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+    });
+    delete process.env.DESTRUCTIVE_AUDIT_CURSOR_TTL_SECONDS;
+    expect(expiredCursorReq.statusCode).toBe(400);
   });
 });
