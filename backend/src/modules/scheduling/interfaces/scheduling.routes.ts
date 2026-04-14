@@ -15,6 +15,10 @@ const agendaQuerySchema = z.object({
   includeCancelled: z.enum(['true', 'false']).optional(),
 });
 
+const scheduleGoldGateQuerySchema = z.object({
+  date: z.string().min(1),
+});
+
 const availabilityBodySchema = z.object({
   startsAt: z.string().min(1),
   endsAt: z.string().min(1),
@@ -73,6 +77,83 @@ async function executeBusinessAction(
 
 export async function registerSchedulingRoutes(app: FastifyInstance, deps: IAppDeps) {
   const auth = [deps.authenticate, deps.requireTenant];
+
+  app.get('/schedule/gold-gate', { preHandler: auth }, async (req, reply) => {
+    const workspaceId = req.workspaceId!;
+    const query = scheduleGoldGateQuerySchema.parse(req.query);
+    const raw = (await executeBusinessAction(
+      deps,
+      workspaceId,
+      'schedule_get_availability',
+      { date: query.date, includeCancelled: true },
+      req.requestId,
+    )) as {
+      appointments?: Array<{ status?: string }>;
+      availability?: Array<{ available?: boolean }>;
+      slots?: unknown[];
+    };
+
+    const appointments = Array.isArray(raw.appointments) ? raw.appointments : [];
+    const availability = Array.isArray(raw.availability) ? raw.availability : [];
+    const slots = Array.isArray(raw.slots) ? raw.slots : [];
+    const activeAppointments = appointments.filter((a) => a.status !== 'cancelled');
+
+    const criteria = [
+      {
+        code: 'schedule_has_slots',
+        label: 'Disponibilidade publicada',
+        passed: slots.length > 0,
+        detail: slots.length > 0 ? 'Há slots cadastrados para o dia.' : 'Ainda não existem slots cadastrados para o dia.',
+      },
+      {
+        code: 'schedule_has_active_appointments',
+        label: 'Compromissos operáveis',
+        passed: activeAppointments.length > 0,
+        detail:
+          activeAppointments.length > 0
+            ? 'Há compromissos não-cancelados na agenda.'
+            : 'Não há compromissos operáveis no dia.',
+      },
+      {
+        code: 'schedule_has_free_windows',
+        label: 'Janelas livres',
+        passed: availability.some((a) => Boolean(a.available)),
+        detail: availability.some((a) => Boolean(a.available))
+          ? 'Existe pelo menos uma janela livre.'
+          : 'Não há janelas livres no recorte consultado.',
+      },
+    ];
+
+    const blockingCriteria = criteria.filter((c) => !c.passed);
+    const approved = blockingCriteria.length === 0;
+    const evaluatedAt = new Date().toISOString();
+    req.log.info(
+      {
+        event: 'schedule.gold_gate_evaluated',
+        workspaceId,
+        date: query.date,
+        approved,
+        blockingCriteria: blockingCriteria.map((c) => c.code),
+      },
+      'schedule gold gate evaluated',
+    );
+
+    return reply.send(
+      successEnvelope({
+        approved,
+        evaluatedAt,
+        criteria,
+        blockingCriteria,
+        snapshot: {
+          date: query.date,
+          appointments: appointments.length,
+          activeAppointments: activeAppointments.length,
+          slots: slots.length,
+          freeWindows: availability.filter((a) => Boolean(a.available)).length,
+        },
+      }),
+    );
+  });
 
   app.get('/schedule/agenda', { preHandler: auth }, async (req, reply) => {
     const workspaceId = req.workspaceId!;

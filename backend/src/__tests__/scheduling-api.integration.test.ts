@@ -136,6 +136,55 @@ describe('scheduling API', () => {
     );
   });
 
+  it('returns scheduling gold gate evaluation', async () => {
+    const headers = await authHeaders();
+    const parties = new PartyRepository();
+    const party = await parties.create(workspaceId, { displayName: 'Cliente Gate Scheduling' });
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/schedule/availability',
+      headers,
+      payload: {
+        startsAt: '2026-04-22T09:00:00.000Z',
+        endsAt: '2026-04-22T12:00:00.000Z',
+        slotMinutes: 60,
+      },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/schedule/appointments',
+      headers,
+      payload: {
+        partyId: party.id,
+        title: 'Consulta gate',
+        startsAt: '2026-04-22T10:00:00.000Z',
+        endsAt: '2026-04-22T11:00:00.000Z',
+      },
+    });
+
+    const gate = await app.inject({
+      method: 'GET',
+      url: '/api/v1/schedule/gold-gate?date=2026-04-22',
+      headers,
+    });
+    expect(gate.statusCode).toBe(200);
+    const body = JSON.parse(gate.body) as {
+      data: {
+        approved: boolean;
+        criteria: Array<{ code: string; passed: boolean; detail: string }>;
+        blockingCriteria: Array<{ code: string; passed: boolean }>;
+        snapshot: { date: string; appointments: number; activeAppointments: number; slots: number; freeWindows: number };
+      };
+    };
+    expect(typeof body.data.approved).toBe('boolean');
+    expect(body.data.criteria.length).toBeGreaterThanOrEqual(3);
+    expect(body.data.snapshot.date).toBe('2026-04-22');
+    for (const c of body.data.blockingCriteria) {
+      expect(c.passed).toBe(false);
+    }
+  });
+
   it('completes an appointment through the API', async () => {
     const headers = await authHeaders();
     const parties = new PartyRepository();

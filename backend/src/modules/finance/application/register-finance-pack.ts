@@ -75,4 +75,6 @@ export function registerFinancePack(registry: BusinessToolRegistry, finance: Fin
     if (!partyId) throw new Error('partyId obrigatorio');
     return finance.customerFinancialSummary(workspaceId, partyId);
   });
+
+  registry.register('finance_gold_gate', async ({ workspaceId }) => finance.goldGateSummary(workspaceId));
 }

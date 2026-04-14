@@ -98,6 +98,83 @@ export class ServiceOrderRepository {
     return agg.map((a) => ({ catalogItemId: a._id.toString(), totalPaid: a.total }));
   }
 
+  async goldGateSummary(workspaceId: string, catalogCount: number) {
+    const ws = new Types.ObjectId(workspaceId);
+    const [orderStats, paidByService] = await Promise.all([
+      ServiceOrderModel.aggregate<{ _id: string; total: number }>([
+        { $match: { workspaceId: ws } },
+        { $group: { _id: '$status', total: { $sum: 1 } } },
+      ]),
+      this.totalPaidByService(workspaceId),
+    ]);
+    const totalOrders = orderStats.reduce((acc, item) => acc + item.total, 0);
+    const openOrders = orderStats.find((item) => item._id === 'open')?.total ?? 0;
+    const paidOrders = orderStats.find((item) => item._id === 'paid')?.total ?? 0;
+    const grossPaid = paidByService.reduce((acc, item) => acc + item.totalPaid, 0);
+    const criteria = [
+      {
+        code: 'sales_has_catalog',
+        label: 'Catálogo de serviços publicado',
+        passed: catalogCount > 0,
+        detail:
+          catalogCount > 0
+            ? `Há ${catalogCount} item(ns) no catálogo.`
+            : 'Nenhum item de serviço publicado no catálogo.',
+      },
+      {
+        code: 'sales_has_orders',
+        label: 'Pedidos de serviço registrados',
+        passed: totalOrders > 0,
+        detail:
+          totalOrders > 0
+            ? `Há ${totalOrders} pedido(s) de serviço registrados.`
+            : 'Nenhum pedido de serviço registrado no momento.',
+      },
+      {
+        code: 'sales_has_paid_orders',
+        label: 'Pedidos com pagamento confirmado',
+        passed: paidOrders > 0,
+        detail:
+          paidOrders > 0
+            ? `Há ${paidOrders} pedido(s) pagos.`
+            : 'Nenhum pedido pago identificado no momento.',
+      },
+      {
+        code: 'sales_has_paid_totals_by_service',
+        label: 'Totais por serviço calculáveis',
+        passed: paidByService.length > 0 && grossPaid > 0,
+        detail:
+          paidByService.length > 0 && grossPaid > 0
+            ? 'Existem totais pagos consolidados por serviço.'
+            : 'Ainda não há totais pagos por serviço para consolidação.',
+      },
+      {
+        code: 'sales_open_orders_under_control',
+        label: 'Pedidos em aberto sob controle',
+        passed: totalOrders === 0 || openOrders <= paidOrders + 5,
+        detail:
+          totalOrders === 0 || openOrders <= paidOrders + 5
+            ? 'Volume de pedidos em aberto está em faixa operacional.'
+            : `Há ${openOrders} pedidos em aberto para ${paidOrders} pagos; revisar operação.`,
+      },
+    ];
+    const blockingCriteria = criteria.filter((criterion) => !criterion.passed);
+    return {
+      approved: blockingCriteria.length === 0,
+      evaluatedAt: new Date().toISOString(),
+      criteria,
+      blockingCriteria,
+      snapshot: {
+        catalogCount,
+        totalOrders,
+        openOrders,
+        paidOrders,
+        paidServices: paidByService.length,
+        grossPaid,
+      },
+    };
+  }
+
   private toPublic(doc: {
     _id: Types.ObjectId;
     partyId: Types.ObjectId;

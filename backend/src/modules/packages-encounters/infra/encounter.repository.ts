@@ -52,6 +52,37 @@ export class EncounterRepository {
     return doc ? this.pub(doc) : null;
   }
 
+  async goldGateSnapshot(workspaceId: string) {
+    const ws = new Types.ObjectId(workspaceId);
+    const stats = await EncounterModel.aggregate<{
+      _id: null;
+      totalEncounters: number;
+      packageLinkedEncounters: number;
+      totalDurationMinutes: number;
+    }>([
+      { $match: { workspaceId: ws } },
+      {
+        $group: {
+          _id: null,
+          totalEncounters: { $sum: 1 },
+          packageLinkedEncounters: {
+            $sum: { $cond: [{ $ifNull: ['$packageSaleId', false] }, 1, 0] },
+          },
+          totalDurationMinutes: { $sum: { $ifNull: ['$durationMinutes', 0] } },
+        },
+      },
+    ]);
+    const totalEncounters = stats[0]?.totalEncounters ?? 0;
+    const packageLinkedEncounters = stats[0]?.packageLinkedEncounters ?? 0;
+    const totalDurationMinutes = stats[0]?.totalDurationMinutes ?? 0;
+    return {
+      totalEncounters,
+      packageLinkedEncounters,
+      totalDurationMinutes,
+      avgDurationMinutes: totalEncounters > 0 ? totalDurationMinutes / totalEncounters : 0,
+    };
+  }
+
   private pub(doc: {
     _id: Types.ObjectId;
     partyId: Types.ObjectId;

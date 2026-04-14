@@ -24,9 +24,10 @@ describe('business-action-presets github-ops (Loop 105)', () => {
     ]);
   });
 
-  it('defines explicit schema for PR comment and issue read actions', () => {
+  it('defines explicit schema for PR comment, issue read and gold gate actions', () => {
     const commentPr = getBusinessActionPreset('github_comment_pr');
     const issue = getBusinessActionPreset('github_get_issue');
+    const goldGate = getBusinessActionPreset('github_ops_gold_gate');
 
     expect((commentPr?.inputSchema as { required?: string[] }).required).toEqual([
       'owner',
@@ -39,5 +40,6 @@ describe('business-action-presets github-ops (Loop 105)', () => {
       'repo',
       'issueNumber',
     ]);
+    expect((goldGate?.inputSchema as { required?: string[] }).required).toEqual([]);
   });
 });

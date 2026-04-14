@@ -54,4 +54,80 @@ export class ReminderRepository {
     ).exec();
     return doc ? { id: doc._id.toString(), cancelled: true } : null;
   }
+
+  async goldGateSummary(workspaceId: string) {
+    const wid = new Types.ObjectId(workspaceId);
+    const [summary] = await ReminderModel.aggregate([
+      { $match: { workspaceId: wid } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          done: { $sum: { $cond: [{ $eq: ['$done', true] }, 1, 0] } },
+          cancelled: { $sum: { $cond: [{ $eq: ['$cancelled', true] }, 1, 0] } },
+          overdueOpen: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$done', false] },
+                    { $eq: ['$cancelled', false] },
+                    { $lt: ['$at', '$$NOW'] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]).exec();
+
+    const total = Number(summary?.total ?? 0);
+    const done = Number(summary?.done ?? 0);
+    const cancelled = Number(summary?.cancelled ?? 0);
+    const overdueOpen = Number(summary?.overdueOpen ?? 0);
+    const open = Math.max(0, total - done - cancelled);
+
+    const criteria = [
+      {
+        code: 'reminders_has_history',
+        passed: total > 0,
+        detail: total > 0 ? `${total} lembrete(s) registrado(s).` : 'Nenhum lembrete registrado.',
+      },
+      {
+        code: 'reminders_has_concluded_or_cancelled',
+        passed: done + cancelled > 0,
+        detail:
+          done + cancelled > 0
+            ? `${done + cancelled} lembrete(s) concluído(s)/cancelado(s).`
+            : 'Sem lembretes concluídos ou cancelados.',
+      },
+      {
+        code: 'reminders_overdue_open_within_limit',
+        passed: overdueOpen <= 3,
+        detail:
+          overdueOpen <= 3
+            ? `${overdueOpen} lembrete(s) em atraso aberto(s).`
+            : `${overdueOpen} lembrete(s) em atraso aberto(s) (acima do limite operacional).`,
+      },
+    ];
+
+    const blockingCriteria = criteria.filter((c) => !c.passed);
+    return {
+      approved: blockingCriteria.length === 0,
+      evaluatedAt: new Date().toISOString(),
+      criteria,
+      blockingCriteria,
+      snapshot: {
+        total,
+        open,
+        done,
+        cancelled,
+        overdueOpen,
+      },
+    };
+  }
+
 }

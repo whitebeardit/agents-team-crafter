@@ -51,6 +51,48 @@ export class PackageSaleRepository {
     return doc ? this.pub(doc) : null;
   }
 
+  async goldGateSnapshot(workspaceId: string) {
+    const ws = new Types.ObjectId(workspaceId);
+    const [sales, totals] = await Promise.all([
+      PackageSaleModel.aggregate<{ _id: null; totalSales: number; fullyConsumedSales: number }>([
+        { $match: { workspaceId: ws } },
+        {
+          $group: {
+            _id: null,
+            totalSales: { $sum: 1 },
+            fullyConsumedSales: {
+              $sum: {
+                $cond: [{ $gte: ['$unitsUsed', '$unitsTotal'] }, 1, 0],
+              },
+            },
+          },
+        },
+      ]),
+      PackageSaleModel.aggregate<{ _id: null; unitsTotal: number; unitsUsed: number }>([
+        { $match: { workspaceId: ws } },
+        {
+          $group: {
+            _id: null,
+            unitsTotal: { $sum: '$unitsTotal' },
+            unitsUsed: { $sum: '$unitsUsed' },
+          },
+        },
+      ]),
+    ]);
+    const totalSales = sales[0]?.totalSales ?? 0;
+    const fullyConsumedSales = sales[0]?.fullyConsumedSales ?? 0;
+    const unitsTotal = totals[0]?.unitsTotal ?? 0;
+    const unitsUsed = totals[0]?.unitsUsed ?? 0;
+    return {
+      totalSales,
+      fullyConsumedSales,
+      activeSales: Math.max(0, totalSales - fullyConsumedSales),
+      unitsTotal,
+      unitsUsed,
+      unitsRemaining: Math.max(0, unitsTotal - unitsUsed),
+    };
+  }
+
   private pub(doc: { _id: Types.ObjectId; unitsTotal: number; unitsUsed: number; packageName: string }) {
     return {
       id: doc._id.toString(),

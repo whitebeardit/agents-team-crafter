@@ -71,4 +71,60 @@ export function registerPackagesEncountersPack(
     const subs = await careSubjects.listByParty(workspaceId, partyId);
     return { party, encounters: enc, careSubjects: subs };
   });
+
+  registry.register('packages_encounters_gold_gate', async ({ workspaceId }) => {
+    const [salesSnapshot, encountersSnapshot] = await Promise.all([
+      packages.goldGateSnapshot(workspaceId),
+      encounters.goldGateSnapshot(workspaceId),
+    ]);
+    const criteria = [
+      {
+        code: 'packages_has_sales',
+        label: 'Vendas de pacote registradas',
+        passed: salesSnapshot.totalSales > 0,
+        detail:
+          salesSnapshot.totalSales > 0
+            ? `Há ${salesSnapshot.totalSales} venda(s) de pacote registrada(s).`
+            : 'Nenhuma venda de pacote registrada no momento.',
+      },
+      {
+        code: 'packages_has_usage',
+        label: 'Consumo de unidades em andamento',
+        passed: salesSnapshot.unitsUsed > 0,
+        detail:
+          salesSnapshot.unitsUsed > 0
+            ? `Há ${salesSnapshot.unitsUsed} unidade(s) consumida(s).`
+            : 'Ainda não há consumo de unidades de pacotes.',
+      },
+      {
+        code: 'encounters_has_sessions',
+        label: 'Sessões/atendimentos registrados',
+        passed: encountersSnapshot.totalEncounters > 0,
+        detail:
+          encountersSnapshot.totalEncounters > 0
+            ? `Há ${encountersSnapshot.totalEncounters} atendimento(s) registrado(s).`
+            : 'Nenhum atendimento registrado no momento.',
+      },
+      {
+        code: 'encounters_linked_to_packages',
+        label: 'Atendimentos vinculados a pacote',
+        passed: encountersSnapshot.packageLinkedEncounters > 0,
+        detail:
+          encountersSnapshot.packageLinkedEncounters > 0
+            ? 'Existem atendimentos vinculados às vendas de pacote.'
+            : 'Ainda não há atendimentos vinculados a pacotes.',
+      },
+    ];
+    const blockingCriteria = criteria.filter((criterion) => !criterion.passed);
+    return {
+      approved: blockingCriteria.length === 0,
+      evaluatedAt: new Date().toISOString(),
+      criteria,
+      blockingCriteria,
+      snapshot: {
+        ...salesSnapshot,
+        ...encountersSnapshot,
+      },
+    };
+  });
 }

@@ -12,7 +12,11 @@
 
 Este arquivo continua sendo a fonte oficial de retomada do Ralph Loop para o roadmap em `docs/RALPHLOOP/agents-team-crafter-plano-evolucao.md` (toda a documentação canónica do Ralph Loop vive em **`docs/RALPHLOOP/`**).
 
-**Fase actual do produto:** **Loops 82–94** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)), **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)), **runs legíveis / troubleshooting** (**93** — [Loop 93 fechado](#loop-93-fechado)) e **templates operacionais / cenários dourados** (**94** — [Loop 94 fechado](#loop-94-fechado)). Na frente transversal de contrato de tools, **Loops 98.1–98.9** estão **fechados** ([98.1](#loop-981-fechado--norma-oficial-de-contrato-de-tools), [98.2](#loop-982-fechado--pipeline-canónico-do-boundary-da-tool), [98.3](#loop-983-fechado--observabilidade-obrigatória-do-contrato), [98.4](#loop-984-fechado--retry-seguro-e-limitado), [98.5](#loop-985-fechado--contrato-explícito-de-prompts-alinhado-ao-runtime), [98.6](#loop-986-fechado--biblioteca-de-normalização-por-actionid), [98.7](#loop-987-fechado--matriz-de-segurança-por-actionid), [98.8](#loop-988-fechado--debug-conversacional-e-ux-de-incidente), [98.9](#loop-989-fechado--regressão-mínima-por-pack)). **Próximo slice oficial em aberto:** verticais de negócio em **Loops 96+** (a numerar por `packId` prioritário). **Loop 95** permanece candidato de polimento UX operacional. **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+**Fase actual do produto:** **Loops 82–94** estão **fechados** na linha de **team planner + AI Builder** (**82–86** + **89**), **especialistas operacionais** (**87** — [Loop 87 fechado](#loop-87-fechado)), **readiness** (**88** — [Loop 88 fechado](#loop-88-fechado)), **AI Builder UX** (**89** — [Loop 89 fechado](#loop-89-fechado)), **cockpit na ficha do time** (**90** — [Loop 90 fechado](#loop-90-fechado)), **console de debug operacional** (**91** — [Loop 91 fechado](#loop-91-fechado)), **CTAs de resolução no readiness** (**92** — [Loop 92 fechado](#loop-92-fechado)), **runs legíveis / troubleshooting** (**93** — [Loop 93 fechado](#loop-93-fechado)) e **templates operacionais / cenários dourados** (**94** — [Loop 94 fechado](#loop-94-fechado)). Na frente transversal de contrato de tools, **Loops 98.1–98.9** estão **fechados** ([98.1](#loop-981-fechado--norma-oficial-de-contrato-de-tools), [98.2](#loop-982-fechado--pipeline-canónico-do-boundary-da-tool), [98.3](#loop-983-fechado--observabilidade-obrigatória-do-contrato), [98.4](#loop-984-fechado--retry-seguro-e-limitado), [98.5](#loop-985-fechado--contrato-explícito-de-prompts-alinhado-ao-runtime), [98.6](#loop-986-fechado--biblioteca-de-normalização-por-actionid), [98.7](#loop-987-fechado--matriz-de-segurança-por-actionid), [98.8](#loop-988-fechado--debug-conversacional-e-ux-de-incidente), [98.9](#loop-989-fechado--regressão-mínima-por-pack)). **Próximo slice oficial em aberto:** **Loop 120 — Produto GOLD: CRM perfeito primeiro, depois verticalização GOLD das demais verticais**. **Loop 95** permanece candidato de polimento UX operacional (backlog complementar). **Paralelamente (macro):** [14.8 — Riscos e decisões em aberto](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) (billing, 2FA, self-service).
+
+> **Nota de atualização oficial (pós Loop 119):** as indicações antigas deste ledger sobre “próximo loop = 95” ou “Loops 96+ genérico”, assim como o antigo “Loop 120 técnico de cursor”, foram **substituídas** pelos suplementos canônicos:
+> - [`agents-team-crafter-plano-evolucao_LOOP-120-ATUALIZACAO-OFICIAL.md`](./agents-team-crafter-plano-evolucao_LOOP-120-ATUALIZACAO-OFICIAL.md)
+> - [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-120-ATUALIZACAO-OFICIAL.md`](./agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-120-ATUALIZACAO-OFICIAL.md)
 
 **Após o Loop 87 (fechado)**, a sequência **recomendada** no plano mestre continua a focar **operação real de times**, **readiness**, **cockpit na página do time**, **debug conversacional legível** e **troubleshooting** (macro-onda candidata **88–95** — ver [backlog recomendado](#backlog-recomendado-após-o-loop-87) e [plano §88+ operação](agents-team-crafter-plano-evolucao.md#loops-88-operacao-real-ux-troubleshooting)). Tratar cada número **88+** como **candidato** até haver secção **Loop N (fechado)** no ledger.
 
@@ -2782,10 +2786,439 @@ Superfície única de **prontidão** antes de operar o time: estado, agentes, gr
 - [x] Expiração temporal (`exp`) validada no endpoint.
 - [x] Teste de integração cobre cursor expirado.
 
-**Próximo loop em aberto recomendado após o Loop 119:** **Loop 120 — cursor com binding de filtros (stage/janela) para consistência forte entre páginas**.
+**Próximo loop em aberto recomendado após o Loop 119 (substituído):** ~~Loop 120 — cursor com binding de filtros (stage/janela) para consistência forte entre páginas~~.
+
+**Estado oficial atualizado:** **Loop 120 — Produto GOLD: CRM perfeito primeiro, depois verticalização GOLD das demais verticais** (ver suplemento canônico do ledger: [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-120-ATUALIZACAO-OFICIAL.md`](./agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-120-ATUALIZACAO-OFICIAL.md)).
 
 ---
 
+<a id="loop-1201-fechado--gap-map-oficial-crm-atual-vs-crm-gold"></a>
+
+## Loop 120.1 (fechado) — Gap map oficial (CRM atual vs CRM GOLD)
+
+- **Objetivo do slice:** congelar diagnóstico factual do CRM atual por camada (conversa, runtime, API/BFF, UI, testes e operação) antes das mudanças funcionais do CRM GOLD.
+
+### Entregas (resumo)
+
+- Novo artefato de diagnóstico: [`ralph-loop-120-1-gap-map-crm-atual-vs-gold.md`](./ralph-loop-120-1-gap-map-crm-atual-vs-gold.md).
+- Atualização do anexo principal do Loop 120 com status explícito do slice 120.1:
+  [`ralph-loop-120-produto-gold-crm-e-verticalizacao.md`](./ralph-loop-120-produto-gold-crm-e-verticalizacao.md).
+
+### Checklist (fechado)
+
+- [x] Matriz “CRM atual vs CRM GOLD” consolidada.
+- [x] Gaps por camada documentados (runtime, API, UI, testes e operação).
+- [x] Sequência pós-gap-map definida para o próximo slice funcional.
+
+**Próximo loop em aberto recomendado após o Loop 120.1:** **Loop 120.2 — CRM conversacional dourado**.
+
+---
+
+<a id="loop-1202-fechado--crm-conversacional-dourado-busca-e-listagem-sem-friccao"></a>
+
+## Loop 120.2 (fechado) — CRM conversacional dourado (busca/listagem sem fricção)
+
+- **Objetivo do slice:** reduzir fricção conversacional no CRM para caminhos de busca/listagem, aceitando identificadores naturais sem depender de `query` textual obrigatório.
+
+### Entregas (resumo)
+
+- `crm_find_party` evoluído para priorizar identificadores diretos (`partyId`, `email`, `phone`) e só então fallback para `query`:
+  - [`register-crm-pack.ts`](../../backend/src/modules/crm/application/register-crm-pack.ts)
+  - [`party.repository.ts`](../../backend/src/modules/crm/infra/party.repository.ts)
+- Presets do catálogo CRM ajustados para reduzir erro de contrato em entradas conversacionais:
+  - `crm_find_party` com `partyId`/`email`/`phone`/`query` (sem `query` obrigatório)
+  - `crm_list_parties` sem `query` obrigatório
+  - [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts)
+- Regras de normalização CRM (`crm_find_party`) ampliadas com aliases de identificadores:
+  - [`business-action-input-normalization.ts`](../../backend/src/modules/business-tools/application/business-action-input-normalization.ts)
+- Testes unitários atualizados para garantir priorização e fallback corretos:
+  - [`register-crm-pack.test.ts`](../../backend/src/modules/crm/application/register-crm-pack.test.ts)
+
+### Checklist (fechado)
+
+- [x] Busca por `partyId` evita round-trips conversacionais desnecessários.
+- [x] Busca por `email`/`phone` disponível no runtime CRM.
+- [x] `query` deixou de ser obrigatório em presets de busca/listagem CRM.
+- [x] Testes do slice executados e verdes.
+
+**Próximo loop em aberto recomendado após o Loop 120.2:** **Loop 120.3 — CRM runtime / boundary GOLD**.
+
+---
+
+<a id="loop-1203-fechado--crm-runtime-boundary-gold-busca-com-contrato-explicito"></a>
+
+## Loop 120.3 (fechado) — CRM runtime / boundary GOLD (busca com contrato explícito)
+
+- **Objetivo do slice:** endurecer o boundary de busca CRM para comportamento determinístico no runtime (entrada válida, fallback previsível e erro operacional legível).
+
+### Entregas (resumo)
+
+- `crm_find_party` com validação explícita de input mínimo:
+  - erro quando não há `partyId`, `email`, `phone` ou `query`.
+- `crm_find_party` com fallback determinístico:
+  - tenta `partyId`;
+  - depois `email`/`phone`;
+  - se não houver match por identificador e existir `query`, faz busca textual.
+- Cobertura de testes do contrato:
+  - fallback para `query` quando identificador não encontra;
+  - erro explícito em payload vazio.
+
+Arquivos do slice:
+
+- [`register-crm-pack.ts`](../../backend/src/modules/crm/application/register-crm-pack.ts)
+- [`register-crm-pack.test.ts`](../../backend/src/modules/crm/application/register-crm-pack.test.ts)
+
+### Checklist (fechado)
+
+- [x] Boundary de busca CRM rejeita payload vazio com mensagem clara.
+- [x] Fallback de busca por identificador → texto está coberto por testes.
+- [x] Contrato de runtime mais previsível para troubleshooting conversacional.
+
+**Próximo loop em aberto recomendado após o Loop 120.3:** **Loop 120.4 — CRM HTTP / BFF GOLD**.
+
+---
+
+<a id="loop-1204-fechado--crm-http-bff-gold-filtros-e-status-explicito"></a>
+
+## Loop 120.4 (fechado) — CRM HTTP / BFF GOLD (filtros e status explícito)
+
+- **Objetivo do slice:** tornar a camada HTTP de CRM mais utilizável para operação real, com filtros naturais e ação explícita de ativação/desativação.
+
+### Entregas (resumo)
+
+- `GET /parties` com novos filtros opcionais:
+  - `email`
+  - `phone`
+  - `status` (`active`/`inactive`)
+- `PATCH /parties/:id/status` para alteração explícita de estado da party.
+- Estratégia de listagem no BFF:
+  - prioriza `email/phone` quando informados;
+  - usa busca textual por `q` quando presente;
+  - usa listagem por `status` quando informado sem `q`.
+
+Arquivos do slice:
+
+- [`party.routes.ts`](../../backend/src/modules/crm/interfaces/party.routes.ts)
+- [`parties-api.integration.test.ts`](../../backend/src/__tests__/parties-api.integration.test.ts)
+
+### Checklist (fechado)
+
+- [x] Filtros naturais por email/telefone disponíveis no endpoint de listagem.
+- [x] Endpoint explícito de status para desativar/reativar party.
+- [x] Cobertura de integração para filtro por email e mudança de status.
+
+**Próximo loop em aberto recomendado após o Loop 120.4:** **Loop 120.5 — CRM UI GOLD**.
+
+---
+
+<a id="loop-1205-fechado--crm-ui-gold-superficie-dedicada"></a>
+
+## Loop 120.5 (fechado) — CRM UI GOLD (superfície dedicada)
+
+- **Objetivo do slice:** disponibilizar uma superfície de produto dedicada para CRM no frontend, alinhada ao BFF de parties.
+
+### Entregas (resumo)
+
+- Nova rota de aplicação:
+  - [`/crm`](../../v0-team-ai-crafter/app/(app)/crm/page.tsx)
+- Funcionalidades entregues na nova página:
+  - listagem de parties;
+  - filtros por `q` (nome), `email`, `phone` e `status`;
+  - criação (`CreatePartyDialog`);
+  - edição (`EditPartyDialog`);
+  - ação de desativar/reativar por botão com `PATCH /parties/:id/status`.
+- Navegação principal atualizada com entrada “CRM”:
+  - [`app-navigation.tsx`](../../v0-team-ai-crafter/components/layout/app-navigation.tsx)
+- Tipo `CrmParty` atualizado com campo `status`:
+  - [`lib/types/index.ts`](../../v0-team-ai-crafter/lib/types/index.ts)
+
+### Checklist (fechado)
+
+- [x] Vertical CRM com rota dedicada na UI.
+- [x] Operações essenciais de criação/edição/status acessíveis na página.
+- [x] Filtros naturais de listagem ligados ao contrato HTTP/BFF atual.
+
+**Próximo loop em aberto recomendado após o Loop 120.5:** **Loop 120.6 — Templates, prompts e validação do CRM**.
+
+---
+
+<a id="loop-1206-fechado--entrada-padrao-via-especialista-ui-como-auditoria"></a>
+
+## Loop 120.6 (fechado) — Entrada padrão via especialista; UI CRM como auditoria manual
+
+- **Objetivo do slice:** alinhar a superfície de CRM com a diretriz de produto: interface operacional padrão via especialista, UI usada para auditoria/verificação manual.
+
+### Entregas (resumo)
+
+- Página `/crm` ajustada para modo **auditoria manual**:
+  - removeu ações diretas de criar/editar/desativar no frontend;
+  - manteve filtros e consulta para verificação humana;
+  - adicionou CTA explícito “Operar via especialista” (atalho para `/teams`).
+- Mensagens de UX atualizadas para reforçar que o fluxo padrão de operação é via especialistas CRM.
+
+Arquivos do slice:
+
+- [`/crm` page](../../v0-team-ai-crafter/app/(app)/crm/page.tsx)
+
+### Checklist (fechado)
+
+- [x] UI CRM deixou de ser canal primário de mutação de dados.
+- [x] UX explicita especialista como entrada padrão.
+- [x] Auditoria manual preservada para revisão humana.
+
+**Próximo loop em aberto recomendado após o Loop 120.6:** **Loop 120.7 — Testes GOLD do CRM**.
+
+---
+
+<a id="loop-1207-fechado--testes-gold-do-crm-contrato-e-caminho-feliz"></a>
+
+## Loop 120.7 (fechado) — Testes GOLD do CRM (contrato + caminho feliz)
+
+- **Objetivo do slice:** reforçar evidência de qualidade do CRM com cobertura explícita de contrato de preset e cenário integrado do caminho feliz.
+
+### Entregas (resumo)
+
+- Novo teste unitário de contrato para presets CRM:
+  - garante que `crm_find_party` expõe `partyId`/`email`/`phone`/`query` sem exigir `query`;
+  - garante `crm_list_parties` com `query` opcional.
+- Extensão da integração `parties-api` com cenário “caminho dourado”:
+  - create → lookup por email/phone → deactivate → reactivate → update.
+
+Arquivos do slice:
+
+- [`business-action-presets.crm-gold.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.crm-gold.test.ts)
+- [`parties-api.integration.test.ts`](../../backend/src/__tests__/parties-api.integration.test.ts)
+
+### Checklist (fechado)
+
+- [x] Contrato de preset CRM validado por teste dedicado.
+- [x] Caminho feliz de operação CRM coberto em integração.
+- [x] Suite do slice executada e verde.
+
+**Próximo loop em aberto recomendado após o Loop 120.7:** **Loop 120.8 — Readiness / troubleshooting / observabilidade do CRM**.
+
+---
+
+<a id="loop-1208-fechado--readiness--troubleshooting--observabilidade-do-crm"></a>
+
+## Loop 120.8 (fechado) — Readiness / troubleshooting / observabilidade do CRM
+
+- **Objetivo do slice:** fechar o CRM GOLD também pela ótica operacional, com diagnóstico rápido e sinais legíveis para suporte.
+
+### Entregas (resumo)
+
+- Evolução do resumo de readiness do CRM para incluir:
+  - `health` (`ok` | `attention` | `critical`);
+  - `checks[]` com `code`, `status`, `message`, `nextStep` e `value`.
+- Instrumentação operacional no endpoint de readiness:
+  - emissão de evento `crm.readiness_snapshot` com métricas principais (`total`, `inactive`, `withoutEmail`, `withoutPhone`, `health`).
+- Extensão de cobertura de integração:
+  - validação de `health` e `checks[]` no `GET /api/v1/parties/readiness`.
+- Superfície de auditoria `/crm` evoluída para troubleshooting:
+  - exibição da saúde atual, timestamp do snapshot e lista de checks com próximos passos.
+
+Arquivos do slice:
+
+- [`party.repository.ts`](../../backend/src/modules/crm/infra/party.repository.ts)
+- [`party.routes.ts`](../../backend/src/modules/crm/interfaces/party.routes.ts)
+- [`parties-api.integration.test.ts`](../../backend/src/__tests__/parties-api.integration.test.ts)
+- [`/crm` page](../../v0-team-ai-crafter/app/(app)/crm/page.tsx)
+
+### Checklist (fechado)
+
+- [x] Readiness CRM passou a carregar diagnósticos operacionais acionáveis.
+- [x] Endpoint de readiness gera evento operacional útil para troubleshooting.
+- [x] UI CRM expõe sinais de saúde e próximos passos para suporte.
+- [x] Testes do slice executados e verdes.
+
+**Próximo loop em aberto recomendado após o Loop 120.8:** **Loop 120.9 — Gate oficial de aceite do CRM GOLD**.
+
+---
+
+<a id="loop-1209-fechado--gate-oficial-de-aceite-do-crm-gold"></a>
+
+## Loop 120.9 (fechado) — Gate oficial de aceite do CRM GOLD
+
+- **Objetivo do slice:** formalizar um gate operacional de aceite do CRM GOLD com critérios explícitos e resultado objetivo (`approved`).
+
+### Entregas (resumo)
+
+- Novo endpoint de gate:
+  - `GET /api/v1/parties/gold-gate`
+  - retorna `approved`, `evaluatedAt`, `criteria[]`, `blockingCriteria[]` e snapshot de `readiness`.
+- Critérios mínimos implementados no gate:
+  - base mínima de contatos;
+  - presença de contatos ativos;
+  - atualização recente;
+  - ausência de bloqueio crítico no readiness.
+- Evento operacional para auditoria de gate:
+  - `crm.gold_gate_evaluated` com resultado e critérios bloqueantes.
+- UI `/crm` ampliada com card de gate oficial (status, data de avaliação e critérios detalhados).
+- Teste de integração dedicado para contrato de `GET /parties/gold-gate`.
+
+Arquivos do slice:
+
+- [`party.repository.ts`](../../backend/src/modules/crm/infra/party.repository.ts)
+- [`party.routes.ts`](../../backend/src/modules/crm/interfaces/party.routes.ts)
+- [`parties-api.integration.test.ts`](../../backend/src/__tests__/parties-api.integration.test.ts)
+- [`/crm` page](../../v0-team-ai-crafter/app/(app)/crm/page.tsx)
+
+### Checklist (fechado)
+
+- [x] Gate oficial com critérios explícitos e resultado objetivo.
+- [x] Endpoint e evento operacional de avaliação implementados.
+- [x] UI de auditoria exibe estado de gate e critérios.
+- [x] Testes e build do slice executados e verdes.
+
+**Próximo loop em aberto recomendado após o Loop 120.9:** **Loop 121 — Scheduling GOLD**.
+
+---
+
+<a id="loop-121-fechado--scheduling-gold-gate-operacional"></a>
+
+## Loop 121 (fechado) — Scheduling GOLD (gate operacional inicial)
+
+- **Objetivo do slice:** iniciar a verticalização GOLD de Scheduling com um gate operacional verificável para agenda diária.
+
+### Entregas (resumo)
+
+- Novo endpoint de gate no Scheduling:
+  - `GET /api/v1/schedule/gold-gate?date=YYYY-MM-DD`
+  - resultado com `approved`, `criteria[]`, `blockingCriteria[]`, `snapshot`.
+- Critérios iniciais de aceite diário:
+  - disponibilidade publicada (slots);
+  - compromissos operáveis (não-cancelados);
+  - janelas livres no recorte da agenda.
+- Evento operacional de troubleshooting:
+  - `schedule.gold_gate_evaluated`.
+- UI `/schedule` atualizada com card de gate GOLD por dia (status + critérios).
+- Teste de integração cobrindo o contrato do novo endpoint.
+
+Arquivos do slice:
+
+- [`scheduling.routes.ts`](../../backend/src/modules/scheduling/interfaces/scheduling.routes.ts)
+- [`scheduling-api.integration.test.ts`](../../backend/src/__tests__/scheduling-api.integration.test.ts)
+- [`/schedule` page](../../v0-team-ai-crafter/app/(app)/schedule/page.tsx)
+
+### Checklist (fechado)
+
+- [x] Gate operacional inicial de Scheduling disponível por API.
+- [x] Critérios mínimos de aceite diário implementados.
+- [x] UI de Scheduling expõe resultado do gate.
+- [x] Teste de integração e build do slice executados e verdes.
+
+**Próximo loop em aberto recomendado após o Loop 121:** **Loop 122 — Finance GOLD**.
+
+---
+
+
+<a id="loop-127-fechado--reminders-gold-gate-operacional"></a>
+
+## Loop 127 (fechado) — Reminders GOLD (gate operacional inicial)
+
+- **Objetivo do slice:** iniciar o aceite objetivo da vertical de lembretes com gate operacional observável para uso via especialistas.
+
+### Entregas (resumo)
+
+- Nova action de runtime/business-tools:
+  - `reminders_gold_gate`
+  - retorna `approved`, `evaluatedAt`, `criteria[]`, `blockingCriteria[]` e `snapshot`.
+- Gate implementado no repositório de lembretes com critérios iniciais:
+  - existência de histórico operacional de lembretes;
+  - evidência de ciclo (concluído/cancelado);
+  - controle de lembretes em atraso abertos dentro de limite operacional.
+- Snapshot operacional consolidado:
+  - `total`, `open`, `done`, `cancelled`, `overdueOpen`.
+- Testes unitários dedicados:
+  - contrato do preset `reminders_gold_gate`;
+  - registro/dispatch da action no `register-reminder-pack`.
+
+Arquivos do slice:
+
+- [`register-reminder-pack.ts`](../../backend/src/modules/reminders/application/register-reminder-pack.ts)
+- [`reminder.repository.ts`](../../backend/src/modules/reminders/infra/reminder.repository.ts)
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts)
+- [`business-action-presets.reminders-gold.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.reminders-gold.test.ts)
+- [`register-reminder-pack.gold.test.ts`](../../backend/src/modules/reminders/application/register-reminder-pack.gold.test.ts)
+
+### Checklist (fechado)
+
+- [x] Gate GOLD inicial da vertical Reminders implementado.
+- [x] Contrato de preset explícito (schema vazio com `required: []`) validado.
+- [x] Registro e execução da action no pack cobertos por teste.
+- [x] Build e testes do slice executados e verdes.
+
+**Próximo loop em aberto recomendado após o Loop 127:** **Loop 128 — GitHub Ops GOLD**.
+
+---
+
+<a id="loop-128-fechado--github-ops-gold-gate-operacional"></a>
+
+## Loop 128 (fechado) — GitHub Ops GOLD (gate operacional inicial)
+
+- **Objetivo do slice:** fechar o aceite objetivo da vertical GitHub Ops com gate operacional orientado a uso via especialistas.
+
+### Entregas (resumo)
+
+- Nova action de runtime/business-tools:
+  - `github_ops_gold_gate`
+  - retorna `approved`, `evaluatedAt`, `criteria[]`, `blockingCriteria[]` e `snapshot`.
+- Critérios iniciais do gate:
+  - credencial de GitHub configurada no ambiente (`GITHUB_TOKEN`/`GH_TOKEN`);
+  - validação opcional de conectividade com GitHub API quando `checkConnectivity=true`.
+- Snapshot operacional:
+  - `hasToken`, `checkedConnectivity`, `connectivityOk`, `connectivityError`.
+- Testes unitários dedicados:
+  - contrato de preset `github_ops_gold_gate`;
+  - comportamento determinístico do gate no pack (`sem token`/`com token`).
+
+Arquivos do slice:
+
+- [`register-github-ops-pack.ts`](../../backend/src/modules/github-ops/application/register-github-ops-pack.ts)
+- [`register-github-ops-pack.gold.test.ts`](../../backend/src/modules/github-ops/application/register-github-ops-pack.gold.test.ts)
+- [`business-action-presets.ts`](../../backend/src/modules/business-tools/application/business-action-presets.ts)
+- [`business-action-presets.github-ops.test.ts`](../../backend/src/modules/business-tools/application/business-action-presets.github-ops.test.ts)
+
+### Checklist (fechado)
+
+- [x] Gate GOLD inicial da vertical GitHub Ops implementado.
+- [x] Critérios de token/conectividade documentados no contrato de runtime.
+- [x] Preset e pack cobertos por testes unitários.
+- [x] Build e testes do slice executados e verdes.
+
+**Próximo loop em aberto recomendado após o Loop 128:** **Loop 129 — Platform/Admin GOLD**.
+
+---
+
+<a id="loop-129-fechado--platform-admin-gold-auditoria-manual-ui"></a>
+
+## Loop 129 (fechado) — Platform/Admin GOLD (UI de auditoria manual + entrada padrão por especialistas)
+
+- **Objetivo do slice:** consolidar a diretriz de produto onde especialistas são a interface de entrada padrão e UI fica focada em auditoria humana.
+
+### Entregas (resumo)
+
+- Página `/schedule` ajustada para modo de auditoria manual:
+  - remoção/ocultação de ações mutáveis diretas na grade de compromissos;
+  - reforço textual de que operação padrão ocorre via especialistas.
+- CTA explícito para `/teams` em superfícies de auditoria para encaminhar o humano ao fluxo padrão de operação por especialistas.
+- Coerência da política já adotada no CRM (`/crm`) aplicada também na agenda, evitando desvio de canal operacional.
+
+Arquivos do slice:
+
+- [`/schedule` page](../../v0-team-ai-crafter/app/(app)/schedule/page.tsx)
+- [`ralph-loop-120-produto-gold-crm-e-verticalizacao.md`](../../docs/RALPHLOOP/ralph-loop-120-produto-gold-crm-e-verticalizacao.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+
+### Checklist (fechado)
+
+- [x] UI de agenda em modo auditoria manual (sem mutação direta).
+- [x] Entrada operacional padrão via especialistas explicitada no UX.
+- [x] Build frontend executado e verde.
+
+**Próximo loop em aberto recomendado após o Loop 129:** **não há próximo loop oficial definido no plano atual (aguardando nova atualização RalphLoop)**.
+
+---
 
 <a id="loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação"></a>
 

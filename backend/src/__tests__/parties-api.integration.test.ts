@@ -175,6 +175,174 @@ describe('parties API', () => {
     expect(one.data.phone).toBe('+5511888777666');
   });
 
+  it('lists parties by exact email filter', async () => {
+    const headers = await authHeaders();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/parties?email=contato@gamma.test',
+      headers,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as { data: Array<{ displayName: string; email?: string }> };
+    expect(body.data.length).toBe(1);
+    expect(body.data[0]?.displayName).toContain('Gamma');
+    expect(body.data[0]?.email).toBe('contato@gamma.test');
+  });
+
+  it('patches party status and filters by status', async () => {
+    const headers = await authHeaders();
+    const list = await app.inject({ method: 'GET', url: '/api/v1/parties?q=Gamma', headers });
+    const { data } = JSON.parse(list.body) as { data: Array<{ id: string }> };
+    const id = data[0]!.id;
+
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/parties/${id}/status`,
+      headers,
+      payload: { status: 'inactive' },
+    });
+    expect(patch.statusCode).toBe(200);
+    const patched = JSON.parse(patch.body) as { data: { status: string } };
+    expect(patched.data.status).toBe('inactive');
+
+    const inactiveList = await app.inject({
+      method: 'GET',
+      url: '/api/v1/parties?status=inactive',
+      headers,
+    });
+    expect(inactiveList.statusCode).toBe(200);
+    const inactiveBody = JSON.parse(inactiveList.body) as { data: Array<{ id: string; status: string }> };
+    expect(inactiveBody.data.some((p) => p.id === id && p.status === 'inactive')).toBe(true);
+  });
+
+  it('executes CRM GOLD happy path (create -> lookup -> deactivate -> reactivate -> update)', async () => {
+    const headers = await authHeaders();
+
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/parties',
+      headers,
+      payload: {
+        displayName: 'Omega Cliente Gold',
+        email: 'omega@gold.test',
+        phone: '+5511990011223',
+        notes: 'caminho dourado',
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const created = JSON.parse(create.body) as { data: { id: string; status: string; email?: string } };
+    expect(created.data.status).toBe('active');
+    expect(created.data.email).toBe('omega@gold.test');
+
+    const byEmail = await app.inject({
+      method: 'GET',
+      url: '/api/v1/parties?email=OMEGA@gold.test',
+      headers,
+    });
+    expect(byEmail.statusCode).toBe(200);
+    const byEmailBody = JSON.parse(byEmail.body) as { data: Array<{ id: string }> };
+    expect(byEmailBody.data.some((p) => p.id === created.data.id)).toBe(true);
+
+    const byPhone = await app.inject({
+      method: 'GET',
+      url: '/api/v1/parties?phone=%2B5511990011223',
+      headers,
+    });
+    expect(byPhone.statusCode).toBe(200);
+    const byPhoneBody = JSON.parse(byPhone.body) as { data: Array<{ id: string }> };
+    expect(byPhoneBody.data.some((p) => p.id === created.data.id)).toBe(true);
+
+    const deactivate = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/parties/${created.data.id}/status`,
+      headers,
+      payload: { status: 'inactive' },
+    });
+    expect(deactivate.statusCode).toBe(200);
+    const deactivated = JSON.parse(deactivate.body) as { data: { status: string } };
+    expect(deactivated.data.status).toBe('inactive');
+
+    const reactivate = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/parties/${created.data.id}/status`,
+      headers,
+      payload: { status: 'active' },
+    });
+    expect(reactivate.statusCode).toBe(200);
+    const reactivated = JSON.parse(reactivate.body) as { data: { status: string } };
+    expect(reactivated.data.status).toBe('active');
+
+    const update = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/parties/${created.data.id}`,
+      headers,
+      payload: { notes: 'caminho dourado atualizado' },
+    });
+    expect(update.statusCode).toBe(200);
+    const updated = JSON.parse(update.body) as { data: { notes?: string } };
+    expect(updated.data.notes).toContain('atualizado');
+  });
+
+  it('returns CRM readiness summary for troubleshooting', async () => {
+    const headers = await authHeaders();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/parties/readiness',
+      headers,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: {
+        total: number;
+        active: number;
+        inactive: number;
+        withoutEmail: number;
+        withoutPhone: number;
+        updatedLast7d: number;
+        health: 'ok' | 'attention' | 'critical';
+        checks: Array<{
+          code: string;
+          status: 'ok' | 'attention' | 'critical';
+          message: string;
+          nextStep: string;
+          value: number;
+        }>;
+        generatedAt: string;
+      };
+    };
+    expect(body.data.total).toBeGreaterThanOrEqual(1);
+    expect(body.data.active + body.data.inactive).toBe(body.data.total);
+    expect(['ok', 'attention', 'critical']).toContain(body.data.health);
+    expect(Array.isArray(body.data.checks)).toBe(true);
+    expect(body.data.checks.length).toBeGreaterThan(0);
+    expect(typeof body.data.generatedAt).toBe('string');
+  });
+
+  it('returns CRM gold gate evaluation with blocking criteria', async () => {
+    const headers = await authHeaders();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/parties/gold-gate',
+      headers,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: {
+        approved: boolean;
+        evaluatedAt: string;
+        criteria: Array<{ code: string; passed: boolean; detail: string }>;
+        blockingCriteria: Array<{ code: string; passed: boolean }>;
+      };
+    };
+    expect(typeof body.data.approved).toBe('boolean');
+    expect(typeof body.data.evaluatedAt).toBe('string');
+    expect(Array.isArray(body.data.criteria)).toBe(true);
+    expect(body.data.criteria.length).toBeGreaterThan(0);
+    for (const c of body.data.blockingCriteria) {
+      expect(c.passed).toBe(false);
+    }
+  });
+
   it('returns 400 when PUT body has no updatable fields', async () => {
     const headers = await authHeaders();
     const list = await app.inject({ method: 'GET', url: '/api/v1/parties?q=Alpha', headers });

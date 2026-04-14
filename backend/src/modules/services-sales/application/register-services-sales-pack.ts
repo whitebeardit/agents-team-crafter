@@ -79,4 +79,9 @@ export function registerServicesSalesPack(
   registry.register('sales_total_paid_by_service', async ({ workspaceId }) => ({
     totals: await orders.totalPaidByService(workspaceId),
   }));
+
+  registry.register('sales_gold_gate', async ({ workspaceId }) => {
+    const catalogItems = await catalog.list(workspaceId, 1_000);
+    return orders.goldGateSummary(workspaceId, catalogItems.length);
+  });
 }

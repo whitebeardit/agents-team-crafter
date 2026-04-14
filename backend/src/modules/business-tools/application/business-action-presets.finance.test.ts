@@ -15,10 +15,12 @@ describe('business-action-presets finance (Loop 100)', () => {
     const overduePayables = getBusinessActionPreset('finance_list_overdue_payables');
     const totalByPayer = getBusinessActionPreset('finance_total_receivable_by_payer');
     const totalByDestination = getBusinessActionPreset('finance_total_payable_by_destination');
+    const goldGate = getBusinessActionPreset('finance_gold_gate');
 
     expect((overdueReceivables?.inputSchema as { required?: string[] }).required).toEqual([]);
     expect((overduePayables?.inputSchema as { required?: string[] }).required).toEqual([]);
     expect((totalByPayer?.inputSchema as { required?: string[] }).required).toEqual([]);
     expect((totalByDestination?.inputSchema as { required?: string[] }).required).toEqual([]);
+    expect((goldGate?.inputSchema as { required?: string[] }).required).toEqual([]);
   });
 });
