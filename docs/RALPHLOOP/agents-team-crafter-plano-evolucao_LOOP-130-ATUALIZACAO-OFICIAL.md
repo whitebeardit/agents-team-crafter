@@ -2,15 +2,13 @@
 
 ## Status desta atualização
 
-Este documento passa a ser o **suplemento canônico** do plano mestre `agents-team-crafter-plano-evolucao.md` para a prioridade oficial **após as implementações recentes de CRM/Scheduling GOLD e gold-gates por vertical**.
+Este documento passa a ser o **suplemento canônico** do plano mestre `agents-team-crafter-plano-evolucao.md` para a prioridade oficial após as implementações recentes.
 
 ---
 
 ## Nova prioridade oficial
 
-O próximo foco oficial do roadmap deixa de ser apenas fechar verticais como páginas e gates isolados.
-
-A prioridade passa a ser:
+A prioridade oficial passa a ser:
 
 > **produto agent-first GOLD**, com verticais operadas via times de agentes e com assistente guiado de criação de times.
 
@@ -20,7 +18,7 @@ A prioridade passa a ser:
 
 O próximo loop oficial passa a ser:
 
-- **Loop 130 — Produto GOLD agent-first: verticais perfeitas por agentes + assistente guiado de criação de times**
+- **Loop 130 — Produto GOLD agent-first: operação por negócio com especialistas por domínio + assistente guiado de criação de times**
 
 Documento detalhado:
 
@@ -37,7 +35,7 @@ A interação principal do utilizador com as verticais deve acontecer por:
 - coordenador
 - especialistas
 - prompts operacionais
-- times recomendados
+- time recomendado
 
 A UI manual da vertical deve funcionar como:
 
@@ -46,27 +44,35 @@ A UI manual da vertical deve funcionar como:
 - gold-gate
 - fallback controlado
 
----
+### 2. Modelo padrão de time
 
-### 2. Assistente guiado de criação de times
+O modelo padrão do produto passa a ser:
+
+- **um time operacional por negócio/operação**
+- **especialistas por domínio/vertical dentro do mesmo time**
+
+Princípio oficial:
+
+> **o time é do negócio; os especialistas são das verticais.**
+
+### 3. Assistente guiado de criação de times
 
 O AI Builder deixa de ser tratado apenas como um campo de problema + contexto + preview técnico.
 
-Ele passa a precisar de uma fase explícita de:
+Ele passa a precisar de:
 
 - entrevista guiada
 - coleta de briefing
 - checagem de suficiência
-- geração só quando já houver informação mínima de qualidade
+- geração só quando houver informação mínima de qualidade
 
----
-
-### 3. Padrão oficial de vertical agent-first
+### 4. Padrão oficial de vertical agent-first
 
 Cada vertical passa a ter que seguir o mesmo padrão:
 
 - gold-gate / readiness
-- team recomendado
+- especialista claro
+- time recomendado
 - operar via especialistas
 - starter prompts
 - fallback / troubleshooting
@@ -95,3 +101,4 @@ Esta atualização deixa explícito que o produto entra numa nova fase:
 - mais foco em **UX muito fácil**
 - mais foco em **assistente guiado**
 - mais foco em **verticais perfeitas via agentes**
+- com o modelo preferencial de **time por negócio com especialistas por domínio**
