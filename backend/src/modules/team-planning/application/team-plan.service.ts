@@ -9,11 +9,15 @@ import type { IGraphNode } from '../../graphs/domain/graph-types.js';
 import type { TeamPlanRepository } from '../infra/team-plan.repository.js';
 import { fetchTeamPlanJsonCompletion, teamPlanModelFromEnv } from './team-plan-json-completion.js';
 import {
+  type ITeamPlannerStructuredBriefing,
   TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
   TEAM_PLANNER_SYSTEM_PROMPT,
   buildTeamPlannerRepairUserMessage,
   buildTeamPlannerUserMessage,
 } from './team-plan-planner-prompt.js';
+import { evaluateTeamPlanBriefingSufficiency } from './team-plan-briefing-sufficiency.js';
+import { evaluateTeamPlanAdequacy } from './team-plan-adequacy-gate.js';
+import { buildTeamPlanIntegrityModel } from './team-plan-integrity-model.js';
 import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
 import {
@@ -221,11 +225,17 @@ export class TeamPlanService {
     private readonly repo: TeamPlanRepository,
   ) {}
 
-  private buildFallback(problem: string, context?: string): TPlannerOutput {
+  private buildFallback(problem: string, context?: string, briefing?: ITeamPlannerStructuredBriefing): TPlannerOutput {
     const problemPreview = problem.slice(0, 80);
+    const briefBusinessGoal = briefing?.businessGoal?.trim();
+    const briefJourney = briefing?.coreJourney?.trim();
+    const briefDomains = (briefing?.domainsNeeded ?? []).map((value) => value.trim()).filter(Boolean).join(', ');
+    const briefHint = [briefBusinessGoal, briefJourney, briefDomains ? `Dominios: ${briefDomains}` : '']
+      .filter(Boolean)
+      .join(' | ');
     const objective = context?.trim()
-      ? `${problem.trim()} Contexto: ${context.trim()}`
-      : `${problem.trim()} Resolver com fluxo coordenado e previsivel.`;
+      ? `${problem.trim()} Contexto: ${context.trim()}${briefHint ? ` Briefing: ${briefHint}` : ''}`
+      : `${problem.trim()} Resolver com fluxo coordenado e previsivel.${briefHint ? ` Briefing: ${briefHint}` : ''}`;
     return {
       team: {
         name: `Time ${problemPreview}`.slice(0, 60),
@@ -489,6 +499,7 @@ export class TeamPlanService {
     workspaceId: string;
     problem: string;
     context?: string;
+    briefing?: ITeamPlannerStructuredBriefing;
     initialRaw: TPlannerOutput;
     apiKey: string;
   }): Promise<{
@@ -513,7 +524,7 @@ export class TeamPlanService {
 
       if (repairsUsed >= maxRepairs) {
         return {
-          raw: this.buildFallback(params.problem, params.context),
+          raw: this.buildFallback(params.problem, params.context, params.briefing),
           plannerMetaExtras: {
             catalogToolRepairAttempts: repairsUsed,
             catalogUniquenessRepaired: false,
@@ -544,7 +555,7 @@ export class TeamPlanService {
       repairsUsed++;
       if (!repaired) {
         return {
-          raw: this.buildFallback(params.problem, params.context),
+          raw: this.buildFallback(params.problem, params.context, params.briefing),
           plannerMetaExtras: {
             catalogToolRepairAttempts: repairsUsed,
             catalogUniquenessRepaired: false,
@@ -577,7 +588,21 @@ export class TeamPlanService {
     }
   }
 
-  async createPlan(workspaceId: string, input: { problem: string; context?: string }) {
+  async createPlan(workspaceId: string, input: { problem: string; context?: string; briefing?: ITeamPlannerStructuredBriefing }) {
+    const briefingSufficiency = evaluateTeamPlanBriefingSufficiency(input.briefing);
+    const integrityModel = buildTeamPlanIntegrityModel(input.briefing);
+    if (input.briefing && briefingSufficiency.status === 'insufficient') {
+      throw new AppError(
+        'BRIEFING_INSUFFICIENT',
+        'Briefing insuficiente para gerar plano. Complete os campos essenciais e tente novamente.',
+        422,
+        {
+          sufficiency: briefingSufficiency,
+          hint: 'Responda objetivo de negócio, jornada principal, entidades e tipo de operação.',
+        },
+      );
+    }
+
     const keyResolution = await this.deps.workspaceIntegrationsService.resolveOpenAiApiKeyWithSource(workspaceId);
     const apiKey = keyResolution.apiKey;
     const openaiResolvedFromEnv = keyResolution.source === 'environment';
@@ -586,7 +611,7 @@ export class TeamPlanService {
     let plannerMeta: ITeamPlannerMeta;
 
     if (!apiKey) {
-      raw = this.buildFallback(input.problem, input.context);
+      raw = this.buildFallback(input.problem, input.context, input.briefing);
       plannerMeta = {
         usedOpenAi: false,
         usedFallback: true,
@@ -600,12 +625,12 @@ export class TeamPlanService {
           apiKey,
           model,
           systemPrompt: TEAM_PLANNER_SYSTEM_PROMPT,
-          userMessage: buildTeamPlannerUserMessage(input.problem, input.context),
+          userMessage: buildTeamPlannerUserMessage(input.problem, input.context, input.briefing),
         });
         const extracted = this.extractJsonLoose(content);
         if (extracted === null) {
           log.warn({ workspaceId }, 'team plan: JSON nao extraido da resposta OpenAI');
-          raw = this.buildFallback(input.problem, input.context);
+          raw = this.buildFallback(input.problem, input.context, input.briefing);
           plannerMeta = {
             usedOpenAi: false,
             usedFallback: true,
@@ -624,7 +649,7 @@ export class TeamPlanService {
           } else {
             const parseSummary = parsed.error.message.slice(0, 400);
             log.warn({ workspaceId, zod: parseSummary }, 'team plan: JSON nao passou na validacao');
-            raw = this.buildFallback(input.problem, input.context);
+            raw = this.buildFallback(input.problem, input.context, input.briefing);
             plannerMeta = {
               usedOpenAi: false,
               usedFallback: true,
@@ -637,7 +662,7 @@ export class TeamPlanService {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         log.warn({ workspaceId, err: msg }, 'team plan: falha na chamada OpenAI');
-        raw = this.buildFallback(input.problem, input.context);
+        raw = this.buildFallback(input.problem, input.context, input.briefing);
         plannerMeta = {
           usedOpenAi: false,
           usedFallback: true,
@@ -653,6 +678,7 @@ export class TeamPlanService {
         workspaceId,
         problem: input.problem,
         context: input.context,
+        briefing: input.briefing,
         initialRaw: raw,
         apiKey,
       });
@@ -679,6 +705,7 @@ export class TeamPlanService {
     const created = await this.repo.create(workspaceId, {
       problem: input.problem,
       context: input.context,
+      briefing: input.briefing,
       status: 'ready',
       team: raw.team,
       agents: agentsMaterialized.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
@@ -689,6 +716,8 @@ export class TeamPlanService {
       plannerMeta: {
         ...(plannerMeta as unknown as Record<string, unknown>),
         platformAssistant: 'team-crafter',
+        briefingSufficiency,
+        integrityModel,
       },
       reuseSummary: reuse.reuseSummary,
     });
@@ -1129,6 +1158,20 @@ export class TeamPlanService {
       requiredPacks: plan.requiredPacks ?? [],
       requiredTools: plan.requiredTools ?? [],
     });
+    const adequacy = evaluateTeamPlanAdequacy({
+      plan: {
+        team: parsed.team,
+        agents: parsed.agents,
+        requiredPacks: parsed.requiredPacks,
+        requiredTools: parsed.requiredTools,
+      },
+      briefing: (plan.briefing as ITeamPlannerStructuredBriefing | undefined) ?? undefined,
+    });
+    if (adequacy.status === 'inadequate') {
+      throw new AppError('PLAN_INADEQUATE', 'Plano inadequado para execução. Revise o plano antes de executar.', 422, {
+        adequacy,
+      });
+    }
     assertSpecialistWorkflowOwnership(parsed.agents);
     assertSpecialistsExclusiveCatalogTools(materializePlannerAgentCatalogTools(parsed));
     const planAgentKeys = plannerAgentKeys(parsed.agents);

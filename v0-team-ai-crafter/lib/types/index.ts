@@ -475,6 +475,20 @@ export interface TeamPlanPlannerMeta {
     | string
   openaiResolvedFromEnv?: boolean
   parseErrorSummary?: string
+  briefingSufficiency?: {
+    status: "sufficient" | "partial" | "insufficient"
+    score: number
+    answeredSignals: number
+    expectedSignals: number
+    missingSignals: string[]
+  }
+  integrityModel?: {
+    status: "defined" | "incomplete"
+    masterEntities: Array<{ domain: string; entity: string; naturalKey: string }>
+    linkRules: string[]
+    deduplicationRules: string[]
+    missingSignals: string[]
+  }
 }
 
 /** Meta do envelope em `POST /team-plans/:id/execute` e evento SSE `complete`. */
@@ -584,6 +598,7 @@ export interface TeamPlanDraft {
   id: string
   problem: string
   context?: string
+  briefing?: TeamPlanStructuredBriefing | null
   status: "draft" | "ready" | "executing" | "executed" | "failed"
   team: {
     name: string
@@ -613,6 +628,25 @@ export interface TeamPlanDraft {
     specialistIds: string[]
     activatedAt: string
   } | null
+}
+
+export interface TeamPlanStructuredBriefing {
+  problemSummary?: string
+  businessType?: string
+  operationalUnit?: string
+  businessGoal?: string
+  coreJourney?: string
+  primaryDomain?: string
+  secondaryDomains?: string[]
+  domainsNeeded?: string[]
+  mainEntities?: string[]
+  sharedEntities?: string[]
+  primaryChannel?: string
+  operationKinds?: string[]
+  constraints?: string[]
+  mustHaveCapabilities?: string[]
+  mustAvoid?: string[]
+  crossDomainIntegrityNeeds?: string[]
 }
 
 export interface AgentOverlapMatch {

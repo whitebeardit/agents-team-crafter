@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { Loader2, RefreshCw } from "lucide-react"
+import { CheckCircle2, Clipboard, Loader2, RefreshCw } from "lucide-react"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
-import type { CrmParty } from "@/lib/types"
+import type { CrmParty, Team } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
 
 type PartyStatusFilter = "all" | "active" | "inactive"
 type CrmReadiness = {
@@ -62,6 +63,7 @@ export default function CrmPage() {
   const [statusFilter, setStatusFilter] = useState<PartyStatusFilter>("all")
   const [readiness, setReadiness] = useState<CrmReadiness | null>(null)
   const [goldGate, setGoldGate] = useState<CrmGoldGate | null>(null)
+  const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
 
   const api = useMemo(
     () =>
@@ -85,14 +87,16 @@ export default function CrmPage() {
       if (statusFilter !== "all") qs.set("status", statusFilter)
       qs.set("limit", "50")
       const path = `/parties?${qs.toString()}`
-      const [res, readinessRes, goldGateRes] = await Promise.all([
+      const [res, readinessRes, goldGateRes, teamRes] = await Promise.all([
         api.get<CrmParty[]>(path),
         api.get<CrmReadiness>("/parties/readiness"),
         api.get<CrmGoldGate>("/parties/gold-gate"),
+        api.get<Team[]>("/teams?status=active&page=1&perPage=1"),
       ])
       setParties(res.data)
       setReadiness(readinessRes.data)
       setGoldGate(goldGateRes.data)
+      setRecommendedTeam(teamRes.data[0] ?? null)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar os contatos"
       toast.error(msg)
@@ -104,6 +108,23 @@ export default function CrmPage() {
   useEffect(() => {
     void loadParties()
   }, [loadParties])
+
+  const operationHref = recommendedTeam ? `/teams/${recommendedTeam.id}?tab=debug` : "/teams/create"
+
+  const starterPrompts = [
+    "Liste meus contatos ativos com maior prioridade comercial.",
+    "Atualize o cadastro do cliente X com telefone e e-mail novos.",
+    "Mostre contatos sem e-mail e proponha ação de saneamento.",
+  ]
+
+  const handleCopyPrompt = useCallback(async (prompt: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt)
+      toast.success("Prompt copiado. Cole no chat do time para operar o CRM.")
+    } catch {
+      toast.error("Não foi possível copiar o prompt.")
+    }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -124,6 +145,83 @@ export default function CrmPage() {
           </Button>
         </div>
       </div>
+
+      <AgentFirstVerticalStandard
+        verticalName="CRM"
+        summary="Vertical orientada a operação via especialistas; esta página manual é secundária para auditoria e troubleshooting."
+        readinessTitle="Readiness / GOLD gate"
+        readinessStatusLabel={
+          goldGate?.approved ? "GOLD aprovado" : readiness?.health === "critical" ? "Readiness crítica" : "Readiness em atenção"
+        }
+        readinessStatusTone={goldGate?.approved ? "default" : readiness?.health === "critical" ? "destructive" : "secondary"}
+        readinessContent={
+          <p>
+            Saúde: <strong>{readiness?.health ?? "—"}</strong>. Critérios GOLD{" "}
+            <strong>{goldGate?.approved ? "aprovados" : "pendentes"}</strong>.
+          </p>
+        }
+        specialistName="Especialista CRM"
+        teamRecommendation="Mesmo time operacional do negócio (coordenador + domínios)"
+        ctaHref={operationHref}
+        ctaLabel={recommendedTeam ? `Abrir operação no time "${recommendedTeam.name}"` : "Criar time operacional"}
+        starterPrompts={starterPrompts}
+        fallbackGuidance="Use esta tela para auditoria manual de dados e health checks quando precisar validar execução, investigar inconsistências ou apoiar troubleshooting."
+        troubleshootingItems={[
+          "Verifique checks de readiness com status attention/critical.",
+          "Confirme se o time ativo recomendado está correto para a operação.",
+          "Use a listagem manual para validar duplicidade de contato antes de corrigir no runtime.",
+        ]}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Jornada agent-first CRM (Loop 131)</CardTitle>
+          <CardDescription>
+            Fluxo recomendado para operar CRM pelo time com especialista e manter a tela de CRM apenas para auditoria.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            {[
+              "Abra o time operacional recomendado e entre na aba de debug/chat.",
+              "Use um starter prompt para iniciar a conversa operacional.",
+              "Execute atualização/listagem/saneamento via especialista CRM.",
+              "Volte nesta tela apenas para validar readiness e auditoria manual.",
+            ].map((step) => (
+              <div key={step} className="flex items-start gap-2 rounded-md border p-2 text-sm">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                <p>{step}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild size="sm">
+              <Link href={operationHref}>
+                {recommendedTeam ? `Operar no time "${recommendedTeam.name}"` : "Criar time para operar CRM"}
+              </Link>
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {recommendedTeam
+                ? "Entrada padrão do CRM: operação via time + especialista."
+                : "Sem time ativo detectado: crie um time para iniciar a operação agent-first."}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {starterPrompts.map((prompt) => (
+              <Button
+                key={prompt}
+                type="button"
+                variant="outline"
+                className="h-auto justify-start whitespace-normal text-left text-xs"
+                onClick={() => void handleCopyPrompt(prompt)}
+              >
+                <Clipboard className="mr-2 h-3.5 w-3.5 shrink-0" />
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

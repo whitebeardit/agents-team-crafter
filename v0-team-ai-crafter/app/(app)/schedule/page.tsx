@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { CalendarDays, ChevronsUpDown, Loader2, RefreshCw } from "lucide-react"
+import { CalendarDays, CheckCircle2, ChevronsUpDown, Clipboard, Loader2, RefreshCw } from "lucide-react"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
-import type { CrmParty, ScheduleAgendaResponse, ScheduleAppointment } from "@/lib/types"
+import type { CrmParty, ScheduleAgendaResponse, ScheduleAppointment, Team } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,6 +43,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Switch } from "@/components/ui/switch"
 import { CreatePartyDialog } from "@/components/schedule/create-party-dialog"
+import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
 type ScheduleGoldGate = {
   approved: boolean
   evaluatedAt: string
@@ -102,6 +103,7 @@ export default function SchedulePage() {
   const [agenda, setAgenda] = useState<ScheduleAgendaResponse | null>(null)
   const [goldGate, setGoldGate] = useState<ScheduleGoldGate | null>(null)
   const [partiesById, setPartiesById] = useState<Record<string, CrmParty>>({})
+  const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
 
   const api = useMemo(
     () =>
@@ -122,12 +124,14 @@ export default function SchedulePage() {
         date,
         includeCancelled: showCancelled ? "true" : "false",
       })
-      const [res, gate] = await Promise.all([
+      const [res, gate, teamRes] = await Promise.all([
         api.get<ScheduleAgendaResponse>(`/schedule/agenda?${qs.toString()}`),
         api.get<ScheduleGoldGate>(`/schedule/gold-gate?date=${encodeURIComponent(date)}`),
+        api.get<Team[]>("/teams?status=active&page=1&perPage=1"),
       ])
       setAgenda(res.data)
       setGoldGate(gate.data)
+      setRecommendedTeam(teamRes.data[0] ?? null)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar a agenda."
       toast.error(msg)
@@ -164,6 +168,22 @@ export default function SchedulePage() {
     }
   }, [agenda?.appointments, api, token, currentWorkspace])
 
+  const operationHref = recommendedTeam ? `/teams/${recommendedTeam.id}?tab=debug` : "/teams/create"
+
+  const starterPrompts = [
+    "Mostre os próximos horários livres para o cliente X esta semana.",
+    "Reagende o compromisso Y para o próximo horário disponível.",
+    "Liste no-shows do dia e proponha follow-up automático.",
+  ]
+
+  const handleCopyPrompt = useCallback(async (prompt: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt)
+      toast.success("Prompt copiado. Cole no chat do time para operar a agenda.")
+    } catch {
+      toast.error("Não foi possível copiar o prompt.")
+    }
+  }, [])
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -208,6 +228,81 @@ export default function SchedulePage() {
           </Button>
         </div>
       </div>
+
+      <AgentFirstVerticalStandard
+        verticalName="Scheduling"
+        summary="Vertical de agenda com operação principal via time e especialistas; UI manual usada para auditoria e suporte."
+        readinessTitle="Readiness / GOLD gate do dia"
+        readinessStatusLabel={goldGate?.approved ? "GOLD aprovado" : "GOLD pendente"}
+        readinessStatusTone={goldGate?.approved ? "default" : "secondary"}
+        readinessContent={
+          <p>
+            Dia selecionado: <strong>{date}</strong>. Gate:{" "}
+            <strong>{goldGate?.approved ? "aprovado" : "pendente"}</strong>.
+          </p>
+        }
+        specialistName="Especialista de Agenda"
+        teamRecommendation="Mesmo time operacional do negócio com foco em scheduling"
+        ctaHref={operationHref}
+        ctaLabel={recommendedTeam ? `Abrir operação no time "${recommendedTeam.name}"` : "Criar time operacional"}
+        starterPrompts={starterPrompts}
+        fallbackGuidance="Use esta tela para auditar compromissos, confirmar estado operacional e apoiar troubleshooting quando o fluxo agent-first precisar de validação manual."
+        troubleshootingItems={[
+          "Confira se o gate GOLD do dia está pendente por volume de cancelamentos/no-shows.",
+          "Valide se o time recomendado está ativo antes de operar via especialista.",
+          "Use tabela manual para auditar horários e estados antes de reexecutar no runtime.",
+        ]}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Jornada agent-first Scheduling (Loop 132)</CardTitle>
+          <CardDescription>
+            Fluxo recomendado para operar a agenda pelo time especialista e usar esta tela apenas para auditoria manual.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            {[
+              "Abra o time operacional e entre no chat/debug para iniciar a operação.",
+              "Use um starter prompt para consulta, reagendamento ou follow-up.",
+              "Execute confirmações, no-show e conclusão via especialista de agenda.",
+              "Retorne nesta página para auditar o estado final e o gate do dia.",
+            ].map((step) => (
+              <div key={step} className="flex items-start gap-2 rounded-md border p-2 text-sm">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                <p>{step}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild size="sm">
+              <Link href={operationHref}>
+                {recommendedTeam ? `Operar no time "${recommendedTeam.name}"` : "Criar time para operar agenda"}
+              </Link>
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {recommendedTeam
+                ? "Entrada padrão da agenda: operação via time + especialista."
+                : "Sem time ativo detectado: crie um time para iniciar a operação agent-first."}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {starterPrompts.map((prompt) => (
+              <Button
+                key={prompt}
+                type="button"
+                variant="outline"
+                className="h-auto justify-start whitespace-normal text-left text-xs"
+                onClick={() => void handleCopyPrompt(prompt)}
+              >
+                <Clipboard className="mr-2 h-3.5 w-3.5 shrink-0" />
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

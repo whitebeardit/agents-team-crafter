@@ -39,6 +39,18 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(msg).toMatch(/matriz mental/i);
   });
 
+  it('inclui briefing estruturado quando fornecido (Loop 130.3)', () => {
+    const msg = buildTeamPlannerUserMessage('Organizar operação', 'Contexto inicial', {
+      businessType: 'clinica psicologica',
+      domainsNeeded: ['crm', 'scheduling', 'finance'],
+      mainEntities: ['paciente', 'agenda'],
+      operationKinds: ['atendimento', 'acompanhamento'],
+    });
+    expect(msg).toMatch(/Briefing estruturado \(Loop 130\.3\)/i);
+    expect(msg).toContain('"businessType": "clinica psicologica"');
+    expect(msg).toContain('"domainsNeeded"');
+  });
+
   it('TEAM_PLANNER_REPAIR_SYSTEM_PROMPT lista IDs exclusivos (Loop 80)', () => {
     expect(TEAM_PLANNER_REPAIR_SYSTEM_PROMPT).toMatch(/modo CORRECAO/i);
     for (const id of PLANNER_SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS) {
