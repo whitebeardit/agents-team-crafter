@@ -35,6 +35,7 @@ const TeamPlanSchema = new Schema(
     workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
     problem: { type: String, required: true },
     context: { type: String, default: '' },
+    briefing: { type: Schema.Types.Mixed, default: null },
     status: {
       type: String,
       enum: ['draft', 'ready', 'executing', 'executed', 'failed'],

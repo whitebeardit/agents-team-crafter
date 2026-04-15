@@ -19,6 +19,7 @@ import type {
   TeamPlanDraft,
   TeamPlanExecuteMeta,
   TeamPlanPlannerMeta,
+  TeamPlanStructuredBriefing,
 } from "@/lib/types"
 import { getPlannerFallbackCopy } from "@/lib/planner-fallback-messages"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -60,6 +61,228 @@ type TeamPlanningPolicy = {
   autoBindEnabled: boolean
   source: "workspace_enabled" | "workspace_disabled" | "environment_default"
   reusedAgentBindMode: "manual" | "merge"
+}
+
+type GuidedBuilderStage =
+  | "discovery"
+  | "business_understanding"
+  | "domains_understanding"
+  | "briefing_confirmation"
+  | "plan_generation"
+  | "team_review"
+  | "execution"
+
+const GUIDED_BUILDER_FLOW: Array<{ id: GuidedBuilderStage; label: string }> = [
+  { id: "discovery", label: "Descoberta do problema" },
+  { id: "business_understanding", label: "Entendimento do negócio" },
+  { id: "domains_understanding", label: "Domínios necessários" },
+  { id: "briefing_confirmation", label: "Confirmação do briefing" },
+  { id: "plan_generation", label: "Geração do plano" },
+  { id: "team_review", label: "Revisão do time" },
+  { id: "execution", label: "Execução" },
+]
+
+type DiscoveryQuestion = {
+  id:
+    | "businessGoal"
+    | "businessType"
+    | "coreJourney"
+    | "domainsNeeded"
+    | "mainEntities"
+    | "primaryChannel"
+    | "constraints"
+    | "operationKinds"
+  label: string
+  helper: string
+  placeholder: string
+  quickOptions: string[]
+}
+
+const DISCOVERY_UNKNOWN = "Não sei ainda"
+
+const DISCOVERY_QUESTIONS: DiscoveryQuestion[] = [
+  {
+    id: "businessGoal",
+    label: "Qual é o objetivo principal do time?",
+    helper: "Ex.: aumentar conversão, reduzir no-show, organizar atendimento, melhorar cobrança.",
+    placeholder: "Descreva o resultado de negócio esperado...",
+    quickOptions: ["Aumentar eficiência operacional", "Reduzir atrasos e falhas", "Melhorar experiência do cliente/paciente"],
+  },
+  {
+    id: "businessType",
+    label: "Qual é o tipo de negócio/operação?",
+    helper: "Isto ajuda a calibrar os especialistas e packs recomendados.",
+    placeholder: "Ex.: clínica psicológica, consultoria, serviços locais, operação comercial...",
+    quickOptions: ["Clínica/saúde", "Serviços", "Comercial/CRM"],
+  },
+  {
+    id: "coreJourney",
+    label: "Qual é a jornada principal que precisa funcionar melhor?",
+    helper: "Pense no fluxo ponta a ponta mais crítico.",
+    placeholder: "Ex.: lead → agendamento → atendimento → cobrança → follow-up...",
+    quickOptions: ["Captação até fechamento", "Agendamento até conclusão", "Atendimento e acompanhamento"],
+  },
+  {
+    id: "domainsNeeded",
+    label: "Quais domínios precisam coexistir no mesmo time?",
+    helper: "Pode listar mais de um domínio.",
+    placeholder: "Ex.: CRM, Scheduling, Finance, Clinical, Care...",
+    quickOptions: ["CRM + Scheduling", "CRM + Scheduling + Finance", "Clinical + Care + Finance"],
+  },
+  {
+    id: "mainEntities",
+    label: "Quais entidades o time vai operar?",
+    helper: "Ex.: cliente, paciente, lead, agenda, cobrança, sessão, prontuário.",
+    placeholder: "Liste as entidades principais...",
+    quickOptions: ["Cliente, lead, agenda", "Paciente, sessão, prontuário", "Cliente, pedido, pagamento"],
+  },
+  {
+    id: "primaryChannel",
+    label: "Qual é o canal principal de operação?",
+    helper: "Ajuda o planner a priorizar o contexto operacional.",
+    placeholder: "Ex.: WhatsApp, web, API interna, Slack, Telegram...",
+    quickOptions: ["WhatsApp", "Web/App", "API interna"],
+  },
+  {
+    id: "constraints",
+    label: "Existe alguma restrição relevante de dados ou integrações?",
+    helper: "Se não souber, pode marcar 'Não sei ainda'.",
+    placeholder: "Ex.: sem acesso a ERP, dados sensíveis, janela de atendimento...",
+    quickOptions: ["LGPD/dados sensíveis", "Integrações legadas", "Sem restrição crítica no momento"],
+  },
+  {
+    id: "operationKinds",
+    label: "Que tipo de operação o time deve executar no dia a dia?",
+    helper: "Marque a natureza do trabalho esperado.",
+    placeholder: "Ex.: CRUD, atendimento, automação, acompanhamento, operação administrativa...",
+    quickOptions: ["CRUD + atendimento", "Automação + acompanhamento", "Operação administrativa + auditoria"],
+  },
+]
+
+function normalizeDiscoveryValue(value: string): string {
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : DISCOVERY_UNKNOWN
+}
+
+function buildGuidedPlannerInput(
+  answers: Partial<Record<DiscoveryQuestion["id"], string>>,
+): { problem: string; context: string } {
+  const questionById = new Map(DISCOVERY_QUESTIONS.map((q) => [q.id, q]))
+  const businessGoal = answers.businessGoal?.trim()
+  const coreJourney = answers.coreJourney?.trim()
+  const businessType = answers.businessType?.trim()
+  const problem =
+    businessGoal && businessGoal !== DISCOVERY_UNKNOWN
+      ? businessGoal
+      : coreJourney && coreJourney !== DISCOVERY_UNKNOWN
+        ? `Melhorar jornada operacional: ${coreJourney}`
+        : businessType && businessType !== DISCOVERY_UNKNOWN
+          ? `Estruturar operação agent-first para ${businessType}`
+          : "Estruturar um time operacional agent-first com especialistas por domínio."
+
+  const contextLines = DISCOVERY_QUESTIONS.map((q) => {
+    const raw = answers[q.id]?.trim()
+    if (!raw) return null
+    const normalized = raw.length > 0 ? raw : DISCOVERY_UNKNOWN
+    return `- ${questionById.get(q.id)?.label ?? q.id}: ${normalized}`
+  }).filter((line): line is string => Boolean(line))
+
+  return {
+    problem,
+    context: contextLines.join("\n"),
+  }
+}
+
+function normalizeCsvList(value: string | undefined): string[] {
+  if (!value) return []
+  return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))]
+}
+
+function normalizeSingleValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim()
+  if (!trimmed || trimmed === DISCOVERY_UNKNOWN) return undefined
+  return trimmed
+}
+
+function buildStructuredBriefingFromDiscovery(
+  answers: Partial<Record<DiscoveryQuestion["id"], string>>,
+  fallbackProblem: string,
+): TeamPlanStructuredBriefing {
+  const domains = normalizeCsvList(answers.domainsNeeded)
+  const entities = normalizeCsvList(answers.mainEntities)
+  const constraints = normalizeCsvList(answers.constraints)
+  const operationKinds = normalizeCsvList(answers.operationKinds)
+  return {
+    problemSummary: normalizeSingleValue(fallbackProblem),
+    businessType: normalizeSingleValue(answers.businessType),
+    operationalUnit: normalizeSingleValue(answers.businessType),
+    businessGoal: normalizeSingleValue(answers.businessGoal),
+    coreJourney: normalizeSingleValue(answers.coreJourney),
+    primaryDomain: domains[0],
+    secondaryDomains: domains.slice(1),
+    domainsNeeded: domains,
+    mainEntities: entities,
+    sharedEntities: entities,
+    primaryChannel: normalizeSingleValue(answers.primaryChannel),
+    operationKinds,
+    constraints,
+    mustHaveCapabilities: domains,
+    mustAvoid: [],
+    crossDomainIntegrityNeeds: entities.length > 0 ? [`Reusar entidades partilhadas: ${entities.join(", ")}`] : [],
+  }
+}
+
+type DiscoverySufficiency = {
+  status: "sufficient" | "partial" | "insufficient"
+  missingSignals: string[]
+  answeredSignals: number
+  expectedSignals: number
+}
+
+function evaluateClientPlanAdequacy(plan: TeamPlanDraft | null): string[] {
+  if (!plan) return []
+  const issues: string[] = []
+  const coordinatorCount = plan.agents.filter((agent) => agent.role === "coordinator").length
+  const specialistCount = plan.agents.filter((agent) => agent.role === "specialist").length
+  if (coordinatorCount !== 1) issues.push("Plano precisa de exatamente 1 coordenador.")
+  if (specialistCount === 0) issues.push("Plano precisa de pelo menos 1 especialista.")
+  const briefingDomains = (plan.briefing?.domainsNeeded ?? []).length
+  if (briefingDomains > 1 && specialistCount < Math.min(briefingDomains, 3)) {
+    issues.push("Especialistas insuficientes para os domínios pedidos no briefing.")
+  }
+  const briefingChannel = plan.briefing?.primaryChannel?.trim().toLowerCase()
+  const planChannel = plan.team.primaryChannel?.trim().toLowerCase()
+  if (briefingChannel && planChannel && briefingChannel !== planChannel) {
+    issues.push("Canal do plano difere do canal principal informado no briefing.")
+  }
+  const hasOpsKinds = (plan.briefing?.operationKinds ?? []).length > 0
+  const hasOpsCapabilities = (plan.requiredPacks?.length ?? 0) > 0 || (plan.requiredTools?.length ?? 0) > 0
+  if (hasOpsKinds && !hasOpsCapabilities) {
+    issues.push("Plano sem packs/tools para operação declarada no briefing.")
+  }
+  return issues
+}
+
+function evaluateDiscoverySufficiency(briefing: TeamPlanStructuredBriefing): DiscoverySufficiency {
+  const signals: Array<{ key: string; ok: boolean }> = [
+    { key: "businessGoal", ok: Boolean(briefing.businessGoal?.trim() || briefing.problemSummary?.trim()) },
+    { key: "businessType", ok: Boolean(briefing.businessType?.trim() || briefing.operationalUnit?.trim()) },
+    { key: "coreJourney", ok: Boolean(briefing.coreJourney?.trim()) },
+    { key: "domainsNeeded", ok: Boolean((briefing.domainsNeeded ?? []).length || briefing.primaryDomain?.trim()) },
+    { key: "mainEntities", ok: Boolean((briefing.mainEntities ?? []).length) },
+    { key: "primaryChannel", ok: Boolean(briefing.primaryChannel?.trim()) },
+    { key: "operationKinds", ok: Boolean((briefing.operationKinds ?? []).length) },
+  ]
+  const answeredSignals = signals.filter((signal) => signal.ok).length
+  const expectedSignals = signals.length
+  const status: DiscoverySufficiency["status"] =
+    answeredSignals >= 6 ? "sufficient" : answeredSignals >= 4 ? "partial" : "insufficient"
+  return {
+    status,
+    missingSignals: signals.filter((signal) => !signal.ok).map((signal) => signal.key),
+    answeredSignals,
+    expectedSignals,
+  }
 }
 
 function toNode(value: unknown): Node | null {
@@ -281,6 +504,10 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const [overlapMode, setOverlapMode] = useState<GovernanceOverlapMode>("blocking")
   /** Loop 89 — modo simples por defeito; avançado mostra preview de bind completo e blocos técnicos. */
   const [builderAdvancedUi, setBuilderAdvancedUi] = useState(false)
+  const [guidedDiscoveryEnabled, setGuidedDiscoveryEnabled] = useState(true)
+  const [discoveryStep, setDiscoveryStep] = useState(0)
+  const [discoveryAnswers, setDiscoveryAnswers] = useState<Partial<Record<DiscoveryQuestion["id"], string>>>({})
+  const [briefingConfirmed, setBriefingConfirmed] = useState(false)
 
   const previewGraphNodes = useMemo(() => (plan ? enrichPreviewNodes(plan) : []), [plan])
   const previewGraphEdges = useMemo(
@@ -381,6 +608,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
 
   const executePlanBlockers = useMemo(() => {
     const items: string[] = []
+    const adequacyIssues = evaluateClientPlanAdequacy(plan)
     if (specialistExclusiveCollisions.length > 0) {
       items.push("Ferramenta exclusiva de domínio repetida entre especialistas (ajuste as fichas).")
     }
@@ -396,15 +624,18 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     if (isBindPreviewLoading) {
       items.push("A carregar preview de bind…")
     }
+    if (adequacyIssues.length > 0) {
+      items.push(...adequacyIssues)
+    }
     return items
   }, [
+    plan,
     specialistExclusiveCollisions.length,
     specialistWorkflowDuplicates.length,
     requiresExplicitBindApproval,
     bindPreview,
     bindPreviewApproved,
     overlapMode,
-    plan?.reuseSummary?.conflicts?.length,
     isBindPreviewLoading,
   ])
 
@@ -446,6 +677,10 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const plannerFallbackCopy = useMemo(() => {
     if (!plan?.plannerMeta?.usedFallback) return null
     return getPlannerFallbackCopy(plan.plannerMeta as TeamPlanPlannerMeta)
+  }, [plan])
+  const plannerIntegrityModel = useMemo(() => {
+    const meta = plan?.plannerMeta as TeamPlanPlannerMeta | undefined
+    return meta?.integrityModel
   }, [plan])
 
   const api = useMemo(() => {
@@ -660,13 +895,64 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
+  const currentDiscoveryQuestion = DISCOVERY_QUESTIONS[discoveryStep]
+  const currentDiscoveryValue = currentDiscoveryQuestion ? (discoveryAnswers[currentDiscoveryQuestion.id] ?? "") : ""
+  const discoveryAnsweredCount = DISCOVERY_QUESTIONS.filter((q) => {
+    const answer = discoveryAnswers[q.id]?.trim()
+    return Boolean(answer && answer.length > 0)
+  }).length
+  const discoveryComplete = discoveryAnsweredCount === DISCOVERY_QUESTIONS.length
+  const structuredBriefingPreview = buildStructuredBriefingFromDiscovery(discoveryAnswers, problem.trim())
+  const discoverySufficiency = evaluateDiscoverySufficiency(structuredBriefingPreview)
+  const currentGuidedStage: GuidedBuilderStage = useMemo(() => {
+    if (plan?.result?.teamId) return "execution"
+    if (plan) return "team_review"
+    if (briefingConfirmed) return "plan_generation"
+    if (discoveryAnsweredCount >= 6) return "briefing_confirmation"
+    if (discoveryAnsweredCount >= 4) return "domains_understanding"
+    if (discoveryAnsweredCount >= 2) return "business_understanding"
+    return "discovery"
+  }, [plan, briefingConfirmed, discoveryAnsweredCount])
+
+  const setCurrentDiscoveryValue = (value: string) => {
+    if (!currentDiscoveryQuestion) return
+    setDiscoveryAnswers((prev) => ({ ...prev, [currentDiscoveryQuestion.id]: value }))
+  }
+
+  const goNextDiscoveryStep = () => {
+    if (!currentDiscoveryQuestion) return
+    const nextValue = normalizeDiscoveryValue(currentDiscoveryValue)
+    setCurrentDiscoveryValue(nextValue)
+    setDiscoveryStep((prev) => Math.min(prev + 1, DISCOVERY_QUESTIONS.length - 1))
+  }
+
+  const applyGuidedBriefingToPlanner = () => {
+    const safeAnswers = { ...discoveryAnswers }
+    if (currentDiscoveryQuestion && !safeAnswers[currentDiscoveryQuestion.id]?.trim()) {
+      safeAnswers[currentDiscoveryQuestion.id] = DISCOVERY_UNKNOWN
+    }
+    const guided = buildGuidedPlannerInput(safeAnswers)
+    setProblem(guided.problem)
+    setContext(guided.context)
+    setBriefingConfirmed(true)
+    toast.success("Briefing guiado aplicado no planner. Revise e gere o plano.")
+  }
+
   const generatePlan = async () => {
+    if (guidedDiscoveryEnabled && discoverySufficiency.status === "insufficient") {
+      toast.warning(
+        `Briefing insuficiente para gerar plano. Complete: ${discoverySufficiency.missingSignals.slice(0, 4).join(", ")}.`,
+      )
+      return
+    }
     if (!api || problem.trim().length < 10) return
     setIsGenerating(true)
     try {
+      const briefing = guidedDiscoveryEnabled || discoveryAnsweredCount > 0 ? structuredBriefingPreview : undefined
       const res = await api.post<TeamPlanDraft>("/team-plans", {
         problem: problem.trim(),
         context: context.trim() || undefined,
+        briefing,
       })
       setLastExecutionMeta(null)
       setBindPreview(null)
@@ -834,12 +1120,131 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
           <CardTitle>Descreva o objetivo do time</CardTitle>
           <CardDescription>O planner considera o catálogo do workspace e marca reuso quando houver overlap forte.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
+          <div className="rounded-md border p-3 space-y-2">
+            <p className="text-sm font-medium">Fluxo guiado do AI Builder (Loop 130.9)</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {GUIDED_BUILDER_FLOW.map((stage, idx) => {
+                const currentIdx = GUIDED_BUILDER_FLOW.findIndex((s) => s.id === currentGuidedStage)
+                const done = idx < currentIdx
+                const active = idx === currentIdx
+                return (
+                  <div
+                    key={stage.id}
+                    className={`rounded-md border px-2 py-1.5 text-xs ${
+                      active ? "border-primary bg-primary/10 text-foreground" : done ? "border-emerald-500/30 bg-emerald-500/10" : "text-muted-foreground"
+                    }`}
+                  >
+                    <p className="font-medium">{stage.label}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          <div className="rounded-md border bg-muted/40 p-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Entrevista guiada (Loop 130.2)</p>
+                <p className="text-xs text-muted-foreground">
+                  Coleta incremental do briefing para melhorar a qualidade do plano.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="guided-discovery-enabled"
+                  checked={guidedDiscoveryEnabled}
+                  onCheckedChange={(checked) => setGuidedDiscoveryEnabled(Boolean(checked))}
+                />
+                <Label htmlFor="guided-discovery-enabled" className="cursor-pointer text-xs">
+                  Modo guiado
+                </Label>
+              </div>
+            </div>
+
+            {guidedDiscoveryEnabled && currentDiscoveryQuestion ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Pergunta {discoveryStep + 1} de {DISCOVERY_QUESTIONS.length}
+                  </p>
+                  <Badge variant={discoveryComplete ? "default" : "secondary"}>
+                    {discoveryAnsweredCount}/{DISCOVERY_QUESTIONS.length} respondidas
+                  </Badge>
+                  <Badge
+                    variant={
+                      discoverySufficiency.status === "sufficient"
+                        ? "default"
+                        : discoverySufficiency.status === "partial"
+                          ? "secondary"
+                          : "destructive"
+                    }
+                  >
+                    Briefing {discoverySufficiency.status === "sufficient"
+                      ? "suficiente"
+                      : discoverySufficiency.status === "partial"
+                        ? "parcial"
+                        : "insuficiente"}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`guided-${currentDiscoveryQuestion.id}`}>{currentDiscoveryQuestion.label}</Label>
+                  <p className="text-xs text-muted-foreground">{currentDiscoveryQuestion.helper}</p>
+                </div>
+                <Textarea
+                  id={`guided-${currentDiscoveryQuestion.id}`}
+                  value={currentDiscoveryValue}
+                  onChange={(e) => setCurrentDiscoveryValue(e.target.value)}
+                  placeholder={currentDiscoveryQuestion.placeholder}
+                  className="min-h-20"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {currentDiscoveryQuestion.quickOptions.map((opt) => (
+                    <Button
+                      key={opt}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentDiscoveryValue(opt)}
+                    >
+                      {opt}
+                    </Button>
+                  ))}
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentDiscoveryValue(DISCOVERY_UNKNOWN)}>
+                    {DISCOVERY_UNKNOWN}
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDiscoveryStep((prev) => Math.max(prev - 1, 0))}
+                    disabled={discoveryStep === 0}
+                  >
+                    Voltar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={goNextDiscoveryStep}
+                    disabled={discoveryStep >= DISCOVERY_QUESTIONS.length - 1}
+                  >
+                    Próxima pergunta
+                  </Button>
+                  <Button type="button" onClick={applyGuidedBriefingToPlanner}>
+                    Aplicar briefing no planner
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <Label htmlFor="problem">Problema principal</Label>
           <Textarea
             id="problem"
             value={problem}
-            onChange={(e) => setProblem(e.target.value)}
+            onChange={(e) => {
+              setProblem(e.target.value)
+              if (briefingConfirmed) setBriefingConfirmed(false)
+            }}
             placeholder="Ex: temos alto volume de tickets e baixa taxa de resolução no primeiro contato..."
             className="min-h-28"
           />
@@ -847,7 +1252,10 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
           <Textarea
             id="context"
             value={context}
-            onChange={(e) => setContext(e.target.value)}
+            onChange={(e) => {
+              setContext(e.target.value)
+              if (briefingConfirmed) setBriefingConfirmed(false)
+            }}
             placeholder="Restrições, stack, canais já conectados, SLAs..."
             className="min-h-20"
           />
@@ -912,6 +1320,46 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                   ) : null}
                 </AlertDescription>
               </Alert>
+            ) : null}
+            {plannerIntegrityModel ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Modelo de integridade entre especialistas (Loop 130.6A)</CardTitle>
+                  <CardDescription>
+                    Estado:{" "}
+                    <strong>{plannerIntegrityModel.status === "defined" ? "definido" : "incompleto"}</strong>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div>
+                    <p className="font-medium">Entidades mestras</p>
+                    <ul className="list-disc pl-5 text-muted-foreground">
+                      {plannerIntegrityModel.masterEntities.map((item) => (
+                        <li key={`${item.domain}-${item.entity}`}>
+                          {item.domain} → {item.entity} ({item.naturalKey})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-medium">Regras de ligação</p>
+                    <ul className="list-disc pl-5 text-muted-foreground">
+                      {plannerIntegrityModel.linkRules.map((rule) => (
+                        <li key={rule}>{rule}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  {plannerIntegrityModel.missingSignals.length > 0 ? (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Integridade incompleta</AlertTitle>
+                      <AlertDescription>
+                        Sinais faltantes: {plannerIntegrityModel.missingSignals.join(", ")}.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                </CardContent>
+              </Card>
             ) : null}
             </div>
             <div className="order-2 flex flex-col gap-6">

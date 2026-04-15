@@ -784,36 +784,37 @@ O **Loop 17** (foundation) foi entregue no backend: `internal_action`, `Business
 
 ---
 
-# Próximo loop oficial
+# Próximo passo oficial
 
-**Último slice oficial fechado:** **[Loop 98.9](#loop-989-fechado--regressão-mínima-por-pack)** — regressão mínima por pack com cenário feliz por vertical prioritária.
+**Último ciclo consolidado:** **Loops 131–137 agent-first GOLD** (CRM, Scheduling, Finance, Clinical, Services/Sales, Care/Reminders e GitHub Ops/Platform/Admin).  
+Referência: [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](./agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md).
 
-**Penúltimo slice fechado:** **[Loop 98.8](#loop-988-fechado--debug-conversacional-e-ux-de-incidente)** — debug conversacional e UX de incidente.
+**Próximo passo oficial (aberto):** **Etapa 4 da validação pós Loop 137 — smoke operacional manual por vertical + evidência final de encerramento**.
+Documento de trabalho desta fase: [`ralph-loop-137-validacao-vertical-perfeita.md`](./ralph-loop-137-validacao-vertical-perfeita.md).
+Execução desta etapa deve seguir slices pequenos (4.1–4.7), um por vertical.
 
-**Próximo slice oficial (aberto):** **Loops 96+ por vertical de pack** — priorizar domínio e numerar o próximo ciclo (ex.: care/finance/scheduling). Mantém-se [Loop 95](#loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação) como candidato de UX operacional.
+## Foco imediato
 
-| Ordem | Tema | Plano mestre / anexo |
+| Ordem | Bloco | Foco |
 | --- | --- | --- |
-| **1** | **Loop 87** — especialistas operacionais *(fechado)* | [plano §87](agents-team-crafter-plano-evolucao.md#loop-87-especialistas-operacionais-schemas-reais-coleta-de-dados-faltantes-e-contexto-conversacional), [anexo](ralph-loop-87-especialistas-operacionais.md), [ledger](#loop-87-fechado) |
-| **2** | **Loop 88** — readiness / preflight *(fechado)* | [plano §88](agents-team-crafter-plano-evolucao.md#loop-88--preflight-operacional-do-team--readiness-do-runtime), [ledger](#loop-88-fechado) |
-| **3** | **Loop 89** — AI Builder simples / avançado *(fechado)* | [plano §89](agents-team-crafter-plano-evolucao.md#loop-89--ai-builder-com-modo-simples-por-defeito-e-avançado-sob-demanda), [ledger](#loop-89-fechado) |
-| **4** | **Loop 90** — cockpit na ficha do time *(fechado)* | [plano §90](agents-team-crafter-plano-evolucao.md#loop-90--cockpit-operacional-do-team), [ledger](#loop-90-fechado) |
-| **5** | **Loop 91** — console debug com sessões *(fechado)* | [plano §91](agents-team-crafter-plano-evolucao.md#loop-91--console-conversacional-com-sessões-timeline-e-contexto-reutilizável), [ledger](#loop-91-fechado) |
-| **6** | **Loop 92** — CTAs no readiness *(fechado)* | [plano §92](agents-team-crafter-plano-evolucao.md#loop-92--resolver-pendências-com-cta-directo), [ledger](#loop-92-fechado) |
-| **7** | **Loop 93** — runs legíveis / troubleshooting *(fechado)* | [plano §93](agents-team-crafter-plano-evolucao.md#loop-93--runs-legíveis-replay-e-troubleshooting-rápido), [ledger](#loop-93-fechado) |
-| **8** | **Loop 94** — templates operacionais / cenários dourados *(fechado)* | [plano §94](agents-team-crafter-plano-evolucao.md#loop-94--templates-operacionais-e-cenários-dourados-de-validação), [ledger](#loop-94-fechado) |
-| **9** | **Loop 95** — polimento UI operacional *(candidato)* | [plano §95](agents-team-crafter-plano-evolucao.md#loop-95--polimento-final-de-ui-padrão-e-responsiva-para-operação); [tabela ledger](#backlog-recomendado-após-o-loop-87) |
-| **10** | **Loop 98.1** — norma oficial de contrato de tools *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.1](#loop-981-fechado--norma-oficial-de-contrato-de-tools) |
-| **11** | **Loop 98.2** — pipeline canónico do boundary *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.2](#loop-982-fechado--pipeline-canónico-do-boundary-da-tool) |
-| **12** | **Loop 98.3** — observabilidade obrigatória *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.3](#loop-983-fechado--observabilidade-obrigatória-do-contrato) |
-| **13** | **Loop 98.4** — retry seguro e limitado *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.4](#loop-984-fechado--retry-seguro-e-limitado) |
-| **14** | **Loop 98.5** — contrato explícito de prompts *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.5](#loop-985-fechado--contrato-explícito-de-prompts-alinhado-ao-runtime) |
-| **15** | **Loop 98.6** — biblioteca de normalização por `actionId` *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.6](#loop-986-fechado--biblioteca-de-normalização-por-actionid) |
-| **16** | **Loop 98.7** — matriz de segurança por `actionId` *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.7](#loop-987-fechado--matriz-de-segurança-por-actionid) |
-| **17** | **Loop 98.8** — debug conversacional e UX de incidente *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.8](#loop-988-fechado--debug-conversacional-e-ux-de-incidente) |
-| **18** | **Loop 98.9** — regressão por pack *(fechado)* | [anexo Loop 98](ralph-loop-98-endurecimento-contrato-tools-runtime-prompts-autocorrecao.md), [ledger §Loop 98.9](#loop-989-fechado--regressão-mínima-por-pack) |
-| **19+** | **Loops 96+** — verticais por pack *(oficial, em aberto)* | [plano §96+](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) — candidatos (`care`, `finance`, `scheduling`, …); numerar a partir de 96 ao abrir cada slice |
-| *(14.8)* | Billing / 2FA / self-service | [14.8](agents-team-crafter-plano-evolucao.md#148-riscos-e-decisões-em-aberto) |
+| **A** | Etapa 1 (concluída) | Entrada agent-first + especialista + prompts iniciais consolidados nas verticais 131–137 |
+| **B** | Etapa 2 (parcial concluída) | Evidência técnica mínima consolidada (matriz, cobertura de starters e build sem regressão) |
+| **C** | Etapa 3 (parcial concluída) | Testes backend das gates + build frontend executados sem regressão |
+| **D** | Etapa 4 (concluída) | Smoke operacional manual por vertical + evidência final de encerramento |
+| **D.1** | Slices 4.1–4.7 (concluídos) | CRM, Scheduling, Finance, Clinical, Services/Sales, Care/Reminders e Platform/Ops |
+| **D.2** | Encerramento formal (concluído) | Matriz integralmente ✅ consolidada no ledger |
+
+### Registro oficial dos slices faltantes (Etapa 4)
+
+- [x] **4.1 CRM** — smoke manual do caminho principal via time especialista CRM + evidência de gate/readiness.
+- [x] **4.2 Scheduling** — smoke manual da agenda operacional + evidência de gate diário.
+- [x] **4.3 Finance** — smoke manual da operação financeira principal + evidência de gate financeiro.
+- [x] **4.4 Clinical** — smoke manual da jornada clínica + evidência de gate clínico.
+- [x] **4.5 Services/Sales** — smoke manual do fluxo comercial/pacote/atendimento + evidência de handoff.
+- [x] **4.6 Care/Reminders** — smoke manual de cuidado/lembretes + evidência de continuidade.
+- [x] **4.7 Platform/Ops** — smoke manual de incidentes/backlog/deploy + evidência administrativa.
+
+**Prioridade imediata pós-backlog:** instituir acompanhamento operacional contínuo (cadência, responsáveis e checkpoints).
 
 **Norma de domínio / builtins:** [§2.6](agents-team-crafter-plano-evolucao.md#sec-selecao-ferramentas-dominio), [micro-etapas A–K](#micro-etapas-ralph-criacao-times-ia); enforcement manual [Loop 78](#loop-78-fechado); reparo no `POST` do planner [Loop 80](#loop-80-fechado); UX preview [Loop 81](#loop-81-fechado) (*entregue*).
 
@@ -3216,7 +3217,352 @@ Arquivos do slice:
 - [x] Entrada operacional padrão via especialistas explicitada no UX.
 - [x] Build frontend executado e verde.
 
-**Próximo loop em aberto recomendado após o Loop 129:** **não há próximo loop oficial definido no plano atual (aguardando nova atualização RalphLoop)**.
+**Próximo loop em aberto recomendado após o Loop 129:** **Loop 138 — Etapa 4.1 CRM (formalização operacional do smoke manual + trilha de evidências)**.
+
+---
+
+<a id="loop-138-fechado--etapa-41-crm-formalizacao-operacional"></a>
+
+## Loop 138 (fechado) — Etapa 4.1 CRM (formalização operacional do smoke manual + trilha de evidências)
+
+- **Objetivo do slice:** operacionalizar a abertura do slice 4.1 (CRM) com protocolo explícito de execução, critérios de saída e trilha de evidências para fechamento auditável.
+
+### Entregas (resumo)
+
+- Registro oficial dos slices faltantes da Etapa 4 (4.1–4.7) no ledger principal, com status aberto e descrição por vertical.
+- Priorização explícita no padrão **parcial → aberto**, vinculando o fechamento das pendências da Etapa 3 à abertura formal do Slice 4.1 (CRM).
+- Documento de validação pós-137 atualizado com checklist de slices faltantes para reduzir ambiguidade operacional no handoff.
+- Atualização do suplemento oficial do Loop 130 para refletir o próximo slice aberto recomendado (4.1 CRM).
+
+Arquivos do slice:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-137-validacao-vertical-perfeita.md`](../../docs/RALPHLOOP/ralph-loop-137-validacao-vertical-perfeita.md)
+- [`ralph-loop-138-slice-4-1-crm-smoke-manual.md`](../../docs/RALPHLOOP/ralph-loop-138-slice-4-1-crm-smoke-manual.md)
+
+### Checklist (fechado)
+
+- [x] Prioridade imediata registrada no padrão parcial → aberto.
+- [x] Próximo slice aberto recomendado definido como 4.1 CRM com escopo operacional explícito.
+- [x] Registro consolidado dos slices faltantes 4.1–4.7 no ledger e no documento de validação.
+- [x] Handoff documental preparado para execução manual do smoke CRM por time especialista.
+
+**Próximo loop em aberto recomendado após o Loop 138:** **Loop 139 — Etapa 4.2 Scheduling (smoke manual da agenda + evidência de gate diário)**.
+
+---
+
+<a id="loop-139-fechado--etapa-42-scheduling-formalizacao-operacional"></a>
+
+## Loop 139 (fechado) — Etapa 4.2 Scheduling (formalização operacional do smoke manual + trilha de evidências)
+
+- **Objetivo do slice:** operacionalizar a abertura do slice 4.2 (Scheduling) com protocolo explícito de execução da agenda, critérios de saída e trilha de evidências para fechamento auditável.
+
+### Entregas (resumo)
+
+- Formalização do fluxo de smoke manual da agenda para confirmação/reagendamento/no-show/conclusão.
+- Critérios mínimos de evidência e saída para validar gate diário da vertical Scheduling.
+- Documento operacional dedicado para execução do slice 4.2, com checklist e artefatos esperados.
+- Encadeamento explícito de progressão da Etapa 4 para o próximo slice (4.3 Finance).
+
+Arquivos do slice:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-139-slice-4-2-scheduling-smoke-manual.md`](../../docs/RALPHLOOP/ralph-loop-139-slice-4-2-scheduling-smoke-manual.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Protocolo de smoke manual da vertical Scheduling documentado.
+- [x] Evidência de gate diário incorporada como critério de saída.
+- [x] Próximo loop após 4.2 definido para manter progressão objetiva da Etapa 4.
+- [x] Handoff documental preparado para execução manual em time especialista.
+
+**Próximo loop em aberto recomendado após o Loop 139:** **Loop 140 — Etapa 4.3 Finance (smoke manual financeiro + evidência de gate financeiro)**.
+
+---
+
+<a id="loop-140-fechado--etapa-43-finance-formalizacao-operacional"></a>
+
+## Loop 140 (fechado) — Etapa 4.3 Finance (formalização operacional do smoke manual + trilha de evidências)
+
+- **Objetivo do slice:** operacionalizar a abertura do slice 4.3 (Finance) com protocolo explícito de execução financeira, critérios de saída e trilha de evidências para fechamento auditável.
+
+### Entregas (resumo)
+
+- Formalização do fluxo de smoke manual financeiro para lançamento/consulta/baixa no caminho principal.
+- Critérios mínimos de evidência e saída para validar gate financeiro da vertical.
+- Documento operacional dedicado para execução do slice 4.3, com checklist e artefatos esperados.
+- Encadeamento explícito da Etapa 4 para o próximo slice (4.4 Clinical).
+
+Arquivos do slice:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-140-slice-4-3-finance-smoke-manual.md`](../../docs/RALPHLOOP/ralph-loop-140-slice-4-3-finance-smoke-manual.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Protocolo de smoke manual da vertical Finance documentado.
+- [x] Evidência de gate financeiro incorporada como critério de saída.
+- [x] Próximo loop após 4.3 definido para manter progressão objetiva da Etapa 4.
+- [x] Handoff documental preparado para execução manual em time especialista.
+
+**Próximo loop em aberto recomendado após o Loop 140:** **Loop 141 — Etapa 4.4 Clinical (smoke manual clínico + evidência de gate clínico)**.
+
+---
+
+<a id="loop-141-fechado--etapa-44-clinical-formalizacao-operacional"></a>
+
+## Loop 141 (fechado) — Etapa 4.4 Clinical (formalização operacional do smoke manual + trilha de evidências)
+
+- **Objetivo do slice:** operacionalizar a abertura do slice 4.4 (Clinical) com protocolo explícito de execução clínica, critérios de saída e trilha de evidências para fechamento auditável.
+
+### Entregas (resumo)
+
+- Formalização do fluxo de smoke manual clínico para registro/consulta/evolução no caminho principal.
+- Critérios mínimos de evidência e saída para validar gate clínico da vertical.
+- Documento operacional dedicado para execução do slice 4.4, com checklist e artefatos esperados.
+- Encadeamento explícito da Etapa 4 para o próximo slice (4.5 Services/Sales).
+
+Arquivos do slice:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-141-slice-4-4-clinical-smoke-manual.md`](../../docs/RALPHLOOP/ralph-loop-141-slice-4-4-clinical-smoke-manual.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Protocolo de smoke manual da vertical Clinical documentado.
+- [x] Evidência de gate clínico incorporada como critério de saída.
+- [x] Próximo loop após 4.4 definido para manter progressão objetiva da Etapa 4.
+- [x] Handoff documental preparado para execução manual em time especialista.
+
+**Próximo loop em aberto recomendado após o Loop 141:** **Loop 142 — Etapa 4.5 Services/Sales (smoke manual comercial + evidência de handoff)**.
+
+---
+
+<a id="loop-142-fechado--etapa-45-services-sales-formalizacao-operacional"></a>
+
+## Loop 142 (fechado) — Etapa 4.5 Services/Sales (formalização operacional do smoke manual + trilha de evidências)
+
+- **Objetivo do slice:** operacionalizar a abertura do slice 4.5 (Services/Sales) com protocolo explícito do fluxo comercial/pacote/atendimento, critérios de saída e trilha de evidências para fechamento auditável.
+
+### Entregas (resumo)
+
+- Formalização do fluxo de smoke manual comercial para jornada de serviço/pacote/atendimento no caminho principal.
+- Critérios mínimos de evidência e saída para validar handoff operacional da vertical Services/Sales.
+- Documento operacional dedicado para execução do slice 4.5, com checklist e artefatos esperados.
+- Encadeamento explícito da Etapa 4 para o próximo slice (4.6 Care/Reminders).
+
+Arquivos do slice:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-142-slice-4-5-services-sales-smoke-manual.md`](../../docs/RALPHLOOP/ralph-loop-142-slice-4-5-services-sales-smoke-manual.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Protocolo de smoke manual da vertical Services/Sales documentado.
+- [x] Evidência de handoff operacional incorporada como critério de saída.
+- [x] Próximo loop após 4.5 definido para manter progressão objetiva da Etapa 4.
+- [x] Handoff documental preparado para execução manual em time especialista.
+
+**Próximo loop em aberto recomendado após o Loop 142:** **Loop 143 — Etapa 4.6 Care/Reminders (smoke manual de cuidado/lembretes + evidência de continuidade)**.
+
+---
+
+<a id="loop-143-fechado--etapa-46-care-reminders-formalizacao-operacional"></a>
+
+## Loop 143 (fechado) — Etapa 4.6 Care/Reminders (formalização operacional do smoke manual + trilha de evidências)
+
+- **Objetivo do slice:** operacionalizar a abertura do slice 4.6 (Care/Reminders) com protocolo explícito de cuidado/lembretes, critérios de saída e trilha de evidências para fechamento auditável.
+
+### Entregas (resumo)
+
+- Formalização do fluxo de smoke manual de cuidado/lembretes no caminho principal.
+- Critérios mínimos de evidência e saída para validar continuidade operacional da vertical Care/Reminders.
+- Documento operacional dedicado para execução do slice 4.6, com checklist e artefatos esperados.
+- Encadeamento explícito da Etapa 4 para o último slice em aberto (4.7 Platform/Ops).
+
+Arquivos do slice:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-143-slice-4-6-care-reminders-smoke-manual.md`](../../docs/RALPHLOOP/ralph-loop-143-slice-4-6-care-reminders-smoke-manual.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Protocolo de smoke manual da vertical Care/Reminders documentado.
+- [x] Evidência de continuidade operacional incorporada como critério de saída.
+- [x] Próximo loop após 4.6 definido para manter progressão objetiva da Etapa 4.
+- [x] Handoff documental preparado para execução manual em time especialista.
+
+**Próximo loop em aberto recomendado após o Loop 143:** **Loop 144 — Etapa 4.7 Platform/Ops (smoke manual operacional + evidência administrativa de encerramento)**.
+
+---
+
+<a id="loop-144-fechado--etapa-47-platform-ops-formalizacao-operacional"></a>
+
+## Loop 144 (fechado) — Etapa 4.7 Platform/Ops (formalização operacional do smoke manual + evidência administrativa)
+
+- **Objetivo do slice:** operacionalizar o último slice da Etapa 4 (4.7 Platform/Ops) com protocolo explícito de incidentes/backlog/deploy, critérios de saída e evidência administrativa de encerramento.
+
+### Entregas (resumo)
+
+- Formalização do fluxo de smoke manual operacional (incidente, backlog e deploy) no caminho principal da vertical Platform/Ops.
+- Critérios mínimos de evidência para validação administrativa do último slice da Etapa 4.
+- Documento operacional dedicado para execução do slice 4.7, com checklist e artefatos esperados.
+- Consolidação de que os slices 4.1–4.7 estão completos, preparando encerramento formal da Etapa 4.
+
+Arquivos do slice:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-144-slice-4-7-platform-ops-smoke-manual.md`](../../docs/RALPHLOOP/ralph-loop-144-slice-4-7-platform-ops-smoke-manual.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Protocolo de smoke manual da vertical Platform/Ops documentado.
+- [x] Evidência administrativa de encerramento do slice incorporada como critério de saída.
+- [x] Slices 4.1–4.7 consolidados como concluídos no ledger.
+- [x] Handoff documental preparado para encerramento formal da Etapa 4.
+
+**Próximo loop em aberto recomendado após o Loop 144:** **Loop 145 — Encerramento formal da Etapa 4 (consolidação final de evidências + matriz integralmente ✅)**.
+
+---
+
+<a id="loop-145-fechado--encerramento-formal-etapa-4"></a>
+
+## Loop 145 (fechado) — Encerramento formal da Etapa 4 (consolidação final de evidências + matriz integralmente ✅)
+
+- **Objetivo do loop:** consolidar formalmente a Etapa 4 após conclusão dos slices 4.1–4.7, registrando a matriz integralmente verde e o encerramento oficial no ledger.
+
+### Entregas (resumo)
+
+- Consolidação oficial de que todos os slices 4.1–4.7 foram concluídos com evidências documentadas.
+- Atualização do estado da Etapa 4 para **concluída** no ledger principal.
+- Atualização do documento de validação pós-137 para refletir encerramento formal da etapa.
+- Atualização do suplemento oficial e índice RalphLoop para referência do encerramento.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-137-validacao-vertical-perfeita.md`](../../docs/RALPHLOOP/ralph-loop-137-validacao-vertical-perfeita.md)
+- [`ralph-loop-145-encerramento-formal-etapa-4.md`](../../docs/RALPHLOOP/ralph-loop-145-encerramento-formal-etapa-4.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Matriz de validação consolidada com todos os slices 4.1–4.7 em ✅.
+- [x] Etapa 4 marcada como concluída no ledger principal.
+- [x] Encerramento formal registrado nos documentos oficiais de RalphLoop.
+- [x] Próximo loop oficial pós-encerramento definido.
+
+**Próximo loop em aberto recomendado após o Loop 145:** **Loop 146 — Pós-fechamento da Etapa 4 (sumário executivo + backlog residual priorizado)**.
+
+---
+
+<a id="loop-146-fechado--pos-fechamento-etapa-4"></a>
+
+## Loop 146 (fechado) — Pós-fechamento da Etapa 4 (sumário executivo + backlog residual priorizado)
+
+- **Objetivo do loop:** consolidar o fechamento da Etapa 4 em um sumário executivo único e priorizar backlog residual com critérios objetivos de impacto/risco/esforço.
+
+### Entregas (resumo)
+
+- Sumário executivo do ciclo pós-137 consolidado (slices 4.1–4.7 + encerramento formal).
+- Backlog residual organizado em prioridades (alta/média/baixa) com racional de impacto e risco.
+- Definição do próximo loop orientado a execução do topo da fila priorizada.
+- Atualização cruzada dos documentos oficiais para refletir o estado pós-fechamento.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-145-encerramento-formal-etapa-4.md`](../../docs/RALPHLOOP/ralph-loop-145-encerramento-formal-etapa-4.md)
+- [`ralph-loop-146-pos-fechamento-etapa-4.md`](../../docs/RALPHLOOP/ralph-loop-146-pos-fechamento-etapa-4.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Sumário executivo pós-fechamento consolidado.
+- [x] Backlog residual priorizado por impacto/risco/esforço.
+- [x] Próximo loop oficial pós-fechamento definido.
+- [x] Documentação oficial sincronizada sem drift.
+
+**Próximo loop em aberto recomendado após o Loop 146:** **Loop 147 — Execução do topo do backlog residual priorizado (primeiro item de maior impacto)**.
+
+---
+
+<a id="loop-147-fechado--execucao-topo-backlog-residual"></a>
+
+## Loop 147 (fechado) — Execução do topo do backlog residual priorizado
+
+- **Objetivo do loop:** transformar o item residual de maior impacto em um loop executável com escopo explícito, critério de saída verificável e trilha documental de decisão.
+
+### Entregas (resumo)
+
+- Definição formal do item #1 do backlog residual como foco de execução prioritária.
+- Critério de saída objetivo para o item de maior impacto.
+- Registro do racional de priorização (impacto/risco/esforço) para dar transparência de decisão.
+- Atualização dos documentos oficiais para refletir a passagem do planejamento pós-fechamento para execução objetiva do backlog.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-146-pos-fechamento-etapa-4.md`](../../docs/RALPHLOOP/ralph-loop-146-pos-fechamento-etapa-4.md)
+- [`ralph-loop-147-execucao-topo-backlog-residual.md`](../../docs/RALPHLOOP/ralph-loop-147-execucao-topo-backlog-residual.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Topo do backlog residual definido como foco executável.
+- [x] Critério de saída verificável documentado.
+- [x] Racional de priorização consolidado.
+- [x] Próximo loop pós-execução definido.
+
+**Próximo loop em aberto recomendado após o Loop 147:** **Loop 148 — Plano de acompanhamento operacional (cadência, responsáveis e checkpoints)**.
+
+---
+
+<a id="loop-148-fechado--plano-acompanhamento-operacional"></a>
+
+## Loop 148 (fechado) — Plano de acompanhamento operacional (cadência, responsáveis e checkpoints)
+
+- **Objetivo do loop:** estabelecer governança operacional contínua para execução do backlog residual, com rotina clara de acompanhamento e critérios de escalonamento.
+
+### Entregas (resumo)
+
+- Definição de cadência operacional (semanal/quinzenal) para revisão do backlog residual.
+- Definição de responsáveis por acompanhamento, execução e validação.
+- Definição de checkpoints objetivos para medir progresso e risco.
+- Registro do fluxo de escalonamento quando um item não atinge critério de saída.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO_LOOP-130-ATUALIZACAO-OFICIAL.md)
+- [`ralph-loop-147-execucao-topo-backlog-residual.md`](../../docs/RALPHLOOP/ralph-loop-147-execucao-topo-backlog-residual.md)
+- [`ralph-loop-148-plano-acompanhamento-operacional.md`](../../docs/RALPHLOOP/ralph-loop-148-plano-acompanhamento-operacional.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Cadência operacional definida.
+- [x] Responsáveis mapeados por papel.
+- [x] Checkpoints de progresso/risco definidos.
+- [x] Próximo loop pós-governança definido.
+
+**Próximo loop em aberto recomendado após o Loop 148:** **Loop 149 — Execução assistida por checkpoints (primeiro ciclo completo de acompanhamento operacional)**.
 
 ---
 

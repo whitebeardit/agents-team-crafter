@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Copy, Download, FileStack, Info, Share2 } from "lucide-react"
+import { CheckCircle2, Copy, Download, FileStack, Info, Share2 } from "lucide-react"
 import { TemplateCard } from "@/components/templates/template-card"
 import type { AgentOrigin, Channel, Template } from "@/lib/types"
 import { toast } from "sonner"
@@ -50,6 +50,36 @@ const TEMPLATE_ORIGIN_LABELS: Record<AgentOrigin, string> = {
   whitebeard: "Whitebeard",
   company: "Minha Empresa",
 }
+
+type GoldStarterRecommendation = {
+  businessLabel: string
+  description: string
+  matcher: (template: Template) => boolean
+}
+
+const GOLD_STARTER_RECOMMENDATIONS: GoldStarterRecommendation[] = [
+  {
+    businessLabel: "Clínica psicológica",
+    description: "Operação com CRM + agenda + acompanhamento clínico.",
+    matcher: (template) =>
+      /clin|psy|care|clinical|crm|schedule/i.test(`${template.name} ${template.category} ${template.vertical ?? ""}`),
+  },
+  {
+    businessLabel: "Clínica médica",
+    description: "Atendimento clínico com agenda e registro operacional.",
+    matcher: (template) => /medical|clin|clinical|schedule/i.test(`${template.name} ${template.category} ${template.vertical ?? ""}`),
+  },
+  {
+    businessLabel: "Empresa de serviços",
+    description: "Fluxo comercial e entrega com CRM + scheduling + financeiro.",
+    matcher: (template) => /service|sales|crm|finance|schedule/i.test(`${template.name} ${template.category} ${template.vertical ?? ""}`),
+  },
+  {
+    businessLabel: "Consultoria / operação comercial",
+    description: "Captação de leads, agenda de reuniões e gestão de cobrança.",
+    matcher: (template) => /consult|crm|finance|sales/i.test(`${template.name} ${template.category} ${template.vertical ?? ""}`),
+  },
+]
 
 export default function TemplatesPage() {
   const router = useRouter()
@@ -112,12 +142,76 @@ export default function TemplatesPage() {
     return () => {
       cancelled = true
     }
-  }, [token, refreshToken, currentWorkspace, selectedTemplate?.id])
+  }, [token, refreshToken, currentWorkspace, selectedTemplate])
 
   const filteredTemplates =
     originFilter === "all"
       ? templates
       : templates.filter((t) => t.origin === originFilter)
+
+  const goldStarterTemplates = useMemo(
+    () =>
+      GOLD_STARTER_RECOMMENDATIONS.map((rec) => ({
+        ...rec,
+        template: templates.find((tpl) => rec.matcher(tpl)) ?? null,
+      })),
+    [templates],
+  )
+
+  const financeRecommendedTemplate = useMemo(
+    () => templates.find((tpl) => /finance|billing|invoice|cash|receivable|payable/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [templates],
+  )
+
+  const clinicalRecommendedTemplate = useMemo(
+    () => templates.find((tpl) => /clinic|clinical|care|anamnese|prontuario|patient|consulta/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [templates],
+  )
+
+  const servicesSalesRecommendedTemplate = useMemo(
+    () => templates.find((tpl) => /service|sales|proposal|catalog|package|encounter|pedido|venda|orcamento/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [templates],
+  )
+
+  const careRemindersRecommendedTemplate = useMemo(
+    () => templates.find((tpl) => /care|reminder|follow|acompanhamento|lembrete|subject|paciente/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [templates],
+  )
+
+  const platformOpsRecommendedTemplate = useMemo(
+    () => templates.find((tpl) => /github|platform|admin|ops|incident|deploy|issue|pull request|infra/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [templates],
+  )
+
+  const financeStarterPrompts = [
+    "Mostre o resumo financeiro da semana com entradas, saídas e saldo.",
+    "Liste cobranças em atraso e proponha a sequência de follow-up.",
+    "Registre o pagamento da fatura X e atualize o status no CRM.",
+  ]
+
+  const clinicalStarterPrompts = [
+    "Resuma a história clínica recente do paciente X com sinais de atenção.",
+    "Liste pendências clínicas de follow-up para hoje e próxima consulta.",
+    "Organize um plano de acompanhamento por prioridade de risco.",
+  ]
+
+  const servicesSalesStarterPrompts = [
+    "Mostre oportunidades abertas e próximos passos comerciais desta semana.",
+    "Prepare proposta para o cliente X com pacote recomendado e preço-base.",
+    "Converta a venda aprovada em atendimento/pacote e detalhe handoff operacional.",
+  ]
+
+  const careRemindersStarterPrompts = [
+    "Liste sujeitos de cuidado com lembretes vencidos e priorize por risco.",
+    "Monte agenda de lembretes de acompanhamento para os próximos 7 dias.",
+    "Registre follow-up concluído do sujeito X e proponha próximo contato.",
+  ]
+
+  const platformOpsStarterPrompts = [
+    "Liste incidentes críticos abertos e proponha plano de ação por prioridade.",
+    "Resuma PRs/Issues bloqueadas e indique próximos responsáveis.",
+    "Prepare checklist de deploy com riscos e validações obrigatórias.",
+  ]
 
   const whitebeardCount = templates.filter(
     (t) => t.origin === "whitebeard"
@@ -178,6 +272,51 @@ export default function TemplatesPage() {
     }
   }
 
+  const loop137ValidationChecks = [
+    {
+      code: "finance_template",
+      label: "Finance starter disponível",
+      passed: Boolean(financeRecommendedTemplate),
+      detail: financeRecommendedTemplate
+        ? `Template financeiro encontrado: ${financeRecommendedTemplate.name}`
+        : "Catálogo sem template financeiro explícito.",
+    },
+    {
+      code: "clinical_template",
+      label: "Clinical starter disponível",
+      passed: Boolean(clinicalRecommendedTemplate),
+      detail: clinicalRecommendedTemplate
+        ? `Template clínico encontrado: ${clinicalRecommendedTemplate.name}`
+        : "Catálogo sem template clínico explícito.",
+    },
+    {
+      code: "sales_services_template",
+      label: "Sales/Services starter disponível",
+      passed: Boolean(servicesSalesRecommendedTemplate),
+      detail: servicesSalesRecommendedTemplate
+        ? `Template Sales/Services encontrado: ${servicesSalesRecommendedTemplate.name}`
+        : "Catálogo sem template Sales/Services explícito.",
+    },
+    {
+      code: "care_reminders_template",
+      label: "Care/Reminders starter disponível",
+      passed: Boolean(careRemindersRecommendedTemplate),
+      detail: careRemindersRecommendedTemplate
+        ? `Template Care/Reminders encontrado: ${careRemindersRecommendedTemplate.name}`
+        : "Catálogo sem template Care/Reminders explícito.",
+    },
+    {
+      code: "platform_ops_template",
+      label: "Platform/Ops starter disponível",
+      passed: Boolean(platformOpsRecommendedTemplate),
+      detail: platformOpsRecommendedTemplate
+        ? `Template Platform/Ops encontrado: ${platformOpsRecommendedTemplate.name}`
+        : "Catálogo sem template Platform/Ops explícito.",
+    },
+  ]
+
+  const loop137ValidationPassed = loop137ValidationChecks.every((check) => check.passed)
+
   return (
     <div className="space-y-6">
       <ContextualTourHost screenKey="templates_catalog" />
@@ -218,6 +357,331 @@ export default function TemplatesPage() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Starter Teams GOLD (Loop 130.8)</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Selecione um tipo de negócio para começar com um template recomendado de alta qualidade e ajustar depois.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            {goldStarterTemplates.map((starter) => (
+              <div key={starter.businessLabel} className="rounded-md border bg-background p-3 space-y-2">
+                <p className="text-sm font-medium">{starter.businessLabel}</p>
+                <p className="text-xs text-muted-foreground">{starter.description}</p>
+                {starter.template ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground truncate" title={starter.template.name}>
+                      Template: <strong>{starter.template.name}</strong>
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => handleImport(starter.template!)}>
+                      Usar recomendado
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-600">Sem template recomendado disponível no catálogo atual.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Finance agent-first GOLD (Loop 133)</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Padrão de operação financeira: entrar no time com especialista financeiro, iniciar por prompt operacional e usar templates
+            como starter team.
+          </p>
+          <div className="rounded-md border bg-background p-3 space-y-3">
+            <div className="space-y-2">
+              {[
+                "Abrir o time operacional da empresa e operar via especialista financeiro.",
+                "Executar health/gate financeiro e priorizar pendências críticas.",
+                "Aplicar prompts de cobrança/fluxo de caixa para a execução diária.",
+              ].map((step) => (
+                <div key={step} className="flex items-start gap-2 text-sm">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {financeStarterPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  type="button"
+                  variant="outline"
+                  className="h-auto justify-start whitespace-normal text-left text-xs"
+                  onClick={() => void copyGoldenPrompt(prompt)}
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {financeRecommendedTemplate ? (
+                <Button size="sm" onClick={() => handleImport(financeRecommendedTemplate)}>
+                  Usar starter team financeiro recomendado
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => router.push("/teams/create")}>
+                  Criar time financeiro manualmente
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {financeRecommendedTemplate
+                  ? `Template sugerido: ${financeRecommendedTemplate.name}`
+                  : "Nenhum template financeiro detectado no catálogo atual."}
+              </span>
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Clinical agent-first GOLD (Loop 134)</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Padrão clínico agent-first: operar a jornada clínica por especialistas, com prompts orientados a histórico, risco e continuidade.
+          </p>
+          <div className="rounded-md border bg-background p-3 space-y-3">
+            <div className="space-y-2">
+              {[
+                "Entrar no time clínico e iniciar a operação via especialista clínico.",
+                "Usar prompts para consolidar histórico clínico e pendências prioritárias.",
+                "Executar acompanhamento e registrar desfechos no fluxo operacional do time.",
+              ].map((step) => (
+                <div key={step} className="flex items-start gap-2 text-sm">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {clinicalStarterPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  type="button"
+                  variant="outline"
+                  className="h-auto justify-start whitespace-normal text-left text-xs"
+                  onClick={() => void copyGoldenPrompt(prompt)}
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {clinicalRecommendedTemplate ? (
+                <Button size="sm" onClick={() => handleImport(clinicalRecommendedTemplate)}>
+                  Usar starter team clínico recomendado
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => router.push("/teams/create")}>
+                  Criar time clínico manualmente
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {clinicalRecommendedTemplate
+                  ? `Template sugerido: ${clinicalRecommendedTemplate.name}`
+                  : "Nenhum template clínico detectado no catálogo atual."}
+              </span>
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Services & Sales + Packages agent-first GOLD (Loop 135)</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Padrão comercial/serviços agent-first: operar catálogo, venda, pacote e atendimento no mesmo fluxo via time especialista.
+          </p>
+          <div className="rounded-md border bg-background p-3 space-y-3">
+            <div className="space-y-2">
+              {[
+                "Iniciar no time comercial e acionar especialista de Sales/Services.",
+                "Conduzir proposta e negociação com prompts operacionais objetivos.",
+                "Concluir handoff para pacote/atendimento sem quebrar o fluxo do time.",
+              ].map((step) => (
+                <div key={step} className="flex items-start gap-2 text-sm">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {servicesSalesStarterPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  type="button"
+                  variant="outline"
+                  className="h-auto justify-start whitespace-normal text-left text-xs"
+                  onClick={() => void copyGoldenPrompt(prompt)}
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {servicesSalesRecommendedTemplate ? (
+                <Button size="sm" onClick={() => handleImport(servicesSalesRecommendedTemplate)}>
+                  Usar starter team Sales/Services recomendado
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => router.push("/teams/create")}>
+                  Criar time Sales/Services manualmente
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {servicesSalesRecommendedTemplate
+                  ? `Template sugerido: ${servicesSalesRecommendedTemplate.name}`
+                  : "Nenhum template de Sales/Services detectado no catálogo atual."}
+              </span>
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Care + Reminders agent-first GOLD (Loop 136)</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Padrão de cuidado agent-first: operar sujeitos de cuidado e lembretes pelo time especialista, com continuidade de acompanhamento.
+          </p>
+          <div className="rounded-md border bg-background p-3 space-y-3">
+            <div className="space-y-2">
+              {[
+                "Entrar no time de cuidado e acionar especialista de care/reminders.",
+                "Priorizar sujeitos de cuidado por risco e vencimento de lembretes.",
+                "Executar follow-up e registrar próximos passos no mesmo fluxo de time.",
+              ].map((step) => (
+                <div key={step} className="flex items-start gap-2 text-sm">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {careRemindersStarterPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  type="button"
+                  variant="outline"
+                  className="h-auto justify-start whitespace-normal text-left text-xs"
+                  onClick={() => void copyGoldenPrompt(prompt)}
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {careRemindersRecommendedTemplate ? (
+                <Button size="sm" onClick={() => handleImport(careRemindersRecommendedTemplate)}>
+                  Usar starter team Care/Reminders recomendado
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => router.push("/teams/create")}>
+                  Criar time Care/Reminders manualmente
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {careRemindersRecommendedTemplate
+                  ? `Template sugerido: ${careRemindersRecommendedTemplate.name}`
+                  : "Nenhum template de Care/Reminders detectado no catálogo atual."}
+              </span>
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>GitHub Ops + Platform/Admin agent-first GOLD (Loop 137)</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Padrão de suporte operacional agent-first: times administrativos/plataforma operando incidentes, backlog e deploy com prompts guiados.
+          </p>
+          <div className="rounded-md border bg-background p-3 space-y-3">
+            <div className="space-y-2">
+              {[
+                "Entrar no time de operações e acionar especialista de plataforma/admin.",
+                "Priorizar incidentes e bloqueios com prompts de triagem objetiva.",
+                "Executar follow-up de PR/issue/deploy mantendo trilha operacional no time.",
+              ].map((step) => (
+                <div key={step} className="flex items-start gap-2 text-sm">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {platformOpsStarterPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  type="button"
+                  variant="outline"
+                  className="h-auto justify-start whitespace-normal text-left text-xs"
+                  onClick={() => void copyGoldenPrompt(prompt)}
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {platformOpsRecommendedTemplate ? (
+                <Button size="sm" onClick={() => handleImport(platformOpsRecommendedTemplate)}>
+                  Usar starter team Platform/Ops recomendado
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => router.push("/teams/create")}>
+                  Criar time Platform/Ops manualmente
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {platformOpsRecommendedTemplate
+                  ? `Template sugerido: ${platformOpsRecommendedTemplate.name}`
+                  : "Nenhum template de Platform/Ops detectado no catálogo atual."}
+              </span>
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Validação final da sequência 131–137</AlertTitle>
+        <AlertDescription className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Checklist de validação do catálogo após implementação das verticais agent-first GOLD.
+          </p>
+          <div className="rounded-md border bg-background p-3 space-y-2">
+            {loop137ValidationChecks.map((check) => (
+              <div key={check.code} className="rounded-md border p-2 text-sm">
+                <p className="font-medium">{check.passed ? "✅" : "⚠️"} {check.label}</p>
+                <p className="text-xs text-muted-foreground">{check.detail}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs">
+            Status final:{" "}
+            <strong className={loop137ValidationPassed ? "text-emerald-600" : "text-amber-600"}>
+              {loop137ValidationPassed ? "VALIADO" : "PENDÊNCIAS NO CATÁLOGO"}
+            </strong>
+          </p>
+        </AlertDescription>
+      </Alert>
 
       {/* Catálogo: cartões (TemplateCard) vs tabela — Loop 76 */}
       {filteredTemplates.length > 0 ? (

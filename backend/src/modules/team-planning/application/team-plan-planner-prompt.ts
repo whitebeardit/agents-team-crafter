@@ -122,12 +122,89 @@ Exemplo de FORMA (nao copie conteudos; adapte ao problema real):
 
 Contra-exemplo logico (NAO produza JSON assim): dois especialistas onde ambos incluem "calendar_access" em catalogTools — incorreto; funda em um especialista ou remova a duplicacao.`;
 
-export function buildTeamPlannerUserMessage(problem: string, context?: string): string {
+export interface ITeamPlannerStructuredBriefing {
+  problemSummary?: string;
+  businessType?: string;
+  operationalUnit?: string;
+  businessGoal?: string;
+  coreJourney?: string;
+  primaryDomain?: string;
+  secondaryDomains?: string[];
+  domainsNeeded?: string[];
+  mainEntities?: string[];
+  sharedEntities?: string[];
+  primaryChannel?: string;
+  operationKinds?: string[];
+  constraints?: string[];
+  mustHaveCapabilities?: string[];
+  mustAvoid?: string[];
+  crossDomainIntegrityNeeds?: string[];
+}
+
+function normalizeList(values: string[] | undefined): string[] {
+  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+}
+
+function hasStructuredBriefingValues(briefing?: ITeamPlannerStructuredBriefing): boolean {
+  if (!briefing) return false;
+  const listFields = [
+    briefing.secondaryDomains,
+    briefing.domainsNeeded,
+    briefing.mainEntities,
+    briefing.sharedEntities,
+    briefing.operationKinds,
+    briefing.constraints,
+    briefing.mustHaveCapabilities,
+    briefing.mustAvoid,
+    briefing.crossDomainIntegrityNeeds,
+  ];
+  if (listFields.some((values) => normalizeList(values).length > 0)) return true;
+  return Boolean(
+    briefing.problemSummary?.trim() ||
+      briefing.businessType?.trim() ||
+      briefing.operationalUnit?.trim() ||
+      briefing.businessGoal?.trim() ||
+      briefing.coreJourney?.trim() ||
+      briefing.primaryDomain?.trim() ||
+      briefing.primaryChannel?.trim(),
+  );
+}
+
+function formatStructuredBriefingForPrompt(briefing?: ITeamPlannerStructuredBriefing): string {
+  if (!hasStructuredBriefingValues(briefing)) return '';
+  const payload = {
+    problemSummary: briefing?.problemSummary?.trim() || undefined,
+    businessType: briefing?.businessType?.trim() || undefined,
+    operationalUnit: briefing?.operationalUnit?.trim() || undefined,
+    businessGoal: briefing?.businessGoal?.trim() || undefined,
+    coreJourney: briefing?.coreJourney?.trim() || undefined,
+    primaryDomain: briefing?.primaryDomain?.trim() || undefined,
+    secondaryDomains: normalizeList(briefing?.secondaryDomains),
+    domainsNeeded: normalizeList(briefing?.domainsNeeded),
+    mainEntities: normalizeList(briefing?.mainEntities),
+    sharedEntities: normalizeList(briefing?.sharedEntities),
+    primaryChannel: briefing?.primaryChannel?.trim() || undefined,
+    operationKinds: normalizeList(briefing?.operationKinds),
+    constraints: normalizeList(briefing?.constraints),
+    mustHaveCapabilities: normalizeList(briefing?.mustHaveCapabilities),
+    mustAvoid: normalizeList(briefing?.mustAvoid),
+    crossDomainIntegrityNeeds: normalizeList(briefing?.crossDomainIntegrityNeeds),
+  };
+  return `Briefing estruturado (Loop 130.3):\n${JSON.stringify(payload, null, 2)}`;
+}
+
+export function buildTeamPlannerUserMessage(
+  problem: string,
+  context?: string,
+  briefing?: ITeamPlannerStructuredBriefing,
+): string {
+  const structuredBriefingBlock = formatStructuredBriefingForPrompt(briefing);
   return [
     'Problema principal:',
     problem.trim(),
     '',
     context?.trim() ? `Contexto adicional:\n${context.trim()}` : 'Contexto adicional: (nenhum)',
+    structuredBriefingBlock ? `\n${structuredBriefingBlock}` : '',
     '',
     'Antes do JSON final: faca uma matriz mental "especialista -> catalogTools" e confira que cada ID exclusivo (' +
       SPECIALIST_EXCLUSIVE_IDS_PROMPT +

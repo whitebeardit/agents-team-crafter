@@ -7,6 +7,7 @@ function toPublic(doc: TeamPlanDoc) {
     id: doc._id.toString(),
     problem: doc.problem,
     context: doc.context,
+    briefing: doc.briefing ?? null,
     status: doc.status,
     team: doc.team,
     agents: doc.agents ?? [],
@@ -30,6 +31,7 @@ export class TeamPlanRepository {
     input: {
       problem: string;
       context?: string;
+      briefing?: unknown;
       status: 'draft' | 'ready';
       team: Record<string, unknown>;
       agents: unknown[];

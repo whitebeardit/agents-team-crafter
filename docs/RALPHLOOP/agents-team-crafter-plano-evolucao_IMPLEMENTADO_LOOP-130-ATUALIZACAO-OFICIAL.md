@@ -17,9 +17,9 @@ Continuam válidos:
 
 ---
 
-## Novo próximo loop oficial em aberto
+## Referência do ciclo recém-fechado
 
-O próximo loop oficial em aberto passa a ser:
+**Último loop oficial fechado:**
 
 - **Loop 130 — Produto GOLD agent-first: operação por negócio com especialistas por domínio + assistente guiado de criação de times**
 
@@ -33,7 +33,7 @@ Suplemento oficial do plano mestre:
 
 ---
 
-## Loop 130 (oficial, em aberto)
+## Loop 130 (oficial, fechado)
 
 ### Objetivo do loop
 
@@ -56,31 +56,43 @@ Fechar a fundação de **produto agent-first GOLD**, com dois eixos:
 - **130.9 — UX do AI Builder orientada a conversa guiada**
 - **130.10 — UI padrão e responsiva para verticais agent-first**
 
-### Checklist oficial do Loop 130 (aberto)
+### Checklist oficial do Loop 130 (fechado)
 
-- [ ] Diagnosticar claramente o que já está pronto e o que ainda falta nas verticais atuais.
-- [ ] Adicionar entrevista guiada antes da geração do plano.
-- [ ] Passar a usar briefing estruturado no planner.
-- [ ] Impedir geração de time quando o briefing ainda está insuficiente.
-- [ ] Validar automaticamente se o plano gerado está adequado ao negócio e aos domínios necessários.
-- [ ] Padronizar a jornada agent-first das verticais.
-- [ ] Criar entrada operacional simples do time por vertical.
-- [ ] Criar starter teams / templates GOLD por tipo de negócio.
-- [ ] Tornar o AI Builder mais assistente e menos dependente de prompt livre.
-- [ ] Garantir UI padrão, simples e responsiva nas verticais agent-first.
-- [ ] Definir o modelo de integridade entre especialistas do mesmo time.
+- [x] Diagnosticar claramente o que já está pronto e o que ainda falta nas verticais atuais.
+- [x] Adicionar entrevista guiada antes da geração do plano.
+- [x] Passar a usar briefing estruturado no planner.
+- [x] Impedir geração de time quando o briefing ainda está insuficiente.
+- [x] Validar automaticamente se o plano gerado está adequado ao negócio e aos domínios necessários.
+- [x] Padronizar a jornada agent-first das verticais.
+- [x] Criar entrada operacional simples do time por vertical.
+- [x] Criar starter teams / templates GOLD por tipo de negócio.
+- [x] Tornar o AI Builder mais assistente e menos dependente de prompt livre.
+- [x] Garantir UI padrão, simples e responsiva nas verticais agent-first.
+- [x] Definir o modelo de integridade entre especialistas do mesmo time.
+
+**Status de encerramento:** Loop 130 concluído e consolidado no ledger; a sequência 131–137 foi executada e o próximo passo é validação final pelos critérios de vertical perfeita.
 
 ---
 
-## Sequência oficial após o Loop 130
+## Sequência 131–137 (concluída)
 
-- **Loop 131 — CRM agent-first GOLD final**
-- **Loop 132 — Scheduling agent-first GOLD final**
-- **Loop 133 — Finance agent-first GOLD**
-- **Loop 134 — Clinical agent-first GOLD**
-- **Loop 135 — Services & Sales + Packages agent-first GOLD**
-- **Loop 136 — Care + Reminders agent-first GOLD**
-- **Loop 137 — GitHub Ops + Platform/Admin agent-first GOLD**
+- **Loop 131 — CRM agent-first GOLD final** ✅
+- **Loop 132 — Scheduling agent-first GOLD final** ✅
+- **Loop 133 — Finance agent-first GOLD** ✅
+- **Loop 134 — Clinical agent-first GOLD** ✅
+- **Loop 135 — Services & Sales + Packages agent-first GOLD** ✅
+- **Loop 136 — Care + Reminders agent-first GOLD** ✅
+- **Loop 137 — GitHub Ops + Platform/Admin agent-first GOLD** ✅
+
+## Próximo passo oficial
+
+- **Etapa 4 da validação pós Loop 137 — smoke operacional manual por vertical + evidência final de encerramento**
+- **Prioridade imediata (parcial → aberto):** fechar pendências parciais com referência cruzada ao próximo slice e abrir o primeiro slice em aberto.
+- **Próximo passo aberto recomendado:** **Loop 149 — Execução assistida por checkpoints** (primeiro ciclo completo de acompanhamento operacional).
+- Consolidar gaps remanescentes de readiness, prompts, templates e testes do caminho principal por vertical
+- Documento de validação: [`ralph-loop-137-validacao-vertical-perfeita.md`](./ralph-loop-137-validacao-vertical-perfeita.md)
+- Documento operacional dos slices concluídos: [`ralph-loop-138-slice-4-1-crm-smoke-manual.md`](./ralph-loop-138-slice-4-1-crm-smoke-manual.md), [`ralph-loop-139-slice-4-2-scheduling-smoke-manual.md`](./ralph-loop-139-slice-4-2-scheduling-smoke-manual.md), [`ralph-loop-140-slice-4-3-finance-smoke-manual.md`](./ralph-loop-140-slice-4-3-finance-smoke-manual.md), [`ralph-loop-141-slice-4-4-clinical-smoke-manual.md`](./ralph-loop-141-slice-4-4-clinical-smoke-manual.md), [`ralph-loop-142-slice-4-5-services-sales-smoke-manual.md`](./ralph-loop-142-slice-4-5-services-sales-smoke-manual.md), [`ralph-loop-143-slice-4-6-care-reminders-smoke-manual.md`](./ralph-loop-143-slice-4-6-care-reminders-smoke-manual.md), [`ralph-loop-144-slice-4-7-platform-ops-smoke-manual.md`](./ralph-loop-144-slice-4-7-platform-ops-smoke-manual.md), [`ralph-loop-145-encerramento-formal-etapa-4.md`](./ralph-loop-145-encerramento-formal-etapa-4.md), [`ralph-loop-146-pos-fechamento-etapa-4.md`](./ralph-loop-146-pos-fechamento-etapa-4.md), [`ralph-loop-147-execucao-topo-backlog-residual.md`](./ralph-loop-147-execucao-topo-backlog-residual.md), [`ralph-loop-148-plano-acompanhamento-operacional.md`](./ralph-loop-148-plano-acompanhamento-operacional.md)
+- Execução em slices pequenos recomendados: 4.1 CRM, 4.2 Scheduling, 4.3 Finance, 4.4 Clinical, 4.5 Services/Sales, 4.6 Care/Reminders, 4.7 Platform/Ops.
 
 ---
 

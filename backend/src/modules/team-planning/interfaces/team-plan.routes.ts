@@ -10,6 +10,26 @@ import { TeamPlanService } from '../application/team-plan.service.js';
 const createSchema = z.object({
   problem: z.string().min(10),
   context: z.string().optional(),
+  briefing: z
+    .object({
+      problemSummary: z.string().optional(),
+      businessType: z.string().optional(),
+      operationalUnit: z.string().optional(),
+      businessGoal: z.string().optional(),
+      coreJourney: z.string().optional(),
+      primaryDomain: z.string().optional(),
+      secondaryDomains: z.array(z.string()).optional(),
+      domainsNeeded: z.array(z.string()).optional(),
+      mainEntities: z.array(z.string()).optional(),
+      sharedEntities: z.array(z.string()).optional(),
+      primaryChannel: z.string().optional(),
+      operationKinds: z.array(z.string()).optional(),
+      constraints: z.array(z.string()).optional(),
+      mustHaveCapabilities: z.array(z.string()).optional(),
+      mustAvoid: z.array(z.string()).optional(),
+      crossDomainIntegrityNeeds: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 const updateSchema = z.object({
