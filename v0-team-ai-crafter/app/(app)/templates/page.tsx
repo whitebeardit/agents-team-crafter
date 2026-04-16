@@ -85,7 +85,7 @@ export default function TemplatesPage() {
   const router = useRouter()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [originFilter, setOriginFilter] = useState<AgentOrigin | "all">("all")
-  const [templates, setTemplates] = useState<Template[]>([])
+  const [catalogTemplates, setCatalogTemplates] = useState<Template[]>([])
   const [channels, setChannels] = useState<Channel[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [applyDetail, setApplyDetail] = useState<TemplateApplyDetail | null>(null)
@@ -104,16 +104,14 @@ export default function TemplatesPage() {
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const qs = new URLSearchParams()
-      if (originFilter !== "all") qs.set("origin", originFilter)
       const [templatesRes, channelsRes] = await Promise.all([
-        api.get<Template[]>(`/templates?${qs.toString()}`),
+        api.get<Template[]>("/templates"),
         api.get<Channel[]>("/channels"),
       ])
-      setTemplates(templatesRes.data)
+      setCatalogTemplates(templatesRes.data)
       setChannels(channelsRes.data)
     })()
-  }, [token, refreshToken, currentWorkspace, originFilter])
+  }, [token, refreshToken, currentWorkspace])
 
   useEffect(() => {
     if (!token || !currentWorkspace || !selectedTemplate) {
@@ -146,41 +144,41 @@ export default function TemplatesPage() {
 
   const filteredTemplates =
     originFilter === "all"
-      ? templates
-      : templates.filter((t) => t.origin === originFilter)
+      ? catalogTemplates
+      : catalogTemplates.filter((t) => t.origin === originFilter)
 
   const goldStarterTemplates = useMemo(
     () =>
       GOLD_STARTER_RECOMMENDATIONS.map((rec) => ({
         ...rec,
-        template: templates.find((tpl) => rec.matcher(tpl)) ?? null,
+        template: catalogTemplates.find((tpl) => rec.matcher(tpl)) ?? null,
       })),
-    [templates],
+    [catalogTemplates],
   )
 
   const financeRecommendedTemplate = useMemo(
-    () => templates.find((tpl) => /finance|billing|invoice|cash|receivable|payable/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
-    [templates],
+    () => catalogTemplates.find((tpl) => /finance|billing|invoice|cash|receivable|payable/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [catalogTemplates],
   )
 
   const clinicalRecommendedTemplate = useMemo(
-    () => templates.find((tpl) => /clinic|clinical|care|anamnese|prontuario|patient|consulta/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
-    [templates],
+    () => catalogTemplates.find((tpl) => /clinic|clinical|care|anamnese|prontuario|patient|consulta/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [catalogTemplates],
   )
 
   const servicesSalesRecommendedTemplate = useMemo(
-    () => templates.find((tpl) => /service|sales|proposal|catalog|package|encounter|pedido|venda|orcamento/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
-    [templates],
+    () => catalogTemplates.find((tpl) => /service|sales|proposal|catalog|package|encounter|pedido|venda|orcamento/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [catalogTemplates],
   )
 
   const careRemindersRecommendedTemplate = useMemo(
-    () => templates.find((tpl) => /care|reminder|follow|acompanhamento|lembrete|subject|paciente/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
-    [templates],
+    () => catalogTemplates.find((tpl) => /care|reminder|follow|acompanhamento|lembrete|subject|paciente/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [catalogTemplates],
   )
 
   const platformOpsRecommendedTemplate = useMemo(
-    () => templates.find((tpl) => /github|platform|admin|ops|incident|deploy|issue|pull request|infra/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
-    [templates],
+    () => catalogTemplates.find((tpl) => /github|platform|admin|ops|incident|deploy|issue|pull request|infra/i.test(`${tpl.name} ${tpl.category} ${tpl.vertical ?? ""}`)) ?? null,
+    [catalogTemplates],
   )
 
   const financeStarterPrompts = [
@@ -213,10 +211,10 @@ export default function TemplatesPage() {
     "Prepare checklist de deploy com riscos e validações obrigatórias.",
   ]
 
-  const whitebeardCount = templates.filter(
+  const whitebeardCount = catalogTemplates.filter(
     (t) => t.origin === "whitebeard"
   ).length
-  const companyCount = templates.filter((t) => t.origin === "company").length
+  const companyCount = catalogTemplates.filter((t) => t.origin === "company").length
 
   const resetApplyModal = () => {
     setSelectedTemplate(null)
@@ -340,7 +338,7 @@ export default function TemplatesPage() {
           <TabsTrigger value="all">
             Todos
             <Badge variant="secondary" className="ml-2">
-              {templates.length}
+              {catalogTemplates.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="whitebeard">
@@ -380,7 +378,9 @@ export default function TemplatesPage() {
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-xs text-amber-600">Sem template recomendado disponível no catálogo atual.</p>
+                  <p className="text-xs text-amber-600">
+                    Sem template recomendado neste workspace. Se for ambiente demo, execute o seed para publicar os starters GOLD.
+                  </p>
                 )}
               </div>
             ))}
