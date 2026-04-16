@@ -6,11 +6,10 @@ import { AppError } from '../../../shared/errors/app-error.js';
  * Alinhado ao prompt do planner (Loop 77) e enforcement API (Loop 78).
  */
 export const SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS = [
+  // Domínio de agenda/slots (Scheduling/Reminders)
   'calendar_access',
+  // Ações de negócio (packs ws_*/internal_action)
   'internal_actions',
-  'email_send',
-  'image_generation',
-  'file_search',
 ] as const;
 
 export type TSpecialistExclusiveCatalogToolId = (typeof SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS)[number];

@@ -33,6 +33,11 @@ Toda a documentação **oficial** do Ralph Loop para este repositório está nes
 | [`ralph-loop-146-pos-fechamento-etapa-4.md`](ralph-loop-146-pos-fechamento-etapa-4.md) | Loop 146 — sumário executivo pós-fechamento da Etapa 4 e priorização do backlog residual |
 | [`ralph-loop-147-execucao-topo-backlog-residual.md`](ralph-loop-147-execucao-topo-backlog-residual.md) | Loop 147 — execução do topo do backlog residual priorizado com critério de saída verificável |
 | [`ralph-loop-148-plano-acompanhamento-operacional.md`](ralph-loop-148-plano-acompanhamento-operacional.md) | Loop 148 — plano de acompanhamento operacional com cadência, responsáveis, checkpoints e escalonamento |
+| [`ralph-loop-149-execucao-assistida-por-checkpoints.md`](ralph-loop-149-execucao-assistida-por-checkpoints.md) | Loop 149 — execução assistida por checkpoints (1º ciclo operacional completo com evidências e decisão de continuidade) |
+| [`ralph-loop-150-endurecimento-modelo-evidencias.md`](ralph-loop-150-endurecimento-modelo-evidencias.md) | Loop 150 — endurecimento do modelo de evidências (template canónico, validação mínima e mapeamento único para ledger) |
+| [`ralph-loop-151-automacao-leve-governanca.md`](ralph-loop-151-automacao-leve-governanca.md) | Loop 151 — automação leve de governança (script canónico para registrar checkpoints e anexar evidências) |
+| [`ralph-loop-152-telemetria-execucao-checkpoints.md`](ralph-loop-152-telemetria-execucao-checkpoints.md) | Loop 152 — telemetria de execução de checkpoints (métricas de status, decisões e taxa de bloqueio) |
+| [`ralph-loop-153-alertas-governanca-excecao.md`](ralph-loop-153-alertas-governanca-excecao.md) | Loop 153 — alertas de governança por exceção (detecção de bloqueio recorrente e disparo operacional) |
 | [§ Loops 88+ no plano mestre](agents-team-crafter-plano-evolucao.md#loops-88-mais-verticais-de-negócio-por-pack) | Verticais por `packId` após o 87 — candidatos, critérios, tamanho do slice *(estado atual: 88–94, 99, 100, 101, 102, 103, 104, 105 e 106 fechados; 95 candidato UX; próximos 96+ por prioridade de domínio)* |
 
 **Gaps em runtime (domínios de negócio — finanças, care, CRM, …):** padrão no plano em [§14.8](agents-team-crafter-plano-evolucao.md#148-runtime-dominios-negocio-gaps); exemplo CRM: [§14.8 — CRM](agents-team-crafter-plano-evolucao.md#148-runtime-crm-clientes-gaps); ledger: [gaps por domínio](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#gap-runtime-dominios-negocio); fundação + piloto CRM: [Loop 87](agents-team-crafter-plano-evolucao_IMPLEMENTADO.md#loop-87-fechado).
@@ -40,3 +45,57 @@ Toda a documentação **oficial** do Ralph Loop para este repositório está nes
 Na raiz de `docs/` existem **atalhos** com o nome antigo dos dois primeiros ficheiros, a apontar para aqui.
 
 Gate: `./scripts/ralph-loop-gate.sh` (na raiz do repositório).
+
+
+## Próximos loops recomendados (pós-153)
+
+Com base no fechamento do Loop 153 e no estado atual do ledger, a sequência mínima recomendada para manter cadência operacional é:
+
+1. **Loop 154 — Tendência operacional e previsão de risco** *(recomendado)*
+   - analisar tendência semanal de `attention`/`blocked` e risco de escalonamento;
+   - priorizar preventivamente itens com deterioração de status.
+2. **Loop 155 — Plano adaptativo por criticidade** *(recomendado)*
+   - ajustar automaticamente cadência e prioridade conforme criticidade operacional;
+   - reduzir reincidência de bloqueios em ciclos sucessivos.
+
+> Nota: após a implementação do Loop 153, o próximo loop recomendado é o **154**. O 155 é continuação sugerida para adaptação dinâmica da governança.
+
+
+### Fatiamento recomendado do Loop 149 (small slices)
+
+- **149.1:** checkpoint semanal mínimo (status + motivo + owner/prazo).
+- **149.2:** revisão quinzenal com decisão explícita e racional (impacto/risco/esforço).
+- **149.3:** consolidação de evidências + atualização do ledger.
+- **149.4 (condicional):** escalonamento quando houver `blocked` em 2 checkpoints seguidos.
+
+
+### Fatiamento recomendado do Loop 150 (small slices)
+
+- **150.1:** template canónico de checkpoint.
+- **150.2:** checklist de validação mínima.
+- **150.3:** convenção de mapeamento para ledger.
+- **150.4:** exemplo operacional completo (checkpoint → decisão → ledger).
+
+
+### Fatiamento recomendado do Loop 151 (small slices)
+
+- **151.1:** CLI mínima com campos obrigatórios.
+- **151.2:** validação de enums (`status` e `decisão`).
+- **151.3:** geração canónica de bloco markdown.
+- **151.4:** anexo direto em ficheiro via `--output`.
+
+
+### Fatiamento recomendado do Loop 152 (small slices)
+
+- **152.1:** parser mínimo do formato canónico.
+- **152.2:** métricas de status (`on-track`/`attention`/`blocked`).
+- **152.3:** métricas de decisão (`continuar`/`replanejar`/`escalar`).
+- **152.4:** export JSON para integração com governança.
+
+
+### Fatiamento recomendado do Loop 153 (small slices)
+
+- **153.1:** leitura da sequência de status canónico.
+- **153.2:** cálculo de streak de `blocked`.
+- **153.3:** regra configurável por threshold.
+- **153.4:** output JSON e exit code semântico para automação.

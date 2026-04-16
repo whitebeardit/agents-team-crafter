@@ -3566,6 +3566,158 @@ Arquivos do loop:
 
 ---
 
+<a id="loop-149-fechado--execucao-assistida-por-checkpoints"></a>
+
+## Loop 149 (fechado) — Execução assistida por checkpoints
+
+- **Objetivo do loop:** executar o primeiro ciclo completo de acompanhamento operacional definido no Loop 148, com checkpoints verificáveis e decisão explícita de continuidade/escalonamento.
+
+### Entregas (resumo)
+
+- Definição operacional do ciclo semanal + quinzenal com evidência mínima obrigatória.
+- Fatiamento explícito do loop em slices pequenos (149.1–149.4), incluindo trilha condicional de escalonamento.
+- Critério de saída objetivo para checkpoint, revisão, evidência e atualização do ledger.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-149-execucao-assistida-por-checkpoints.md`](../../docs/RALPHLOOP/ralph-loop-149-execucao-assistida-por-checkpoints.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Ciclo operacional semanal/quinzenal definido com evidências mínimas.
+- [x] Slices pequenos explícitos publicados.
+- [x] Regra de escalonamento registrada para bloqueios consecutivos.
+- [x] Próximo loop pós-execução definido.
+
+**Próximo loop em aberto recomendado após o Loop 149:** **Loop 150 — Endurecimento do modelo de evidências (template canónico + validação mínima + convenção de ledger)**.
+
+---
+
+<a id="loop-150-fechado--endurecimento-modelo-evidencias"></a>
+
+## Loop 150 (fechado) — Endurecimento do modelo de evidências
+
+- **Objetivo do loop:** padronizar o registro de evidências por checkpoint para reduzir drift documental e acelerar auditoria/decisão operacional.
+
+### Entregas (resumo)
+
+- Publicação de template canónico de checkpoint.
+- Definição de checklist de validação mínima para completude/consistência.
+- Convenção única de mapeamento para atualização do ledger.
+- Exemplo operacional fim-a-fim para referência de execução.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-150-endurecimento-modelo-evidencias.md`](../../docs/RALPHLOOP/ralph-loop-150-endurecimento-modelo-evidencias.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Template canónico de checkpoint publicado.
+- [x] Checklist de validação mínima publicado.
+- [x] Convenção de atualização de ledger publicada.
+- [x] Próximo loop pós-padronização definido.
+
+**Próximo loop em aberto recomendado após o Loop 150:** **Loop 151 — Automação leve de governança (script canónico de checkpoint + anexo em artefato)**.
+
+---
+
+<a id="loop-151-fechado--automacao-leve-governanca"></a>
+
+## Loop 151 (fechado) — Automação leve de governança
+
+- **Objetivo do loop:** reduzir esforço manual no registro de checkpoints, com automação mínima e formato canónico reutilizável no ledger.
+
+### Entregas (resumo)
+
+- Script `ralph-loop-checkpoint-log.sh` para gerar bloco markdown canónico de checkpoint.
+- Validação de campos obrigatórios e enums operacionais (`status` e `decisao`).
+- Suporte para anexar checkpoint diretamente em arquivo (`--output`).
+- Atualização do índice RalphLoop para refletir sequência pós-151.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-151-automacao-leve-governanca.md`](../../docs/RALPHLOOP/ralph-loop-151-automacao-leve-governanca.md)
+- [`../../scripts/ralph-loop-checkpoint-log.sh`](../../scripts/ralph-loop-checkpoint-log.sh)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Script canónico de checkpoint disponível.
+- [x] Validação de campos obrigatórios ativa.
+- [x] Validação de enums operacionais ativa.
+- [x] Próximo loop pós-automação definido.
+
+**Próximo loop em aberto recomendado após o Loop 151:** **Loop 152 — Telemetria de execução de checkpoints (métricas de status, bloqueios e tempo até decisão)**.
+
+---
+
+<a id="loop-152-fechado--telemetria-execucao-checkpoints"></a>
+
+## Loop 152 (fechado) — Telemetria de execução de checkpoints
+
+- **Objetivo do loop:** tornar o acompanhamento operacional orientado por dados, consolidando métricas de status e decisões a partir dos checkpoints canónicos.
+
+### Entregas (resumo)
+
+- Script `ralph-loop-checkpoint-metrics.sh` para leitura de evidências em markdown.
+- Consolidação de métricas por status e decisão.
+- Cálculo de taxa de `attention` e `blocked` para apoiar revisão quinzenal.
+- Saída em JSON para integração com governança operacional.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-152-telemetria-execucao-checkpoints.md`](../../docs/RALPHLOOP/ralph-loop-152-telemetria-execucao-checkpoints.md)
+- [`../../scripts/ralph-loop-checkpoint-metrics.sh`](../../scripts/ralph-loop-checkpoint-metrics.sh)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Telemetria de status consolidada por checkpoint.
+- [x] Distribuição de decisões consolidada.
+- [x] Saída JSON disponibilizada para integração.
+- [x] Próximo loop pós-telemetria definido.
+
+**Próximo loop em aberto recomendado após o Loop 152:** **Loop 153 — Alertas de governança por exceção (bloqueio recorrente e abertura automática de loop de desbloqueio)**.
+
+---
+
+<a id="loop-153-fechado--alertas-governanca-excecao"></a>
+
+## Loop 153 (fechado) — Alertas de governança por exceção
+
+- **Objetivo do loop:** detectar bloqueios recorrentes automaticamente para antecipar resposta operacional e reduzir tempo até abertura de loop de desbloqueio.
+
+### Entregas (resumo)
+
+- Script `ralph-loop-checkpoint-alerts.sh` para avaliação de exceções em checkpoints.
+- Regra automática de alerta por `blocked` consecutivo com threshold configurável.
+- Saída JSON e exit code semântico para integração com pipeline/governança.
+- Encadeamento oficial para próximo loop de tendência e prevenção de risco.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-153-alertas-governanca-excecao.md`](../../docs/RALPHLOOP/ralph-loop-153-alertas-governanca-excecao.md)
+- [`../../scripts/ralph-loop-checkpoint-alerts.sh`](../../scripts/ralph-loop-checkpoint-alerts.sh)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Regra de exceção operacional automatizada.
+- [x] Threshold configurável para bloqueio recorrente.
+- [x] Saída JSON + exit code para integração.
+- [x] Próximo loop pós-alertas definido.
+
+**Próximo loop em aberto recomendado após o Loop 153:** **Loop 154 — Tendência operacional e previsão de risco (antecipação de deterioração por série temporal de status)**.
+
+---
+
 <a id="loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação"></a>
 
 ## Loop 95 (candidato) — Polimento UI padrão e responsivo da operação

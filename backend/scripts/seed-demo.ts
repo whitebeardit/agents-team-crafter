@@ -293,6 +293,177 @@ async function main() {
     },
     {
       workspaceId: w1._id,
+      origin: 'whitebeard',
+      name: 'Clinica Medica — agenda clinica',
+      description:
+        'Starter team para clínica médica com foco em agenda, triagem e registro clínico operacional.',
+      version: '1.0.0',
+      category: 'clinical',
+      vertical: 'clinical',
+      agentCount: 2,
+      prerequisites: [
+        'Agentes `Atlas Coordinator` e `Especialista Saude Mental` disponíveis (ou equivalentes no workspace).',
+        'Canais podem ser ligados após aplicar o template.',
+      ],
+      applyBehavior:
+        'Cria time em rascunho com configuração inicial clínica; reutiliza agentes por nome e permite ajustes no grafo após aplicação.',
+      validationSteps: [
+        'Validar readiness do time e pendências de canais.',
+        'No Debug, testar prompt de agendamento de consulta.',
+        'Conferir em Execução se houve coleta de dados em falta para triagem.',
+      ],
+      goldenPrompts: [
+        'Quero marcar consulta para avaliação clínica na próxima terça.',
+        'Preciso reagendar retorno médico para a semana que vem.',
+      ],
+      expectedOutcome:
+        'Fluxo de atendimento clínico com pedido de dados necessários e encaminhamento para agenda operacional.',
+      teamConfig: {
+        name: 'Clinica Medica — operação',
+        description: 'Agenda + triagem + registro clínico (starter)',
+      },
+      graph: { nodes: [], edges: [] },
+      agentsSnapshot: [
+        { id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' },
+        { name: 'Especialista Saude Mental', role: 'specialist' },
+      ],
+    },
+    {
+      workspaceId: w1._id,
+      origin: 'whitebeard',
+      name: 'Empresa de Servicos — CRM Scheduling Finance',
+      description:
+        'Starter team para empresas de serviços com captação comercial, agenda de execução e acompanhamento financeiro.',
+      version: '1.0.0',
+      category: 'services-sales',
+      vertical: 'services',
+      agentCount: 2,
+      prerequisites: [
+        'Coordenador operacional ativo no workspace.',
+        'Recomendado ligar canal de atendimento para operação diária.',
+      ],
+      applyBehavior:
+        'Cria time em rascunho e habilita base de operação services/sales para ajustes rápidos de CRM, scheduling e financeiro.',
+      validationSteps: [
+        'Abrir o time no Debug e validar fluxo comercial inicial.',
+        'Executar prompt de proposta/fechamento e confirmar próximos passos.',
+        'Testar atualização de cobrança no cenário financeiro.',
+      ],
+      goldenPrompts: [
+        'Quero enviar proposta para um novo serviço e marcar visita técnica.',
+        'Mostre oportunidades abertas e pendências financeiras desta semana.',
+      ],
+      expectedOutcome:
+        'Operação integrada entre CRM, agenda e financeiro com decisões claras de follow-up.',
+      teamConfig: {
+        name: 'Servicos — operação integrada',
+        description: 'CRM + agenda + financeiro para execução diária',
+      },
+      graph: { nodes: [], edges: [] },
+      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+    },
+    {
+      workspaceId: w1._id,
+      origin: 'whitebeard',
+      name: 'Consultoria Comercial — CRM Finance',
+      description:
+        'Starter team para consultoria com foco em funil comercial, agenda de reuniões e gestão de cobrança.',
+      version: '1.0.0',
+      category: 'consultoria',
+      vertical: 'sales',
+      agentCount: 1,
+      prerequisites: [
+        'Coordenador operacional disponível no workspace.',
+        'Ideal ter integração de canal para acompanhamento de leads.',
+      ],
+      applyBehavior:
+        'Cria time em rascunho com base consultiva/comercial; reutiliza agentes existentes por nome.',
+      validationSteps: [
+        'Testar prompt de captação de leads e qualificação inicial.',
+        'Validar criação de próximos passos com agenda de reuniões.',
+        'Simular follow-up de cobrança em atraso.',
+      ],
+      goldenPrompts: [
+        'Liste leads quentes e proponha agenda comercial da semana.',
+        'Mostre clientes com cobrança pendente e plano de follow-up.',
+      ],
+      expectedOutcome:
+        'Resposta orientada a pipeline comercial com priorização de reuniões e cobrança.',
+      teamConfig: {
+        name: 'Consultoria — operação comercial',
+        description: 'Leads + agenda + cobrança',
+      },
+      graph: { nodes: [], edges: [] },
+      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+    },
+    {
+      workspaceId: w1._id,
+      origin: 'whitebeard',
+      name: 'Care Reminders — acompanhamento ativo',
+      description:
+        'Starter team focado em care/reminders para acompanhamento contínuo, lembretes e follow-up operacional.',
+      version: '1.0.0',
+      category: 'care-reminders',
+      vertical: 'care',
+      agentCount: 1,
+      prerequisites: [
+        'Coordenador operacional disponível no workspace.',
+        'Ideal configurar canais de notificação para lembretes.',
+      ],
+      applyBehavior:
+        'Cria time em rascunho orientado a continuidade de cuidado com rastreio de follow-ups e lembretes.',
+      validationSteps: [
+        'Testar prompt para listar lembretes vencidos por prioridade.',
+        'Confirmar atualização de follow-up e sugestão de próximo contato.',
+      ],
+      goldenPrompts: [
+        'Liste os lembretes de acompanhamento vencidos e priorize por risco.',
+        'Registre follow-up concluído e proponha próximo contato.',
+      ],
+      expectedOutcome:
+        'Resposta com foco em continuidade de cuidado, priorização de lembretes e próximas ações claras.',
+      teamConfig: {
+        name: 'Care — acompanhamento contínuo',
+        description: 'Lembretes + follow-up operacional',
+      },
+      graph: { nodes: [], edges: [] },
+      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+    },
+    {
+      workspaceId: w1._id,
+      origin: 'whitebeard',
+      name: 'Platform Ops — incidentes e deploy',
+      description:
+        'Starter team para operação de plataforma com gestão de incidentes, backlog técnico e checklist de deploy.',
+      version: '1.0.0',
+      category: 'platform-ops',
+      vertical: 'platform',
+      agentCount: 1,
+      prerequisites: [
+        'Coordenador operacional disponível no workspace.',
+        'Opcional: integrações GitHub/ops conectadas para ampliar automações.',
+      ],
+      applyBehavior:
+        'Cria time em rascunho para governança operacional de incidentes e execução de rotinas de deploy.',
+      validationSteps: [
+        'Testar prompt para listar incidentes críticos e plano de ação.',
+        'Testar prompt de checklist de deploy com riscos e validações.',
+      ],
+      goldenPrompts: [
+        'Liste incidentes críticos abertos e proponha plano de ação por prioridade.',
+        'Prepare checklist de deploy com riscos e validações obrigatórias.',
+      ],
+      expectedOutcome:
+        'Resposta orientada a operação de plataforma com priorização de incidentes e preparação segura de deploy.',
+      teamConfig: {
+        name: 'Platform Ops — rotina operacional',
+        description: 'Incidentes + backlog + deploy',
+      },
+      graph: { nodes: [], edges: [] },
+      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+    },
+    {
+      workspaceId: w1._id,
       origin: 'company',
       name: 'Template do time Atendimento WhatsApp',
       description:
