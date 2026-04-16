@@ -177,6 +177,9 @@ Nenhum loop seguinte começa sem esta matriz.
 
 ## Slice A.2 — Norma oficial de “vertical page”
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-a2-norma-oficial-vertical-page-agent-first.md`.
+
 ### Objetivo
 Padronizar a estrutura de qualquer vertical do produto.
 
@@ -198,6 +201,9 @@ Existe um padrão oficial reutilizável para todas as verticais.
 ---
 
 ## Slice A.3 — Norma oficial de “operation team page”
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-a3-norma-oficial-operation-team-page.md`.
 
 ### Objetivo
 Padronizar a visualização do time principal de uma operação/negócio.
@@ -222,6 +228,9 @@ Fica claro para o utilizador que o centro do produto é o **time da operação**
 
 ## Slice A.4 — Modelo explícito de integridade multi-domínio
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-a4-modelo-integridade-multi-dominio.md`.
+
 ### Objetivo
 Fechar o modelo de integridade entre os especialistas do mesmo time.
 
@@ -245,6 +254,9 @@ Existe documentação e implementação mínima para evitar fragmentação de en
 
 ## Slice B.1 — Melhorar a entrevista guiada
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-b1-melhorar-entrevista-guiada.md`.
+
 ### Objetivo
 Deixar a fase de descoberta mais curta, mais humana e mais produtiva.
 
@@ -262,6 +274,9 @@ O utilizador sente que está numa conversa guiada, não num formulário técnico
 ---
 
 ## Slice B.2 — Detectar tipo de negócio automaticamente
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-b2-detectar-tipo-negocio-automaticamente.md`.
 
 ### Objetivo
 Reduzir atrito de criação de time.
@@ -283,6 +298,9 @@ O sistema sugere domínios e especialistas antes do planner final.
 
 ## Slice B.3 — Gate de suficiência mais inteligente
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-b3-gate-suficiencia-mais-inteligente.md`.
+
 ### Objetivo
 Evitar tanto subcoleta quanto burocracia excessiva.
 
@@ -300,6 +318,9 @@ O sistema só bloqueia quando falta algo importante de verdade.
 ---
 
 ## Slice B.4 — Gate de adequação do plano com diagnóstico legível
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-b4-gate-adequacao-plano-diagnostico-legivel.md`.
 
 ### Objetivo
 Quando o plano estiver ruim, o utilizador precisa entender por quê.
@@ -320,6 +341,9 @@ O utilizador entende o problema do plano sem precisar interpretar backend.
 ---
 
 ## Slice B.5 — Regeneração orientada do plano
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-b5-regeneracao-orientada-plano.md`.
 
 ### Objetivo
 Permitir corrigir o plano sem reiniciar do zero.
@@ -343,6 +367,9 @@ O utilizador consegue melhorar o plano com poucos cliques.
 
 ## Slice C.1 — Definir catálogo de templates prioritários
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-c1-catalogo-templates-prioritarios.md`.
+
 ### Objetivo
 Escolher os tipos de negócio prioritários.
 
@@ -360,6 +387,9 @@ Existe uma lista oficial de templates prioritários.
 ---
 
 ## Slice C.2 — Template GOLD: clínica psicológica
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-c2-template-gold-clinica-psicologica.md`.
 
 ### Objetivo
 Criar o primeiro template de referência.
@@ -382,6 +412,9 @@ A clínica psicológica vira template modelo do produto.
 
 ## Slice C.3 — Template GOLD: operação comercial
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-c3-template-gold-operacao-comercial.md`.
+
 ### Objetivo
 Criar template para empresa orientada a vendas/atendimento.
 
@@ -399,6 +432,9 @@ Existe template real para jornada de lead → atendimento → pagamento.
 
 ## Slice C.4 — Template GOLD: serviços/consultoria
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-c4-template-gold-servicos-consultoria.md`.
+
 ### Objetivo
 Criar template para operação de prestação de serviço.
 
@@ -410,6 +446,9 @@ Existe template base para agendamento, entrega e faturamento.
 # 8. Loop D — Verticais como portas de entrada agent-first
 
 ## Slice D.1 — CRM agent-first final
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-d1-crm-agent-first-final.md`.
 
 ### Objetivo
 Fechar CRM como entrada perfeita para o time da operação.
@@ -430,6 +469,9 @@ CRM fica claramente GOLD.
 
 ## Slice D.2 — Scheduling agent-first final
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-d2-scheduling-agent-first-final.md`.
+
 ### Objetivo
 Fechar Agenda/Scheduling no mesmo nível.
 
@@ -446,6 +488,9 @@ Agenda fica claramente GOLD.
 ---
 
 ## Slice D.3 — Finance vertical page
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-d3-finance-vertical-page.md`.
 
 ### Objetivo
 Transformar Finance numa vertical visível e utilizável.
@@ -464,6 +509,9 @@ Finance deixa de ser só backend/runtime.
 
 ## Slice D.4 — Clinical vertical page
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-d4-clinical-vertical-page.md`.
+
 ### Objetivo
 Dar superfície real para o domínio clínico.
 
@@ -480,6 +528,9 @@ Clinical vira parte real da UX.
 ---
 
 ## Slice D.5 — Care / Reminders / Services / Packages
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-d5-care-reminders-services-packages.md`.
 
 ### Objetivo
 Fechar as verticais restantes no mesmo padrão.
@@ -498,6 +549,9 @@ Todas as verticais relevantes possuem a mesma moldura agent-first.
 # 9. Loop E — UX/UI padrão e responsiva
 
 ## Slice E.1 — Sistema visual único das verticais
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-e1-sistema-visual-unico-verticais.md`.
 
 ### Objetivo
 Eliminar sensação de superfícies desconexas.
@@ -518,6 +572,9 @@ Todas as verticais parecem pertencer ao mesmo produto.
 
 ## Slice E.2 — CTA principal único
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-e2-cta-principal-unico.md`.
+
 ### Objetivo
 Ter um padrão claro de ação primária.
 
@@ -535,6 +592,9 @@ O utilizador nunca fica em dúvida sobre a ação principal.
 
 ## Slice E.3 — Responsividade real
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-e3-responsividade-real.md`.
+
 ### Objetivo
 Garantir uso confortável em:
 - desktop
@@ -549,6 +609,9 @@ As páginas principais do fluxo agent-first ficam utilizáveis em todos os taman
 # 10. Loop F — Readiness, observabilidade e confiança de produto
 
 ## Slice F.1 — Readiness por vertical
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-f1-readiness-por-vertical.md`.
 
 ### Objetivo
 Cada vertical precisa mostrar estado claro.
@@ -569,6 +632,9 @@ O utilizador entende o que falta sem abrir backend.
 
 ## Slice F.2 — Readiness do time da operação
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-f2-readiness-time-operacao.md`.
+
 ### Objetivo
 Avaliar se o time como um todo está pronto.
 
@@ -586,6 +652,9 @@ Existe score/estado do time operacional.
 
 ## Slice F.3 — Troubleshooting simples
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-f3-troubleshooting-simples.md`.
+
 ### Objetivo
 Dar suporte sem complicar a UX principal.
 
@@ -601,9 +670,32 @@ O troubleshooting vira camada secundária clara, não um labirinto.
 
 ---
 
+## Slice F.4 — Observabilidade resumida da operação
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-f4-observabilidade-resumida-operacao.md`.
+
+### Objetivo
+Ter sinais claros, não ruído.
+
+### Deve mostrar
+- run success
+- falhas críticas
+- readiness de verticais/time
+- top blockers
+- risco/tendência
+
+### Critério de saída
+Gestor consegue avaliar saúde operacional em leitura curta.
+
+---
+
 # 11. Loop G — Testes e GOLD gate final
 
 ## Slice G.1 — Testes E2E do AI Builder
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-g1-testes-e2e-ai-builder.md`.
 
 ### Caminhos mínimos
 - entrevista guiada
@@ -619,6 +711,9 @@ O fluxo principal do builder está protegido.
 
 ## Slice G.2 — Testes E2E das verticais principais
 
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-g2-testes-e2e-verticais-principais.md`.
+
 ### Mínimos
 - CRM
 - Scheduling
@@ -631,6 +726,9 @@ As verticais principais têm regressão de produto.
 ---
 
 ## Slice G.3 — GOLD gate oficial por vertical
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-g3-gold-gate-oficial-por-vertical.md`.
 
 ### Objetivo
 Definir quando uma vertical pode ser dada como pronta.
@@ -648,6 +746,21 @@ Definir quando uma vertical pode ser dada como pronta.
 
 ### Critério de saída
 Existe uma definição objetiva de “vertical GOLD”.
+
+---
+
+# 11.1 Loop H — Sustentação pós-GOLD
+
+## Slice H.1 — Revalidação periódica do GOLD gate
+
+### Status
+✅ Implementado — ver norma canónica em `docs/RALPHLOOP/ralph-loop-h1-revalidacao-periodica-gold-gate.md`.
+
+### Objetivo
+Garantir recertificação periódica das verticais GOLD para evitar regressão silenciosa.
+
+### Critério de saída
+Existe cadência e mecanismo formal de manutenção/revogação de status GOLD.
 
 ---
 
@@ -686,11 +799,15 @@ Existe uma definição objetiva de “vertical GOLD”.
 22. F.1 Readiness por vertical
 23. F.2 Readiness do time
 24. F.3 Troubleshooting simples
+25. F.4 Observabilidade resumida
 
 ## Fase 6 — prova GOLD
-25. G.1 E2E do builder
-26. G.2 E2E das verticais
-27. G.3 GOLD gate oficial
+26. G.1 E2E do builder
+27. G.2 E2E das verticais
+28. G.3 GOLD gate oficial
+
+## Fase 7 — sustentação pós-GOLD
+29. H.1 Revalidação periódica do GOLD gate
 
 ---
 
