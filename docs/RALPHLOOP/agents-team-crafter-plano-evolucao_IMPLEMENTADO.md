@@ -3718,6 +3718,905 @@ Arquivos do loop:
 
 ---
 
+<a id="loop-154-fechado--tendencia-operacional-previsao-risco"></a>
+
+## Loop 154 (fechado) — Tendência operacional e previsão de risco
+
+- **Objetivo do loop:** antecipar deterioração operacional por série temporal de status, permitindo priorização preventiva antes de escalonamento tardio.
+
+### Entregas (resumo)
+
+- Script `ralph-loop-checkpoint-risk-trend.sh` para análise temporal de checkpoints canónicos.
+- Cálculo de score ponderado por status (`on-track=0`, `attention=1`, `blocked=2`) comparando janela anterior vs janela atual.
+- Classificação de tendência (`improving`, `stable`, `deteriorating`) e risco (`low`, `medium`, `high`, `critical`).
+- Saída JSON + exit code semântico (`3` quando risco elevado) para automação em governança.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-154-tendencia-operacional-previsao-risco.md`](../../docs/RALPHLOOP/ralph-loop-154-tendencia-operacional-previsao-risco.md)
+- [`../../scripts/ralph-loop-checkpoint-risk-trend.sh`](../../scripts/ralph-loop-checkpoint-risk-trend.sh)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Tendência temporal de status calculada automaticamente.
+- [x] Classificação de risco e prioridade preventiva implementadas.
+- [x] Saída JSON + exit code semântico para integração.
+- [x] Próximo loop pós-tendência definido.
+
+**Próximo loop em aberto recomendado após o Loop 154:** **Loop 155 — Plano adaptativo por criticidade (cadência e prioridade ajustadas por risco operacional)**.
+
+---
+
+<a id="loop-a2-fechado--norma-oficial-vertical-page-agent-first"></a>
+
+## Loop A.2 (fechado) — Norma oficial de vertical page (agent-first GOLD)
+
+- **Objetivo do loop:** formalizar um padrão único e reutilizável para qualquer vertical page do produto agent-first.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-a2-norma-oficial-vertical-page-agent-first.md`.
+- Estrutura obrigatória com 8 blocos (header, resumo, readiness/gold-gate, time recomendado, especialista em destaque, CTA principal, starter prompts, fallback/auditoria).
+- Contrato mínimo de dados (view model) para reduzir drift entre verticais.
+- Template canónico de vertical page para aceleração de implementação dos próximos domínios.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-a2-norma-oficial-vertical-page-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-a2-norma-oficial-vertical-page-agent-first.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Norma reutilizável de vertical page definida.
+- [x] Critérios de aceite mínimos formalizados.
+- [x] Contrato de dados mínimo documentado.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop A.3 — Norma oficial de operation team page**.
+
+---
+
+<a id="loop-a3-fechado--norma-oficial-operation-team-page-agent-first"></a>
+
+## Loop A.3 (fechado) — Norma oficial de operation team page (agent-first GOLD)
+
+- **Objetivo do loop:** padronizar a página do time da operação para tornar explícito o coordenador, os especialistas por domínio, as entidades compartilhadas e o readiness do time.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-a3-norma-oficial-operation-team-page.md`.
+- Estrutura mínima obrigatória com 9 blocos (nome/objetivo do time, coordenador, especialistas, entidades compartilhadas, readiness, prompts, atalhos por domínio e execuções recentes).
+- Contrato mínimo de dados (view model) para reduzir variação semântica entre páginas de time.
+- Template canónico reutilizável para implantação consistente por operação/negócio.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-a3-norma-oficial-operation-team-page.md`](../../docs/RALPHLOOP/ralph-loop-a3-norma-oficial-operation-team-page.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Norma reutilizável da operation team page definida.
+- [x] Critérios de aceite mínimos formalizados.
+- [x] Contrato de dados mínimo documentado.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop A.4 — Modelo explícito de integridade multi-domínio**.
+
+---
+
+<a id="loop-a4-fechado--modelo-integridade-multi-dominio-agent-first"></a>
+
+## Loop A.4 (fechado) — Modelo explícito de integridade multi-domínio (agent-first GOLD)
+
+- **Objetivo do loop:** formalizar entidades mestras, vínculos cross-domain e regras mínimas de deduplicação/associação para evitar fragmentação entre especialistas do mesmo time.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-a4-modelo-integridade-multi-dominio.md`.
+- Definição explícita de entidades mestras (`Party`, `SubjectProfile`) e vínculo `PartySubjectLink`.
+- Regras mínimas de vínculo Scheduling/Encounters com Finance (`billingReference`, `financialStatus`).
+- Regra mínima de deduplicação (documento/email/telefone/nome+data) com fallback de revisão.
+- Regra de associação provisória por chave natural + consolidação para IDs canónicos.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-a4-modelo-integridade-multi-dominio.md`](../../docs/RALPHLOOP/ralph-loop-a4-modelo-integridade-multi-dominio.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Entidades mestras e vínculos cross-domain formalizados.
+- [x] Regra mínima de deduplicação definida com fallback de revisão.
+- [x] Regra de associação por chave natural documentada.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop B.1 — Melhorar a entrevista guiada**.
+
+---
+
+<a id="loop-b1-fechado--melhorar-entrevista-guiada-ai-builder-gold"></a>
+
+## Loop B.1 (fechado) — Melhorar a entrevista guiada (AI Builder GOLD)
+
+- **Objetivo do loop:** formalizar a entrevista guiada do AI Builder para ser curta, conversacional e orientada a síntese progressiva antes do planner.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-b1-melhorar-entrevista-guiada.md`.
+- Estrutura obrigatória de entrevista com uma pergunta por vez, quick replies contextuais e ajuda inline.
+- Definição de resumo vivo do briefing e sinalização de progresso/falta pouco.
+- Fluxo canónico mínimo de discovery e contrato de dados da entrevista guiada.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-b1-melhorar-entrevista-guiada.md`](../../docs/RALPHLOOP/ralph-loop-b1-melhorar-entrevista-guiada.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Entrevista guiada canónica formalizada.
+- [x] Contrato mínimo de dados da entrevista definido.
+- [x] Critérios de aceite e template de etapa documentados.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop B.2 — Detectar tipo de negócio automaticamente**.
+
+---
+
+<a id="loop-b2-fechado--detectar-tipo-negocio-automaticamente-ai-builder-gold"></a>
+
+## Loop B.2 (fechado) — Detectar tipo de negócio automaticamente (AI Builder GOLD)
+
+- **Objetivo do loop:** inferir automaticamente o tipo de negócio com base na entrevista guiada e sugerir domínios/especialistas antes do planner final.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-b2-detectar-tipo-negocio-automaticamente.md`.
+- Catálogo mínimo de classes de negócio (`clinica_*`, comercial, serviço recorrente, consultoria, administrativa, outro).
+- Heurística canónica de sinais e contrato mínimo de dados para inferência (tipo, confiança, sinais, sugestões e fallback).
+- Regras de fallback seguro (`outro` com confirmação) sem bloquear fluxo por baixa confiança.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-b2-detectar-tipo-negocio-automaticamente.md`](../../docs/RALPHLOOP/ralph-loop-b2-detectar-tipo-negocio-automaticamente.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Inferência de tipo de negócio formalizada com sinais e confiança.
+- [x] Sugestões de domínios/especialistas definidas por tipo.
+- [x] Fallback seguro para baixa confiança documentado.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop B.3 — Gate de suficiência mais inteligente**.
+
+---
+
+<a id="loop-b3-fechado--gate-suficiencia-mais-inteligente-ai-builder-gold"></a>
+
+## Loop B.3 (fechado) — Gate de suficiência mais inteligente (AI Builder GOLD)
+
+- **Objetivo do loop:** garantir que o briefing só bloqueie quando faltar informação crítica, com validação por tipo de negócio e jornada.
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-b3-gate-suficiencia-mais-inteligente.md`.
+- Matriz mínima de suficiência por tipo de negócio + jornada principal.
+- Diferenciação explícita entre pendência bloqueante e não bloqueante.
+- Contrato canónico de feedback do gate (`insufficient`, `almost_ready`, `ready`) com hints e sugestões rápidas.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-b3-gate-suficiencia-mais-inteligente.md`](../../docs/RALPHLOOP/ralph-loop-b3-gate-suficiencia-mais-inteligente.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Regra de suficiência por tipo/jornada formalizada.
+- [x] Bloqueio restrito a lacunas críticas documentado.
+- [x] Feedback assistido (falta pouco + sugestões) definido.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop B.4 — Gate de adequação do plano com diagnóstico legível**.
+
+---
+
+<a id="loop-b4-fechado--gate-adequacao-plano-diagnostico-legivel-ai-builder-gold"></a>
+
+## Loop B.4 (fechado) — Gate de adequação do plano com diagnóstico legível (AI Builder GOLD)
+
+- **Objetivo do loop:** tornar explícito por que o plano está inadequado e quais correções devem ser aplicadas antes de prosseguir.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-b4-gate-adequacao-plano-diagnostico-legivel.md`.
+- Diagnóstico estruturado por categoria (coordenador, especialistas, integridade, pack/tool, fragmentação, cobertura de jornada).
+- Contrato mínimo do gate com score, issues, prioridade de correção e `canProceed` determinístico.
+- Template canónico de diagnóstico legível para suportar regeneração orientada no B.5.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-b4-gate-adequacao-plano-diagnostico-legivel.md`](../../docs/RALPHLOOP/ralph-loop-b4-gate-adequacao-plano-diagnostico-legivel.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Diagnóstico mínimo por categorias críticas formalizado.
+- [x] Impacto e ação sugerida por issue definidos.
+- [x] Status/score/canProceed do gate documentados.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop B.5 — Regeneração orientada do plano**.
+
+---
+
+<a id="loop-b5-fechado--regeneracao-orientada-plano-ai-builder-gold"></a>
+
+## Loop B.5 (fechado) — Regeneração orientada do plano (AI Builder GOLD)
+
+- **Objetivo do loop:** habilitar correção incremental do plano por ações guiadas, com preview de mudança e revalidação automática pós-ajuste.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-b5-regeneracao-orientada-plano.md`.
+- Catálogo mínimo de ações corretivas orientadas ao diagnóstico B.4.
+- Contrato de regeneração com `planBefore`, `planAfterPreview` e confirmação de aplicação.
+- Revalidação automática do plano após ajuste (`adequate`, `needs_fix`, `blocked`).
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-b5-regeneracao-orientada-plano.md`](../../docs/RALPHLOOP/ralph-loop-b5-regeneracao-orientada-plano.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Ações corretivas mínimas de regeneração formalizadas.
+- [x] Preview + confirmação da mudança definidos.
+- [x] Revalidação automática pós-ajuste documentada.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop C.1 — Definir catálogo de templates prioritários**.
+
+---
+
+<a id="loop-c1-fechado--catalogo-templates-prioritarios"></a>
+
+## Loop C.1 (fechado) — Definir catálogo de templates prioritários (Templates GOLD)
+
+- **Objetivo do loop:** formalizar catálogo prioritário de templates por tipo de negócio para acelerar criação de times com baseline consistente.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-c1-catalogo-templates-prioritarios.md`.
+- Lista oficial de templates prioritários (P1/P2) com foco operacional.
+- Critérios de priorização explícitos e contrato mínimo por template.
+- Regra de versionamento e fallback para casos sem aderência direta.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-c1-catalogo-templates-prioritarios.md`](../../docs/RALPHLOOP/ralph-loop-c1-catalogo-templates-prioritarios.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Catálogo prioritário inicial formalizado.
+- [x] Critérios e contrato mínimo por template documentados.
+- [x] Regra de versionamento/fallback definida.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop C.2 — Template GOLD: clínica psicológica**.
+
+---
+
+<a id="loop-c2-fechado--template-gold-clinica-psicologica"></a>
+
+## Loop C.2 (fechado) — Template GOLD: clínica psicológica
+
+- **Objetivo do loop:** publicar o primeiro template GOLD de referência com coordenador, especialistas mínimos, integridade e prompts operacionais para clínica psicológica.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-c2-template-gold-clinica-psicologica.md`.
+- Definição de coordenador e especialistas mínimos por domínio da clínica.
+- Entidades compartilhadas e regras mínimas de integridade operacional.
+- Starter prompts canónicos cobrindo CRM, agenda, clínico/care e financeiro.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-c2-template-gold-clinica-psicologica.md`](../../docs/RALPHLOOP/ralph-loop-c2-template-gold-clinica-psicologica.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estrutura mínima do template clínico formalizada.
+- [x] Regras de integridade e readiness esperado documentadas.
+- [x] Prompts iniciais operacionais definidos.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop C.3 — Template GOLD: operação comercial**.
+
+---
+
+<a id="loop-c3-fechado--template-gold-operacao-comercial"></a>
+
+## Loop C.3 (fechado) — Template GOLD: operação comercial
+
+- **Objetivo do loop:** disponibilizar template GOLD para jornada comercial completa com integridade entre lead, atendimento e fechamento financeiro.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-c3-template-gold-operacao-comercial.md`.
+- Definição de coordenador comercial e especialistas mínimos por domínio.
+- Entidades compartilhadas e regras mínimas de integridade lead→opportunity→billing.
+- Starter prompts canónicos para operação comercial diária.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-c3-template-gold-operacao-comercial.md`](../../docs/RALPHLOOP/ralph-loop-c3-template-gold-operacao-comercial.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estrutura mínima do template comercial formalizada.
+- [x] Regras de integridade CRM↔financeiro documentadas.
+- [x] Prompts operacionais de rotina comercial definidos.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop C.4 — Template GOLD: serviços/consultoria**.
+
+---
+
+<a id="loop-c4-fechado--template-gold-servicos-consultoria"></a>
+
+## Loop C.4 (fechado) — Template GOLD: serviços/consultoria
+
+- **Objetivo do loop:** fechar template base para operação de serviços/consultoria com jornada agendamento → entrega → faturamento e integridade entre ordem e cobrança.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-c4-template-gold-servicos-consultoria.md`.
+- Definição de coordenador e especialistas mínimos para serviços/consultoria.
+- Entidades compartilhadas e regras mínimas de integridade (ordem, marcos de entrega e faturamento).
+- Starter prompts operacionais para execução diária e gestão de risco de atraso.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-c4-template-gold-servicos-consultoria.md`](../../docs/RALPHLOOP/ralph-loop-c4-template-gold-servicos-consultoria.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estrutura mínima do template de serviços/consultoria formalizada.
+- [x] Regras de integridade entre entrega e cobrança documentadas.
+- [x] Prompts iniciais operacionais definidos.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop D.1 — CRM agent-first final**.
+
+---
+
+<a id="loop-d1-fechado--crm-agent-first-final"></a>
+
+## Loop D.1 (fechado) — CRM agent-first final
+
+- **Objetivo do loop:** formalizar o CRM como vertical de entrada agent-first com especialista de domínio, time recomendado, prompts úteis e fallback/auditoria claros.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-d1-crm-agent-first-final.md`.
+- Estrutura mínima de CRM vertical page com readiness, especialista CRM e CTA principal.
+- Bloco de prompts canónicos para rotina comercial essencial.
+- Contrato mínimo de dados para operação CRM via time recomendado.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-d1-crm-agent-first-final.md`](../../docs/RALPHLOOP/ralph-loop-d1-crm-agent-first-final.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estrutura mínima do CRM agent-first formalizada.
+- [x] Prompts e CTA principal de operação definidos.
+- [x] Fallback/auditoria e jornada principal para E2E documentados.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop D.2 — Scheduling agent-first final**.
+
+---
+
+<a id="loop-d2-fechado--scheduling-agent-first-final"></a>
+
+## Loop D.2 (fechado) — Scheduling agent-first final
+
+- **Objetivo do loop:** fechar Agenda/Scheduling no padrão GOLD agent-first com especialista explícito, time recomendado, prompts e jornadas críticas formalizadas.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-d2-scheduling-agent-first-final.md`.
+- Estrutura mínima de vertical Scheduling com readiness, especialista e CTA principal.
+- Prompts canónicos cobrindo confirmação, reagendamento e no-show.
+- Contrato mínimo de dados e jornadas críticas da agenda para validação operacional.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-d2-scheduling-agent-first-final.md`](../../docs/RALPHLOOP/ralph-loop-d2-scheduling-agent-first-final.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estrutura mínima da vertical Scheduling formalizada.
+- [x] Prompts e jornadas críticas de agenda definidos.
+- [x] Fallback/auditoria e CTA principal documentados.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop D.3 — Finance vertical page**.
+
+---
+
+<a id="loop-d3-fechado--finance-vertical-page"></a>
+
+## Loop D.3 (fechado) — Finance vertical page
+
+- **Objetivo do loop:** transformar Finance numa vertical agent-first visível e acionável, com especialista explícito, time recomendado, prompts financeiros e jornadas críticas de cobrança/conciliação.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-d3-finance-vertical-page.md`.
+- Estrutura mínima de vertical Finance com readiness, especialista, time recomendado e CTA principal.
+- Prompts canónicos cobrindo cobrança, inadimplência, conciliação e previsão de caixa.
+- Contrato mínimo de dados e jornadas críticas financeiras para validação operacional.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-d3-finance-vertical-page.md`](../../docs/RALPHLOOP/ralph-loop-d3-finance-vertical-page.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estrutura mínima da vertical Finance formalizada.
+- [x] Prompts e jornadas críticas financeiras definidos.
+- [x] Fallback/auditoria e CTA principal documentados.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop D.4 — Clinical vertical page**.
+
+---
+
+<a id="loop-d4-fechado--clinical-vertical-page"></a>
+
+## Loop D.4 (fechado) — Clinical vertical page
+
+- **Objetivo do loop:** dar superfície real ao domínio clínico com segurança operacional, especialista explícito, time recomendado, prompts clínicos e jornadas críticas formalizadas.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-d4-clinical-vertical-page.md`.
+- Estrutura mínima de vertical Clinical com readiness, especialista, time recomendado e CTA principal.
+- Prompts canónicos cobrindo triagem, evolução, risco e follow-up.
+- Contrato mínimo de dados e jornadas críticas clínicas para validação operacional.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-d4-clinical-vertical-page.md`](../../docs/RALPHLOOP/ralph-loop-d4-clinical-vertical-page.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estrutura mínima da vertical Clinical formalizada.
+- [x] Prompts e jornadas críticas clínicas definidos.
+- [x] Fallback/auditoria e CTA principal documentados.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop D.5 — Care / Reminders / Services / Packages**.
+
+---
+
+<a id="loop-d5-fechado--care-reminders-services-packages"></a>
+
+## Loop D.5 (fechado) — Care / Reminders / Services / Packages
+
+- **Objetivo do loop:** fechar as verticais remanescentes da fase D com moldura agent-first GOLD consistente, prompts úteis por domínio e governança operacional auditável.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-d5-care-reminders-services-packages.md`.
+- Estratégia por grupos (Care+Reminders, Services+Packages) com estrutura mínima comum por vertical.
+- Prompts canónicos base para as quatro verticais.
+- Critérios de aceite com fallback/auditoria e jornadas principais formalizadas.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-d5-care-reminders-services-packages.md`](../../docs/RALPHLOOP/ralph-loop-d5-care-reminders-services-packages.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Moldura mínima agent-first formalizada para Care/Reminders/Services/Packages.
+- [x] Especialista, time recomendado e CTA principal explicitados por vertical.
+- [x] Prompts canónicos e jornadas principais definidos.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop E.1 — Sistema visual único das verticais**.
+
+---
+
+<a id="loop-e1-fechado--sistema-visual-unico-das-verticais"></a>
+
+## Loop E.1 (fechado) — Sistema visual único das verticais
+
+- **Objetivo do loop:** unificar a linguagem visual e os blocos operacionais das verticais agent-first para reduzir fricção de uso entre domínios.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-e1-sistema-visual-unico-verticais.md`.
+- Padrão visual obrigatório para cards de status, especialista, CTA principal, prompts e auditoria.
+- Contrato visual mínimo por vertical e regras de responsividade comuns.
+- Critérios de aceite para consistência visual e previsibilidade de navegação operacional.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-e1-sistema-visual-unico-verticais.md`](../../docs/RALPHLOOP/ralph-loop-e1-sistema-visual-unico-verticais.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Blocos visuais base formalizados para todas as verticais.
+- [x] Contrato visual mínimo e regra de layout responsivo definidos.
+- [x] Padrão de previsibilidade operacional documentado.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop E.2 — CTA principal único**.
+
+---
+
+<a id="loop-e2-fechado--cta-principal-unico"></a>
+
+## Loop E.2 (fechado) — CTA principal único
+
+- **Objetivo do loop:** consolidar um padrão único de ação primária nas verticais para previsibilidade operacional e redução de ambiguidade na tomada de ação.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-e2-cta-principal-unico.md`.
+- Definição de semântica, estados e prioridade visual do CTA principal.
+- Contrato mínimo do CTA para implementação consistente entre verticais.
+- Critérios de aceite para unicidade do CTA e preservação de contexto operacional.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-e2-cta-principal-unico.md`](../../docs/RALPHLOOP/ralph-loop-e2-cta-principal-unico.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Semântica canónica do CTA principal formalizada.
+- [x] Estados `enabled/guarded/disabled` documentados.
+- [x] Contrato mínimo e exemplo reutilizável definidos.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop E.3 — Responsividade real**.
+
+---
+
+<a id="loop-e3-fechado--responsividade-real"></a>
+
+## Loop E.3 (fechado) — Responsividade real
+
+- **Objetivo do loop:** garantir ergonomia e navegabilidade operacional consistente em mobile/tablet/desktop nas superfícies agent-first.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-e3-responsividade-real.md`.
+- Critérios obrigatórios de breakpoint, prioridade de conteúdo e acessibilidade de ações críticas.
+- Checklist mínimo de validação responsiva para rotas operacionais.
+- Contrato de UX responsiva e exemplo de configuração reutilizável.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-e3-responsividade-real.md`](../../docs/RALPHLOOP/ralph-loop-e3-responsividade-real.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Critérios de responsividade formalizados para os 3 breakpoints.
+- [x] Regras de acessibilidade operacional do CTA e auditoria definidas.
+- [x] Contrato mínimo de UX responsiva documentado.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop F.1 — Readiness por vertical**.
+
+---
+
+<a id="loop-f1-fechado--readiness-por-vertical"></a>
+
+## Loop F.1 (fechado) — Readiness por vertical
+
+- **Objetivo do loop:** padronizar sinalização de prontidão por vertical com diagnóstico acionável, impacto operacional e próxima ação recomendada.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-f1-readiness-por-vertical.md`.
+- Modelo de readiness com estados obrigatórios, taxonomy de causas e ação primária associada.
+- Contrato mínimo de prontidão por vertical para UI/operacional.
+- Critérios de aceite para legibilidade operacional sem dependência de backend/logs.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-f1-readiness-por-vertical.md`](../../docs/RALPHLOOP/ralph-loop-f1-readiness-por-vertical.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Estados canónicos de readiness definidos por vertical.
+- [x] Taxonomy de causas e ações corretivas padronizadas.
+- [x] Contrato mínimo de dados de prontidão documentado.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop F.2 — Readiness do time da operação**.
+
+---
+
+<a id="loop-f2-fechado--readiness-do-time-da-operacao"></a>
+
+## Loop F.2 (fechado) — Readiness do time da operação
+
+- **Objetivo do loop:** consolidar a prontidão agregada do time operacional com critérios claros de cobertura, coordenação e integridade mínima.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-f2-readiness-time-operacao.md`.
+- Modelo de readiness agregada com estados, scoring e ações corretivas por prioridade.
+- Contrato mínimo de prontidão do time para cockpit operacional.
+- Critérios de aceite para legibilidade e governança de gaps críticos.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-f2-readiness-time-operacao.md`](../../docs/RALPHLOOP/ralph-loop-f2-readiness-time-operacao.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Critérios de prontidão agregada do time formalizados.
+- [x] Scoring e estados canónicos definidos.
+- [x] Contrato mínimo e exemplo de dados documentados.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop F.3 — Troubleshooting simples**.
+
+---
+
+<a id="loop-f3-fechado--troubleshooting-simples"></a>
+
+## Loop F.3 (fechado) — Troubleshooting simples
+
+- **Objetivo do loop:** tornar explícito, em linguagem operacional, por que a operação não está pronta e como corrigir rapidamente com ações diretas.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-f3-troubleshooting-simples.md`.
+- Princípios de troubleshooting secundário (não invasivo) com priorização por criticidade.
+- Contrato mínimo de troubleshooting com causa, impacto, owner e ação recomendada.
+- Critérios de aceite para decisão rápida da próxima ação operacional.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-f3-troubleshooting-simples.md`](../../docs/RALPHLOOP/ralph-loop-f3-troubleshooting-simples.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Camada de troubleshooting simples formalizada.
+- [x] Contrato mínimo com severidade, impacto e ação definido.
+- [x] Regra de não-competição com fluxo principal documentada.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop F.4 — Observabilidade resumida da operação**.
+
+---
+
+<a id="loop-f4-fechado--observabilidade-resumida-da-operacao"></a>
+
+## Loop F.4 (fechado) — Observabilidade resumida da operação
+
+- **Objetivo do loop:** oferecer leitura executiva da saúde operacional com KPIs essenciais, risco/tendência e principais bloqueadores sem ruído excessivo.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-f4-observabilidade-resumida-operacao.md`.
+- Definição de KPIs mínimos de execução, prontidão, uso, risco e correção.
+- Contrato mínimo de observabilidade resumida para painel executivo.
+- Critérios de aceite para tomada de decisão rápida em operação.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-f4-observabilidade-resumida-operacao.md`](../../docs/RALPHLOOP/ralph-loop-f4-observabilidade-resumida-operacao.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] KPIs executivos mínimos formalizados.
+- [x] Contrato de snapshot resumido documentado.
+- [x] Leitura de risco/tendência e bloqueadores principal definida.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop G.1 — Testes E2E do AI Builder**.
+
+---
+
+<a id="loop-g1-fechado--testes-e2e-do-ai-builder"></a>
+
+## Loop G.1 (fechado) — Testes E2E do AI Builder
+
+- **Objetivo do loop:** proteger o fluxo principal do AI Builder com cobertura E2E mínima ponta a ponta e evidência de execução rastreável.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-g1-testes-e2e-ai-builder.md`.
+- Definição dos 5 caminhos E2E mínimos (entrevista, briefing, geração, adequação e execução).
+- Contrato mínimo de evidência de execução E2E do builder.
+- Critérios de aceite para bloquear regressão funcional crítica.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-g1-testes-e2e-ai-builder.md`](../../docs/RALPHLOOP/ralph-loop-g1-testes-e2e-ai-builder.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Caminhos E2E mínimos do builder formalizados.
+- [x] Contrato de evidência E2E documentado.
+- [x] Regra de bloqueio por falha crítica definida.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop G.2 — Testes E2E das verticais principais**.
+
+---
+
+<a id="loop-g2-fechado--testes-e2e-das-verticais-principais"></a>
+
+## Loop G.2 (fechado) — Testes E2E das verticais principais
+
+- **Objetivo do loop:** garantir regressão funcional nas verticais críticas (CRM, Scheduling, Finance e Clinical) com evidência E2E por jornada principal.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-g2-testes-e2e-verticais-principais.md`.
+- Matriz mínima de jornadas E2E por vertical principal.
+- Contrato mínimo de evidência E2E por vertical com ponto de falha.
+- Critérios de aceite para bloqueio de regressões críticas por domínio.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-g2-testes-e2e-verticais-principais.md`](../../docs/RALPHLOOP/ralph-loop-g2-testes-e2e-verticais-principais.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Cobertura E2E mínima formalizada para CRM/Scheduling/Finance/Clinical.
+- [x] Evidência por vertical e ponto de falha documentados.
+- [x] Regra de bloqueio de regressão crítica definida.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop G.3 — GOLD gate oficial por vertical**.
+
+---
+
+<a id="loop-g3-fechado--gold-gate-oficial-por-vertical"></a>
+
+## Loop G.3 (fechado) — GOLD gate oficial por vertical
+
+- **Objetivo do loop:** estabelecer regra final objetiva para promoção de vertical ao estado GOLD com checklist completo e evidência rastreável.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-g3-gold-gate-oficial-por-vertical.md`.
+- Checklist final obrigatório (9/9) para gate GOLD por vertical.
+- Contrato mínimo de gate com estados `gold/not_gold/blocked_for_gold`.
+- Critérios de aceite para impedir aprovação subjetiva ou incompleta.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-g3-gold-gate-oficial-por-vertical.md`](../../docs/RALPHLOOP/ralph-loop-g3-gold-gate-oficial-por-vertical.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Checklist final canónico do GOLD gate formalizado.
+- [x] Estados de aprovação padronizados.
+- [x] Regra de evidência mínima para aprovação definida.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop H.1 — Revalidação periódica do GOLD gate**.
+
+---
+
+<a id="loop-h1-fechado--revalidacao-periodica-do-gold-gate"></a>
+
+## Loop H.1 (fechado) — Revalidação periódica do GOLD gate
+
+- **Objetivo do loop:** garantir manutenção contínua do selo GOLD via recertificação periódica e critérios explícitos de risco/revogação.
+
+### Entregas (resumo)
+
+- Norma canónica `ralph-loop-h1-revalidacao-periodica-gold-gate.md`.
+- Política de recertificação com cadência, triggers extraordinários e escopo mínimo.
+- Estados padronizados de resultado (`gold_maintained`, `gold_at_risk`, `gold_revoked`).
+- Contrato mínimo de recertificação e vínculo obrigatório com plano corretivo.
+
+Arquivos do loop:
+
+- [`agents-team-crafter-plano-evolucao_IMPLEMENTADO.md`](../../docs/RALPHLOOP/agents-team-crafter-plano-evolucao_IMPLEMENTADO.md)
+- [`ralph-loop-h1-revalidacao-periodica-gold-gate.md`](../../docs/RALPHLOOP/ralph-loop-h1-revalidacao-periodica-gold-gate.md)
+- [`ralph-loop-gap-restante-produto-gold-agent-first.md`](../../docs/RALPHLOOP/ralph-loop-gap-restante-produto-gold-agent-first.md)
+- [`README.md`](../../docs/RALPHLOOP/README.md)
+
+### Checklist (fechado)
+
+- [x] Cadência e trigger de recertificação formalizados.
+- [x] Estados de manutenção/risco/revogação definidos.
+- [x] Contrato mínimo de recertificação documentado.
+- [x] Próximo gap/loop desta trilha definido.
+
+**Próximo gap/loop em aberto (trilha GAP agent-first GOLD):** **Loop H.2 — Playbook de resposta a revogação GOLD**.
+
+---
+
 <a id="loop-95-candidato--polimento-ui-padrão-e-responsivo-da-operação"></a>
 
 ## Loop 95 (candidato) — Polimento UI padrão e responsivo da operação
