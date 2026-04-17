@@ -83,6 +83,18 @@ describe('normalizeBusinessActionInput (Loop 98.6)', () => {
     expect(normalized.subjectKind).toBe('human');
   });
 
+  it('normalizes patient creation aliases in care_create_patient', () => {
+    const normalized = normalizeBusinessActionInput('care_create_patient', {
+      nomeCompleto: 'Paciente C',
+      mail: 'paciente.c@teste.com',
+      celular: '+351900000000',
+    }) as Record<string, unknown>;
+
+    expect(normalized.name).toBe('Paciente C');
+    expect(normalized.email).toBe('paciente.c@teste.com');
+    expect(normalized.phone).toBe('+351900000000');
+  });
+
   it('normalizes care subjectKind values in update payloads', () => {
     const normalized = normalizeBusinessActionInput('care_update_subject', {
       idSujeito: 'subj-1',
@@ -231,6 +243,7 @@ describe('normalizeBusinessActionInput (Loop 98.6)', () => {
     expect(getActionNormalizationSafetyClass('finance_create_payable')).toBe('A');
     expect(getActionNormalizationSafetyClass('finance_mark_payable_paid')).toBe('A');
     expect(getActionNormalizationSafetyClass('care_find_subject')).toBe('A');
+    expect(getActionNormalizationSafetyClass('care_create_patient')).toBe('A');
     expect(getActionNormalizationSafetyClass('clinical_open_encounter')).toBe('A');
     expect(getActionNormalizationSafetyClass('attendance_register_session')).toBe('A');
     expect(getActionNormalizationSafetyClass('sales_mark_order_paid')).toBe('A');

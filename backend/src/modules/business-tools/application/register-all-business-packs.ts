@@ -34,7 +34,7 @@ export function registerAllBusinessPacks(deps: {
   availabilitySlotRepo: AvailabilitySlotRepository;
 }): void {
   registerCrmPack(deps.registry, deps.partyRepo);
-  registerCarePack(deps.registry, deps.careSubjectRepo);
+  registerCarePack(deps.registry, deps.careSubjectRepo, deps.partyRepo);
   registerServicesSalesPack(deps.registry, deps.serviceCatalogRepo, deps.serviceOrderRepo);
   registerPackagesEncountersPack(
     deps.registry,

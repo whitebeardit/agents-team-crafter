@@ -255,7 +255,7 @@ describe('POST /teams/:id/run (team runtime)', () => {
         'x-workspace-id': String((ws as { _id: unknown })._id),
       },
       payload: {
-        message: 'confirmo',
+        message: 'confirmo apagar o cliente 999',
         taskType: 'invoice_validation',
         conversationId,
       },
@@ -266,8 +266,90 @@ describe('POST /teams/:id/run (team runtime)', () => {
     const body = JSON.parse(confirmLate.body) as {
       data: { events?: Array<{ type?: string }>; externalResponse?: { text?: string } };
     };
-    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationExpired')).toBe(true);
-    expect(body.data.externalResponse?.text).toMatch(/não há confirmação destrutiva pendente/i);
+    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationRequested')).toBe(true);
+    expect(body.data.externalResponse?.text).toMatch(/pedido destrutivo identificado/i);
+  });
+
+  it('does not return destructiveConfirmationExpired for plain "confirmo" without pending destructive state', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const conversationId = 'conv-nao-destrutivo-confirmo-1';
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'confirmo',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: { events?: Array<{ type?: string }>; externalResponse?: { text?: string } };
+    };
+    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationExpired') ?? false).toBe(false);
+    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationRequested') ?? false).toBe(false);
+    expect(body.data.externalResponse?.text).toMatch(/chave openai nao configurada/i);
+  });
+
+  it('keeps patient onboarding conversation outside destructive guard when user replies "confirmo"', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const conversationId = 'conv-paciente-multiturno-1';
+
+    const turn1 = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'Quero cadastrar uma nova paciente de psicologia.',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(turn1.statusCode).toBe(200);
+
+    const turn2 = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'Nome: Maria Clara, email: maria@teste.com, telefone: +351900000000.',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(turn2.statusCode).toBe(200);
+
+    const turn3 = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': String((ws as { _id: unknown })._id),
+      },
+      payload: {
+        message: 'confirmo',
+        taskType: 'invoice_validation',
+        conversationId,
+      },
+    });
+    expect(turn3.statusCode).toBe(200);
+    const body = JSON.parse(turn3.body) as { data: { events?: Array<{ type?: string }> } };
+    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationExpired') ?? false).toBe(false);
+    expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationRequested') ?? false).toBe(false);
   });
 
   it('rejects destructive confirmation when target differs from pending request', async () => {

@@ -178,6 +178,30 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     slotFillingPromptHint:
       'Se faltar obrigatório, peça numa mensagem única: party, nome e tipo (human/animal/psych).',
   },
+  'care_create_patient': {
+    title: 'Care — Cadastrar paciente (psych)',
+    description:
+      'Cria o paciente completo da vertical psicológica: Party no CRM + CareSubject com subjectKind=psych vinculado ao partyId.',
+    packId: 'care',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nome da paciente.' },
+        email: { type: 'string', description: 'Email opcional para o cadastro de Party.' },
+        phone: { type: 'string', description: 'Telefone opcional para o cadastro de Party.' },
+        notes: { type: 'string', description: 'Observações opcionais aplicadas em Party e Subject.' },
+        roles: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Papéis adicionais da Party (omissão: customer + patient).',
+        },
+      },
+      required: ['name'],
+    },
+    requiredFieldLabels: ['Nome (name)'],
+    slotFillingPromptHint:
+      'Para cadastro de paciente psych, peça numa única mensagem os faltantes: nome (obrigatório), email, telefone e observações.',
+  },
   'care_update_subject': {
     title: 'Care — Atualizar sujeito',
     description: 'Atualiza dados do sujeito de cuidado.',

@@ -109,6 +109,14 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
       },
     ],
   },
+  care_create_patient: {
+    safetyClass: 'A',
+    rules: [
+      { targetKey: 'name', aliases: ['name', 'nome', 'fullName', 'nomeCompleto'] },
+      { targetKey: 'email', aliases: ['email', 'e-mail', 'mail'] },
+      { targetKey: 'phone', aliases: ['phone', 'telefone', 'celular'] },
+    ],
+  },
   care_update_subject: {
     safetyClass: 'A',
     rules: [

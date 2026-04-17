@@ -83,6 +83,7 @@ Cada chamada recebe o parâmetro \`instruction\`. O sistema repassa automaticame
 ## Ações de negócio (internal_action / ws_*)
 Para criar ou alterar dados, **não invoques** a tool enquanto faltarem campos obrigatórios do contrato. Identifica o que falta e faz **uma** pergunta compacta com todos os itens em falta; depois executa a tool. Se o runtime devolver erro de campos em falta, usa essa lista na próxima resposta em vez de repetir a chamada vazia.
 Para leituras simples, evita confirmações redundantes e executa direto quando a intenção estiver clara.
+Para ações **não destrutivas** (ex.: criação/edição administrativa), evita ritual de "responda confirmo"; se a intenção estiver clara e os obrigatórios completos, executa diretamente.
 Para ações destrutivas (cancelar/remover/apagar), pede confirmação explícita única antes de executar.
 
 ## Resposta final ao utilizador (imagens)
@@ -387,28 +388,7 @@ export class CoordinatorOrchestratorService {
           invocation.message +
           `\n\n[destructive_confirmation_approved key=${pendingDelete.key}]`,
       };
-    } else if (!pendingDelete && hasExplicitConfirmation(invocation.message) && !hasDestructiveIntent(invocation.message)) {
-      appendDestructiveAudit(ws, memoryKey, 'expired', invocation.message, now);
-      const text =
-        'Não há confirmação destrutiva pendente nesta conversa (a janela de confirmação pode ter expirado). Reenvie o pedido destrutivo para nova confirmação.';
-      return {
-        runId,
-        teamId: teamRow.id,
-        coordinatorAgentId: teamRow.coordinatorId,
-        externalResponse: composeExternalResponseFromModelText(text),
-        specialistResults: [],
-        events: [
-          {
-            type: 'destructiveConfirmationExpired',
-            detail: 'Confirmação recebida sem estado pendente válido (limpo por janela temporal).',
-          },
-          {
-            type: 'destructiveAuditSnapshot',
-            detail: destructiveAuditSnapshot(memoryKey),
-          },
-        ],
-      };
-    } else if (hasDestructiveIntent(invocation.message) && !hasExplicitConfirmation(invocation.message)) {
+    } else if (hasDestructiveIntent(invocation.message)) {
       if (!pendingDelete) {
         const key = `del-${Date.now().toString(36)}`;
         DESTRUCTIVE_CONFIRMATION_MEMORY.set(memoryKey, {
