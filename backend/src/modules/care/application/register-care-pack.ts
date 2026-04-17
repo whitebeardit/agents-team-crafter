@@ -1,9 +1,40 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
 import type { CareSubjectRepository } from '../infra/care-subject.repository.js';
+import type { PartyRepository } from '../../crm/infra/party.repository.js';
 
 const kinds = new Set(['human', 'animal', 'psych']);
 
-export function registerCarePack(registry: BusinessToolRegistry, care: CareSubjectRepository): void {
+export function registerCarePack(
+  registry: BusinessToolRegistry,
+  care: CareSubjectRepository,
+  parties?: PartyRepository,
+): void {
+  registry.register('care_create_patient', async ({ workspaceId, input }) => {
+    if (!parties) throw new Error('care_create_patient indisponivel: repositorio de party nao configurado');
+    const data = input as Record<string, unknown>;
+    const name = typeof data.name === 'string' ? data.name : '';
+    if (!name.trim()) throw new Error('name obrigatorio');
+
+    const rawRoles = Array.isArray(data.roles)
+      ? data.roles.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+      : [];
+    const roles = rawRoles.length > 0 ? rawRoles : ['customer', 'patient'];
+    const party = await parties.create(workspaceId, {
+      displayName: name.trim(),
+      roles,
+      email: typeof data.email === 'string' ? data.email : undefined,
+      phone: typeof data.phone === 'string' ? data.phone : undefined,
+      notes: typeof data.notes === 'string' ? data.notes : undefined,
+    });
+    const subject = await care.create(workspaceId, {
+      partyId: party.id,
+      name: name.trim(),
+      subjectKind: 'psych',
+      notes: typeof data.notes === 'string' ? data.notes : undefined,
+    });
+    return { party, subject };
+  });
+
   registry.register('care_create_subject', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
     const partyId = typeof data.partyId === 'string' ? data.partyId : '';
