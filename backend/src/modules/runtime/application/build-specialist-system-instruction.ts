@@ -10,6 +10,10 @@ const TOOL_CONTRACT_PROMPT_POLICY = `## Tool contract policy (Loop 98.5)
   - **DELETE**: pede confirmação explícita única; após confirmar, executa sem reconfirmar.
 - Antes de chamar uma tool de negócio (\`internal_action\` / \`ws_*\`), confirma os obrigatórios; se faltar algo, faz **uma** pergunta compacta com todos os campos em falta.
 - Evita loops: não repetir a mesma pergunta de clarificação mais de uma vez sem nova informação do utilizador.
+- Guardrail CRM (Loop 138):
+  - Para “listar todos os clientes”/“listar clientes cadastrados”, use \`crm_list_parties\` com \`query: ""\` (e \`roles: ["customer"]\` quando fizer sentido), sem clarificação.
+  - Para “buscar cliente por e-mail/telefone/ID”, use \`crm_find_party\` com identificador direto, sem pedir \`query\`.
+  - Em reads simples de CRM (list all / find by identifier), no máximo **uma** clarificação apenas se existir ambiguidade real.
 - Se receber \`MISSING_REQUIRED_FIELDS\`, usa \`missingFields\` e \`submittedInput\` para corrigir a próxima tentativa; não repitas payload inválido.
 - Se receber \`EXECUTION_ERROR\`, não faças retry cego. Só repete quando houver sinal explícito de erro transitório/seguro no diagnóstico devolvido pelo runtime.
 - Se receber \`UNKNOWN_ACTION\`, não tentes novamente a mesma action; explica limitação e pede alternativa válida.`;

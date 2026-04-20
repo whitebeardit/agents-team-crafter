@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { mapNewItemsToEvents } from './openai-agents-runtime.provider.js';
+import { formatRuntimeErrorWithFallback, mapNewItemsToEvents } from './openai-agents-runtime.provider.js';
 
 describe('mapNewItemsToEvents', () => {
   it('marks toolResult as error when function_call_output returns runtime error payload', () => {
@@ -34,3 +34,16 @@ describe('mapNewItemsToEvents', () => {
   });
 });
 
+describe('OpenAIAgentsRuntimeProvider max-turns fallback', () => {
+  it('returns product-friendly fallback when max turns is exceeded', () => {
+    const out = formatRuntimeErrorWithFallback('Erro ao executar modelo', 'Max turns (10) exceeded');
+    expect(out).toContain('Nao consegui concluir este fluxo dentro do limite');
+    expect(out).toContain('Liste todos os clientes cadastrados');
+    expect(out).toContain('Busque cliente pelo email');
+  });
+
+  it('keeps original format for non-max-turns errors', () => {
+    const out = formatRuntimeErrorWithFallback('Erro ao executar modelo', 'upstream timeout');
+    expect(out).toBe('Erro ao executar modelo: upstream timeout');
+  });
+});

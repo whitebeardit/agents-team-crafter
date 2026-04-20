@@ -12,6 +12,7 @@ import { WorkspaceModel } from '../modules/workspaces/infra/workspace.model.js';
 import { WorkspaceMemberModel } from '../modules/workspaces/infra/workspace-member.model.js';
 import { AgentModel } from '../modules/agents/infra/agent.model.js';
 import { TeamModel } from '../modules/teams/infra/team.model.js';
+import { PartyModel } from '../modules/crm/infra/party.model.js';
 
 describe('POST /teams/:id/run (team runtime)', () => {
   let mongo: MongoMemoryServer;
@@ -142,6 +143,105 @@ describe('POST /teams/:id/run (team runtime)', () => {
     expect(body.data).not.toHaveProperty('handoffs');
     expect(body.data).not.toHaveProperty('selectedAgentId');
     expect(Array.isArray(body.data.specialistResults)).toBe(true);
+  });
+
+  it('routes "listar todos os clientes cadastrados" directly to CRM read without coordinator loop', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const workspaceId = String((ws as { _id: unknown })._id);
+
+    await PartyModel.create({
+      workspaceId,
+      displayName: 'Cliente Lista Direta',
+      roles: ['customer'],
+      status: 'active',
+      email: 'lista@empresa.test',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+      payload: { message: 'liste todos os clientes cadastrados', taskType: 'invoice_validation' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: { events?: Array<{ type?: string; detail?: string }>; externalResponse?: { text?: string } };
+    };
+    expect(body.data.events?.some((e) => e.type === 'crmDirectReadRoute')).toBe(true);
+    expect(body.data.events?.some((e) => e.type === 'coordinatorStarted')).toBe(false);
+    expect(body.data.externalResponse?.text).toContain('Encontrei');
+    expect(body.data.externalResponse?.text).toContain('Cliente Lista Direta');
+  });
+
+  it('routes find by email directly to CRM identifier read', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const workspaceId = String((ws as { _id: unknown })._id);
+
+    await PartyModel.create({
+      workspaceId,
+      displayName: 'Cliente Email Direto',
+      roles: ['customer'],
+      status: 'active',
+      email: 'email-direto@empresa.test',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+      payload: { message: 'buscar cliente pelo e-mail email-direto@empresa.test', taskType: 'invoice_validation' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: { events?: Array<{ type?: string; detail?: string }>; externalResponse?: { text?: string } };
+    };
+    expect(body.data.events?.some((e) => e.type === 'crmDirectReadRoute')).toBe(true);
+    expect(body.data.events?.some((e) => e.type === 'coordinatorStarted')).toBe(false);
+    expect(body.data.externalResponse?.text).toContain('Cliente Email Direto');
+    expect(body.data.externalResponse?.text).toContain('email-direto@empresa.test');
+  });
+
+  it('routes find by phone directly to CRM identifier read', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const workspaceId = String((ws as { _id: unknown })._id);
+
+    await PartyModel.create({
+      workspaceId,
+      displayName: 'Cliente Telefone Direto',
+      roles: ['customer'],
+      status: 'active',
+      phone: '+5511999998888',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+      payload: { message: 'encontre o cliente com telefone +5511999998888', taskType: 'invoice_validation' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: { events?: Array<{ type?: string; detail?: string }>; externalResponse?: { text?: string } };
+    };
+    expect(body.data.events?.some((e) => e.type === 'crmDirectReadRoute')).toBe(true);
+    expect(body.data.events?.some((e) => e.type === 'coordinatorStarted')).toBe(false);
+    expect(body.data.externalResponse?.text).toContain('Cliente Telefone Direto');
+    expect(body.data.externalResponse?.text).toContain('+5511999998888');
   });
 
   it('returns early on structured stop command with stop_reason and resume hint', async () => {

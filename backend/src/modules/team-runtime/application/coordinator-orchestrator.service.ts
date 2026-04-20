@@ -285,6 +285,117 @@ function computeConversationMemoryKey(invocation: ITeamInvocation): string {
   return cid || corr || `${invocation.workspaceId}:${invocation.teamId}`;
 }
 
+type TCrmDirectReadIntent =
+  | {
+      actionId: 'crm_list_parties';
+      input: { query: string; roles: string[] };
+      reason: 'list_all_customers';
+    }
+  | {
+      actionId: 'crm_find_party';
+      input: { email?: string; phone?: string; partyId?: string };
+      reason: 'find_customer_by_identifier';
+    };
+
+function extractFirstEmail(text: string): string | undefined {
+  const m = text.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+  return m?.[0]?.trim();
+}
+
+function extractFirstPhone(text: string): string | undefined {
+  const m = text.match(/(?:\+?\d[\d\s().-]{7,}\d)/);
+  return m?.[0]?.trim();
+}
+
+function extractPartyIdHint(text: string): string | undefined {
+  const m = text.match(/\b(?:party[-_ ]?id[:= ]*|id do cliente[:= ]*|cliente[:# ]+)([a-z0-9-]{4,})\b/i);
+  return m?.[1]?.trim();
+}
+
+export function parseCrmDirectReadIntent(message: string): TCrmDirectReadIntent | null {
+  const raw = message.trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+
+  const mentionsCustomer = /\b(cliente|clientes|customer|customers|party|parties)\b/.test(lower);
+  if (!mentionsCustomer) return null;
+
+  const email = extractFirstEmail(raw);
+  if (email) {
+    return {
+      actionId: 'crm_find_party',
+      input: { email },
+      reason: 'find_customer_by_identifier',
+    };
+  }
+
+  const phone = extractFirstPhone(raw);
+  if (phone && /\b(telefone|celular|phone|whatsapp)\b/.test(lower)) {
+    return {
+      actionId: 'crm_find_party',
+      input: { phone },
+      reason: 'find_customer_by_identifier',
+    };
+  }
+
+  const partyId = extractPartyIdHint(raw);
+  if (partyId) {
+    return {
+      actionId: 'crm_find_party',
+      input: { partyId },
+      reason: 'find_customer_by_identifier',
+    };
+  }
+
+  const explicitListAll =
+    /\b(liste|listar|lista|list|mostre|mostrar|me mostre|quais são|quais sao)\b/.test(lower) &&
+    /\b(todos|todas|all|cadastrad|registrad)\b/.test(lower);
+  const genericListCustomers = /\b(listar clientes|liste clientes|lista de clientes|list customers)\b/.test(lower);
+  if (explicitListAll || genericListCustomers) {
+    return {
+      actionId: 'crm_list_parties',
+      input: { query: '', roles: ['customer'] },
+      reason: 'list_all_customers',
+    };
+  }
+
+  return null;
+}
+
+function formatPartyLine(party: Record<string, unknown>, index: number): string {
+  const name = typeof party.displayName === 'string' && party.displayName.trim() ? party.displayName.trim() : 'Sem nome';
+  const id = typeof party.id === 'string' && party.id.trim() ? party.id.trim() : undefined;
+  const email = typeof party.email === 'string' && party.email.trim() ? party.email.trim() : undefined;
+  const phone = typeof party.phone === 'string' && party.phone.trim() ? party.phone.trim() : undefined;
+  const parts = [name, id ? `id: ${id}` : null, email ? `email: ${email}` : null, phone ? `telefone: ${phone}` : null]
+    .filter((x): x is string => Boolean(x));
+  return `${index}. ${parts.join(' · ')}`;
+}
+
+export function formatCrmDirectReadResponse(
+  actionId: 'crm_list_parties' | 'crm_find_party',
+  result: unknown,
+): string {
+  const row = (result ?? {}) as { parties?: unknown };
+  const parties = Array.isArray(row.parties)
+    ? row.parties.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
+    : [];
+  if (actionId === 'crm_list_parties') {
+    if (parties.length === 0) return 'Não encontrei clientes cadastrados no momento.';
+    const lines = parties.slice(0, 20).map((p, i) => formatPartyLine(p, i + 1));
+    const suffix = parties.length > 20 ? `\n... e mais ${parties.length - 20} cliente(s).` : '';
+    return `Encontrei ${parties.length} cliente(s) cadastrados:\n${lines.join('\n')}${suffix}`;
+  }
+  if (parties.length === 0) return 'Não encontrei cliente com esse identificador.';
+  const lines = parties.slice(0, 20).map((p, i) => formatPartyLine(p, i + 1));
+  return `Encontrei ${parties.length} cliente(s):\n${lines.join('\n')}`;
+}
+
+export function isMaxTurnsExceededOutput(text: string): boolean {
+  const lower = text.toLowerCase();
+  return lower.includes('max turns') && lower.includes('exceeded');
+}
+
 export interface ICoordinatorExecuteOptions {
   onProgress?: (e: ITeamProgressEvent) => void;
   streamCoordinatorText?: boolean;
@@ -340,6 +451,24 @@ export class CoordinatorOrchestratorService {
     const runId = randomUUID();
     const emitProgress = (partial: Omit<ITeamProgressEvent, 'runId'>) => {
       options?.onProgress?.({ ...partial, runId });
+    };
+    const correlationId =
+      typeof invocation.metadata?.correlationId === 'string'
+        ? invocation.metadata.correlationId
+        : undefined;
+    const executeCrmDirectRead = async (intent: TCrmDirectReadIntent) => {
+      const direct = await this.businessToolRuntime.execute({
+        workspaceId: ws,
+        toolDefinitionId: `team-runtime-direct-${intent.actionId}`,
+        actionId: intent.actionId,
+        input: intent.input,
+        ...(correlationId ? { correlationId } : {}),
+      });
+      if (!direct.ok) return null;
+      return {
+        text: formatCrmDirectReadResponse(intent.actionId, direct.result),
+        detail: `${intent.reason}:${intent.actionId}`,
+      };
     };
 
     const now = Date.now();
@@ -437,6 +566,26 @@ export class CoordinatorOrchestratorService {
           },
         ],
       };
+    }
+
+    const crmDirectIntent = parseCrmDirectReadIntent(invocation.message);
+    if (crmDirectIntent) {
+      const direct = await executeCrmDirectRead(crmDirectIntent);
+      if (direct) {
+        return {
+          runId,
+          teamId: teamRow.id,
+          coordinatorAgentId: teamRow.coordinatorId,
+          externalResponse: composeExternalResponseFromModelText(direct.text),
+          specialistResults: [],
+          events: [
+            {
+              type: 'crmDirectReadRoute',
+              detail: direct.detail,
+            },
+          ],
+        };
+      }
     }
 
     const coordinator = await this.agentRepo.findById(ws, teamRow.coordinatorId);
@@ -619,6 +768,18 @@ export class CoordinatorOrchestratorService {
         ? { onAssistantTextDelta: options.onCoordinatorTextDelta }
         : {}),
     });
+    let finalOutput = result.finalOutput;
+    const recoveryIntent = parseCrmDirectReadIntent(invocation.message);
+    if (recoveryIntent && isMaxTurnsExceededOutput(finalOutput)) {
+      const recovered = await executeCrmDirectRead(recoveryIntent);
+      if (recovered) {
+        finalOutput = recovered.text;
+        timeline.push({
+          type: 'crmDirectReadRecoveryAfterMaxTurns',
+          detail: recovered.detail,
+        });
+      }
+    }
 
     emitProgress({
       agentId: teamRow.coordinatorId,
@@ -637,7 +798,7 @@ export class CoordinatorOrchestratorService {
       runId,
       teamId: teamRow.id,
       coordinatorAgentId: teamRow.coordinatorId,
-      externalResponse: composeExternalResponseFromModelText(result.finalOutput),
+      externalResponse: composeExternalResponseFromModelText(finalOutput),
       specialistResults,
       events: timeline,
     };

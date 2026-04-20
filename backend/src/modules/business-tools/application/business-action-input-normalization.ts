@@ -16,6 +16,7 @@ type TActionNormalizationConfig = {
 
 const DISPLAY_NAME_ALIASES = [
   'displayName',
+  'name',
   'nome',
   'nomeCompleto',
   'nome_completo',
@@ -51,7 +52,7 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   },
   crm_create_party: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'displayName', aliases: DISPLAY_NAME_ALIASES }],
+    rules: [{ targetKey: 'name', aliases: DISPLAY_NAME_ALIASES }],
   },
   crm_update_party: {
     safetyClass: 'A',
