@@ -70,4 +70,73 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
     expect(out.externalResponse.text).toContain('Cliente Recovery');
     expect(out.events.some((e) => e.type === 'crmDirectReadRecoveryAfterMaxTurns')).toBe(true);
   });
+
+  it('emits structured interruption when max turns is reached and deterministic recovery is unavailable', async () => {
+    const teamRepo = {
+      findById: jest.fn(async () => ({
+        id: 'team-1',
+        coordinatorId: 'coord-1',
+        agentIds: [],
+        name: 'Time',
+      })),
+    };
+    const agentRepo = {
+      findById: jest.fn(async () => ({
+        id: 'coord-1',
+        role: 'coordinator',
+        capabilities: {},
+        systemInstruction: 'coord',
+      })),
+    };
+    const agentRuntime = {
+      runCoordinatorTurn: jest.fn(async () => ({
+        finalOutput: 'Erro ao executar coordenador: Max turns (10) exceeded',
+        events: [],
+      })),
+    };
+    const specialistRegistry = { buildOpenAiTools: jest.fn(() => []) };
+    const workspaceIntegrationsService = {
+      resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
+      getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
+    };
+    const businessToolRuntime = {
+      execute: jest.fn(async () => ({ ok: false, errorCode: 'EXECUTION_ERROR', error: 'unavailable' })),
+    };
+
+    const service = new CoordinatorOrchestratorService(
+      agentRepo as never,
+      teamRepo as never,
+      agentRuntime as never,
+      specialistRegistry as never,
+      workspaceIntegrationsService as never,
+      { listByAgent: jest.fn(async () => []) } as never,
+      { findById: jest.fn(async () => null) } as never,
+      { listByIds: jest.fn(async () => []) } as never,
+      { listByIds: jest.fn(async () => []) } as never,
+      businessToolRuntime as never,
+    );
+
+    const out = await service.execute({
+      trigger: 'manual',
+      workspaceId: 'ws-1',
+      teamId: 'team-1',
+      coordinatorId: 'coord-1',
+      message: 'liste todos os clientes cadastrados',
+      coordinatorExternalContext: {},
+      metadata: { correlationId: 'corr-1' },
+    });
+
+    expect(out.externalResponse.text).toMatch(/Execução interrompida/i);
+    expect(out.externalResponse.text).toMatch(/Próximo passo sugerido/i);
+    const interrupted = out.events.find((e) => e.type === 'executionInterrupted');
+    expect(interrupted).toBeDefined();
+    expect(interrupted?.interrupted).toBe(true);
+    expect(interrupted?.interruptReasonCode).toBe('MAX_TURNS_REACHED');
+    expect(interrupted?.interruptPolicy).toBe('MAX_TURNS_GUARD');
+    expect(interrupted?.interruptStep).toBe('coordinator');
+    expect(interrupted?.nextStep).toMatch(/pedido mais direto/i);
+    const finished = out.events.find((e) => e.type === 'coordinatorFinished');
+    expect(finished?.phase).toBe('interrupted');
+    expect(out.events.some((e) => e.type === 'crmDirectReadRecoveryAfterMaxTurns')).toBe(false);
+  });
 });

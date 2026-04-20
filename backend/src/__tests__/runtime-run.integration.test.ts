@@ -247,13 +247,14 @@ describe('POST /teams/:id/run (team runtime)', () => {
   it('returns early on structured stop command with stop_reason and resume hint', async () => {
     const token = await loginAndGetToken();
     const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const workspaceId = String((ws as { _id: unknown })._id);
 
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/teams/${teamId}/run`,
       headers: {
         authorization: `Bearer ${token}`,
-        'x-workspace-id': String((ws as { _id: unknown })._id),
+        'x-workspace-id': workspaceId,
       },
       payload: { message: '/stop motivo: revisar briefing', taskType: 'invoice_validation' },
     });
@@ -263,17 +264,86 @@ describe('POST /teams/:id/run (team runtime)', () => {
       success: boolean;
       data: {
         externalResponse: { text?: string };
+        runId: string;
         specialistResults?: unknown[];
-        events?: Array<{ type?: string; stopReason?: string; resumeHint?: string }>;
+        events?: Array<{
+          type?: string;
+          stopReason?: string;
+          resumeHint?: string;
+          interrupted?: boolean;
+          interruptReasonCode?: string;
+          interruptReasonMessage?: string;
+          nextStep?: string;
+        }>;
       };
     };
     expect(body.success).toBe(true);
+    expect(body.data.externalResponse.text).toMatch(/Execução interrompida/i);
+    expect(body.data.externalResponse.text).toMatch(/Próximo passo sugerido/i);
     expect(body.data.externalResponse.text).toMatch(/stop_reason/i);
     expect(body.data.specialistResults).toEqual([]);
     const cancelled = body.data.events?.find((e) => e.type === 'runCancelled');
+    const interrupted = body.data.events?.find((e) => e.type === 'executionInterrupted');
     expect(cancelled).toBeDefined();
     expect(cancelled?.stopReason).toMatch(/motivo: revisar briefing/i);
     expect(cancelled?.resumeHint).toMatch(/retomar/i);
+    expect(cancelled?.interrupted).toBe(true);
+    expect(cancelled?.interruptReasonCode).toBe('USER_CANCELLED');
+    expect(cancelled?.interruptReasonMessage).toMatch(/pedido explícito do utilizador/i);
+    expect(cancelled?.nextStep).toMatch(/continuar/i);
+    expect(interrupted).toBeDefined();
+    expect(interrupted?.interruptReasonCode).toBe('USER_CANCELLED');
+    expect(interrupted?.interrupted).toBe(true);
+
+    const runRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/runs/${body.data.runId}`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+    });
+    expect(runRes.statusCode).toBe(200);
+    const runBody = JSON.parse(runRes.body) as {
+      data: {
+        status?: string;
+        interrupt?: {
+          interrupted?: boolean;
+          interruptReasonCode?: string;
+          interruptReasonMessage?: string;
+          interruptReasonDetail?: string;
+          interruptStep?: string;
+          interruptPolicy?: string;
+          nextStep?: string;
+        };
+      };
+    };
+    expect(runBody.data.status).toBe('cancelled');
+    expect(runBody.data.interrupt?.interrupted).toBe(true);
+    expect(runBody.data.interrupt?.interruptReasonCode).toBe('USER_CANCELLED');
+    expect(runBody.data.interrupt?.interruptReasonMessage).toMatch(/pedido explícito do utilizador/i);
+    expect(runBody.data.interrupt?.interruptReasonDetail).toMatch(/Cancelamento solicitado pelo utilizador/i);
+    expect(runBody.data.interrupt?.interruptStep).toBe('preflight');
+    expect(runBody.data.interrupt?.interruptPolicy).toBe('USER_COMMAND');
+    expect(runBody.data.interrupt?.nextStep).toMatch(/continuar/i);
+
+    const eventsRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/runs/${body.data.runId}/events`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+    });
+    expect(eventsRes.statusCode).toBe(200);
+    const eventsBody = JSON.parse(eventsRes.body) as {
+      data: Array<{ type?: string; payload?: { interruptReasonCode?: string; interrupted?: boolean } }>;
+    };
+    const cancelledEvent = eventsBody.data.find((e) => e.type === 'runCancelled');
+    const interruptedEvent = eventsBody.data.find((e) => e.type === 'executionInterrupted');
+    expect(cancelledEvent?.payload?.interruptReasonCode).toBe('USER_CANCELLED');
+    expect(cancelledEvent?.payload?.interrupted).toBe(true);
+    expect(interruptedEvent?.payload?.interruptReasonCode).toBe('USER_CANCELLED');
   });
 
   it('requires single explicit confirmation for destructive requests in same conversation', async () => {

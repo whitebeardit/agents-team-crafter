@@ -45,7 +45,9 @@ export interface TeamRunsTabProps {
 export function TeamRunsTab({ teamId, api, agentNameById, onOpenConsole }: TeamRunsTabProps) {
   const [runs, setRuns] = useState<TeamRunRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "failed" | "running">("all")
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "completed" | "failed" | "running" | "interrupted" | "cancelled"
+  >("all")
   const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "inbound" | "planner">("all")
   const [openRunId, setOpenRunId] = useState<string | null>(null)
   const [detailByRunId, setDetailByRunId] = useState<Record<string, TeamRunDetail>>({})
@@ -107,6 +109,8 @@ export function TeamRunsTab({ teamId, api, agentNameById, onOpenConsole }: TeamR
             <SelectItem value="all">Todos os estados</SelectItem>
             <SelectItem value="completed">Concluída</SelectItem>
             <SelectItem value="failed">Falhou</SelectItem>
+            <SelectItem value="interrupted">Interrompida</SelectItem>
+            <SelectItem value="cancelled">Cancelada</SelectItem>
             <SelectItem value="running">Em execução</SelectItem>
           </SelectContent>
         </Select>
@@ -147,7 +151,8 @@ export function TeamRunsTab({ teamId, api, agentNameById, onOpenConsole }: TeamR
                   <div
                     className={cn(
                       "rounded-lg border border-border bg-secondary/30 transition-colors",
-                      run.status === "failed" && "border-destructive/30 bg-destructive/5",
+                      (run.status === "failed" || run.status === "interrupted") &&
+                        "border-destructive/30 bg-destructive/5",
                     )}
                   >
                     <CollapsibleTrigger asChild>
@@ -163,7 +168,15 @@ export function TeamRunsTab({ teamId, api, agentNameById, onOpenConsole }: TeamR
                         />
                         <div className="min-w-0 flex-1 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant={run.status === "completed" ? "secondary" : "outline"}>
+                            <Badge
+                              variant={
+                                run.status === "completed"
+                                  ? "secondary"
+                                  : run.status === "failed" || run.status === "interrupted"
+                                    ? "destructive"
+                                    : "outline"
+                              }
+                            >
                               {teamRunStatusLabel(run.status)}
                             </Badge>
                             <Badge variant="outline">{teamRunSourceLabel(run.source)}</Badge>
@@ -184,8 +197,13 @@ export function TeamRunsTab({ teamId, api, agentNameById, onOpenConsole }: TeamR
                               ? ` → ${format(new Date(run.finishedAt), "HH:mm:ss", { locale: ptBR })}`
                               : ""}
                           </p>
-                          {!isOpen && run.status === "failed" && run.error?.message ? (
+                          {!isOpen && (run.status === "failed" || run.status === "interrupted") && run.error?.message ? (
                             <p className="text-sm text-destructive line-clamp-2">{run.error.message}</p>
+                          ) : null}
+                          {!isOpen && run.interrupt?.interruptReasonMessage ? (
+                            <p className="text-sm text-amber-700 dark:text-amber-400 line-clamp-2">
+                              {run.interrupt.interruptReasonMessage}
+                            </p>
                           ) : null}
                           {!isOpen && run.externalResponse?.text ? (
                             <p className="text-sm text-muted-foreground line-clamp-2">{run.externalResponse.text}</p>
@@ -209,6 +227,25 @@ export function TeamRunsTab({ teamId, api, agentNameById, onOpenConsole }: TeamR
                                   <p className="text-xs font-mono text-muted-foreground">{run.error.code}</p>
                                 ) : null}
                                 <p className="text-destructive/90 mt-1">{run.error.message}</p>
+                              </div>
+                            ) : null}
+                            {run.interrupt?.interruptReasonMessage ? (
+                              <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm">
+                                <p className="font-medium text-amber-800 dark:text-amber-300">Interrupção</p>
+                                {run.interrupt.interruptReasonCode ? (
+                                  <p className="text-xs font-mono text-muted-foreground">{run.interrupt.interruptReasonCode}</p>
+                                ) : null}
+                                <p className="text-amber-800/90 dark:text-amber-200 mt-1">{run.interrupt.interruptReasonMessage}</p>
+                                <div className="mt-2 space-y-1 text-xs text-amber-900/80 dark:text-amber-200/90">
+                                  {run.interrupt.interruptReasonDetail ? (
+                                    <p>Detalhe técnico: {run.interrupt.interruptReasonDetail}</p>
+                                  ) : null}
+                                  {run.interrupt.interruptStep ? <p>Etapa: {run.interrupt.interruptStep}</p> : null}
+                                  {run.interrupt.interruptTool ? <p>Tool: {run.interrupt.interruptTool}</p> : null}
+                                  {run.interrupt.interruptPolicy ? <p>Política: {run.interrupt.interruptPolicy}</p> : null}
+                                  {run.interrupt.progressState ? <p>Estado de progresso: {run.interrupt.progressState}</p> : null}
+                                  {run.interrupt.nextStep ? <p>Próximo passo sugerido: {run.interrupt.nextStep}</p> : null}
+                                </div>
                               </div>
                             ) : null}
                             {run.externalResponse?.text ? (

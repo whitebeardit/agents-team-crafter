@@ -13,7 +13,7 @@ import {
 } from "@/lib/runs-display"
 
 export function runStatusBadgeVariant(s: TeamRunRecord["status"]) {
-  if (s === "failed") return "destructive" as const
+  if (s === "failed" || s === "interrupted") return "destructive" as const
   if (s === "completed") return "secondary" as const
   return "outline" as const
 }

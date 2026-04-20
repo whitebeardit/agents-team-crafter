@@ -41,7 +41,9 @@ export default function RunsPage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [runs, setRuns] = useState<TeamRunRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "failed" | "running">("all")
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "completed" | "failed" | "running" | "interrupted" | "cancelled"
+  >("all")
   const [sourceFilter, setSourceFilter] = useState<"all" | "manual" | "inbound" | "planner">("all")
 
   const api = useMemo(() => {
@@ -128,6 +130,8 @@ export default function RunsPage() {
                 <SelectItem value="all">Todos os estados</SelectItem>
                 <SelectItem value="completed">Concluída</SelectItem>
                 <SelectItem value="failed">Falhou</SelectItem>
+                <SelectItem value="interrupted">Interrompida</SelectItem>
+                <SelectItem value="cancelled">Cancelada</SelectItem>
                 <SelectItem value="running">Em execução</SelectItem>
               </SelectContent>
             </Select>
