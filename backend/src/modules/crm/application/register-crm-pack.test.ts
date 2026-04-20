@@ -4,6 +4,43 @@ import type { PartyRepository } from '../infra/party.repository.js';
 import { registerCrmPack } from './register-crm-pack.js';
 
 describe('registerCrmPack', () => {
+  it('crm_create_party aceita nome em linguagem natural', async () => {
+    const registry = new BusinessToolRegistry();
+    const create = jest.fn(async (ws: string, payload: Record<string, unknown>) => ({ id: 'party-1', ...payload, ws }));
+    const parties = { create } as unknown as PartyRepository;
+    registerCrmPack(registry, parties);
+    const h = registry.get('crm_create_party');
+    expect(h).toBeDefined();
+
+    const out = await h!({
+      workspaceId: '507f1f77bcf86cd799439011',
+      input: { name: 'Maria Silva', email: 'maria@empresa.test' },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      '507f1f77bcf86cd799439011',
+      expect.objectContaining({ displayName: 'Maria Silva', email: 'maria@empresa.test', roles: ['customer'] }),
+    );
+    expect(out).toEqual(expect.objectContaining({ id: 'party-1', displayName: 'Maria Silva' }));
+  });
+
+  it('crm_create_party retorna erro legível quando nome não é informado', async () => {
+    const registry = new BusinessToolRegistry();
+    const create = jest.fn(async () => ({}));
+    const parties = { create } as unknown as PartyRepository;
+    registerCrmPack(registry, parties);
+    const h = registry.get('crm_create_party');
+    expect(h).toBeDefined();
+
+    await expect(
+      h!({
+        workspaceId: '507f1f77bcf86cd799439011',
+        input: { email: 'sem-nome@empresa.test' },
+      }),
+    ).rejects.toThrow('Nome do cliente obrigatorio');
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('crm_list_parties chama listParties com query vazia', async () => {
     const registry = new BusinessToolRegistry();
     const listParties = jest.fn(async () => [] as Awaited<ReturnType<PartyRepository['listParties']>>);
@@ -18,6 +55,25 @@ describe('registerCrmPack', () => {
     expect(listParties).toHaveBeenCalledWith(
       '507f1f77bcf86cd799439011',
       expect.objectContaining({ query: '', roles: ['customer'], status: 'active' }),
+    );
+  });
+
+  it('crm_list_parties não exige query e usa vazio por padrão', async () => {
+    const registry = new BusinessToolRegistry();
+    const listParties = jest.fn(async () => [] as Awaited<ReturnType<PartyRepository['listParties']>>);
+    const parties = { listParties } as unknown as PartyRepository;
+    registerCrmPack(registry, parties);
+    const h = registry.get('crm_list_parties');
+    expect(h).toBeDefined();
+
+    await h!({
+      workspaceId: '507f1f77bcf86cd799439011',
+      input: { roles: ['customer'] },
+    });
+
+    expect(listParties).toHaveBeenCalledWith(
+      '507f1f77bcf86cd799439011',
+      expect.objectContaining({ query: '', roles: ['customer'] }),
     );
   });
 

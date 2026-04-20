@@ -13,7 +13,7 @@ describe('BusinessToolRegistry', () => {
     expect(crm?.title).toContain('CRM');
     expect(crm?.packId).toBe('crm');
     expect(crm?.operationType).toBe('write');
-    expect((crm?.inputSchema as { required?: string[] })?.required).toContain('displayName');
+    expect((crm?.inputSchema as { required?: string[] })?.required).toContain('name');
     expect(crm?.requiredFieldLabels?.length).toBeGreaterThan(0);
     const z = cat.find((x) => x.actionId === 'z_last');
     expect(z?.title).toBe('z_last');

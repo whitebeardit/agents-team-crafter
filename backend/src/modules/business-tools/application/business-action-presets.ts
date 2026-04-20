@@ -48,12 +48,16 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   'crm_create_party': {
     title: 'CRM — Criar parte',
     description:
-      'Cria registo de pessoa/organização (party). Para “cadastrar cliente”, usa roles que incluam `customer` (omissão: só customer).',
+      'Cria registo de pessoa/organização (party). Para “cadastrar cliente”, aceite linguagem natural de nome (name/nome/nome completo/fullName); roles incluem `customer` por omissão.',
     packId: 'crm',
     inputSchema: {
       type: 'object',
       properties: {
-        displayName: { type: 'string', description: 'Nome de exibição do cliente' },
+        name: { type: 'string', description: 'Nome do cliente em linguagem natural.' },
+        displayName: {
+          type: 'string',
+          description: 'Alias interno de compatibilidade para name (não usar como jargão com utilizador).',
+        },
         roles: {
           type: 'array',
           items: { type: 'string' },
@@ -63,12 +67,12 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
         phone: { type: 'string' },
         notes: { type: 'string' },
       },
-      required: ['displayName'],
+      required: ['name'],
     },
-    requiredFieldLabels: ['Nome (displayName)'],
-    examples: [{ displayName: 'Maria Silva', roles: ['customer'], email: 'maria@exemplo.pt' }],
+    requiredFieldLabels: ['Nome do cliente'],
+    examples: [{ name: 'Maria Silva', roles: ['customer'], email: 'maria@exemplo.pt' }],
     slotFillingPromptHint:
-      'Se faltar o nome, pergunta numa única mensagem: nome, email, telefone e observações opcionais.',
+      'Se faltar o nome do cliente, peça numa única mensagem compacta: nome (obrigatório), email, telefone e observações opcionais.',
   },
   'crm_update_party': {
     title: 'CRM — Atualizar parte',
@@ -113,7 +117,7 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       },
     },
     slotFillingPromptHint:
-      'Use partyId/email/phone quando o utilizador fornecer identificador direto; use query para busca textual por nome.',
+      'Se houver email/telefone/partyId, execute direto sem pedir query. Para busca textual por nome, use query. Evite mais de uma clarificação.',
   },
   'crm_get_party_summary': {
     title: 'CRM — Resumo da parte',
@@ -154,7 +158,7 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       },
     },
     slotFillingPromptHint:
-      'Não é necessário pedir IDs ao utilizador para listar; usa query \"\" e roles/status conforme o pedido.',
+      'Para “listar todos os clientes cadastrados”, execute direto com query \"\" e roles [\"customer\"] quando aplicável; não pedir query nem IDs.',
   },
   'care_create_subject': {
     title: 'Care — Criar sujeito de cuidado',

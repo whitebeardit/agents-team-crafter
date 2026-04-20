@@ -12,6 +12,19 @@ import { formatAgentUserMessage } from '../application/format-agent-user-message
 import { buildCapabilityCatalogTools, buildMcpSdkTools } from '../application/build-specialist-sdk-tools.js';
 import { buildWorkspaceCustomTools } from '../application/build-workspace-custom-tools.js';
 
+export function formatRuntimeErrorWithFallback(prefix: string, msg: string): string {
+  const lower = msg.toLowerCase();
+  const isMaxTurns = lower.includes('max turns') && lower.includes('exceeded');
+  if (!isMaxTurns) return `${prefix}: ${msg}`;
+  return [
+    'Nao consegui concluir este fluxo dentro do limite de interacoes do modelo.',
+    'Para CRM, tente uma instrucao direta como:',
+    '- "Liste todos os clientes cadastrados".',
+    '- "Busque cliente pelo email pessoa@dominio.com".',
+    `Detalhe tecnico: ${prefix}: ${msg}`,
+  ].join('\n');
+}
+
 function parseToolOutputPayload(output: unknown): { ok: boolean; errorCode?: string; detail?: string } | null {
   if (typeof output !== 'string') return null;
   const trimmed = output.trim();
@@ -140,7 +153,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       const events: IAgentRunResult['events'] = [];
       if (input.taskType) events.push({ type: 'taskType', value: input.taskType });
       return {
-        finalOutput: `Erro ao executar modelo: ${msg}`,
+        finalOutput: formatRuntimeErrorWithFallback('Erro ao executar modelo', msg),
         events,
       };
     }
@@ -189,7 +202,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return {
-        finalOutput: `Erro ao executar coordenador: ${msg}`,
+        finalOutput: formatRuntimeErrorWithFallback('Erro ao executar coordenador', msg),
         events: [],
       };
     }

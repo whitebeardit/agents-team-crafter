@@ -4,8 +4,22 @@ import type { IPartyUpdateOperation, PartyRepository } from '../infra/party.repo
 export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRepository): void {
   registry.register('crm_create_party', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const displayName = typeof data.displayName === 'string' ? data.displayName : '';
-    if (!displayName.trim()) throw new Error('displayName obrigatorio');
+    const candidateName =
+      typeof data.name === 'string'
+        ? data.name
+        : typeof data.nome === 'string'
+          ? data.nome
+          : typeof data['nome completo'] === 'string'
+            ? data['nome completo']
+            : typeof data.nomeCompleto === 'string'
+              ? data.nomeCompleto
+              : typeof data.fullName === 'string'
+                ? data.fullName
+                : typeof data.displayName === 'string'
+                  ? data.displayName
+                  : '';
+    const displayName = candidateName.trim();
+    if (!displayName.trim()) throw new Error('Nome do cliente obrigatorio');
     let roles = Array.isArray(data.roles)
       ? data.roles.filter((x): x is string => typeof x === 'string')
       : [];
@@ -95,7 +109,7 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
 
   registry.register('crm_list_parties', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const query = typeof data.query === 'string' ? data.query : '';
+    const query = typeof data.query === 'string' ? data.query.trim() : '';
     const roles = Array.isArray(data.roles)
       ? data.roles.filter((x): x is string => typeof x === 'string')
       : undefined;

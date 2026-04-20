@@ -53,14 +53,14 @@ describe('BusinessToolRuntime', () => {
 
     expect(r.ok).toBe(false);
     expect(r.errorCode).toBe('MISSING_REQUIRED_FIELDS');
-    expect((r.result as { missingFields?: string[] })?.missingFields).toContain('displayName');
+    expect((r.result as { missingFields?: string[] })?.missingFields).toContain('name');
     expect(append).toHaveBeenCalledWith(
       expect.objectContaining({
         errorCode: 'MISSING_REQUIRED_FIELDS',
         rawInput: {},
         normalizedInput: {},
         submittedInput: {},
-        missingFields: expect.arrayContaining(['displayName']),
+        missingFields: expect.arrayContaining(['name']),
         validationResult: expect.objectContaining({ ok: false }),
       }),
     );
@@ -94,8 +94,8 @@ describe('BusinessToolRuntime', () => {
     expect(append).toHaveBeenCalledWith(
       expect.objectContaining({
         rawInput: { 'nome completo': 'Rita Davila', email: 'rita@gmail.com' },
-        normalizedInput: expect.objectContaining({ displayName: 'Rita Davila', email: 'rita@gmail.com' }),
-        submittedInput: expect.objectContaining({ displayName: 'Rita Davila', email: 'rita@gmail.com' }),
+        normalizedInput: expect.objectContaining({ name: 'Rita Davila', email: 'rita@gmail.com' }),
+        submittedInput: expect.objectContaining({ name: 'Rita Davila', email: 'rita@gmail.com' }),
       }),
     );
   });
@@ -172,7 +172,7 @@ describe('BusinessToolRuntime', () => {
       workspaceId: '507f1f77bcf86cd799439011',
       toolDefinitionId: 'td-create',
       actionId: 'crm_create_party',
-      input: { displayName: 'Rita' },
+      input: { name: 'Rita' },
     });
 
     expect(r.ok).toBe(false);
