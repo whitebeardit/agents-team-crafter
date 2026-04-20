@@ -80,6 +80,24 @@ export function buildTeamRunNarrativeLines(
           }`,
         })
         break
+      case "executionInterrupted": {
+        const reason = ev.interruptReasonMessage?.trim() || ev.detail?.trim() || "Execução interrompida."
+        const next = ev.nextStep?.trim() ? ` Próximo passo: ${ev.nextStep.trim()}` : ""
+        lines.push({
+          kind: "step",
+          text: `⚠️ Interrompido — ${truncate(reason, 240)}.${next}`,
+        })
+        break
+      }
+      case "runCancelled": {
+        const reason = ev.interruptReasonMessage?.trim() || ev.detail?.trim() || "Cancelamento solicitado."
+        const next = ev.nextStep?.trim() || ev.resumeHint?.trim()
+        lines.push({
+          kind: "step",
+          text: `⚠️ Cancelado — ${truncate(reason, 220)}${next ? ` Próximo passo: ${truncate(next, 160)}.` : ""}`,
+        })
+        break
+      }
       default:
         if (ev.type && ev.type !== "coordinatorStarted" && ev.type !== "coordinatorFinished") {
           const bits = [ev.type]

@@ -6,6 +6,10 @@ export function teamRunStatusLabel(status: TeamRunRecord["status"]): string {
       return "Concluída"
     case "failed":
       return "Falhou"
+    case "interrupted":
+      return "Interrompida"
+    case "cancelled":
+      return "Cancelada"
     case "running":
       return "Em execução"
     default:

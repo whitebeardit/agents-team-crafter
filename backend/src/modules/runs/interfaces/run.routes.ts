@@ -7,13 +7,13 @@ import { AppError } from '../../../shared/errors/app-error.js';
 const listQuerySchema = z.object({
   teamId: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).optional(),
-  status: z.enum(['running', 'completed', 'failed']).optional(),
+  status: z.enum(['running', 'completed', 'failed', 'interrupted', 'cancelled']).optional(),
   source: z.enum(['manual', 'inbound', 'planner']).optional(),
 });
 
 const teamRunsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).optional().default(50),
-  status: z.enum(['running', 'completed', 'failed']).optional(),
+  status: z.enum(['running', 'completed', 'failed', 'interrupted', 'cancelled']).optional(),
   source: z.enum(['manual', 'inbound', 'planner']).optional(),
 });
 

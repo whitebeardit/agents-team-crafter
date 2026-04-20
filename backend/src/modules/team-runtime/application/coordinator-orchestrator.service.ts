@@ -35,6 +35,10 @@ import {
   SpecialistRegistry,
 } from '../infra/registries/specialist-registry.js';
 import type { WorkspaceIntegrationsService } from '../../settings/application/workspace-integrations.service.js';
+import {
+  buildExecutionInterruptionDescriptor,
+  type TInterruptionReasonCode,
+} from '../domain/execution-interruption.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -396,6 +400,57 @@ export function isMaxTurnsExceededOutput(text: string): boolean {
   return lower.includes('max turns') && lower.includes('exceeded');
 }
 
+function composeInterruptedUserText(
+  reasonCode: TInterruptionReasonCode,
+  options?: { detail?: string; systemDetected?: string },
+): string {
+  const descriptor = buildExecutionInterruptionDescriptor(reasonCode, { detail: options?.detail });
+  return [
+    `Execução interrompida. ${descriptor.reasonMessage}`,
+    options?.systemDetected ? `O sistema identificou: ${options.systemDetected}.` : null,
+    `Próximo passo sugerido: ${descriptor.nextStep}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function detectNoProgressInterruption(
+  events: ITeamExecutionEvent[],
+): {
+  reasonCode: TInterruptionReasonCode;
+  interruptTool?: string;
+  interruptReasonDetail?: string;
+  systemDetected: string;
+  interruptPolicy: string;
+  progressState: string;
+} | null {
+  const toolErrors = events.filter((e) => e.type === 'toolResult' && e.status === 'error');
+  if (toolErrors.length < 2) return null;
+  const first = toolErrors[0];
+  const sameToolAndError = toolErrors.every(
+    (e) => (e.tool ?? '') === (first.tool ?? '') && (e.errorCode ?? '') === (first.errorCode ?? ''),
+  );
+  if (!sameToolAndError) return null;
+  if (first.errorCode === 'MISSING_REQUIRED_FIELDS') {
+    return {
+      reasonCode: 'MISSING_REQUIRED_FIELDS_REPEATED',
+      interruptTool: first.tool,
+      interruptReasonDetail: first.detail,
+      systemDetected: 'repetição da mesma falha de campos obrigatórios sem progresso',
+      interruptPolicy: 'REPEATED_TOOL_FAILURE_GUARD',
+      progressState: 'missing_fields_repeated',
+    };
+  }
+  return {
+    reasonCode: 'NO_PROGRESS_DETECTED',
+    interruptTool: first.tool,
+    interruptReasonDetail: first.detail,
+    systemDetected: 'repetição da mesma falha de tool sem progresso',
+    interruptPolicy: 'NO_PROGRESS_GUARD',
+    progressState: 'tool_error_repeated',
+  };
+}
+
 export interface ICoordinatorExecuteOptions {
   onProgress?: (e: ITeamProgressEvent) => void;
   streamCoordinatorText?: boolean;
@@ -544,8 +599,14 @@ export class CoordinatorOrchestratorService {
 
     const stop = parseRunStopCommand(invocation.message);
     if (stop.requested) {
+      const descriptor = buildExecutionInterruptionDescriptor('USER_CANCELLED', {
+        detail: stop.stopReason,
+      });
       const text = [
-        'Execução interrompida por pedido do utilizador. Não realizei novas ações.',
+        composeInterruptedUserText('USER_CANCELLED', {
+          detail: stop.stopReason,
+          systemDetected: 'cancelamento solicitado pelo utilizador',
+        }),
         stop.stopReason ? `stop_reason: ${stop.stopReason}` : null,
         stop.resumeHint,
       ]
@@ -563,6 +624,24 @@ export class CoordinatorOrchestratorService {
             detail: 'Cancelamento solicitado pelo utilizador.',
             ...(stop.stopReason ? { stopReason: stop.stopReason } : {}),
             resumeHint: stop.resumeHint,
+            interrupted: true,
+            interruptReasonCode: descriptor.reasonCode,
+            interruptReasonMessage: descriptor.reasonMessage,
+            interruptStep: 'preflight',
+            interruptPolicy: 'USER_COMMAND',
+            progressState: 'preflight_stop',
+            nextStep: descriptor.nextStep,
+          },
+          {
+            type: 'executionInterrupted',
+            detail: 'Execução interrompida antes de acionar coordenador.',
+            interrupted: true,
+            interruptReasonCode: descriptor.reasonCode,
+            interruptReasonMessage: descriptor.reasonMessage,
+            interruptStep: 'preflight',
+            interruptPolicy: 'USER_COMMAND',
+            progressState: 'preflight_stop',
+            nextStep: descriptor.nextStep,
           },
         ],
       };
@@ -770,6 +849,7 @@ export class CoordinatorOrchestratorService {
     });
     let finalOutput = result.finalOutput;
     const recoveryIntent = parseCrmDirectReadIntent(invocation.message);
+    const interruptedEvents: ITeamExecutionEvent[] = [];
     if (recoveryIntent && isMaxTurnsExceededOutput(finalOutput)) {
       const recovered = await executeCrmDirectRead(recoveryIntent);
       if (recovered) {
@@ -777,6 +857,23 @@ export class CoordinatorOrchestratorService {
         timeline.push({
           type: 'crmDirectReadRecoveryAfterMaxTurns',
           detail: recovered.detail,
+        });
+      } else {
+        const descriptor = buildExecutionInterruptionDescriptor('MAX_TURNS_REACHED', { detail: finalOutput });
+        finalOutput = composeInterruptedUserText('MAX_TURNS_REACHED', {
+          detail: finalOutput,
+          systemDetected: 'limite de turns excedido sem progresso suficiente',
+        });
+        interruptedEvents.push({
+          type: 'executionInterrupted',
+          detail: 'Interrompido por limite de turns do coordenador.',
+          interrupted: true,
+          interruptReasonCode: descriptor.reasonCode,
+          interruptReasonMessage: descriptor.reasonMessage,
+          interruptStep: 'coordinator',
+          interruptPolicy: 'MAX_TURNS_GUARD',
+          progressState: 'coordinator_max_turns',
+          nextStep: descriptor.nextStep,
         });
       }
     }
@@ -788,11 +885,40 @@ export class CoordinatorOrchestratorService {
     });
 
     const coordinatorMapped = result.events.map((e) => mapRuntimeEventToTeamEvent(e, specialistIds));
-    timeline.push(...coordinatorMapped, ...specialistSidecarEvents, {
-      type: 'coordinatorFinished',
-      agentId: teamRow.coordinatorId,
-      phase: 'done',
-    });
+    if (interruptedEvents.length === 0) {
+      const noProgress = detectNoProgressInterruption(coordinatorMapped);
+      if (noProgress) {
+        const descriptor = buildExecutionInterruptionDescriptor(noProgress.reasonCode, {
+          detail: noProgress.interruptReasonDetail,
+        });
+        finalOutput = composeInterruptedUserText(noProgress.reasonCode, {
+          detail: noProgress.interruptReasonDetail,
+          systemDetected: noProgress.systemDetected,
+        });
+        interruptedEvents.push({
+          type: 'executionInterrupted',
+          detail: 'Interrompido por repetição de falha sem progresso.',
+          interrupted: true,
+          interruptReasonCode: descriptor.reasonCode,
+          interruptReasonMessage: descriptor.reasonMessage,
+          interruptStep: 'coordinator',
+          interruptTool: noProgress.interruptTool,
+          interruptPolicy: noProgress.interruptPolicy,
+          progressState: noProgress.progressState,
+          nextStep: descriptor.nextStep,
+        });
+      }
+    }
+    timeline.push(
+      ...coordinatorMapped,
+      ...specialistSidecarEvents,
+      ...interruptedEvents,
+      {
+        type: 'coordinatorFinished',
+        agentId: teamRow.coordinatorId,
+        phase: interruptedEvents.length > 0 ? 'interrupted' : 'done',
+      },
+    );
 
     return {
       runId,

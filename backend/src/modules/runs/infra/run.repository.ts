@@ -6,6 +6,8 @@ import type { RunDoc } from './run.model.js';
 import type { RunStepDoc } from './run-step.model.js';
 import type { RunEventDoc } from './run-event.model.js';
 
+export type TRunStatus = 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled';
+
 function toRunPublic(doc: RunDoc) {
   return {
     id: doc._id.toString(),
@@ -21,6 +23,7 @@ function toRunPublic(doc: RunDoc) {
     finishedAt: doc.finishedAt?.toISOString(),
     externalResponse: doc.externalResponse,
     error: doc.error,
+    interrupt: doc.interrupt,
     createdAt: doc.createdAt?.toISOString(),
     updatedAt: doc.updatedAt?.toISOString(),
   };
@@ -99,7 +102,7 @@ export class RunRepository {
     filters?: {
       teamId?: string;
       limit?: number;
-      status?: 'running' | 'completed' | 'failed';
+      status?: TRunStatus;
       source?: 'manual' | 'inbound' | 'planner';
     },
   ) {
@@ -129,7 +132,7 @@ export class RunRepository {
     return docs.map((doc) => toStepPublic(doc as RunStepDoc));
   }
 
-  async countByStatus(workspaceId: string, status: 'running' | 'completed' | 'failed') {
+  async countByStatus(workspaceId: string, status: TRunStatus) {
     return RunModel.countDocuments({
       workspaceId: new Types.ObjectId(workspaceId),
       status,
@@ -138,7 +141,7 @@ export class RunRepository {
 
   async countByStatusSince(
     workspaceId: string,
-    status: 'running' | 'completed' | 'failed',
+    status: TRunStatus,
     since: Date,
   ) {
     return RunModel.countDocuments({
@@ -166,7 +169,7 @@ export class RunRepository {
         $match: {
           workspaceId: oid,
           startedAt: { $gte: sinceStartOfFirstDayUtc, $lte: until },
-          status: { $in: ['completed', 'failed'] },
+          status: { $in: ['completed', 'failed', 'interrupted', 'cancelled'] },
         },
       },
       {
@@ -189,7 +192,7 @@ export class RunRepository {
       if (!map.has(day)) map.set(day, { completed: 0, failed: 0 });
       const cell = map.get(day)!;
       if (status === 'completed') cell.completed += r.count;
-      else if (status === 'failed') cell.failed += r.count;
+      else if (status === 'failed' || status === 'interrupted' || status === 'cancelled') cell.failed += r.count;
     }
     return dayKeysUtc.map((date) => {
       const v = map.get(date)!;
@@ -210,7 +213,7 @@ export class RunRepository {
         $match: {
           workspaceId: oid,
           startedAt: { $gte: since },
-          status: { $in: ['completed', 'failed'] },
+          status: { $in: ['completed', 'failed', 'interrupted', 'cancelled'] },
         },
       },
       {
@@ -226,7 +229,7 @@ export class RunRepository {
       if (!byTeam.has(tid)) byTeam.set(tid, { completed: 0, failed: 0 });
       const cell = byTeam.get(tid)!;
       if (r._id.status === 'completed') cell.completed += r.n;
-      else if (r._id.status === 'failed') cell.failed += r.n;
+      else if (r._id.status === 'failed' || r._id.status === 'interrupted' || r._id.status === 'cancelled') cell.failed += r.n;
     }
     return [...byTeam.entries()].map(([teamId, v]) => ({ teamId, ...v }));
   }
@@ -246,7 +249,7 @@ export class RunRepository {
         $match: {
           workspaceId: oid,
           startedAt: { $gte: since },
-          status: { $in: ['completed', 'failed'] },
+          status: { $in: ['completed', 'failed', 'interrupted', 'cancelled'] },
           finishedAt: { $exists: true, $ne: null },
         },
       },

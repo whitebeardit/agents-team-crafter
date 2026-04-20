@@ -79,6 +79,22 @@ export interface TeamRunExecutionEvent {
   toolInstruction?: string
   /** Mensagem efetiva enviada ao especialista em `runStep` (após merge com a mensagem do utilizador). */
   runtimeMessage?: string
+  interrupted?: boolean
+  interruptReasonCode?:
+    | "MAX_TURNS_REACHED"
+    | "NO_PROGRESS_DETECTED"
+    | "MISSING_REQUIRED_FIELDS_REPEATED"
+    | "EMPTY_SUBMITTED_INPUT_REPEATED"
+    | "AMBIGUOUS_ROUTING"
+    | "MISSING_REQUIRED_BINDING"
+    | "EXECUTION_ABORTED_BY_POLICY"
+    | "USER_CANCELLED"
+  interruptReasonMessage?: string
+  interruptStep?: string
+  interruptTool?: string
+  interruptPolicy?: string
+  progressState?: string
+  nextStep?: string
 }
 
 /** Item de `GET /teams/:id/debug-sessions` (Loop 91). */
@@ -718,12 +734,23 @@ export interface TeamRunRecord {
   trigger: string
   source: "manual" | "inbound" | "planner"
   channel?: string
-  status: "running" | "completed" | "failed"
+  status: "running" | "completed" | "failed" | "interrupted" | "cancelled"
   correlationId?: string
   startedAt: string
   finishedAt?: string
   externalResponse?: TeamRunExternalResponse | null
   error?: { code?: string; message?: string; status?: number } | null
+  interrupt?: {
+    interrupted?: boolean
+    interruptReasonCode?: string
+    interruptReasonMessage?: string
+    interruptReasonDetail?: string
+    interruptStep?: string
+    interruptTool?: string
+    interruptPolicy?: string
+    progressState?: string
+    nextStep?: string
+  } | null
   steps?: RunStepRecord[]
 }
 
