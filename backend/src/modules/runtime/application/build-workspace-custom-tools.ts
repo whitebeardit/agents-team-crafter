@@ -9,7 +9,6 @@ import {
   classifyBusinessActionOperation,
   operationPolicyPromptLine,
 } from '../../business-tools/application/business-action-operation-policy.js';
-import { hydrateCrmCreatePartyInputFromConversation } from '../../crm/application/crm-conversation-context.js';
 
 const genericArgs = z.object({
   query: z
@@ -29,7 +28,7 @@ function slugToToolName(slug: string): string {
  */
 export function buildWorkspaceCustomTools(
   defs: IWorkspaceCustomToolDefinition[],
-  meta: { workspaceId: string; correlationId?: string; runtimeContextText?: string },
+  meta: { workspaceId: string; correlationId?: string },
   opts?: { businessToolRuntime?: IBusinessToolRuntime },
 ): unknown[] {
   const runtime = opts?.businessToolRuntime;
@@ -70,15 +69,11 @@ export function buildWorkspaceCustomTools(
           })(),
           parameters,
           execute: async (input) => {
-            const hydratedInput =
-              actionId === 'crm_create_party' && meta.runtimeContextText?.trim()
-                ? hydrateCrmCreatePartyInputFromConversation(input, meta.runtimeContextText)
-                : input;
             const r = await runtime.execute({
               workspaceId: meta.workspaceId,
               toolDefinitionId: def.id,
               actionId,
-              input: hydratedInput,
+              input,
               correlationId: meta.correlationId,
             });
             logToolInvocation({

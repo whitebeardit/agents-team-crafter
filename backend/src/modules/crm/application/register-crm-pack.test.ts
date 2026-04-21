@@ -14,12 +14,17 @@ describe('registerCrmPack', () => {
 
     const out = await h!({
       workspaceId: '507f1f77bcf86cd799439011',
-      input: { name: 'Maria Silva', email: 'maria@empresa.test' },
+      input: { name: 'Maria Silva', phone: '+55 11 99999-0000', email: 'maria@empresa.test' },
     });
 
     expect(create).toHaveBeenCalledWith(
       '507f1f77bcf86cd799439011',
-      expect.objectContaining({ displayName: 'Maria Silva', email: 'maria@empresa.test', roles: ['customer'] }),
+      expect.objectContaining({
+        displayName: 'Maria Silva',
+        phone: '+55 11 99999-0000',
+        email: 'maria@empresa.test',
+        roles: ['customer'],
+      }),
     );
     expect(out).toEqual(expect.objectContaining({ id: 'party-1', displayName: 'Maria Silva' }));
   });
@@ -38,6 +43,23 @@ describe('registerCrmPack', () => {
         input: { email: 'sem-nome@empresa.test' },
       }),
     ).rejects.toThrow('Nome do cliente obrigatorio');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('crm_create_party retorna erro legível quando celular não é informado', async () => {
+    const registry = new BusinessToolRegistry();
+    const create = jest.fn(async () => ({}));
+    const parties = { create } as unknown as PartyRepository;
+    registerCrmPack(registry, parties);
+    const h = registry.get('crm_create_party');
+    expect(h).toBeDefined();
+
+    await expect(
+      h!({
+        workspaceId: '507f1f77bcf86cd799439011',
+        input: { name: 'Cliente sem celular' },
+      }),
+    ).rejects.toThrow('Celular do cliente obrigatorio (phone)');
     expect(create).not.toHaveBeenCalled();
   });
 

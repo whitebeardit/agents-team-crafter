@@ -18,6 +18,7 @@ import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js'
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
+import { ensureCoordinatorSystemInstructionPolicy } from '../application/coordinator-system-instruction-policy.js';
 
 const listQuerySchema = paginationQuerySchema.merge(
   z.object({
@@ -201,6 +202,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       reuseHints: body.reuseHints ?? [],
       platformManaged: body.platformManaged ?? false,
       systemRole: body.systemRole ?? null,
+      ...(body.role === 'coordinator'
+        ? { systemInstruction: ensureCoordinatorSystemInstructionPolicy() }
+        : {}),
     });
     const overrideOnCreate =
       body.role === 'specialist'

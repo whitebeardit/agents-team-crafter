@@ -39,9 +39,6 @@ import {
   buildExecutionInterruptionDescriptor,
   type TInterruptionReasonCode,
 } from '../domain/execution-interruption.js';
-import {
-  buildCrmCreatePartyDraft,
-} from '../../crm/application/crm-conversation-context.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -89,6 +86,8 @@ Cada chamada recebe o parâmetro \`instruction\`. O sistema repassa automaticame
 
 ## Ações de negócio (internal_action / ws_*)
 Para criar ou alterar dados, **não invoques** a tool enquanto faltarem campos obrigatórios do contrato. Identifica o que falta e faz **uma** pergunta compacta com todos os itens em falta; depois executa a tool. Se o runtime devolver erro de campos em falta, usa essa lista na próxima resposta em vez de repetir a chamada vazia.
+Antes de acionar qualquer especialista para WRITE/UPDATE, confirma no catálogo da própria tool quais são os obrigatórios e só então pergunta ao utilizador no **mesmo padrão esperado pela tool** (nomes de campos e formato).
+Se o utilizador perguntar "quais campos obrigatórios", responde com a lista objetiva dos obrigatórios da tool escolhida e já peça os valores no formato correto, sem executar a ação ainda.
 Para leituras simples, evita confirmações redundantes e executa direto quando a intenção estiver clara.
 Para ações **não destrutivas** (ex.: criação/edição administrativa), evita ritual de "responda confirmo"; se a intenção estiver clara e os obrigatórios completos, executa diretamente.
 Para ações destrutivas (cancelar/remover/apagar), pede confirmação explícita única antes de executar.
@@ -304,13 +303,6 @@ type TCrmDirectReadIntent =
       reason: 'find_customer_by_identifier';
     };
 
-type TCrmDirectWriteIntent = {
-  actionId: 'crm_create_party';
-  input: Record<string, unknown>;
-  reason: 'create_customer_from_context';
-  missingFields: string[];
-};
-
 function extractFirstEmail(text: string): string | undefined {
   const m = text.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
   return m?.[0]?.trim();
@@ -405,39 +397,6 @@ export function formatCrmDirectReadResponse(
   return `Encontrei ${parties.length} cliente(s):\n${lines.join('\n')}`;
 }
 
-export function formatCrmDirectWriteResponse(result: unknown): string {
-  const party = (result ?? {}) as Record<string, unknown>;
-  const name =
-    typeof party.displayName === 'string' && party.displayName.trim()
-      ? party.displayName.trim()
-      : typeof party.name === 'string' && party.name.trim()
-        ? party.name.trim()
-        : 'Cliente';
-  const details = [
-    typeof party.id === 'string' && party.id.trim() ? `id: ${party.id.trim()}` : null,
-    typeof party.email === 'string' && party.email.trim() ? `email: ${party.email.trim()}` : null,
-    typeof party.phone === 'string' && party.phone.trim() ? `telefone: ${party.phone.trim()}` : null,
-  ].filter((value): value is string => Boolean(value));
-  return details.length > 0
-    ? `Cliente cadastrado com sucesso: ${name} (${details.join(' · ')}).`
-    : `Cliente cadastrado com sucesso: ${name}.`;
-}
-
-export function parseCrmDirectWriteIntent(invocation: ITeamInvocation): TCrmDirectWriteIntent | null {
-  const userHistory = invocation.conversation?.history
-    ?.filter((turn) => turn.role === 'user')
-    .map((turn) => turn.content.trim())
-    .filter(Boolean);
-  const draft = buildCrmCreatePartyDraft(invocation.message, userHistory);
-  if (!draft.intentClear) return null;
-  return {
-    actionId: 'crm_create_party',
-    input: draft.input,
-    reason: 'create_customer_from_context',
-    missingFields: draft.missingFields,
-  };
-}
-
 export function isMaxTurnsExceededOutput(text: string): boolean {
   const lower = text.toLowerCase();
   return lower.includes('max turns') && lower.includes('exceeded');
@@ -500,37 +459,17 @@ export interface ICoordinatorExecuteOptions {
   onCoordinatorTextDelta?: (text: string) => void;
 }
 
-function mapRuntimeEventToTeamEvent(
-  e: TRuntimeEvent,
-  rosterSpecialistIds: string[],
-  invokedByAgentId?: string,
-): ITeamExecutionEvent {
-  const base = invokedByAgentId ? { invokedByAgentId } : {};
-  if (e.type === 'taskType') return { type: e.type, value: e.value, ...base };
-  if (e.type === 'runtimeError') {
-    return {
-      type: e.type,
-      message: e.message,
-      ...(e.errorCode ? { errorCode: e.errorCode } : {}),
-      ...(e.detail ? { detail: e.detail } : {}),
-      ...(e.source ? { source: e.source } : {}),
-      ...(e.agentId ? { agentId: e.agentId } : {}),
-      ...base,
-    };
-  }
+function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: string[]): ITeamExecutionEvent {
+  if (e.type === 'taskType') return { type: e.type, value: e.value };
   const agentId =
     e.tool !== undefined ? resolveSpecialistAgentIdFromToolName(e.tool, rosterSpecialistIds) : undefined;
   return {
     type: e.type,
     tool: e.tool,
-    ...(e.callId ? { callId: e.callId } : {}),
-    ...(e.type === 'toolCall' && e.toolInput !== undefined ? { toolInput: e.toolInput } : {}),
-    ...(e.type === 'toolResult' && e.toolOutput !== undefined ? { toolOutput: e.toolOutput } : {}),
-    ...(e.type === 'toolResult' ? { status: e.status } : {}),
-    ...(e.type === 'toolResult' && e.errorCode ? { errorCode: e.errorCode } : {}),
-    ...(e.type === 'toolResult' && e.detail ? { detail: e.detail } : {}),
+    status: e.status,
+    errorCode: e.errorCode,
+    ...(e.detail ? { detail: e.detail } : {}),
     ...(agentId ? { agentId } : {}),
-    ...base,
   };
 }
 
@@ -586,48 +525,6 @@ export class CoordinatorOrchestratorService {
       return {
         text: formatCrmDirectReadResponse(intent.actionId, direct.result),
         detail: `${intent.reason}:${intent.actionId}`,
-      };
-    };
-    const executeCrmDirectWrite = async (intent: TCrmDirectWriteIntent) => {
-      if (intent.missingFields.length > 0) {
-        return {
-          text: 'Para cadastrar o cliente, preciso apenas do nome. Se quiser, pode enviar tambem email, telefone e observacoes.',
-          detail: `${intent.reason}:missing_${intent.missingFields.join('_')}`,
-          missingFields: intent.missingFields,
-        };
-      }
-      const direct = await this.businessToolRuntime.execute({
-        workspaceId: ws,
-        toolDefinitionId: `team-runtime-direct-${intent.actionId}`,
-        actionId: intent.actionId,
-        input: intent.input,
-        ...(correlationId ? { correlationId } : {}),
-      });
-      if (!direct.ok) {
-        if (direct.errorCode === 'MISSING_REQUIRED_FIELDS') {
-          const missing = ((direct.result ?? {}) as { missingFields?: unknown }).missingFields;
-          const missingFields = Array.isArray(missing)
-            ? missing.filter((value): value is string => typeof value === 'string')
-            : [];
-          return {
-            text:
-              missingFields.includes('name')
-                ? 'Para cadastrar o cliente, preciso apenas do nome. Se quiser, pode enviar tambem email, telefone e observacoes.'
-                : 'Nao consegui concluir o cadastro do cliente com os dados atuais. Reenvie nome, email e telefone em uma unica mensagem.',
-            detail: `${intent.reason}:validation_failed`,
-            missingFields,
-          };
-        }
-        return {
-          text: 'Nao consegui concluir o cadastro do cliente agora. Tente novamente com nome, email e telefone em uma unica mensagem.',
-          detail: `${intent.reason}:execution_failed`,
-          missingFields: [],
-        };
-      }
-      return {
-        text: formatCrmDirectWriteResponse(direct.result),
-        detail: `${intent.reason}:${intent.actionId}`,
-        missingFields: [],
       };
     };
 
@@ -752,23 +649,6 @@ export class CoordinatorOrchestratorService {
       };
     }
 
-    const crmDirectWriteIntent = parseCrmDirectWriteIntent(invocation);
-    if (crmDirectWriteIntent) {
-      const direct = await executeCrmDirectWrite(crmDirectWriteIntent);
-      return {
-        runId,
-        teamId: teamRow.id,
-        coordinatorAgentId: teamRow.coordinatorId,
-        externalResponse: composeExternalResponseFromModelText(direct.text),
-        specialistResults: [],
-        events: [
-          {
-            type: 'crmDirectWriteRoute',
-            detail: direct.detail,
-          },
-        ],
-      };
-    }
     const crmDirectIntent = parseCrmDirectReadIntent(invocation.message);
     if (crmDirectIntent) {
       const direct = await executeCrmDirectRead(crmDirectIntent);
@@ -811,11 +691,10 @@ export class CoordinatorOrchestratorService {
     const specialistSidecarEvents: ITeamExecutionEvent[] = [];
 
     const executeSpecialist = async (specialistAgentId: string, instruction: string) => {
-      const runtimeMessage = buildSpecialistRuntimeMessage(instruction, invocation.message, invocation.conversation?.history);
+      const runtimeMessage = buildSpecialistRuntimeMessage(instruction, invocation.message);
       specialistSidecarEvents.push({
         type: 'specialistStarted',
         agentId: specialistAgentId,
-        invokedByAgentId: specialistAgentId,
         phase: 'runStep',
         detail: truncateActivity(runtimeMessage),
         toolInstruction: instruction,
@@ -923,13 +802,9 @@ export class CoordinatorOrchestratorService {
         ...(correlationId ? { correlationId } : {}),
       });
       specialistResults.push({ specialistAgentId, summary: r.finalOutput });
-      specialistSidecarEvents.push(
-        ...r.events.map((event) => mapRuntimeEventToTeamEvent(event, specialistIds, specialistAgentId)),
-      );
       specialistSidecarEvents.push({
         type: 'specialistFinished',
         agentId: specialistAgentId,
-        invokedByAgentId: specialistAgentId,
         phase: 'runStep',
         detail: truncateActivity(r.finalOutput),
       });
@@ -953,7 +828,7 @@ export class CoordinatorOrchestratorService {
 
     const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
     const timeline: ITeamExecutionEvent[] = [
-      { type: 'coordinatorStarted', agentId: teamRow.coordinatorId, invokedByAgentId: teamRow.coordinatorId, phase: 'invoke' },
+      { type: 'coordinatorStarted', agentId: teamRow.coordinatorId, phase: 'invoke' },
       ...preflightEvents,
     ];
     emitProgress({
@@ -1011,9 +886,7 @@ export class CoordinatorOrchestratorService {
       phase: 'coordinator',
     });
 
-    const coordinatorMapped = result.events.map((e) =>
-      mapRuntimeEventToTeamEvent(e, specialistIds, teamRow.coordinatorId),
-    );
+    const coordinatorMapped = result.events.map((e) => mapRuntimeEventToTeamEvent(e, specialistIds));
     if (interruptedEvents.length === 0) {
       const noProgress = detectNoProgressInterruption(coordinatorMapped);
       if (noProgress) {
@@ -1045,7 +918,6 @@ export class CoordinatorOrchestratorService {
       {
         type: 'coordinatorFinished',
         agentId: teamRow.coordinatorId,
-        invokedByAgentId: teamRow.coordinatorId,
         phase: interruptedEvents.length > 0 ? 'interrupted' : 'done',
       },
     );

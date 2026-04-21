@@ -31,7 +31,6 @@ import type {
 } from "@/lib/types"
 import { toast } from "sonner"
 import { buildTeamRunNarrativeLines } from "@/components/teams/team-debug-narrative"
-import { TeamRunTechnicalDetail } from "@/components/teams/team-run-technical-detail"
 
 type Api = ReturnType<typeof createApiClient>
 
@@ -591,7 +590,16 @@ export function TeamDebugConsole({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <TeamRunTechnicalDetail run={lastRaw} agentNameMap={agentNameMap} />
+              <pre className="mt-2 text-xs bg-muted/50 rounded-md p-3 overflow-x-auto max-h-48 overflow-y-auto border border-border">
+                {JSON.stringify(
+                  {
+                    specialistResults: lastRaw.specialistResults,
+                    events: lastRaw.events,
+                  },
+                  null,
+                  2,
+                )}
+              </pre>
             </CollapsibleContent>
           </Collapsible>
         ) : null}
