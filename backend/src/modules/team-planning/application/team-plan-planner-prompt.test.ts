@@ -26,6 +26,12 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/não.*rotação automática por posição/i);
   });
 
+  it('reforça regra obrigatória do coordenador para validar obrigatórios antes de escrita', () => {
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/Regra obrigatoria para o coordenador/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/verificar os campos obrigatorios/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/mesmo padrao de campos\/formato esperado pela tool/i);
+  });
+
   it('exemplo JSON inclui catalogTools, requiredPacks e requiredTools', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toContain('"catalogTools": ["web_search"]');
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toContain('"requiredPacks": []');

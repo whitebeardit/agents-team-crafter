@@ -17,6 +17,7 @@ import {
 } from './team-plan-planner-prompt.js';
 import { evaluateTeamPlanBriefingSufficiency } from './team-plan-briefing-sufficiency.js';
 import { evaluateTeamPlanAdequacy } from './team-plan-adequacy-gate.js';
+import { ensureCoordinatorSystemInstructionPolicy } from '../../agents/application/coordinator-system-instruction-policy.js';
 import { buildTeamPlanIntegrityModel } from './team-plan-integrity-model.js';
 import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
 import { getWorkspaceOverlapMode } from '../../governance/application/workspace-overlap-mode.js';
@@ -1267,6 +1268,9 @@ export class TeamPlanService {
           version: '1.0.0',
           goal: plannedAgent.objective,
           responsibilities: plannedAgent.responsibilities,
+          ...(plannedAgent.role === 'coordinator'
+            ? { systemInstruction: ensureCoordinatorSystemInstructionPolicy() }
+            : {}),
           capabilities: { tools: catalogTools },
         });
         const createdRow = {
