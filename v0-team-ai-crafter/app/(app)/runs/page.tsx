@@ -173,6 +173,7 @@ export default function RunsPage() {
                         <TableHead>Time</TableHead>
                         <TableHead>Origem</TableHead>
                         <TableHead>Gatilho</TableHead>
+                        <TableHead>Interrupção</TableHead>
                         <TableHead>Duração</TableHead>
                         <TableHead>Início</TableHead>
                         <TableHead className="w-[100px]" />
@@ -196,6 +197,27 @@ export default function RunsPage() {
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate" title={r.trigger}>
                               {teamRunTriggerLabel(r.trigger)}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[360px] align-top">
+                              {r.interrupt?.interruptReasonMessage ? (
+                                <div className="space-y-1">
+                                  <p className="font-medium text-amber-700 dark:text-amber-400 line-clamp-2">
+                                    {r.interrupt.interruptReasonMessage}
+                                  </p>
+                                  {r.interrupt.nextStep ? (
+                                    <p className="text-xs text-muted-foreground line-clamp-2">
+                                      Próximo passo: {r.interrupt.nextStep}
+                                    </p>
+                                  ) : null}
+                                  {r.interrupt.interruptReasonDetail ? (
+                                    <p className="text-xs text-muted-foreground line-clamp-2">
+                                      Detalhe técnico: {r.interrupt.interruptReasonDetail}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">
                               {dur ?? "—"}

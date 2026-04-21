@@ -68,6 +68,20 @@ export function RunsListMobileCards({ runs }: RunsListMobileCardsProps) {
                 <dd className="tabular-nums text-foreground">{formatRunDurationMs(r.startedAt, r.finishedAt)}</dd>
               </div>
             ) : null}
+            {r.interrupt?.interruptReasonMessage ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Interrupção</dt>
+                <dd className="space-y-1">
+                  <p className="text-amber-700 dark:text-amber-400">{r.interrupt.interruptReasonMessage}</p>
+                  {r.interrupt.nextStep ? (
+                    <p className="text-xs text-muted-foreground">Próximo passo: {r.interrupt.nextStep}</p>
+                  ) : null}
+                  {r.interrupt.interruptReasonDetail ? (
+                    <p className="text-xs text-muted-foreground">Detalhe técnico: {r.interrupt.interruptReasonDetail}</p>
+                  ) : null}
+                </dd>
+              </div>
+            ) : null}
           </dl>
           <Button variant="secondary" size="sm" className="mt-4 w-full gap-2 sm:w-auto" asChild>
             <Link href={`/teams/${r.teamId}?tab=runs`}>

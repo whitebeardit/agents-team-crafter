@@ -55,10 +55,7 @@ export function useTourAnchorRect(target: HTMLElement | null) {
   const [rect, setRect] = useState<DOMRect | null>(null)
 
   useLayoutEffect(() => {
-    if (!target || typeof window === "undefined") {
-      setRect(null)
-      return
-    }
+    if (!target || typeof window === "undefined") return
     const update = () => {
       setRect(target.getBoundingClientRect())
     }
@@ -74,7 +71,7 @@ export function useTourAnchorRect(target: HTMLElement | null) {
     }
   }, [target])
 
-  return rect
+  return target ? rect : null
 }
 
 type TourSpotlightLayerProps = {

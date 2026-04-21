@@ -280,6 +280,41 @@ Uma interrupção só pode ser considerada bem tratada quando:
 
 ---
 
+# Pendências pós-implementação (status atualizado)
+
+## 1) Teste de integração HTTP para `NO_PROGRESS_DETECTED`
+
+Cobrir ponta a ponta o fluxo de interrupção por falta de progresso:
+
+- rota HTTP
+- persistência do evento de interrupção
+- leitura dos eventos no histórico
+
+**Status:** ✅ implementado.
+
+## 2) Normalizar exibição de metadados de interrupção também em `/runs`
+
+Hoje o detalhe rico aparece no tab do time; falta paridade de visibilidade no contexto de observabilidade global.
+
+Objetivo desta pendência:
+
+- expor motivo + próximo passo + detalhe técnico também na lista geral de runs
+- manter consistência entre visão por time e visão global
+
+**Status:** ✅ implementado.
+
+## 3) Teste visual/E2E do feedback de interrupção na UI
+
+Garantir automaticamente, em regressões futuras, que o utilizador sempre veja:
+
+- motivo da interrupção
+- próximo passo recomendado
+- detalhe técnico mínimo para diagnóstico
+
+**Status:** ✅ implementado.
+
+---
+
 # Resumo executivo final
 
 Interromper cedo um fluxo ruim é necessário, mas não suficiente.
