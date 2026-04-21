@@ -244,6 +244,103 @@ describe('POST /teams/:id/run (team runtime)', () => {
     expect(body.data.externalResponse?.text).toContain('+5511999998888');
   });
 
+  it('creates customer directly from natural CRM message without coordinator loop', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const workspaceId = String((ws as { _id: unknown })._id);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+      payload: {
+        message: [
+          'Nome completo do cliente: Lucas Henrique Almeida Costa',
+          'Telefone de contato: (11) 98888-7766',
+          'E-mail: lucas.almeida.costa@email.com',
+          'Documento de identificacao (CPF): 123.456.789-00',
+          'Pode cadastrar o cliente.',
+        ].join('\n'),
+        conversationId: 'conv-crm-create-direct-1',
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: { events?: Array<{ type?: string }>; externalResponse?: { text?: string } };
+    };
+    expect(body.data.events?.some((e) => e.type === 'crmDirectWriteRoute')).toBe(true);
+    expect(body.data.events?.some((e) => e.type === 'coordinatorStarted')).toBe(false);
+    expect(body.data.externalResponse?.text).toContain('Cliente cadastrado com sucesso');
+    expect(body.data.externalResponse?.text).toContain('Lucas Henrique Almeida Costa');
+    expect(body.data.externalResponse?.text).not.toMatch(/confirm/i);
+
+    const created = (await PartyModel.findOne({
+      workspaceId,
+      displayName: 'Lucas Henrique Almeida Costa',
+    }).lean()) as { email?: string; phone?: string; notes?: string } | null;
+    expect(created?.email).toBe('lucas.almeida.costa@email.com');
+    expect(created?.phone).toBe('(11) 98888-7766');
+    expect(created?.notes).toContain('CPF: 123.456.789-00');
+  });
+
+  it('reuses prior customer context when the user follows up with "Cadastre ele"', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const workspaceId = String((ws as { _id: unknown })._id);
+    const conversationId = 'conv-crm-find-then-create-1';
+    await PartyModel.deleteMany({ workspaceId, email: 'lucas.followup@empresa.test' });
+
+    const first = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+      payload: {
+        message: [
+          'Nome completo do cliente: Lucas Followup',
+          'Telefone de contato: +551188887766',
+          'E-mail: lucas.followup@empresa.test',
+          'Busque cliente pelo e-mail lucas.followup@empresa.test',
+        ].join('\n'),
+        conversationId,
+      },
+    });
+    expect(first.statusCode).toBe(200);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+      payload: {
+        message: 'Cadastre ele',
+        conversationId,
+      },
+    });
+
+    expect(second.statusCode).toBe(200);
+    const body = JSON.parse(second.body) as {
+      data: { events?: Array<{ type?: string }>; externalResponse?: { text?: string } };
+    };
+    expect(body.data.events?.some((e) => e.type === 'crmDirectWriteRoute')).toBe(true);
+    expect(body.data.externalResponse?.text).toContain('Lucas Followup');
+
+    const created = (await PartyModel.findOne({
+      workspaceId,
+      email: 'lucas.followup@empresa.test',
+    }).lean()) as { displayName?: string; phone?: string } | null;
+    expect(created?.displayName).toBe('Lucas Followup');
+    expect(created?.phone).toBe('+551188887766');
+  });
+
   it('returns early on structured stop command with stop_reason and resume hint', async () => {
     const token = await loginAndGetToken();
     const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();

@@ -39,6 +39,9 @@ import {
   buildExecutionInterruptionDescriptor,
   type TInterruptionReasonCode,
 } from '../domain/execution-interruption.js';
+import {
+  buildCrmCreatePartyDraft,
+} from '../../crm/application/crm-conversation-context.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -301,6 +304,13 @@ type TCrmDirectReadIntent =
       reason: 'find_customer_by_identifier';
     };
 
+type TCrmDirectWriteIntent = {
+  actionId: 'crm_create_party';
+  input: Record<string, unknown>;
+  reason: 'create_customer_from_context';
+  missingFields: string[];
+};
+
 function extractFirstEmail(text: string): string | undefined {
   const m = text.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
   return m?.[0]?.trim();
@@ -393,6 +403,39 @@ export function formatCrmDirectReadResponse(
   if (parties.length === 0) return 'Não encontrei cliente com esse identificador.';
   const lines = parties.slice(0, 20).map((p, i) => formatPartyLine(p, i + 1));
   return `Encontrei ${parties.length} cliente(s):\n${lines.join('\n')}`;
+}
+
+export function formatCrmDirectWriteResponse(result: unknown): string {
+  const party = (result ?? {}) as Record<string, unknown>;
+  const name =
+    typeof party.displayName === 'string' && party.displayName.trim()
+      ? party.displayName.trim()
+      : typeof party.name === 'string' && party.name.trim()
+        ? party.name.trim()
+        : 'Cliente';
+  const details = [
+    typeof party.id === 'string' && party.id.trim() ? `id: ${party.id.trim()}` : null,
+    typeof party.email === 'string' && party.email.trim() ? `email: ${party.email.trim()}` : null,
+    typeof party.phone === 'string' && party.phone.trim() ? `telefone: ${party.phone.trim()}` : null,
+  ].filter((value): value is string => Boolean(value));
+  return details.length > 0
+    ? `Cliente cadastrado com sucesso: ${name} (${details.join(' · ')}).`
+    : `Cliente cadastrado com sucesso: ${name}.`;
+}
+
+export function parseCrmDirectWriteIntent(invocation: ITeamInvocation): TCrmDirectWriteIntent | null {
+  const userHistory = invocation.conversation?.history
+    ?.filter((turn) => turn.role === 'user')
+    .map((turn) => turn.content.trim())
+    .filter(Boolean);
+  const draft = buildCrmCreatePartyDraft(invocation.message, userHistory);
+  if (!draft.intentClear) return null;
+  return {
+    actionId: 'crm_create_party',
+    input: draft.input,
+    reason: 'create_customer_from_context',
+    missingFields: draft.missingFields,
+  };
 }
 
 export function isMaxTurnsExceededOutput(text: string): boolean {
@@ -545,6 +588,48 @@ export class CoordinatorOrchestratorService {
         detail: `${intent.reason}:${intent.actionId}`,
       };
     };
+    const executeCrmDirectWrite = async (intent: TCrmDirectWriteIntent) => {
+      if (intent.missingFields.length > 0) {
+        return {
+          text: 'Para cadastrar o cliente, preciso apenas do nome. Se quiser, pode enviar tambem email, telefone e observacoes.',
+          detail: `${intent.reason}:missing_${intent.missingFields.join('_')}`,
+          missingFields: intent.missingFields,
+        };
+      }
+      const direct = await this.businessToolRuntime.execute({
+        workspaceId: ws,
+        toolDefinitionId: `team-runtime-direct-${intent.actionId}`,
+        actionId: intent.actionId,
+        input: intent.input,
+        ...(correlationId ? { correlationId } : {}),
+      });
+      if (!direct.ok) {
+        if (direct.errorCode === 'MISSING_REQUIRED_FIELDS') {
+          const missing = ((direct.result ?? {}) as { missingFields?: unknown }).missingFields;
+          const missingFields = Array.isArray(missing)
+            ? missing.filter((value): value is string => typeof value === 'string')
+            : [];
+          return {
+            text:
+              missingFields.includes('name')
+                ? 'Para cadastrar o cliente, preciso apenas do nome. Se quiser, pode enviar tambem email, telefone e observacoes.'
+                : 'Nao consegui concluir o cadastro do cliente com os dados atuais. Reenvie nome, email e telefone em uma unica mensagem.',
+            detail: `${intent.reason}:validation_failed`,
+            missingFields,
+          };
+        }
+        return {
+          text: 'Nao consegui concluir o cadastro do cliente agora. Tente novamente com nome, email e telefone em uma unica mensagem.',
+          detail: `${intent.reason}:execution_failed`,
+          missingFields: [],
+        };
+      }
+      return {
+        text: formatCrmDirectWriteResponse(direct.result),
+        detail: `${intent.reason}:${intent.actionId}`,
+        missingFields: [],
+      };
+    };
 
     const now = Date.now();
     const preflightEvents: ITeamExecutionEvent[] = [];
@@ -667,6 +752,23 @@ export class CoordinatorOrchestratorService {
       };
     }
 
+    const crmDirectWriteIntent = parseCrmDirectWriteIntent(invocation);
+    if (crmDirectWriteIntent) {
+      const direct = await executeCrmDirectWrite(crmDirectWriteIntent);
+      return {
+        runId,
+        teamId: teamRow.id,
+        coordinatorAgentId: teamRow.coordinatorId,
+        externalResponse: composeExternalResponseFromModelText(direct.text),
+        specialistResults: [],
+        events: [
+          {
+            type: 'crmDirectWriteRoute',
+            detail: direct.detail,
+          },
+        ],
+      };
+    }
     const crmDirectIntent = parseCrmDirectReadIntent(invocation.message);
     if (crmDirectIntent) {
       const direct = await executeCrmDirectRead(crmDirectIntent);
@@ -709,7 +811,7 @@ export class CoordinatorOrchestratorService {
     const specialistSidecarEvents: ITeamExecutionEvent[] = [];
 
     const executeSpecialist = async (specialistAgentId: string, instruction: string) => {
-      const runtimeMessage = buildSpecialistRuntimeMessage(instruction, invocation.message);
+      const runtimeMessage = buildSpecialistRuntimeMessage(instruction, invocation.message, invocation.conversation?.history);
       specialistSidecarEvents.push({
         type: 'specialistStarted',
         agentId: specialistAgentId,
