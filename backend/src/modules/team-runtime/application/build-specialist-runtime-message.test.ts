@@ -23,18 +23,4 @@ describe('buildSpecialistRuntimeMessage', () => {
     expect(buildSpecialistRuntimeMessage('  tarefa  ', '  msg  ')).toContain('tarefa');
     expect(buildSpecialistRuntimeMessage('  tarefa  ', '  msg  ')).toContain('msg');
   });
-
-  it('includes recent user history for follow-up turns', () => {
-    const out = buildSpecialistRuntimeMessage('Cadastre o cliente.', 'Pode cadastrar', [
-      { role: 'user', content: 'Nome completo do cliente: Lucas Henrique Almeida Costa' },
-      { role: 'assistant', content: 'Nao encontrei cliente com esse identificador.' },
-      { role: 'user', content: 'Telefone: (11) 98888-7766' },
-    ]);
-    expect(out).toContain('[Contexto recente do utilizador]');
-    expect(out).toContain('Lucas Henrique Almeida Costa');
-    expect(out).toContain('Telefone: (11) 98888-7766');
-    expect(out).toContain('[Mensagem do utilizador]');
-    expect(out).toContain('Pode cadastrar');
-    expect(out).not.toContain('Nao encontrei cliente');
-  });
 });

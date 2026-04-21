@@ -70,17 +70,11 @@ export interface TeamRunExecutionEvent {
   type: string
   value?: string
   tool?: string
-  callId?: string
-  toolInput?: string
-  toolOutput?: string
   status?: string
   errorCode?: string
   agentId?: string
-  invokedByAgentId?: string
   phase?: string
   detail?: string
-  message?: string
-  source?: string
   /** Texto completo do argumento `instruction` da tool (coordenador). */
   toolInstruction?: string
   /** Mensagem efetiva enviada ao especialista em `runStep` (após merge com a mensagem do utilizador). */

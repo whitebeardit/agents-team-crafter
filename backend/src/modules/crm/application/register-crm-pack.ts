@@ -20,6 +20,8 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
                   : '';
     const displayName = candidateName.trim();
     if (!displayName.trim()) throw new Error('Nome do cliente obrigatorio');
+    const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
+    if (!phone) throw new Error('Celular do cliente obrigatorio (phone)');
     let roles = Array.isArray(data.roles)
       ? data.roles.filter((x): x is string => typeof x === 'string')
       : [];
@@ -32,7 +34,7 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
       roles,
       status,
       email: typeof data.email === 'string' ? data.email : undefined,
-      phone: typeof data.phone === 'string' ? data.phone : undefined,
+      phone,
       notes: typeof data.notes === 'string' ? data.notes : undefined,
     });
   });

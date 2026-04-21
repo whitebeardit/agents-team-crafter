@@ -7,7 +7,7 @@ export type TRunCompletionStatus = 'completed' | 'failed' | 'interrupted' | 'can
 function toStepType(event: ITeamExecutionEvent): string {
   if (event.type.startsWith('specialist')) return 'specialist';
   if (event.type.startsWith('coordinator')) return 'coordinator';
-  if (event.type === 'toolCall' || event.type === 'toolResult') return 'tool';
+  if (event.type === 'toolResult') return 'tool';
   return event.type;
 }
 
@@ -75,7 +75,7 @@ export class RunRecorderService {
       agentId: event.agentId,
       toolName: event.tool,
       status: toStepStatus(event),
-      summary: event.detail ?? event.message ?? event.value ?? event.toolInstruction ?? event.type,
+      summary: event.detail ?? event.value ?? event.toolInstruction ?? event.type,
       startedAt,
       finishedAt,
     }));

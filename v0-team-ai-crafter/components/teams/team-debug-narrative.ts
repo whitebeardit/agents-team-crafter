@@ -43,16 +43,6 @@ export function buildTeamRunNarrativeLines(
           lines.push({ kind: "step", text: `Tipo de tarefa: ${ev.value.trim()}.` })
         }
         break
-      case "toolCall": {
-        const tool = ev.tool?.trim()
-        const input = ev.toolInput?.trim()
-        const inputHint = input ? ` Input: ${truncate(input, 120)}.` : " Input vazio ou ausente."
-        lines.push({
-          kind: "step",
-          text: tool ? `Tool \`${tool}\` foi chamada.${inputHint}` : `Uma tool foi chamada.${inputHint}`,
-        })
-        break
-      }
       case "toolResult": {
         const tool = ev.tool?.trim()
         const ok = ev.status === "success"
@@ -71,14 +61,6 @@ export function buildTeamRunNarrativeLines(
           text: tool
             ? `Tool \`${tool}\`: ${ok ? "concluída" : "falhou"}${err}.${detail}${hint}`
             : `Resultado de tool: ${ok ? "ok" : "falhou"}${err}.${detail}${hint}`,
-        })
-        break
-      }
-      case "runtimeError": {
-        const detail = ev.message?.trim() || ev.detail?.trim() || "Falha técnica sem detalhe."
-        lines.push({
-          kind: "step",
-          text: `Erro técnico: ${truncate(detail, 220)}.`,
         })
         break
       }

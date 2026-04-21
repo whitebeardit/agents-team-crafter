@@ -67,12 +67,12 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
         phone: { type: 'string' },
         notes: { type: 'string' },
       },
-      required: ['name'],
+      required: ['name', 'phone'],
     },
-    requiredFieldLabels: ['Nome do cliente'],
+    requiredFieldLabels: ['Nome do cliente', 'Celular (phone)'],
     examples: [{ name: 'Maria Silva', roles: ['customer'], email: 'maria@exemplo.pt' }],
     slotFillingPromptHint:
-      'Se faltar o nome do cliente, peça numa única mensagem compacta: nome (obrigatório), email, telefone e observações opcionais.',
+      'Se faltar algum obrigatório, peça numa única mensagem compacta no padrão da tool: name (nome) e phone (celular). Em seguida pode oferecer email e notes como opcionais.',
   },
   'crm_update_party': {
     title: 'CRM — Atualizar parte',
