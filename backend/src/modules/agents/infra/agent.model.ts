@@ -8,6 +8,8 @@ const AgentDomainSchema = new Schema(
     outputDescription: { type: String, default: '' },
     boundaries: [{ type: String }],
     exclusions: [{ type: String }],
+    /** Frases de exemplo para o utilizador (roster do coordenador / onboarding). */
+    exampleUserPhrases: [{ type: String }],
   },
   { _id: false },
 );

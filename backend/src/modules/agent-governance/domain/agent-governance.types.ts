@@ -7,6 +7,8 @@ export interface IAgentDomainProfile {
   outputDescription?: string;
   boundaries?: string[];
   exclusions?: string[];
+  /** Frases de exemplo para onboarding / roster do coordenador. */
+  exampleUserPhrases?: string[];
 }
 
 export interface IAgentGovernanceDraft {

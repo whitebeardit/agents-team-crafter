@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { jsonSchemaToZodParams } from './json-schema-to-zod-params.js';
 
 describe('jsonSchemaToZodParams (strict OpenAI function schema compatibility)', () => {
-  it('converte campos não obrigatórios para nullable obrigatório (evita properties fora de required)', () => {
+  it('mantém opcionais realmente opcionais e preserva chaves extras para normalização posterior', () => {
     const params = jsonSchemaToZodParams({
       type: 'object',
       properties: {
@@ -29,12 +29,15 @@ describe('jsonSchemaToZodParams (strict OpenAI function schema compatibility)', 
       }).success,
     ).toBe(true);
 
-    // modo estrito: as chaves em properties devem ser enviadas (null quando opcional)
-    expect(params.safeParse({ partyId: 'pty_1' }).success).toBe(false);
+    const parsed = params.safeParse({ partyId: 'pty_1', telefone: '+351900000000' });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.telefone).toBe('+351900000000');
   });
 
-  it('não gera objeto permissivo via passthrough para schema inválido', () => {
+  it('preserva payload arbitrário quando o schema é inválido', () => {
     const params = jsonSchemaToZodParams({ type: 'string' });
-    expect(params.safeParse({ any: 'value' }).success).toBe(true);
+    const parsed = params.safeParse({ any: 'value' });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.any).toBe('value');
   });
 });

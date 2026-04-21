@@ -30,6 +30,14 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/Regra obrigatoria para o coordenador/i);
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/verificar os campos obrigatorios/i);
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/mesmo padrao de campos\/formato esperado pela tool/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/sem pedir uma segunda confirmacao/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/chave\/valor/i);
+  });
+
+  it('exige exampleUserPhrases por especialista e desambiguação pelo coordenador', () => {
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/exampleUserPhrases/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/Desambiguacao \(coordenador\)/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toContain('"exampleUserPhrases":');
   });
 
   it('exemplo JSON inclui catalogTools, requiredPacks e requiredTools', () => {
@@ -43,6 +51,7 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(msg).toContain('Problema principal:');
     expect(msg).toMatch(/Antes do JSON final/i);
     expect(msg).toMatch(/matriz mental/i);
+    expect(msg).toMatch(/exampleUserPhrases/i);
   });
 
   it('inclui briefing estruturado quando fornecido (Loop 130.3)', () => {

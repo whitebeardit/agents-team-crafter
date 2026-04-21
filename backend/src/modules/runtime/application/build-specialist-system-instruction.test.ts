@@ -22,6 +22,9 @@ describe('buildSpecialistSystemInstruction', () => {
     expect(text).toContain('MISSING_REQUIRED_FIELDS');
     expect(text).toContain('EXECUTION_ERROR');
     expect(text).toContain('UNKNOWN_ACTION');
+    expect(text).toContain('crm_create_party');
+    expect(text).toContain('name');
+    expect(text).toContain('phone');
   });
 
   it('appends knowledge appendix when provided', () => {

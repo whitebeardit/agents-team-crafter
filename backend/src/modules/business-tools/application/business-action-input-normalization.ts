@@ -25,6 +25,10 @@ const DISPLAY_NAME_ALIASES = [
   'full_name',
 ] as const;
 
+const EMAIL_ALIASES = ['email', 'e-mail', 'mail'] as const;
+
+const PHONE_ALIASES = ['phone', 'telefone', 'celular'] as const;
+
 const CARE_SUBJECT_KIND_VALUE_ALIASES: Readonly<Record<string, string>> = {
   human: 'human',
   humano: 'human',
@@ -52,7 +56,11 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   },
   crm_create_party: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'name', aliases: DISPLAY_NAME_ALIASES }],
+    rules: [
+      { targetKey: 'name', aliases: DISPLAY_NAME_ALIASES },
+      { targetKey: 'email', aliases: EMAIL_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
   },
   crm_update_party: {
     safetyClass: 'A',
@@ -62,8 +70,8 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'B',
     rules: [
       { targetKey: 'partyId', aliases: ['partyId', 'id', 'party_id', 'clienteId', 'customerId', 'clientId'] },
-      { targetKey: 'email', aliases: ['email', 'e-mail', 'mail'] },
-      { targetKey: 'phone', aliases: ['phone', 'telefone', 'celular'] },
+      { targetKey: 'email', aliases: EMAIL_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'query', aliases: ['query', 'termo', 'search', 'nome', 'name'] },
     ],
   },
@@ -114,8 +122,8 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [
       { targetKey: 'name', aliases: ['name', 'nome', 'fullName', 'nomeCompleto'] },
-      { targetKey: 'email', aliases: ['email', 'e-mail', 'mail'] },
-      { targetKey: 'phone', aliases: ['phone', 'telefone', 'celular'] },
+      { targetKey: 'email', aliases: EMAIL_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
     ],
   },
   care_update_subject: {

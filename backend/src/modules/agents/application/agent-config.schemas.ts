@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import { isAllowedTool, stripDeprecatedCatalogToolIds } from '../domain/available-tools.js';
+import { normalizeExampleUserPhrases } from '../domain/example-user-phrases.js';
 
 const channelType = productChannelTypeSchema;
 
@@ -23,6 +24,10 @@ export const agentDomainSchema = z.object({
   outputDescription: z.string().optional(),
   boundaries: z.array(z.string()).optional(),
   exclusions: z.array(z.string()).optional(),
+  exampleUserPhrases: z
+    .array(z.string())
+    .optional()
+    .transform((arr) => (arr === undefined ? undefined : normalizeExampleUserPhrases(arr))),
 });
 
 export const qualityCriteriaSchema = z.array(z.string()).optional();

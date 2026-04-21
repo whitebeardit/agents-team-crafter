@@ -1,4 +1,13 @@
-import { toolsSchema } from './agent-config.schemas.js';
+import { agentDomainSchema, toolsSchema } from './agent-config.schemas.js';
+
+describe('agentDomainSchema', () => {
+  it('normaliza e limita exampleUserPhrases', () => {
+    const d = agentDomainSchema.parse({
+      exampleUserPhrases: ['  a  ', 'a', 'b'],
+    });
+    expect(d.exampleUserPhrases).toEqual(['a', 'b']);
+  });
+});
 
 describe('toolsSchema', () => {
   it('aceita lista de tools validas', () => {

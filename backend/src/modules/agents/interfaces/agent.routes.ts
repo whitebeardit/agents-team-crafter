@@ -271,6 +271,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
           outputDescription?: string;
           boundaries?: string[];
           exclusions?: string[];
+          exampleUserPhrases?: string[];
         }),
       qualityCriteria: patch.qualityCriteria ?? ((current['qualityCriteria'] as string[]) ?? []),
       reuseHints: patch.reuseHints ?? ((current['reuseHints'] as string[]) ?? []),

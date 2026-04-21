@@ -31,7 +31,12 @@ import { ensureInternalActionDefinitions } from './ensure-planner-tool-definitio
 import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../../../app/metrics.js';
 import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
 import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
-import { plannerOutputSchema, type TPlannerOutput } from './team-plan-planner-output.schema.js';
+import { PLANNER_SPECIALIST_EXAMPLE_PHRASES_MIN } from '../../agents/domain/example-user-phrases.js';
+import {
+  padPlannerAgentsForSchemaValidation,
+  plannerOutputSchema,
+  type TPlannerOutput,
+} from './team-plan-planner-output.schema.js';
 import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
 import {
   assertSpecialistsExclusiveCatalogTools,
@@ -259,6 +264,7 @@ export class TeamPlanService {
           workflowKey: 'coordination',
           requiredBusinessActionIds: [],
           requiredPackIds: [],
+          exampleUserPhrases: [],
         },
         {
           name: 'Especialista de Dominio',
@@ -273,6 +279,10 @@ export class TeamPlanService {
           workflowKey: 'execucao',
           requiredBusinessActionIds: [],
           requiredPackIds: [],
+          exampleUserPhrases: [
+            'Preciso de ajuda com o problema descrito acima',
+            'Executa a analise principal e devolve o resultado',
+          ],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -425,7 +435,7 @@ export class TeamPlanService {
     const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
     const parsedForGraph = plannerOutputSchema.parse({
       team: raw.team,
-      agents: reuse.agents,
+      agents: padPlannerAgentsForSchemaValidation(reuse.agents),
       graph: raw.graph,
       executionChecklist: raw.executionChecklist,
       requiredPacks: raw.requiredPacks,
@@ -456,6 +466,7 @@ export class TeamPlanService {
         workflowKey: agent.workflowKey,
         requiredBusinessActionIds: agent.requiredBusinessActionIds,
         requiredPackIds: agent.requiredPackIds,
+        exampleUserPhrases: agent.exampleUserPhrases,
       })),
       graph: { nodes: [] as unknown[], edges: [] as unknown[] },
       executionChecklist: ev.parsedForGraph.executionChecklist,
@@ -488,7 +499,12 @@ export class TeamPlanService {
     });
     const extracted = this.extractJsonLoose(content);
     if (extracted === null) return null;
-    const parsed = plannerOutputSchema.safeParse(extracted);
+    const body = extracted as Record<string, unknown>;
+    const patched = {
+      ...body,
+      agents: padPlannerAgentsForSchemaValidation(body['agents']),
+    };
+    const parsed = plannerOutputSchema.safeParse(patched);
     return parsed.success ? parsed.data : null;
   }
 
@@ -639,7 +655,12 @@ export class TeamPlanService {
             openaiResolvedFromEnv,
           };
         } else {
-          const parsed = plannerOutputSchema.safeParse(extracted);
+          const ext = extracted as Record<string, unknown>;
+          const extractedPadded = {
+            ...ext,
+            agents: padPlannerAgentsForSchemaValidation(ext['agents']),
+          };
+          const parsed = plannerOutputSchema.safeParse(extractedPadded);
           if (parsed.success) {
             raw = parsed.data;
             plannerMeta = {
@@ -693,7 +714,7 @@ export class TeamPlanService {
     const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
     const parsedForGraph = plannerOutputSchema.parse({
       team: raw.team,
-      agents: reuse.agents,
+      agents: padPlannerAgentsForSchemaValidation(reuse.agents),
       graph: raw.graph,
       executionChecklist: raw.executionChecklist,
       requiredPacks: raw.requiredPacks,
@@ -741,7 +762,9 @@ export class TeamPlanService {
       graph: patch.graph ?? current.graph,
     };
     const parsed = plannerOutputSchema.parse({
-      ...next,
+      team: next.team,
+      agents: padPlannerAgentsForSchemaValidation(next.agents),
+      graph: next.graph,
       executionChecklist: current.executionChecklist ?? [],
       requiredPacks: current.requiredPacks ?? [],
       requiredTools: current.requiredTools ?? [],
@@ -764,7 +787,7 @@ export class TeamPlanService {
     const reuse = await this.annotateAgentsWithReuse(workspaceId, parsed.agents);
     const fullPlan = plannerOutputSchema.parse({
       team: parsed.team,
-      agents: reuse.agents,
+      agents: padPlannerAgentsForSchemaValidation(reuse.agents),
       graph: parsed.graph,
       executionChecklist: parsed.executionChecklist,
       requiredPacks: parsed.requiredPacks,
@@ -800,7 +823,7 @@ export class TeamPlanService {
     }
     const parsed = plannerOutputSchema.parse({
       team: current.team,
-      agents: current.agents,
+      agents: padPlannerAgentsForSchemaValidation(current.agents),
       graph: current.graph,
       executionChecklist: current.executionChecklist ?? [],
       requiredPacks: current.requiredPacks ?? [],
@@ -1062,7 +1085,7 @@ export class TeamPlanService {
     if (!plan) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
     const parsed = plannerOutputSchema.parse({
       team: plan.team,
-      agents: plan.agents,
+      agents: padPlannerAgentsForSchemaValidation(plan.agents),
       graph: plan.graph,
       executionChecklist: plan.executionChecklist ?? [],
       requiredPacks: plan.requiredPacks ?? [],
@@ -1094,7 +1117,7 @@ export class TeamPlanService {
     );
     const parsed = plannerOutputSchema.parse({
       team: plan.team,
-      agents: plan.agents,
+      agents: padPlannerAgentsForSchemaValidation(plan.agents),
       graph: plan.graph,
       executionChecklist: plan.executionChecklist ?? [],
       requiredPacks: plan.requiredPacks ?? [],
@@ -1153,7 +1176,7 @@ export class TeamPlanService {
     }
     const parsed = plannerOutputSchema.parse({
       team: plan.team,
-      agents: plan.agents,
+      agents: padPlannerAgentsForSchemaValidation(plan.agents),
       graph: plan.graph,
       executionChecklist: plan.executionChecklist ?? [],
       requiredPacks: plan.requiredPacks ?? [],
@@ -1240,6 +1263,25 @@ export class TeamPlanService {
           if (!existing) {
             throw new AppError('VALIDATION_ERROR', `Agente reutilizado nao encontrado: ${plannedAgent.existingAgentId}`, 400);
           }
+          if (
+            plannedAgent.role === 'specialist' &&
+            plannedAgent.exampleUserPhrases.length >= PLANNER_SPECIALIST_EXAMPLE_PHRASES_MIN
+          ) {
+            const exRecord = existing as Record<string, unknown>;
+            const exDomain = (exRecord['domain'] as Record<string, unknown> | undefined) ?? {};
+            const rawPrev = exDomain['exampleUserPhrases'];
+            const prevPhrases = Array.isArray(rawPrev)
+              ? rawPrev.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+              : [];
+            if (prevPhrases.length === 0) {
+              await this.deps.agentRepo.update(workspaceId, existing.id, {
+                domain: {
+                  ...exDomain,
+                  exampleUserPhrases: plannedAgent.exampleUserPhrases,
+                },
+              });
+            }
+          }
           const reused = {
             id: existing.id,
             role: plannedAgent.role,
@@ -1256,6 +1298,14 @@ export class TeamPlanService {
           plan: parsed,
           specialistIndex,
         });
+        const domainForSpecialist =
+          plannedAgent.role === 'specialist' && plannedAgent.exampleUserPhrases.length > 0
+            ? {
+                exampleUserPhrases: plannedAgent.exampleUserPhrases,
+                inputDescription: (plannedAgent.description ?? '').slice(0, 500),
+                summary: (plannedAgent.objective ?? '').slice(0, 500),
+              }
+            : undefined;
         const created = await this.deps.agentRepo.create(workspaceId, {
           name: plannedAgent.name,
           description: plannedAgent.description ?? '',
@@ -1268,6 +1318,7 @@ export class TeamPlanService {
           version: '1.0.0',
           goal: plannedAgent.objective,
           responsibilities: plannedAgent.responsibilities,
+          ...(domainForSpecialist ? { domain: domainForSpecialist } : {}),
           ...(plannedAgent.role === 'coordinator'
             ? { systemInstruction: ensureCoordinatorSystemInstructionPolicy() }
             : {}),
@@ -1528,5 +1579,33 @@ export class TeamPlanService {
       await this.repo.update(workspaceId, id, { status: 'failed', result: { error: message }, lastOperationId: operationId });
       throw err;
     }
+  }
+
+  /**
+   * Fluxo único: gera o plano (LLM ou fallback) e executa a materialização (agentes, bind, time).
+   * Equivale a `createPlan` seguido de `executePlan` com o mesmo `operationId` opcional para correlacionar retries.
+   */
+  async createPlanAndExecute(
+    workspaceId: string,
+    input: { problem: string; context?: string; briefing?: ITeamPlannerStructuredBriefing },
+    opts?: {
+      operationId?: string;
+      onPhase?: (
+        phase: 'creating_agents' | 'binding_tools' | 'creating_team' | 'graph' | 'activate',
+        detail?: string,
+      ) => void;
+      actorUserId?: string;
+      correlationId?: string;
+    },
+  ): Promise<{
+    plan: NonNullable<Awaited<ReturnType<TeamPlanRepository['findById']>>>;
+    responseMeta: Record<string, unknown>;
+  }> {
+    const created = await this.createPlan(workspaceId, input);
+    return this.executePlan(workspaceId, created.id, opts?.operationId, {
+      onPhase: opts?.onPhase,
+      actorUserId: opts?.actorUserId,
+      correlationId: opts?.correlationId,
+    });
   }
 }

@@ -35,6 +35,7 @@ const MOCK_LLM_PLAN = {
       skills: ['comunicacao'],
       category: 'atendimento',
       channels: ['api'],
+      exampleUserPhrases: [],
     },
     {
       name: 'Especialista Resposta',
@@ -45,6 +46,7 @@ const MOCK_LLM_PLAN = {
       skills: ['empatia'],
       category: 'atendimento',
       channels: [],
+      exampleUserPhrases: ['Abre o ticket 123', 'Resumo do meu ultimo pedido de suporte'],
     },
   ],
   graph: { nodes: [], edges: [] },
@@ -175,6 +177,25 @@ describe('team-plans flow', () => {
     expect(executed.result?.teamId).toBeTruthy();
   });
 
+  it('create-and-execute materializa plano numa unica chamada', async () => {
+    const headers = await authHeaders();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans/create-and-execute',
+      headers,
+      payload: {
+        problem: 'Precisamos de um time para triagem rapida e resposta via API num fluxo unico.',
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const envelope = JSON.parse(res.body) as {
+      data: { status?: string; result?: { teamId?: string } };
+      meta?: Record<string, unknown>;
+    };
+    expect(envelope.data.result?.teamId).toBeTruthy();
+    expect(envelope.meta).toBeDefined();
+  });
+
   it('streams execute phases and completes', async () => {
     const headers = await authHeaders();
     const create = await app.inject({
@@ -252,6 +273,7 @@ describe('team-plans flow', () => {
           category: 'c',
           channels: ['api'],
           catalogTools: ['web_search'],
+          exampleUserPhrases: [],
         },
         {
           name: 'Esp A',
@@ -263,6 +285,7 @@ describe('team-plans flow', () => {
           category: 'a',
           channels: [],
           catalogTools: ['calendar_access'],
+          exampleUserPhrases: ['Agenda do dia', 'Marca reuniao com cliente'],
         },
         {
           name: 'Esp B',
@@ -274,6 +297,7 @@ describe('team-plans flow', () => {
           category: 'b',
           channels: [],
           catalogTools: ['calendar_access'],
+          exampleUserPhrases: ['Lista compromissos', 'Cancela o agendamento X'],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -348,6 +372,7 @@ describe('team-plans flow', () => {
           workflowKey: 'coordination',
           requiredBusinessActionIds: [] as string[],
           requiredPackIds: [] as string[],
+          exampleUserPhrases: [],
         },
         {
           name: 'Esp A',
@@ -362,6 +387,7 @@ describe('team-plans flow', () => {
           workflowKey: 'same_flow',
           requiredBusinessActionIds: [],
           requiredPackIds: [],
+          exampleUserPhrases: ['Pesquisa na web sobre A', 'Resume o topico B'],
         },
         {
           name: 'Esp B',
@@ -376,6 +402,7 @@ describe('team-plans flow', () => {
           workflowKey: 'same_flow',
           requiredBusinessActionIds: [],
           requiredPackIds: [],
+          exampleUserPhrases: ['Le o ficheiro anexado', 'Extrai dados do PDF'],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -446,6 +473,7 @@ describe('team-plans flow', () => {
         workflowKey: 'coordination',
         requiredBusinessActionIds: [],
         requiredPackIds: [],
+        exampleUserPhrases: [],
       },
       {
         name: 'Especialista Resposta',
@@ -460,6 +488,7 @@ describe('team-plans flow', () => {
         workflowKey: 'wf_dup',
         requiredBusinessActionIds: [],
         requiredPackIds: [],
+        exampleUserPhrases: ['Estado do ticket 1', 'Responde ao cliente Joao'],
       },
       {
         name: 'Especialista Dados',
@@ -474,6 +503,7 @@ describe('team-plans flow', () => {
         workflowKey: 'wf_dup',
         requiredBusinessActionIds: [],
         requiredPackIds: [],
+        exampleUserPhrases: ['Relatorio de vendas', 'Exporta dados do mes'],
       },
     ];
 
@@ -517,6 +547,7 @@ describe('team-plans flow', () => {
         category: 'atendimento',
         channels: ['api'],
         catalogTools: ['web_search'],
+        exampleUserPhrases: [],
       },
       {
         name: 'Especialista Resposta',
@@ -528,6 +559,7 @@ describe('team-plans flow', () => {
         category: 'atendimento',
         channels: [],
         catalogTools: ['calendar_access'],
+        exampleUserPhrases: ['Abre fila de tickets', 'Prioridade alta hoje'],
       },
       {
         name: 'Especialista Dados',
@@ -539,6 +571,7 @@ describe('team-plans flow', () => {
         category: 'dados',
         channels: [],
         catalogTools: ['calendar_access'],
+        exampleUserPhrases: ['Query de faturamento', 'Lista top clientes'],
       },
     ];
 

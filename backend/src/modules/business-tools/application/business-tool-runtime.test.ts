@@ -68,7 +68,7 @@ describe('BusinessToolRuntime', () => {
 
 
 
-  it('normalizes alias `nome completo` to `displayName` before schema validation', async () => {
+  it('normalizes CRM aliases before schema validation', async () => {
     const registry = new BusinessToolRegistry();
     const partyRepo = {
       create: jest.fn(async (_workspaceId: string, payload: { displayName: string }) => ({ id: 'p1', ...payload })),
@@ -83,19 +83,31 @@ describe('BusinessToolRuntime', () => {
       workspaceId: '507f1f77bcf86cd799439011',
       toolDefinitionId: 'td1',
       actionId: 'crm_create_party',
-      input: { 'nome completo': 'Rita Davila', email: 'rita@gmail.com' },
+      input: { 'nome completo': 'Rita Davila', mail: 'rita@gmail.com', telefone: '+351900000000' },
     });
 
     expect(r.ok).toBe(true);
     expect(partyRepo.create).toHaveBeenCalledWith(
       '507f1f77bcf86cd799439011',
-      expect.objectContaining({ displayName: 'Rita Davila' }),
+      expect.objectContaining({
+        displayName: 'Rita Davila',
+        email: 'rita@gmail.com',
+        phone: '+351900000000',
+      }),
     );
     expect(append).toHaveBeenCalledWith(
       expect.objectContaining({
-        rawInput: { 'nome completo': 'Rita Davila', email: 'rita@gmail.com' },
-        normalizedInput: expect.objectContaining({ name: 'Rita Davila', email: 'rita@gmail.com' }),
-        submittedInput: expect.objectContaining({ name: 'Rita Davila', email: 'rita@gmail.com' }),
+        rawInput: { 'nome completo': 'Rita Davila', mail: 'rita@gmail.com', telefone: '+351900000000' },
+        normalizedInput: expect.objectContaining({
+          name: 'Rita Davila',
+          email: 'rita@gmail.com',
+          phone: '+351900000000',
+        }),
+        submittedInput: expect.objectContaining({
+          name: 'Rita Davila',
+          email: 'rita@gmail.com',
+          phone: '+351900000000',
+        }),
       }),
     );
   });
@@ -172,7 +184,7 @@ describe('BusinessToolRuntime', () => {
       workspaceId: '507f1f77bcf86cd799439011',
       toolDefinitionId: 'td-create',
       actionId: 'crm_create_party',
-      input: { name: 'Rita' },
+      input: { name: 'Rita', phone: '+351900000001' },
     });
 
     expect(r.ok).toBe(false);

@@ -39,6 +39,7 @@ function specialistBase(name: string, overrides: Partial<TPlannerOutput['agents'
     category: 'geral',
     channels: [],
     catalogTools: [],
+    exampleUserPhrases: ['Preciso de ajuda com o dominio', 'Executa a tarefa principal'],
     ...wf82,
     ...overrides,
   };
@@ -57,6 +58,7 @@ describe('planner-agent-catalog-tools', () => {
         category: 'geral',
         channels: [],
         catalogTools: [],
+        exampleUserPhrases: [],
         ...wf82,
       },
     ]);
@@ -80,6 +82,7 @@ describe('planner-agent-catalog-tools', () => {
           category: 'geral',
           channels: [],
           catalogTools: [],
+          exampleUserPhrases: [],
           ...wf82,
         },
       ],
@@ -139,6 +142,7 @@ describe('planner-agent-catalog-tools', () => {
         category: 'geral',
         channels: [],
         catalogTools: ['image_generation', 'web_search'],
+        exampleUserPhrases: ['Gera uma imagem para o post', 'Cria arte com o tema X'],
         ...wf82,
       },
     ]);

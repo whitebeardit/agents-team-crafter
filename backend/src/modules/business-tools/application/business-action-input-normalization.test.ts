@@ -5,14 +5,16 @@ import {
 } from './business-action-input-normalization.js';
 
 describe('normalizeBusinessActionInput (Loop 98.6)', () => {
-  it('normalizes crm_create_party name aliases', () => {
+  it('normalizes crm_create_party name, email and phone aliases', () => {
     const normalized = normalizeBusinessActionInput('crm_create_party', {
       'nome completo': 'Rita Davila',
-      email: 'rita@gmail.com',
+      mail: 'rita@gmail.com',
+      telefone: '+351900000000',
     }) as Record<string, unknown>;
 
     expect(normalized.name).toBe('Rita Davila');
     expect(normalized.email).toBe('rita@gmail.com');
+    expect(normalized.phone).toBe('+351900000000');
   });
 
   it('normalizes crm_create_party name alias into displayName', () => {

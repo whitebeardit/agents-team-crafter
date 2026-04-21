@@ -36,6 +36,7 @@ const MOCK_LLM_PLAN = {
       skills: ['comunicacao'],
       category: 'atendimento',
       channels: ['api'],
+      exampleUserPhrases: [],
     },
     {
       name: 'Especialista CRM',
@@ -46,6 +47,7 @@ const MOCK_LLM_PLAN = {
       skills: ['dados'],
       category: 'atendimento',
       channels: [],
+      exampleUserPhrases: ['Cadastra cliente Joao', 'Busca cliente por telefone'],
     },
   ],
   graph: { nodes: [], edges: [] },

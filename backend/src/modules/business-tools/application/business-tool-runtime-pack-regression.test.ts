@@ -7,7 +7,11 @@ import { getBusinessActionPreset } from './business-action-presets.js';
 describe('BusinessToolRuntime pack regression (Loop 98.9)', () => {
   it('executes representative actions across core packs (crm/care/finance/reminders/scheduling)', async () => {
     const cases = [
-      { actionId: 'crm_create_party', packId: 'crm', input: { name: 'Cliente A' } },
+      {
+        actionId: 'crm_create_party',
+        packId: 'crm',
+        input: { name: 'Cliente A', phone: '+351900000001' },
+      },
       {
         actionId: 'care_create_subject',
         packId: 'care',

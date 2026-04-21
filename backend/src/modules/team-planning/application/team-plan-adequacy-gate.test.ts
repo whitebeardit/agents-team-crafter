@@ -20,6 +20,7 @@ describe('team-plan-adequacy-gate (Loop 130.5)', () => {
             workflowKey: 'coordination',
             requiredBusinessActionIds: [],
             requiredPackIds: [],
+            exampleUserPhrases: [],
           },
           {
             name: 'Esp CRM',
@@ -34,6 +35,7 @@ describe('team-plan-adequacy-gate (Loop 130.5)', () => {
             workflowKey: 'crm_ops',
             requiredBusinessActionIds: [],
             requiredPackIds: ['crm'],
+            exampleUserPhrases: ['Cria cliente', 'Lista clientes cadastrados'],
           },
         ],
         requiredPacks: ['crm'],

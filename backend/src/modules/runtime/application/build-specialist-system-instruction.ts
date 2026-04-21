@@ -13,6 +13,7 @@ const TOOL_CONTRACT_PROMPT_POLICY = `## Tool contract policy (Loop 98.5)
 - Guardrail CRM (Loop 138):
   - Para “listar todos os clientes”/“listar clientes cadastrados”, use \`crm_list_parties\` com \`query: ""\` (e \`roles: ["customer"]\` quando fizer sentido), sem clarificação.
   - Para “buscar cliente por e-mail/telefone/ID”, use \`crm_find_party\` com identificador direto, sem pedir \`query\`.
+  - Para “cadastrar/criar novo cliente”, tendo \`name\` e \`phone\`, execute \`crm_create_party\` diretamente; \`email\` e \`notes\` são opcionais e só devem ser oferecidos uma vez, sem bloquear a execução.
   - Em reads simples de CRM (list all / find by identifier), no máximo **uma** clarificação apenas se existir ambiguidade real.
 - Se receber \`MISSING_REQUIRED_FIELDS\`, usa \`missingFields\` e \`submittedInput\` para corrigir a próxima tentativa; não repitas payload inválido.
 - Se receber \`EXECUTION_ERROR\`, não faças retry cego. Só repete quando houver sinal explícito de erro transitório/seguro no diagnóstico devolvido pelo runtime.

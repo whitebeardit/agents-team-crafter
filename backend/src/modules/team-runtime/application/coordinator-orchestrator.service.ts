@@ -31,6 +31,10 @@ import { composeExternalResponseFromModelText } from './response-composer.servic
 import { formatCoordinatorUserMessage } from './format-coordinator-user-message.js';
 import { buildSpecialistRuntimeMessage } from './build-specialist-runtime-message.js';
 import {
+  buildCoordinatorTeamRosterAppendix,
+  extractExampleUserPhrasesFromAgentDomain,
+} from './build-coordinator-team-roster-appendix.js';
+import {
   resolveSpecialistAgentIdFromToolName,
   SpecialistRegistry,
 } from '../infra/registries/specialist-registry.js';
@@ -79,10 +83,13 @@ function destructiveAuditPersistPath(): string {
 }
 
 /** Appended to the coordinator system instruction so tool calls stay explicit. */
-const COORDINATOR_SPECIALIST_TOOL_GUIDANCE = `
+export const COORDINATOR_SPECIALIST_TOOL_GUIDANCE = `
 
 ## Ferramentas de especialistas
 Cada chamada recebe o parâmetro \`instruction\`. O sistema repassa automaticamente a **mensagem completa do utilizador** ao especialista quando ainda não estiver incluída nessa instrução; podes focar a \`instruction\` na tarefa e confiar nesse reenvio para código ou texto longo.
+
+## Desambiguação e roster
+Se a intenção do utilizador for vaga ou puder caber em mais do que um especialista, usa primeiro a secção **"## Equipa / especialistas"** acima (nome, domínio, exemplos) e faz **uma** pergunta objetiva para escolher o rumo — **sem** chamar tool de especialista só para listar opções. Quando o catálogo ou schema da ação de negócio já definir campos obrigatórios, **não** uses o especialista apenas para repetir essa lista; responde tu com base no contrato ou pede ao utilizador o que falta.
 
 ## Ações de negócio (internal_action / ws_*)
 Para criar ou alterar dados, **não invoques** a tool enquanto faltarem campos obrigatórios do contrato. Identifica o que falta e faz **uma** pergunta compacta com todos os itens em falta; depois executa a tool. Se o runtime devolver erro de campos em falta, usa essa lista na próxima resposta em vez de repetir a chamada vazia.
@@ -90,6 +97,8 @@ Antes de acionar qualquer especialista para WRITE/UPDATE, confirma no catálogo 
 Se o utilizador perguntar "quais campos obrigatórios", responde com a lista objetiva dos obrigatórios da tool escolhida e já peça os valores no formato correto, sem executar a ação ainda.
 Para leituras simples, evita confirmações redundantes e executa direto quando a intenção estiver clara.
 Para ações **não destrutivas** (ex.: criação/edição administrativa), evita ritual de "responda confirmo"; se a intenção estiver clara e os obrigatórios completos, executa diretamente.
+Para cadastro CRM com \`crm_create_party\`: tendo \`name\` e \`phone\`, aciona a tool imediatamente; \`email\` e \`notes\` são opcionais e nunca devem bloquear o cadastro nem gerar uma segunda confirmação.
+Ao delegar para especialista de CRM, inclui na \`instruction\` os campos já coletados em formato chave/valor (\`name\`, \`phone\`, \`email\`, \`notes\`) para evitar nova coleta do que já foi informado.
 Para ações destrutivas (cancelar/remover/apagar), pede confirmação explícita única antes de executar.
 
 ## Resposta final ao utilizador (imagens)
@@ -674,18 +683,46 @@ export class CoordinatorOrchestratorService {
     assertTeamCoordinatorBinding(coordinator as Record<string, unknown>, teamRow.coordinatorId);
 
     const specialistIds = listSpecialistIds(teamRow);
-    const specialists: Array<{ id: string; name: string; description?: string }> = [];
+    const specialists: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      category?: string;
+      exampleUserPhrases?: string[];
+    }> = [];
+    const rosterInputs: Array<{
+      name: string;
+      category?: string;
+      goal?: string;
+      description?: string;
+      exampleUserPhrases?: string[];
+    }> = [];
     for (const sid of specialistIds) {
       const a = await this.agentRepo.findById(ws, sid);
       if (!a) continue;
       const row = a as Record<string, unknown>;
       assertSpecialistAgentRow(row);
+      const name = String(row['name'] ?? 'Specialist');
+      const description = String(row['description'] ?? '');
+      const category = String(row['category'] ?? '');
+      const goal = typeof row['goal'] === 'string' ? row['goal'] : '';
+      const exampleUserPhrases = extractExampleUserPhrasesFromAgentDomain(row['domain']);
       specialists.push({
         id: String(row['id']),
-        name: String(row['name'] ?? 'Specialist'),
-        description: String(row['description'] ?? ''),
+        name,
+        description,
+        ...(category.trim() ? { category } : {}),
+        ...(exampleUserPhrases.length ? { exampleUserPhrases } : {}),
+      });
+      rosterInputs.push({
+        name,
+        category,
+        goal,
+        description,
+        exampleUserPhrases,
       });
     }
+    const rosterAppendix = buildCoordinatorTeamRosterAppendix(rosterInputs);
 
     const specialistResults: ISpecialistResult[] = [];
     const specialistSidecarEvents: ITeamExecutionEvent[] = [];
@@ -822,9 +859,10 @@ export class CoordinatorOrchestratorService {
     const userMessage = formatCoordinatorUserMessage(invocation);
     const crow = coordinator as Record<string, unknown>;
     const baseCoordinatorSystem = (crow['systemInstruction'] as string | undefined)?.trim();
-    const coordinatorSystemInstruction =
-      (baseCoordinatorSystem ? `${baseCoordinatorSystem}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}` : undefined) ??
-      `Voce e o coordenador do time de agentes.${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}`;
+    const coordinatorCore = baseCoordinatorSystem?.length
+      ? baseCoordinatorSystem
+      : 'Voce e o coordenador do time de agentes.';
+    const coordinatorSystemInstruction = `${coordinatorCore}${rosterAppendix}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}`;
 
     const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
     const timeline: ITeamExecutionEvent[] = [

@@ -26,6 +26,8 @@ const TeamPlanAgentSchema = new Schema(
     requiredBusinessActionIds: [{ type: String }],
     /** Loop 82 — pack ids por agente. */
     requiredPackIds: [{ type: String }],
+    /** Frases de exemplo do utilizador (planner / roster do coordenador). */
+    exampleUserPhrases: [{ type: String }],
   },
   { _id: false },
 );

@@ -44,7 +44,12 @@ function buildFingerprint(draft: IAgentGovernanceDraft): {
     category: normalizeAgentCategory(draft.category ?? 'geral'),
     skills: uniqueNormalized(draft.skills ?? []),
     responsibilities: uniqueNormalized([...(draft.responsibilities ?? []), ...(domain.boundaries ?? [])]),
-    keywords: uniqueNormalized([...(domain.keywords ?? []), ...(domain.exclusions ?? []), ...(draft.reuseHints ?? [])]),
+    keywords: uniqueNormalized([
+      ...(domain.keywords ?? []),
+      ...(domain.exclusions ?? []),
+      ...(draft.reuseHints ?? []),
+      ...(domain.exampleUserPhrases ?? []),
+    ]),
     text: uniqueNormalized([
       ...tokenizeText(draft.name),
       ...tokenizeText(draft.description),

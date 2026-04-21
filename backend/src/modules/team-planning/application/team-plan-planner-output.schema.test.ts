@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { plannerOutputSchema } from './team-plan-planner-output.schema.js';
+import { padPlannerAgentsForSchemaValidation, plannerOutputSchema } from './team-plan-planner-output.schema.js';
 
 describe('plannerOutputSchema', () => {
   it('aceita primaryChannel telegram e canais do coordenador alinhados', () => {
@@ -31,6 +31,7 @@ describe('plannerOutputSchema', () => {
           skills: ['saude'],
           category: 'saude',
           channels: [],
+          exampleUserPhrases: ['Regista evolucao do paciente', 'Mostra o prontuario de hoje'],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -64,6 +65,7 @@ describe('plannerOutputSchema', () => {
           skills: [],
           category: 'geral',
           channels: ['api'],
+          exampleUserPhrases: [],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -140,6 +142,7 @@ describe('plannerOutputSchema', () => {
           workflowKey: 'alpha_flow',
           requiredBusinessActionIds: [],
           requiredPackIds: [],
+          exampleUserPhrases: ['Fluxo alpha um', 'Fluxo alpha dois'],
         },
         {
           name: 'Esp B',
@@ -152,6 +155,7 @@ describe('plannerOutputSchema', () => {
           channels: [],
           workflowKey: '',
           catalogTools: ['web_search'],
+          exampleUserPhrases: ['Pedido beta um', 'Pedido beta dois'],
         },
       ],
       graph: { nodes: [], edges: [] },
@@ -167,5 +171,86 @@ describe('plannerOutputSchema', () => {
     expect(parsed.data.agents[0]!.workflowKey).toBe('coordination');
     expect(parsed.data.agents[1]!.workflowKey).toBe('alpha_flow');
     expect(parsed.data.agents[2]!.workflowKey).toBe('beta');
+  });
+
+  it('rejeita especialista sem exampleUserPhrases suficientes', () => {
+    const raw = {
+      team: {
+        name: 'Time Exemplos',
+        objective: 'Objetivo minimo de dez caracteres.',
+        description: '',
+        channelIds: [],
+      },
+      agents: [
+        {
+          name: 'Coord',
+          role: 'coordinator',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'geral',
+          channels: ['api'],
+        },
+        {
+          name: 'Esp',
+          role: 'specialist',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'x',
+          channels: [],
+          exampleUserPhrases: ['So uma frase'],
+        },
+      ],
+      graph: { nodes: [], edges: [] },
+      executionChecklist: [],
+      requiredPacks: [],
+      requiredTools: [],
+    };
+    expect(plannerOutputSchema.safeParse(raw).success).toBe(false);
+  });
+
+  it('padPlannerAgentsForSchemaValidation completa especialista legado sem exampleUserPhrases', () => {
+    const raw = {
+      team: {
+        name: 'Time Legado',
+        objective: 'Objetivo minimo de dez caracteres.',
+        description: '',
+        channelIds: [],
+      },
+      agents: [
+        {
+          name: 'Coord',
+          role: 'coordinator',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'geral',
+          channels: ['api'],
+        },
+        {
+          name: 'Esp',
+          role: 'specialist',
+          description: 'x',
+          objective: 'y',
+          responsibilities: [],
+          skills: [],
+          category: 'crm',
+          channels: [],
+        },
+      ],
+      graph: { nodes: [], edges: [] },
+      executionChecklist: [],
+      requiredPacks: [],
+      requiredTools: [],
+    };
+    const padded = {
+      ...raw,
+      agents: padPlannerAgentsForSchemaValidation(raw.agents),
+    };
+    expect(plannerOutputSchema.safeParse(padded).success).toBe(true);
   });
 });

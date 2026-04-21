@@ -3,7 +3,6 @@ import { z } from 'zod';
 import type { IWorkspaceCustomToolDefinition } from '../ports/agent-runtime.provider.js';
 import type { IBusinessToolRuntime } from '../../business-tools/application/business-tool-runtime.js';
 import { logToolInvocation } from './tool-invocation-logger.js';
-import { jsonSchemaToZodParams } from './json-schema-to-zod-params.js';
 import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
 import {
   classifyBusinessActionOperation,
@@ -23,6 +22,36 @@ function slugToToolName(slug: string): string {
   return `ws_${s}`.slice(0, 64);
 }
 
+function hasObjectProperties(schema: Record<string, unknown> | undefined): boolean {
+  if (!schema || typeof schema !== 'object') return false;
+  if (schema.type !== 'object') return false;
+  const props = schema.properties;
+  return !!props && typeof props === 'object' && !Array.isArray(props);
+}
+
+function resolveInternalActionParameterSchema(
+  definitionSchema: Record<string, unknown> | undefined,
+  presetSchema: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (hasObjectProperties(definitionSchema)) return definitionSchema as Record<string, unknown>;
+  if (hasObjectProperties(presetSchema)) return presetSchema as Record<string, unknown>;
+  return definitionSchema ?? presetSchema ?? {};
+}
+
+function buildLenientInternalActionJsonSchema(
+  definitionSchema: Record<string, unknown> | undefined,
+  presetSchema: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  const resolved = resolveInternalActionParameterSchema(definitionSchema, presetSchema);
+  if (!resolved || typeof resolved !== 'object' || resolved.type !== 'object') {
+    return { type: 'object', additionalProperties: true };
+  }
+  return {
+    ...resolved,
+    additionalProperties: true,
+  };
+}
+
 /**
  * Tools registadas pelo workspace (HTTP webhook, internal business actions, etc.).
  */
@@ -36,7 +65,11 @@ export function buildWorkspaceCustomTools(
   for (const def of defs) {
     if (def.kind === 'internal_action') {
       const actionId = typeof def.config.actionId === 'string' ? def.config.actionId.trim() : '';
-      const parameters = jsonSchemaToZodParams(def.jsonSchema ?? {});
+      const preset = getBusinessActionPreset(actionId);
+      const parameters = buildLenientInternalActionJsonSchema(
+        def.jsonSchema ?? undefined,
+        (preset?.inputSchema as Record<string, unknown> | undefined) ?? undefined,
+      );
       const toolName = slugToToolName(def.slug || def.id);
       if (!actionId || !runtime) {
         out.push(
@@ -56,7 +89,6 @@ export function buildWorkspaceCustomTools(
         tool({
           name: toolName,
           description: (() => {
-            const preset = getBusinessActionPreset(actionId);
             const operation = classifyBusinessActionOperation(actionId);
             const required =
               preset?.requiredFieldLabels && preset.requiredFieldLabels.length > 0
@@ -67,7 +99,8 @@ export function buildWorkspaceCustomTools(
               : '';
             return `${def.name} (internal business action: ${actionId}; operation=${operation}). ${operationPolicyPromptLine(operation)}${required}${slotHint}`.trim();
           })(),
-          parameters,
+          parameters: parameters as never,
+          strict: false,
           execute: async (input) => {
             const r = await runtime.execute({
               workspaceId: meta.workspaceId,

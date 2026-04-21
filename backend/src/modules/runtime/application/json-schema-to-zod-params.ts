@@ -6,17 +6,18 @@ import { z } from 'zod';
  */
 export function jsonSchemaToZodParams(
   schema: Record<string, unknown>,
-): z.ZodObject<Record<string, z.ZodTypeAny>> {
+) {
+  const permissiveObject = () => z.object({}).catchall(z.unknown());
   if (!schema || typeof schema !== 'object') {
-    return z.object({});
+    return permissiveObject();
   }
   const t = schema['type'];
   if (t !== 'object') {
-    return z.object({});
+    return permissiveObject();
   }
   const props = schema['properties'];
   if (!props || typeof props !== 'object') {
-    return z.object({});
+    return permissiveObject();
   }
   const required = new Set(Array.isArray(schema['required']) ? (schema['required'] as string[]) : []);
   const shape: Record<string, z.ZodTypeAny> = {};
@@ -30,10 +31,8 @@ export function jsonSchemaToZodParams(
     else if (pt === 'array') zf = z.array(z.unknown());
     else if (pt === 'object') zf = z.object({});
     else zf = z.unknown();
-    if (!required.has(key)) {
-      zf = z.union([zf, z.null()]).describe('Opcional: use null quando não precisar preencher este campo.');
-    }
+    if (!required.has(key)) zf = z.union([zf, z.null()]).optional();
     shape[key] = zf;
   }
-  return z.object(shape);
+  return z.object(shape).catchall(z.unknown());
 }

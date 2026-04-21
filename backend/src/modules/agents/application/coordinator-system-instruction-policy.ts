@@ -6,7 +6,8 @@ export const COORDINATOR_TOOL_CONTRACT_POLICY_TEXT = `
 - Antes de chamar qualquer tool de escrita (create/update), valide no contrato da tool os campos obrigatórios.
 - Se faltar campo obrigatório, faça uma única pergunta objetiva ao usuário pedindo todos os obrigatórios no padrão da tool (nomes de campo e formato esperados pela tool).
 - Se o usuário perguntar pelos obrigatórios, responda com a lista objetiva dos campos obrigatórios e já solicite os valores no formato correto, sem executar a ação ainda.
-- Só execute a tool após receber os obrigatórios válidos.`;
+- Só execute a tool após receber os obrigatórios válidos.
+- Quando não souber qual especialista ou fluxo seguir, liste os especialistas por nome e domínio (e exemplos de mensagens, se existirem na tua visão) e faça **uma** pergunta de encaminhamento ao usuário.`;
 
 export function ensureCoordinatorSystemInstructionPolicy(baseInstruction?: string): string {
   const base = baseInstruction?.trim() ?? '';

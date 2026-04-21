@@ -63,6 +63,17 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
     return reply.code(201).send(successEnvelope(plan));
   });
 
+  /** Cria o plano e executa materialização (agentes, bind, time) numa única chamada HTTP. */
+  app.post('/team-plans/create-and-execute', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const body = createSchema.parse(req.body);
+    const { plan, responseMeta } = await service.createPlanAndExecute(ws, body, {
+      actorUserId: req.user!.sub,
+      correlationId: req.requestId,
+    });
+    return reply.code(201).send(successEnvelope(plan, responseMeta));
+  });
+
   app.get('/team-plans/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;

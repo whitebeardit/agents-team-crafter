@@ -31,7 +31,10 @@ Regras obrigatorias:
 - Para cada agente: description, objective, responsibilities (lista), skills (lista) devem refletir o problema; evite textos genericos como apenas "analise e execucao" sem ligar ao cenario.
 - **Dominio de assunto (especialistas):** para cada agente com role "specialist", o campo "category" deve ser um rotulo CURTO e **distinto** dos outros especialistas quando houver mais de um (ex.: "financeiro", "cadastro", "imagem_social", "dados_sql"). Nao use "geral" para todos se os papéis forem diferentes. Se dois pedidos do usuario colidirem no mesmo dominio, prefira **um** especialista dono daquele tema ou separar escopos de forma explicita nos textos (sem dois donos do mesmo assunto).
 - Missao tecnica por agente: para cada especialista, objetivo e responsabilidades devem deixar claro o que entra (inputs do utilizador/canal) e o que sai (entregavel: texto, arte, plano, checklist, etc.) e criterios de qualidade observaveis. O coordenador deve ter responsabilidades de orquestracao (priorizar, delegar, consolidar) alinhadas ao problema.
-- Regra obrigatoria para o coordenador: nas responsabilidades/objetivo, inclua explicitamente que antes de usar qualquer tool de escrita ele deve verificar os campos obrigatorios do contrato da tool e solicitar ao usuario os faltantes no mesmo padrao de campos/formato esperado pela tool.
+- **exampleUserPhrases (obrigatorio por especialista):** para cada agente com role "specialist", preencha **exampleUserPhrases** com **2 a 6** frases curtas em linguagem natural que o utilizador poderia enviar para esse papel (ex.: "Quero cadastrar um cliente", "Lista os meus clientes"). As frases devem refletir o dominio **category** e as responsabilidades. O coordenador pode ter **exampleUserPhrases** vazio ou omitido.
+- **Desambiguacao (coordenador):** nas responsabilidades e/ou objetivo do coordenador, inclua que quando a intencao nao estiver clara ou couber mais do que um especialista, deve listar os especialistas por **nome**, **category** (dominio) e as **exampleUserPhrases** de cada um (ou resumo), e fazer **uma** pergunta objetiva para o utilizador escolher o rumo — sem invocar tool de especialista so para isso.
+- Regra obrigatoria para o coordenador: nas responsabilidades/objetivo, inclua explicitamente que antes de usar qualquer tool de escrita ele deve verificar os campos obrigatorios do contrato da tool e solicitar ao usuario os faltantes no mesmo padrao de campos/formato esperado pela tool; quando o catalogo/schema da tool ja listar obrigatorios, **nao** use o especialista apenas para repetir essa lista — use o especialista para ambiguidade de negocio ou para executar apos dados completos.
+- Para criacoes administrativas nao destrutivas (ex.: cadastro CRM), depois de recolher os obrigatorios em uma unica rodada, o coordenador deve executar a tool sem pedir uma segunda confirmacao do tipo "confirmo/sim". Ao delegar para especialista, deve repassar os campos ja coletados em formato estruturado chave/valor.
 - Se o problema envolver criacao de imagens, arte social, capas ou posts visuais: inclua um especialista cujo objective e responsibilities mencionem brief visual (tema, texto na imagem se houver, estilo, publico). Nota para o runtime: geracao com DALL-E 3 no produto usa tamanhos fixos 1024x1024 (quadrado), 1792x1024 ou 1024x1792; pedidos como "400x400" devem ser mapeados para quadrado 1024x1024 na missao (redimensionar depois se necessario).
 - graph: sempre envie "graph": { "nodes": [], "edges": [] }. O backend monta posicoes; nao envie coordenadas de nos.
 - executionChecklist: lista de passos concretos para colocar o plano em pratica.
@@ -68,7 +71,8 @@ Estrutura JSON exata das chaves de nivel superior:
       "catalogTools": string[],
       "workflowKey": string,
       "requiredBusinessActionIds": string[],
-      "requiredPackIds": string[]
+      "requiredPackIds": string[],
+      "exampleUserPhrases": string[]
     }
   ],
   "graph": { "nodes": [], "edges": [] },
@@ -98,7 +102,8 @@ Exemplo de FORMA (nao copie conteudos; adapte ao problema real):
       "catalogTools": ["web_search"],
       "workflowKey": "coordination",
       "requiredBusinessActionIds": [],
-      "requiredPackIds": []
+      "requiredPackIds": [],
+      "exampleUserPhrases": []
     },
     {
       "name": "Especialista em Secure Code Review",
@@ -112,7 +117,12 @@ Exemplo de FORMA (nao copie conteudos; adapte ao problema real):
       "catalogTools": ["code_execution"],
       "workflowKey": "seguranca_codigo",
       "requiredBusinessActionIds": [],
-      "requiredPackIds": []
+      "requiredPackIds": [],
+      "exampleUserPhrases": [
+        "Revisa o meu PR com foco em seguranca",
+        "Lista vulnerabilidades comuns no diff",
+        "Explica o risco desta alteracao em auth"
+      ]
     }
   ],
   "graph": { "nodes": [], "edges": [] },
@@ -211,6 +221,7 @@ export function buildTeamPlannerUserMessage(
       SPECIALIST_EXCLUSIVE_IDS_PROMPT +
       ') aparece no maximo em UM especialista (o coordenador nao conta para esta regra).',
     'Em seguida emita o JSON: dominio de assunto distinto por especialista (category + textos); catalogTools minimos; workflowKey unico por especialista; requiredBusinessActionIds e requiredPackIds por agente quando aplicavel; alinhe requiredPacks globais a packs de negocio e requiredTools globais a actionIds internos.',
+    'Cada especialista deve incluir exampleUserPhrases (2 a 6 frases) com pedidos naturais do utilizador alinhados ao dominio.',
   ].join('\n');
 }
 
@@ -231,6 +242,7 @@ Regras:
 - Voce pode: remover um ID duplicado de um dos especialistas, fundir dois especialistas num so se o dominio for o mesmo, ou redistribuir responsabilidades — preserve a intencao do usuario.
 - Mantenha team.name curto; graph sempre "graph": { "nodes": [], "edges": [] }.
 - Preserve por agente: workflowKey, requiredBusinessActionIds, requiredPackIds (Loop 82) salvo quando precisar corrigi-los para cumprir as regras acima.
+- Preserve **exampleUserPhrases** por especialista (2 a 6 frases); se faltar, gere frases coerentes com o dominio antes de emitir o JSON.
 - Estrutura de nivel superior identica ao planner principal: team, agents, graph, executionChecklist, requiredPacks, requiredTools.`;
 
 export function buildTeamPlannerRepairUserMessage(params: {

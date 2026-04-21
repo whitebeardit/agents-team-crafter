@@ -9,6 +9,7 @@ describe('coordinator-system-instruction-policy', () => {
     const out = ensureCoordinatorSystemInstructionPolicy();
     expect(out).toContain('Política obrigatória para uso de tools');
     expect(out).toContain('campos obrigatórios');
+    expect(out).toMatch(/especialistas por nome e dom[ií]nio/i);
   });
 
   it('anexa politica sem duplicar o texto base', () => {

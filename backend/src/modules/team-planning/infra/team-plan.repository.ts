@@ -2,6 +2,15 @@ import { Types } from 'mongoose';
 import { TeamPlanModel } from './team-plan.model.js';
 import type { TeamPlanDoc } from './team-plan.model.js';
 
+function plainTeamPlanAgents(agents: unknown[] | undefined): Record<string, unknown>[] {
+  return (agents ?? []).map((raw) => {
+    if (raw && typeof raw === 'object' && typeof (raw as { toObject?: () => unknown }).toObject === 'function') {
+      return (raw as { toObject: () => Record<string, unknown> }).toObject();
+    }
+    return { ...(raw as Record<string, unknown>) };
+  });
+}
+
 function toPublic(doc: TeamPlanDoc) {
   return {
     id: doc._id.toString(),
@@ -10,7 +19,7 @@ function toPublic(doc: TeamPlanDoc) {
     briefing: doc.briefing ?? null,
     status: doc.status,
     team: doc.team,
-    agents: doc.agents ?? [],
+    agents: plainTeamPlanAgents(doc.agents as unknown[]),
     graph: doc.graph ?? { nodes: [], edges: [] },
     executionChecklist: doc.executionChecklist ?? [],
     requiredPacks: doc.requiredPacks ?? [],

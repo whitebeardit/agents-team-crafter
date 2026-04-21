@@ -4,11 +4,10 @@ import { actionIdToToolSlug } from './planner-pack-presets.js';
 
 function isGenericInternalActionPlaceholder(schema: Record<string, unknown> | undefined): boolean {
   if (!schema || typeof schema !== 'object') return true;
-  return (
-    schema.type === 'object' &&
-    schema.additionalProperties === true &&
-    !schema.properties
-  );
+  if (schema.type !== 'object') return true;
+  const props = schema.properties;
+  if (!props || typeof props !== 'object' || Array.isArray(props)) return true;
+  return Object.keys(props).length === 0;
 }
 
 /**

@@ -158,7 +158,7 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       },
     },
     slotFillingPromptHint:
-      'Para “listar todos os clientes cadastrados”, execute direto com query \"\" e roles [\"customer\"] quando aplicável; não pedir query nem IDs.',
+      'Para “listar todos os clientes cadastrados”, execute direto com query "" e roles ["customer"] quando aplicável; não pedir query nem IDs.',
   },
   'care_create_subject': {
     title: 'Care — Criar sujeito de cuidado',
