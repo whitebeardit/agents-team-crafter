@@ -164,7 +164,7 @@ describe('runs persistence endpoints', () => {
       method: 'POST',
       url: `/api/v1/teams/${teamId}/run`,
       headers,
-      payload: { message: 'tente cadastrar cliente sem dados completos', taskType: 'invoice_validation' },
+      payload: { message: 'investigue a repetição de timeout na ws_crm_upsert', taskType: 'invoice_validation' },
     });
     coordinatorSpy.mockRestore();
 

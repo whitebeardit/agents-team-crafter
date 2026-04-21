@@ -457,17 +457,37 @@ export interface ICoordinatorExecuteOptions {
   onCoordinatorTextDelta?: (text: string) => void;
 }
 
-function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: string[]): ITeamExecutionEvent {
-  if (e.type === 'taskType') return { type: e.type, value: e.value };
+function mapRuntimeEventToTeamEvent(
+  e: TRuntimeEvent,
+  rosterSpecialistIds: string[],
+  invokedByAgentId?: string,
+): ITeamExecutionEvent {
+  const base = invokedByAgentId ? { invokedByAgentId } : {};
+  if (e.type === 'taskType') return { type: e.type, value: e.value, ...base };
+  if (e.type === 'runtimeError') {
+    return {
+      type: e.type,
+      message: e.message,
+      ...(e.errorCode ? { errorCode: e.errorCode } : {}),
+      ...(e.detail ? { detail: e.detail } : {}),
+      ...(e.source ? { source: e.source } : {}),
+      ...(e.agentId ? { agentId: e.agentId } : {}),
+      ...base,
+    };
+  }
   const agentId =
     e.tool !== undefined ? resolveSpecialistAgentIdFromToolName(e.tool, rosterSpecialistIds) : undefined;
   return {
     type: e.type,
     tool: e.tool,
-    status: e.status,
-    errorCode: e.errorCode,
-    ...(e.detail ? { detail: e.detail } : {}),
+    ...(e.callId ? { callId: e.callId } : {}),
+    ...(e.type === 'toolCall' && e.toolInput !== undefined ? { toolInput: e.toolInput } : {}),
+    ...(e.type === 'toolResult' && e.toolOutput !== undefined ? { toolOutput: e.toolOutput } : {}),
+    ...(e.type === 'toolResult' ? { status: e.status } : {}),
+    ...(e.type === 'toolResult' && e.errorCode ? { errorCode: e.errorCode } : {}),
+    ...(e.type === 'toolResult' && e.detail ? { detail: e.detail } : {}),
     ...(agentId ? { agentId } : {}),
+    ...base,
   };
 }
 
@@ -693,6 +713,7 @@ export class CoordinatorOrchestratorService {
       specialistSidecarEvents.push({
         type: 'specialistStarted',
         agentId: specialistAgentId,
+        invokedByAgentId: specialistAgentId,
         phase: 'runStep',
         detail: truncateActivity(runtimeMessage),
         toolInstruction: instruction,
@@ -800,9 +821,13 @@ export class CoordinatorOrchestratorService {
         ...(correlationId ? { correlationId } : {}),
       });
       specialistResults.push({ specialistAgentId, summary: r.finalOutput });
+      specialistSidecarEvents.push(
+        ...r.events.map((event) => mapRuntimeEventToTeamEvent(event, specialistIds, specialistAgentId)),
+      );
       specialistSidecarEvents.push({
         type: 'specialistFinished',
         agentId: specialistAgentId,
+        invokedByAgentId: specialistAgentId,
         phase: 'runStep',
         detail: truncateActivity(r.finalOutput),
       });
@@ -826,7 +851,7 @@ export class CoordinatorOrchestratorService {
 
     const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
     const timeline: ITeamExecutionEvent[] = [
-      { type: 'coordinatorStarted', agentId: teamRow.coordinatorId, phase: 'invoke' },
+      { type: 'coordinatorStarted', agentId: teamRow.coordinatorId, invokedByAgentId: teamRow.coordinatorId, phase: 'invoke' },
       ...preflightEvents,
     ];
     emitProgress({
@@ -884,7 +909,9 @@ export class CoordinatorOrchestratorService {
       phase: 'coordinator',
     });
 
-    const coordinatorMapped = result.events.map((e) => mapRuntimeEventToTeamEvent(e, specialistIds));
+    const coordinatorMapped = result.events.map((e) =>
+      mapRuntimeEventToTeamEvent(e, specialistIds, teamRow.coordinatorId),
+    );
     if (interruptedEvents.length === 0) {
       const noProgress = detectNoProgressInterruption(coordinatorMapped);
       if (noProgress) {
@@ -916,6 +943,7 @@ export class CoordinatorOrchestratorService {
       {
         type: 'coordinatorFinished',
         agentId: teamRow.coordinatorId,
+        invokedByAgentId: teamRow.coordinatorId,
         phase: interruptedEvents.length > 0 ? 'interrupted' : 'done',
       },
     );

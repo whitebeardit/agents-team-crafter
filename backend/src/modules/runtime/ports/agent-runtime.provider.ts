@@ -48,11 +48,28 @@ export interface IExecutableAgentConfig {
 export type TRuntimeEvent =
   | { type: 'taskType'; value: string }
   | {
+      type: 'toolCall';
+      tool: string;
+      callId?: string;
+      toolInput?: string;
+      agentId?: string;
+    }
+  | {
       type: 'toolResult';
       tool: string;
+      callId?: string;
+      toolOutput?: string;
       status: 'success' | 'error';
       errorCode?: string;
       detail?: string;
+      agentId?: string;
+    }
+  | {
+      type: 'runtimeError';
+      message: string;
+      errorCode?: string;
+      detail?: string;
+      source?: string;
       agentId?: string;
     };
 

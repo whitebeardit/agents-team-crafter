@@ -6,11 +6,17 @@ export interface ITeamExecutionEvent {
   type: string;
   value?: string;
   tool?: string;
+  callId?: string;
+  toolInput?: string;
+  toolOutput?: string;
   status?: string;
   errorCode?: string;
   agentId?: string;
+  invokedByAgentId?: string;
   phase?: string;
   detail?: string;
+  message?: string;
+  source?: string;
   /** Raw `instruction` from the coordinator tool call (full string). */
   toolInstruction?: string;
   /** Exact user message passed to specialist `runStep` after merge with user invocation (full string). */

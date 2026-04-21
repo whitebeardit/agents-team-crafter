@@ -73,7 +73,7 @@ describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () =>
       workspaceId: 'ws-1',
       teamId: 'team-1',
       coordinatorId: 'coord-1',
-      message: 'cadastre cliente novo',
+      message: 'investigue a repetição de falha no CRM',
       coordinatorExternalContext: {},
       metadata: { correlationId: 'corr-1' },
     });
@@ -109,7 +109,7 @@ describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () =>
       workspaceId: 'ws-1',
       teamId: 'team-1',
       coordinatorId: 'coord-1',
-      message: 'cadastre cliente novo',
+      message: 'investigue a repetição de timeout no CRM',
       coordinatorExternalContext: {},
       metadata: { correlationId: 'corr-1' },
     });

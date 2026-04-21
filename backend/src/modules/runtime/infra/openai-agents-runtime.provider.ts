@@ -54,38 +54,52 @@ function parseToolOutputPayload(output: unknown): { ok: boolean; errorCode?: str
   }
 }
 
+function serializeRuntimePayload(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 export function mapNewItemsToEvents(result: { newItems?: unknown[] }): IAgentRunResult['events'] {
   const items = result.newItems ?? [];
   const events: IAgentRunResult['events'] = [];
-  const byCallId = new Map<string, number>();
+  const byCallId = new Map<string, { tool: string }>();
   for (const item of items) {
     const t = item as {
       type?: string;
-      rawItem?: { type?: string; name?: string; callId?: string; output?: unknown };
+      rawItem?: { type?: string; name?: string; callId?: string; output?: unknown; arguments?: unknown };
     };
     if (t.type === 'tool_call_item' || t.rawItem?.type === 'function_call') {
       const name = t.rawItem?.name ?? 'tool';
-      const evIndex = events.push({ type: 'toolResult', tool: name, status: 'success' }) - 1;
-      if (t.rawItem?.callId) byCallId.set(t.rawItem.callId, evIndex);
+      const toolInput = serializeRuntimePayload(t.rawItem?.arguments);
+      events.push({
+        type: 'toolCall',
+        tool: name,
+        ...(t.rawItem?.callId ? { callId: t.rawItem.callId } : {}),
+        ...(toolInput !== undefined ? { toolInput } : {}),
+      });
+      if (t.rawItem?.callId) byCallId.set(t.rawItem.callId, { tool: name });
       continue;
     }
 
     if (t.rawItem?.type === 'function_call_output' && t.rawItem.callId) {
-      const evIndex = byCallId.get(t.rawItem.callId);
-      if (evIndex === undefined) continue;
+      const current = byCallId.get(t.rawItem.callId);
+      const tool = current?.tool ?? 'tool';
+      const toolOutput = serializeRuntimePayload(t.rawItem.output);
       const parsed = parseToolOutputPayload(t.rawItem.output);
-      if (!parsed) continue;
-      if (!parsed.ok) {
-        const current = events[evIndex];
-        if (current?.type === 'toolResult') {
-          events[evIndex] = {
-            ...current,
-            status: 'error',
-            ...(parsed.errorCode ? { errorCode: parsed.errorCode } : {}),
-            ...(parsed.detail ? { detail: parsed.detail } : {}),
-          };
-        }
-      }
+      events.push({
+        type: 'toolResult',
+        tool,
+        callId: t.rawItem.callId,
+        ...(toolOutput !== undefined ? { toolOutput } : {}),
+        status: parsed?.ok === false ? 'error' : 'success',
+        ...(parsed?.ok === false && parsed.errorCode ? { errorCode: parsed.errorCode } : {}),
+        ...(parsed?.ok === false && parsed.detail ? { detail: parsed.detail } : {}),
+      });
     }
   }
   return events;
@@ -108,7 +122,15 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       return {
         finalOutput:
           'Chave OpenAI nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY no ambiente (apenas demo).',
-        events: [],
+        events: [
+          {
+            type: 'runtimeError',
+            message: 'Chave OpenAI nao configurada.',
+            errorCode: 'OPENAI_API_KEY_MISSING',
+            detail: 'Defina integracoes do workspace ou OPENAI_API_KEY para executar o runtime.',
+            source: 'provider',
+          },
+        ],
       };
     }
 
@@ -150,7 +172,15 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       return { finalOutput, events };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      const events: IAgentRunResult['events'] = [];
+      const events: IAgentRunResult['events'] = [
+        {
+          type: 'runtimeError',
+          message: `Erro ao executar modelo: ${msg}`,
+          errorCode: 'RUNTIME_EXECUTION_ERROR',
+          detail: msg,
+          source: 'runner',
+        },
+      ];
       if (input.taskType) events.push({ type: 'taskType', value: input.taskType });
       return {
         finalOutput: formatRuntimeErrorWithFallback('Erro ao executar modelo', msg),
@@ -165,7 +195,15 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       return {
         finalOutput:
           'Chave OpenAI nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY no ambiente (apenas demo).',
-        events: [],
+        events: [
+          {
+            type: 'runtimeError',
+            message: 'Chave OpenAI nao configurada.',
+            errorCode: 'OPENAI_API_KEY_MISSING',
+            detail: 'Defina integracoes do workspace ou OPENAI_API_KEY para executar o coordenador.',
+            source: 'provider',
+          },
+        ],
       };
     }
 
@@ -203,7 +241,15 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       const msg = e instanceof Error ? e.message : String(e);
       return {
         finalOutput: formatRuntimeErrorWithFallback('Erro ao executar coordenador', msg),
-        events: [],
+        events: [
+          {
+            type: 'runtimeError',
+            message: `Erro ao executar coordenador: ${msg}`,
+            errorCode: 'COORDINATOR_RUNTIME_ERROR',
+            detail: msg,
+            source: 'runner',
+          },
+        ],
       };
     }
   }
