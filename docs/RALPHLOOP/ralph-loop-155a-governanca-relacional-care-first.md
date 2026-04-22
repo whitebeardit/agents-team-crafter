@@ -353,3 +353,29 @@ Produtos que ainda faltam adotar o mesmo padrao:
 
 **Loop 155B — Governanca relacional por produto (services-sales next):**
 replicar o mesmo padrao de identificacao canonica, pre-condicoes relacionais e handoff para especialista no dominio `services_sales`.
+
+---
+
+## Evidencias de implementacao tecnica (care-first)
+
+Implementacao executada para materializar as regras documentais do 155A:
+
+- Resolucao canonica `phone -> partyId` no boundary de care e bloqueio de ambiguidade/nao encontrado:
+  - `backend/src/modules/care/application/register-care-pack.ts`
+- Pre-condicoes hard de existencia/ownership por `workspaceId` em `care_create_subject` e `care_update_subject`:
+  - `backend/src/modules/care/application/register-care-pack.ts`
+- Ajustes de contrato/normalizacao para lookup por telefone no runtime de business actions:
+  - `backend/src/modules/business-tools/application/business-action-input-validation.ts`
+  - `backend/src/modules/business-tools/application/business-action-input-normalization.ts`
+  - `backend/src/modules/business-tools/application/business-action-presets.ts`
+- Reforco de handoff coordenador -> especialista com `partyId` canonico no dominio care:
+  - `backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts`
+- Evidencias de teste:
+  - `backend/src/modules/care/application/register-care-pack.gold.test.ts`
+  - `backend/src/modules/business-tools/application/business-tool-runtime.test.ts`
+  - `backend/src/modules/business-tools/application/business-action-input-normalization.test.ts`
+
+Commits tecnicos relacionados:
+
+- `80a6ca7` — `feat(care): resolve phone lookup to canonical partyId with ownership guards`
+- `4a92418` — `feat(team-runtime): enforce care handoff guidance with canonical identifiers`

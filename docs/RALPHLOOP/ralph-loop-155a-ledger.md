@@ -74,9 +74,15 @@
   - `docs/RALPHLOOP/ralph-loop-155a-governanca-relacional-care-first.md` (secao do slice 155A.3)
   - `docs/RALPHLOOP/ralph-loop-155a-runtime-tools-care-first.md` (checklist de runtime/tools)
   - `docs/RALPHLOOP/ralph-loop-155a-ledger.md` (registro de fechamento)
+- **Evidencias tecnicas implementadas:**
+  - `backend/src/modules/care/application/register-care-pack.ts` (resolucao `phone -> partyId` + pre-condicoes de existencia/ownership)
+  - `backend/src/modules/business-tools/application/business-action-input-validation.ts` (fallback de obrigatorio por `phone` em `care_create_subject`)
+  - `backend/src/modules/business-tools/application/business-action-input-normalization.ts` (normalizacao de aliases `phone`/`partyId` em care)
+  - `backend/src/modules/business-tools/application/business-action-presets.ts` (contrato explicito de `phone` como lookup-only)
+  - `backend/src/modules/care/application/register-care-pack.gold.test.ts` (cobertura de lookup, ambiguidade e ownership)
 - **Pendencias imediatas:** nenhuma pendencia aberta do slice.
-- **Riscos residuais:** endurecimento em codigo/runtime ainda depende de loops de implementacao tecnica por modulo.
-- **Acao corretiva sugerida:** priorizar no 155B validacoes hard-fail no boundary runtime para cada produto.
+- **Riscos residuais:** replicacao do endurecimento ainda pendente para os demais produtos da fila residual.
+- **Acao corretiva sugerida:** priorizar no 155B a mesma estrategia de hard-fail relacional em `services_sales`.
 - **Decisao:** continuar
 - **Proxima acao:** iniciar Slice 155A.4 com checklist anti-drift de handoff coordenador -> especialista.
 
@@ -94,6 +100,8 @@
   - `docs/RALPHLOOP/ralph-loop-155a-runtime-tools-care-first.md` (contrato operacional)
   - `docs/RALPHLOOP/ralph-loop-155a-moc.md` (referencia canonica por slice)
   - `docs/RALPHLOOP/ralph-loop-155a-ledger.md` (fechamento do slice)
+- **Evidencias tecnicas implementadas:**
+  - `backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts` (guidance explicita de handoff care com `partyId` canonico)
 - **Pendencias imediatas:** nenhuma pendencia aberta do slice.
 - **Validacao de alinhamento coordenador/especialista:** conforme (contrato unico publicado em plano + runtime/tools + MOC).
 - **Decisao:** continuar
