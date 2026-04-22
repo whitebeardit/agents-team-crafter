@@ -1,0 +1,35 @@
+---
+description: JSON Schema válido para function tools OpenAI (internal_action / ws_*)
+globs:
+  - backend/src/modules/business-tools/**/*.ts
+  - backend/src/modules/runtime/**/*.ts
+  - backend/src/modules/team-planning/**/*.ts
+alwaysApply: false
+---
+
+# Function tools — JSON Schema sempre válido (OpenAI)
+
+Ao expor tools à **OpenAI Responses API** / Agents SDK (`internal_action`, nomes `ws_*`, ou qualquer function tool):
+
+## Regras obrigatórias
+
+1. **`type: "object"` implica `properties`**
+   - O schema público da tool **não pode** ser `{ "type": "object" }` sem a chave `properties`.
+   - A API devolve erro do tipo: `400 Invalid schema for function '...': object schema missing properties`.
+   - Se precisares de payload livre, usa no mínimo `"properties": {}` **e** confirma que o SDK/API aceitam; quando possível, define campos reais alinhados ao handler.
+
+2. **Presets em `business-action-presets.ts`**
+   - Toda action com handler que lê `input` do corpo deve ter `inputSchema` com `type`, `properties` e `required` coerentes com o runtime (`BusinessToolRuntime` / `validateBusinessActionInput`).
+   - Não deixar apenas `title`, `description`, `packId` sem `inputSchema` quando a tool for registada.
+
+3. **Builder `buildLenientInternalActionJsonSchema` (e similares)**
+   - Antes de registar a tool, **normaliza** o schema: garante `properties` como objeto; nunca emites object sem `properties`.
+   - Ao adicionar novos caminhos que gerem JSON Schema para tools, aplica a mesma invariante.
+
+4. **Testes**
+   - Novos presets ou alterações a `inputSchema` de ações CRM/negócio devem ter cobertura em testes gold ou em `build-workspace-custom-tools.test.ts` quando o risco for schema exposto à API.
+
+## Referência de código
+
+- Presets: `backend/src/modules/business-tools/application/business-action-presets.ts`
+- Registo de tools workspace: `backend/src/modules/runtime/application/build-workspace-custom-tools.ts`

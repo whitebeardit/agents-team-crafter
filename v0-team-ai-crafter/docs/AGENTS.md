@@ -108,6 +108,8 @@ flowchart TB
 | [chat-sdk.md](./chat-sdk.md) | Webhooks, adapters, estado Redis/memory, ligação ao runtime. |
 | [agents-and-handoff.md](./agents-and-handoff.md) | Team runtime, coordenador, tools de especialistas, OpenAI Agents SDK. |
 
+**Contrato de schemas (OpenAI):** ao alterar presets de business tools ou o registo de `internal_action`, seguir a regra do repositório em [`.cursor/rules/openai-tool-json-schema.mdc`](../../.cursor/rules/openai-tool-json-schema.mdc) — object schemas expostos à API devem incluir sempre `properties`.
+
 ---
 
 ## Especificações na raiz do repositório
