@@ -274,8 +274,8 @@ Passo a passo canonico de consulta:
 
 **Criterio de saida do slice:**
 
-- [ ] checklist final do loop 155A marcado;
-- [ ] proximo produto definido com owner e prazo inicial.
+- [x] checklist final do loop 155A marcado;
+- [x] proximo produto definido com owner e prazo inicial.
 
 **Registro no ledger (obrigatorio):**
 
@@ -283,17 +283,30 @@ Passo a passo canonico de consulta:
 - decisao (`continuar|replanejar|escalar`);
 - proximo loop/slice priorizado.
 
+#### Fechamento formal care-first (Slice 155A.6)
+
+- Loop 155A concluido com fechamento documental dos slices 155A.2 ate 155A.6.
+- Padrao canonico validado para `care` sem reabrir o baseline 155A.1.
+- Fila residual confirmada para replicacao por produto.
+
+#### Preparacao da fila e proximo loop priorizado
+
+- **Proximo loop:** `155B — Governanca relacional por produto (services-sales next)`.
+- **Produto alvo inicial:** `services_sales`.
+- **Owner inicial:** coordenacao de produto/runtime (services_sales).
+- **Prazo inicial recomendado:** 2026-04-29 (abertura do primeiro checkpoint 155B).
+
 ---
 
 ## Gate de qualidade do loop
 
 Checklist de aceite global do Loop 155A:
 
-- [ ] regra `phone -> partyId` publicada como norma canonica de operacao.
-- [ ] pre-condicoes de existencia/ownership para `care` publicadas.
-- [ ] handoff para especialista com `partyId` obrigatorio documentado.
-- [ ] matriz relacional de historico longitudinal publicada.
-- [ ] ledger atualizado por slice com evidencias e decisao.
+- [x] regra `phone -> partyId` publicada como norma canonica de operacao.
+- [x] pre-condicoes de existencia/ownership para `care` publicadas.
+- [x] handoff para especialista com `partyId` obrigatorio documentado.
+- [x] matriz relacional de historico longitudinal publicada.
+- [x] ledger atualizado por slice com evidencias e decisao.
 
 ---
 

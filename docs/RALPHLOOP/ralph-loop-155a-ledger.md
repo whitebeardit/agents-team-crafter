@@ -6,18 +6,18 @@
 ## Estado atual
 
 - **Loop:** 155A
-- **Status:** aberto
-- **Slice ativo:** 155A.6
+- **Status:** fechado
+- **Slice ativo:** concluido
 - **Ultima atualizacao:** 2026-04-22
 - **Plano de referencia:** `docs/RALPHLOOP/ralph-loop-155a-governanca-relacional-care-first.md`
 
 ## Checkpoint atual
 
-- **Status do checkpoint:** on-track
+- **Status do checkpoint:** fechado
 - **Decisao:** continuar
-- **Owner:** definir (operacao/produto)
-- **Prazo do proximo checkpoint:** 2026-04-29
-- **Motivo:** matriz relacional longitudinal publicada com query de referencia e recomendacoes de endurecimento; pronto para fechamento formal do loop.
+- **Owner:** coordenacao de produto/runtime (services_sales)
+- **Prazo do proximo checkpoint:** 2026-04-29 (abertura do 155B)
+- **Motivo:** checklist final do 155A concluido e fila residual preparada para replicacao do padrao.
 
 ---
 
@@ -123,9 +123,20 @@
 
 ### Slice 155A.6 — Fechamento do care-first e preparacao da fila
 
-- **Status:** on-track
+- **Status:** fechado
 - **Objetivo:** fechar loop 155A com checklist final e preparar proximo produto.
 - **Dependencia de entrada:** conclusao do 155A.5.
+- **Entregas concluidas:**
+  - fechamento formal do loop 155A consolidado no plano e no ledger;
+  - checklist global de aceite marcado como concluido;
+  - backlog residual por produto confirmado para replicacao incremental do padrao relacional;
+  - proximo loop priorizado (`155B`) com owner e prazo inicial definidos.
+- **Evidencias:**
+  - `docs/RALPHLOOP/ralph-loop-155a-governanca-relacional-care-first.md` (secao do slice 155A.6)
+  - `docs/RALPHLOOP/ralph-loop-155a-ledger.md` (status final e decisao)
+- **Pendencias imediatas:** nenhuma pendencia aberta do slice.
+- **Decisao:** continuar
+- **Proxima acao:** iniciar planejamento do Loop 155B para `services_sales`.
 
 ---
 
@@ -135,7 +146,17 @@
 - [x] Pre-condicoes de existencia/ownership no `care` publicadas.
 - [x] Handoff para especialista com `partyId` obrigatorio documentado.
 - [x] Matriz relacional longitudinal publicada.
-- [ ] Ledger atualizado por slice com evidencias e decisao.
+- [x] Ledger atualizado por slice com evidencias e decisao.
+
+---
+
+## Encerramento do Loop 155A
+
+- **Status final do loop:** fechado
+- **Decisao final:** continuar
+- **Proximo loop priorizado:** `155B — Governanca relacional por produto (services-sales next)`
+- **Owner inicial do 155B:** coordenacao de produto/runtime (services_sales)
+- **Prazo inicial do 155B:** 2026-04-29
 
 ---
 
