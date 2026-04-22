@@ -9,6 +9,7 @@
 
 - [Visão geral](#visão-geral)
 - [Estrutura de pastas](#estrutura-de-pastas)
+- [Rotas de verticais na UI](#rotas-de-verticais-na-ui)
 - [Fluxo de dados](#fluxo-de-dados)
 - [Cliente HTTP e tenant](#cliente-http-e-tenant)
 - [Limites e garantias](#limites-e-garantias)
@@ -18,7 +19,7 @@
 
 ## Visão geral
 
-A aplicação em [`v0-team-ai-crafter/`](../) é **Next.js (App Router)**. Áreas autenticadas vivem sob `app/(app)/` (dashboard, agentes, times, grafos, templates, canais, definições). O utilizador escolhe ou assume um **workspace**; todas as chamadas de negócio ao BFF enviam esse contexto no header **`X-Workspace-Id`**, juntamente com **`Authorization: Bearer`** após login.
+A aplicação em [`v0-team-ai-crafter/`](../) é **Next.js (App Router)**. Áreas autenticadas vivem sob `app/(app)/` (dashboard, agentes, times, grafos, templates, canais, **agenda**, **CRM**, observabilidade, definições). O utilizador escolhe ou assume um **workspace**; todas as chamadas de negócio ao BFF enviam esse contexto no header **`X-Workspace-Id`**, juntamente com **`Authorization: Bearer`** após login.
 
 A URL base da API vem de `NEXT_PUBLIC_API_URL` (normalmente `http://localhost:3001/api/v1` em desenvolvimento).
 
@@ -28,13 +29,27 @@ A URL base da API vem de `NEXT_PUBLIC_API_URL` (normalmente `http://localhost:30
 
 Referência rápida (detalhe completo no [README](../README.md)):
 
-| Área | Caminho | Função |
-|------|---------|--------|
-| Rotas | `app/(app)/*` | Superfícies autenticadas por domínio (dashboard, agents, teams, …) |
-| Componentes | `components/*` | UI por domínio + `components/ui` (shadcn) |
-| API client | `lib/api/client.ts` | `fetch` com envelope, refresh token, headers de auth e tenant |
-| Estado | `lib/store/*` | Ex.: workspace e auth |
-| Tipos | `lib/types/*` | Alinhamento com contratos expostos pelo BFF |
+| Área        | Caminho             | Função                                                             |
+| ----------- | ------------------- | ------------------------------------------------------------------ |
+| Rotas       | `app/(app)/*`       | Superfícies autenticadas por domínio (dashboard, agents, teams, …) |
+| Componentes | `components/*`      | UI por domínio + `components/ui` (shadcn)                          |
+| API client  | `lib/api/client.ts` | `fetch` com envelope, refresh token, headers de auth e tenant      |
+| Estado      | `lib/store/*`       | Ex.: workspace e auth                                              |
+| Tipos       | `lib/types/*`       | Alinhamento com contratos expostos pelo BFF                        |
+
+---
+
+## Rotas de verticais na UI
+
+Alguns domínios de negócio expõem **página dedicada** sob `app/(app)/<rota>/` (além do núcleo times/agentes/canais). A lista canónica de entradas do menu lateral está em [`components/layout/app-navigation.tsx`](../components/layout/app-navigation.tsx).
+
+| Rota             | Função (resumo)                     |
+| ---------------- | ----------------------------------- |
+| `/schedule`      | Agenda (scheduling)                 |
+| `/crm`           | CRM — parties/clientes do workspace |
+| `/observability` | Observabilidade operacional         |
+
+**Política:** não é obrigatório que cada pack do BFF tenha rota própria no Next; verticais adicionais (care, finance, clinical, …) podem surgir como páginas quando a UI for priorizada — até lá o fluxo típico continua a ser **time + tools + canais** com contratos no BFF. Ao adicionar uma nova rota de produto, atualize este doc e o [README](../README.md) (tabela **Rotas da Aplicação** e árvore `app/(app)/`).
 
 ---
 

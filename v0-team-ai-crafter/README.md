@@ -120,6 +120,9 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 │   │   │   └── ai-create/        # Criacao assistida por IA
 │   │   ├── templates/            # Templates de times
 │   │   ├── channels/             # Canais de comunicacao
+│   │   ├── schedule/             # Agenda (vertical scheduling na UI)
+│   │   ├── crm/                  # CRM (clientes/parties no workspace)
+│   │   ├── observability/        # Observabilidade operacional
 │   │   └── settings/             # Configuracoes
 │   ├── invite/[inviteId]/        # Aceitar convite de workspace
 │   ├── login/                    # Pagina de login
@@ -144,28 +147,33 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 
 ## Rotas da Aplicacao
 
-| Rota | Descricao |
-|------|-----------|
-| `/` | Redirect para `/login` ou `/dashboard` |
-| `/login` | Pagina de autenticacao |
-| `/register` | Cadastro de novo usuario |
-| `/invite/[inviteId]` | Aceitar convite para workspace |
-| `/dashboard` | Dashboard principal com metricas |
-| `/agents` | Catalogo de agentes disponiveis |
-| `/agents/create` | Wizard de criacao de agente |
-| `/agents/[id]` | Detalhe de um agente |
-| `/governance` | Painel de governance (metricas, auditoria) |
-| `/runs` | Historico de execucoes de times |
-| `/tool-definitions` | Gestao de definicoes de tools (conforme permissao) |
-| `/teams` | Listagem de times |
-| `/teams/create` | Wizard de criacao de time (5 etapas) |
-| `/teams/ai-create` | Fluxo de criacao de time assistido por IA |
-| `/teams/[id]` | Detalhes do time |
-| `/teams/[id]/graph` | Editor visual de grafo do time |
-| `/teams/[id]/gallery` | Galeria associada ao time |
-| `/templates` | Galeria de templates |
-| `/channels` | Gestao de canais |
-| `/settings` | Configuracoes do workspace e perfil |
+Superficies de **negócio** com página dedicada (ex.: `/crm`, `/schedule`) coexistem com o núcleo do produto (times, agentes, canais). Outras verticais do BFF (care, finance, clinical, …) podem ganhar rota equivalente quando houver UI — até lá operam via **runtime de tools** e canais. Itens da barra lateral: [`components/layout/app-navigation.tsx`](./components/layout/app-navigation.tsx).
+
+| Rota                  | Descricao                                          |
+| --------------------- | -------------------------------------------------- |
+| `/`                   | Redirect para `/login` ou `/dashboard`             |
+| `/login`              | Pagina de autenticacao                             |
+| `/register`           | Cadastro de novo usuario                           |
+| `/invite/[inviteId]`  | Aceitar convite para workspace                     |
+| `/dashboard`          | Dashboard principal com metricas                   |
+| `/agents`             | Catalogo de agentes disponiveis                    |
+| `/agents/create`      | Wizard de criacao de agente                        |
+| `/agents/[id]`        | Detalhe de um agente                               |
+| `/governance`         | Painel de governance (metricas, auditoria)         |
+| `/runs`               | Historico de execucoes de times                    |
+| `/tool-definitions`   | Gestao de definicoes de tools (conforme permissao) |
+| `/teams`              | Listagem de times                                  |
+| `/teams/create`       | Wizard de criacao de time (5 etapas)               |
+| `/teams/ai-create`    | Fluxo de criacao de time assistido por IA          |
+| `/teams/[id]`         | Detalhes do time                                   |
+| `/teams/[id]/graph`   | Editor visual de grafo do time                     |
+| `/teams/[id]/gallery` | Galeria associada ao time                          |
+| `/templates`          | Galeria de templates                               |
+| `/channels`           | Gestao de canais                                   |
+| `/schedule`           | Agenda (scheduling)                                |
+| `/crm`                | CRM — clientes/parties do workspace                |
+| `/observability`      | Observabilidade operacional                        |
+| `/settings`           | Configuracoes do workspace e perfil                |
 
 ---
 
@@ -188,6 +196,7 @@ X-Workspace-Id: {workspace_id}
 ### Respostas Padrao
 
 **Sucesso:**
+
 ```json
 {
   "success": true,
@@ -202,6 +211,7 @@ X-Workspace-Id: {workspace_id}
 ```
 
 **Erro:**
+
 ```json
 {
   "success": false,
@@ -224,6 +234,7 @@ X-Workspace-Id: {workspace_id}
 Autentica o usuario e retorna JWT.
 
 **Request:**
+
 ```json
 {
   "email": "usuario@email.com",
@@ -232,6 +243,7 @@ Autentica o usuario e retorna JWT.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -250,6 +262,7 @@ Autentica o usuario e retorna JWT.
 ```
 
 **Response 401:**
+
 ```json
 {
   "success": false,
@@ -265,6 +278,7 @@ Autentica o usuario e retorna JWT.
 Cria usuario com senha hasheada (bcrypt) e retorna o mesmo envelope que o login (JWT + refresh + usuario).
 
 **Request:**
+
 ```json
 {
   "name": "Joao Silva",
@@ -278,6 +292,7 @@ Senha: minimo 8 caracteres. Email unico — se ja existir, **409** com codigo `E
 **Response 200:** mesmo formato que `POST /auth/login` (inclui `refreshToken` e `expiresAt`).
 
 **Response 409:**
+
 ```json
 {
   "success": false,
@@ -293,6 +308,7 @@ Senha: minimo 8 caracteres. Email unico — se ja existir, **409** com codigo `E
 Invalida o token atual.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -307,6 +323,7 @@ Invalida o token atual.
 Retorna dados do usuario autenticado.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -325,6 +342,7 @@ Retorna dados do usuario autenticado.
 Renova o token JWT.
 
 **Request:**
+
 ```json
 {
   "refreshToken": "refresh_token_here"
@@ -332,6 +350,7 @@ Renova o token JWT.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -351,6 +370,7 @@ Renova o token JWT.
 Lista workspaces do usuario.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -376,6 +396,7 @@ Lista workspaces do usuario.
 Retorna detalhes de um workspace.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -398,6 +419,7 @@ Retorna detalhes de um workspace.
 Atualiza um workspace.
 
 **Request:**
+
 ```json
 {
   "name": "TechCorp Brasil",
@@ -410,6 +432,7 @@ Atualiza um workspace.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -431,6 +454,7 @@ Atualiza um workspace.
 Lista membros do workspace.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -452,6 +476,7 @@ Lista membros do workspace.
 Convida membro para o workspace.
 
 **Request:**
+
 ```json
 {
   "email": "novo@email.com",
@@ -460,6 +485,7 @@ Convida membro para o workspace.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -492,6 +518,7 @@ Lista todos os agentes disponiveis.
 | `perPage` | number | Items por pagina (default: 20) |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -502,7 +529,12 @@ Lista todos os agentes disponiveis.
       "description": "Agente coordenador principal que gerencia fluxos de trabalho e distribui tarefas entre especialistas.",
       "role": "coordinator",
       "origin": "whitebeard",
-      "skills": ["Orquestracao", "Gestao de Tarefas", "Priorizacao", "Delegacao"],
+      "skills": [
+        "Orquestracao",
+        "Gestao de Tarefas",
+        "Priorizacao",
+        "Delegacao"
+      ],
       "version": "2.1.0",
       "avatar": "/agents/atlas.png",
       "category": "Coordenacao",
@@ -523,6 +555,7 @@ Lista todos os agentes disponiveis.
 Retorna detalhes de um agente.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -554,6 +587,7 @@ Retorna detalhes de um agente.
 Cria um novo agente customizado (company).
 
 **Request:**
+
 ```json
 {
   "name": "Meu Agente Custom",
@@ -571,6 +605,7 @@ Cria um novo agente customizado (company).
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -593,6 +628,7 @@ Cria um novo agente customizado (company).
 Atualiza um agente customizado.
 
 **Request:**
+
 ```json
 {
   "name": "Agente Atualizado",
@@ -602,6 +638,7 @@ Atualiza um agente customizado.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -624,6 +661,7 @@ Atualiza um agente customizado.
 Remove um agente customizado.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -638,6 +676,7 @@ Remove um agente customizado.
 Lista categorias disponiveis.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -673,6 +712,7 @@ Lista times do workspace.
 | `perPage` | number | Items por pagina (default: 20) |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -703,6 +743,7 @@ Lista times do workspace.
 Retorna detalhes de um time.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -751,6 +792,7 @@ Retorna detalhes de um time.
 Cria um novo time.
 
 **Request:**
+
 ```json
 {
   "name": "Novo Time",
@@ -764,6 +806,7 @@ Cria um novo time.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -786,6 +829,7 @@ Cria um novo time.
 Atualiza um time.
 
 **Request:**
+
 ```json
 {
   "name": "Time Atualizado",
@@ -796,6 +840,7 @@ Atualiza um time.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -818,6 +863,7 @@ Atualiza um time.
 Remove um time.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -832,6 +878,7 @@ Remove um time.
 Ativa um time em rascunho.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -848,6 +895,7 @@ Ativa um time em rascunho.
 Desativa um time.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -864,6 +912,7 @@ Desativa um time.
 Duplica um time existente.
 
 **Request:**
+
 ```json
 {
   "name": "Copia do Time"
@@ -871,6 +920,7 @@ Duplica um time existente.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -895,6 +945,7 @@ Duplica um time existente.
 Retorna o grafo de um time.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -956,6 +1007,7 @@ Retorna o grafo de um time.
 Atualiza o grafo de um time.
 
 **Request:**
+
 ```json
 {
   "nodes": [
@@ -982,6 +1034,7 @@ Atualiza o grafo de um time.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -997,6 +1050,7 @@ Atualiza o grafo de um time.
 Valida a configuracao do grafo.
 
 **Request:**
+
 ```json
 {
   "nodes": [...],
@@ -1005,6 +1059,7 @@ Valida a configuracao do grafo.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1022,6 +1077,7 @@ Valida a configuracao do grafo.
 ```
 
 **Response 200 (Grafo invalido):**
+
 ```json
 {
   "success": true,
@@ -1058,6 +1114,7 @@ Lista templates disponiveis.
 | `search` | string | Busca por nome ou descricao |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1084,6 +1141,7 @@ Lista templates disponiveis.
 Retorna detalhes de um template.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1124,6 +1182,7 @@ Retorna detalhes de um template.
 Cria um time a partir de um template.
 
 **Request:**
+
 ```json
 {
   "teamName": "Meu Novo Time",
@@ -1133,6 +1192,7 @@ Cria um time a partir de um template.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -1150,6 +1210,7 @@ Cria um time a partir de um template.
 Salva time atual como template.
 
 **Request:**
+
 ```json
 {
   "teamId": "team-1",
@@ -1160,6 +1221,7 @@ Salva time atual como template.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -1180,6 +1242,7 @@ Salva time atual como template.
 Remove um template customizado.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1205,6 +1268,7 @@ Lista canais do workspace.
 | `teamId` | string | Filtrar por time associado |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1242,6 +1306,7 @@ Para `provider: "chat_sdk"`, `webhookUrl` reflete a URL pública do webhook (Sla
 Retorna detalhes de um canal.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1280,6 +1345,7 @@ Retorna detalhes de um canal.
 Cria um novo canal.
 
 **Request (WhatsApp):**
+
 ```json
 {
   "type": "whatsapp",
@@ -1292,6 +1358,7 @@ Cria um novo canal.
 ```
 
 **Request (Slack Chat SDK):**
+
 ```json
 {
   "type": "slack",
@@ -1305,6 +1372,7 @@ Cria um novo canal.
 ```
 
 **Request (Discord Chat SDK):**
+
 ```json
 {
   "type": "discord",
@@ -1318,6 +1386,7 @@ Cria um novo canal.
 ```
 
 **Request (Telegram Chat SDK):**
+
 ```json
 {
   "type": "telegram",
@@ -1329,6 +1398,7 @@ Cria um novo canal.
 ```
 
 **Request (Email):**
+
 ```json
 {
   "type": "email",
@@ -1342,6 +1412,7 @@ Cria um novo canal.
 ```
 
 **Request (API):**
+
 ```json
 {
   "type": "api",
@@ -1355,6 +1426,7 @@ Cria um novo canal.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -1378,6 +1450,7 @@ Armazena segredos do canal **cifrados** no Mongo (AES-256-GCM). Requer perfil **
 O corpo deve incluir `platform` igual a `platform` do canal (`slack`, `discord`, `telegram`, etc.) e os campos esperados por plataforma.
 
 **Discord (exemplo):**
+
 ```json
 {
   "platform": "discord",
@@ -1388,6 +1461,7 @@ O corpo deve incluir `platform` igual a `platform` do canal (`slack`, `discord`,
 ```
 
 **Telegram (exemplo):**
+
 ```json
 {
   "platform": "telegram",
@@ -1397,6 +1471,7 @@ O corpo deve incluir `platform` igual a `platform` do canal (`slack`, `discord`,
 ```
 
 **Slack (exemplo):**
+
 ```json
 {
   "platform": "slack",
@@ -1414,6 +1489,7 @@ Detalhes de webhooks e `setWebhook` do Telegram: ver `docs/CHAT_SDK_TEAM_TRIGGER
 Atualiza um canal.
 
 **Request:**
+
 ```json
 {
   "name": "WhatsApp Principal",
@@ -1424,6 +1500,7 @@ Atualiza um canal.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1445,6 +1522,7 @@ Atualiza um canal.
 Remove um canal.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1459,6 +1537,7 @@ Remove um canal.
 Inicia conexao do canal.
 
 **Response 200 (WhatsApp - retorna QR Code):**
+
 ```json
 {
   "success": true,
@@ -1471,6 +1550,7 @@ Inicia conexao do canal.
 ```
 
 **Response 200 (Slack - retorna URL de autorizacao):**
+
 ```json
 {
   "success": true,
@@ -1487,6 +1567,7 @@ Inicia conexao do canal.
 Desconecta o canal.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1503,6 +1584,7 @@ Desconecta o canal.
 Testa a conexao do canal.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1529,6 +1611,7 @@ Lista conexoes MCP do workspace.
 | `search` | string | Busca por nome ou descricao |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1539,9 +1622,18 @@ Lista conexoes MCP do workspace.
       "description": "Conexao com sistema fiscal para consulta e validacao de notas fiscais",
       "status": "connected",
       "tools": [
-        { "name": "consultar_nota", "description": "Consulta NF-e pelo numero ou chave de acesso" },
-        { "name": "validar_documento", "description": "Valida XML de documento fiscal" },
-        { "name": "emitir_nfe", "description": "Emite nova nota fiscal eletronica" },
+        {
+          "name": "consultar_nota",
+          "description": "Consulta NF-e pelo numero ou chave de acesso"
+        },
+        {
+          "name": "validar_documento",
+          "description": "Valida XML de documento fiscal"
+        },
+        {
+          "name": "emitir_nfe",
+          "description": "Emite nova nota fiscal eletronica"
+        },
         { "name": "cancelar_nfe", "description": "Cancela nota fiscal emitida" }
       ],
       "tenantId": "workspace-1",
@@ -1558,6 +1650,7 @@ Lista conexoes MCP do workspace.
 Retorna detalhes de uma conexao MCP.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1567,8 +1660,14 @@ Retorna detalhes de uma conexao MCP.
     "description": "Conexao com sistema fiscal para consulta e validacao de notas fiscais",
     "status": "connected",
     "tools": [
-      { "name": "consultar_nota", "description": "Consulta NF-e pelo numero ou chave de acesso" },
-      { "name": "validar_documento", "description": "Valida XML de documento fiscal" }
+      {
+        "name": "consultar_nota",
+        "description": "Consulta NF-e pelo numero ou chave de acesso"
+      },
+      {
+        "name": "validar_documento",
+        "description": "Valida XML de documento fiscal"
+      }
     ],
     "tenantId": "workspace-1",
     "icon": "receipt",
@@ -1587,13 +1686,23 @@ Retorna detalhes de uma conexao MCP.
 Lista ferramentas disponiveis de uma conexao MCP.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
   "data": [
-    { "name": "consultar_nota", "description": "Consulta NF-e pelo numero ou chave de acesso" },
-    { "name": "validar_documento", "description": "Valida XML de documento fiscal" },
-    { "name": "emitir_nfe", "description": "Emite nova nota fiscal eletronica" },
+    {
+      "name": "consultar_nota",
+      "description": "Consulta NF-e pelo numero ou chave de acesso"
+    },
+    {
+      "name": "validar_documento",
+      "description": "Valida XML de documento fiscal"
+    },
+    {
+      "name": "emitir_nfe",
+      "description": "Emite nova nota fiscal eletronica"
+    },
     { "name": "cancelar_nfe", "description": "Cancela nota fiscal emitida" }
   ]
 }
@@ -1604,6 +1713,7 @@ Lista ferramentas disponiveis de uma conexao MCP.
 Cria uma nova conexao MCP.
 
 **Request:**
+
 ```json
 {
   "name": "CRM Salesforce",
@@ -1619,6 +1729,7 @@ Cria uma nova conexao MCP.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -1640,6 +1751,7 @@ Cria uma nova conexao MCP.
 Atualiza uma conexao MCP.
 
 **Request:**
+
 ```json
 {
   "name": "CRM Salesforce v2",
@@ -1648,6 +1760,7 @@ Atualiza uma conexao MCP.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1665,6 +1778,7 @@ Atualiza uma conexao MCP.
 Remove uma conexao MCP.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1679,6 +1793,7 @@ Remove uma conexao MCP.
 Inicia conexao com o MCP.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1694,6 +1809,7 @@ Inicia conexao com o MCP.
 Desconecta o MCP.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1710,6 +1826,7 @@ Desconecta o MCP.
 Sincroniza ferramentas disponiveis do MCP.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1717,7 +1834,10 @@ Sincroniza ferramentas disponiveis do MCP.
     "toolsCount": 4,
     "syncedAt": "2024-03-21T10:00:00Z",
     "tools": [
-      { "name": "consultar_nota", "description": "Consulta NF-e pelo numero ou chave de acesso" }
+      {
+        "name": "consultar_nota",
+        "description": "Consulta NF-e pelo numero ou chave de acesso"
+      }
     ]
   }
 }
@@ -1732,6 +1852,7 @@ Sincroniza ferramentas disponiveis do MCP.
 Lista vinculos MCP de um agente.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1758,6 +1879,7 @@ Lista vinculos MCP de um agente.
 Cria vinculo MCP para um agente.
 
 **Request:**
+
 ```json
 {
   "mcpConnectionId": "mcp-2",
@@ -1767,6 +1889,7 @@ Cria vinculo MCP para um agente.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -1786,6 +1909,7 @@ Cria vinculo MCP para um agente.
 Atualiza vinculo MCP de um agente.
 
 **Request:**
+
 ```json
 {
   "allowedTools": ["buscar_lead", "criar_lead", "atualizar_oportunidade"],
@@ -1794,6 +1918,7 @@ Atualiza vinculo MCP de um agente.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1813,6 +1938,7 @@ Atualiza vinculo MCP de um agente.
 Remove vinculo MCP de um agente.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1837,6 +1963,7 @@ Lista fontes de conhecimento do workspace.
 | `status` | string | Filtrar por status: `active`, `inactive`, `syncing` |
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1859,6 +1986,7 @@ Lista fontes de conhecimento do workspace.
 Retorna detalhes de uma fonte de conhecimento.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1883,6 +2011,7 @@ Retorna detalhes de uma fonte de conhecimento.
 Cria nova fonte de conhecimento.
 
 **Request:**
+
 ```json
 {
   "name": "Documentacao de Produtos",
@@ -1896,6 +2025,7 @@ Cria nova fonte de conhecimento.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -1915,6 +2045,7 @@ Cria nova fonte de conhecimento.
 Atualiza fonte de conhecimento.
 
 **Request:**
+
 ```json
 {
   "name": "Documentacao de Produtos v2",
@@ -1923,6 +2054,7 @@ Atualiza fonte de conhecimento.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1939,6 +2071,7 @@ Atualiza fonte de conhecimento.
 Remove fonte de conhecimento.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1953,6 +2086,7 @@ Remove fonte de conhecimento.
 Inicia sincronizacao da fonte.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -1973,6 +2107,7 @@ Inicia sincronizacao da fonte.
 Retorna configuracao completa do agente.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2022,6 +2157,7 @@ Retorna configuracao completa do agente.
 Atualiza configuracao do agente.
 
 **Request:**
+
 ```json
 {
   "goal": "Novo objetivo do agente",
@@ -2054,6 +2190,7 @@ Atualiza configuracao do agente.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2069,6 +2206,7 @@ Atualiza configuracao do agente.
 Atualiza missao do agente (objetivo e responsabilidades).
 
 **Request:**
+
 ```json
 {
   "goal": "Novo objetivo do agente",
@@ -2077,6 +2215,7 @@ Atualiza missao do agente (objetivo e responsabilidades).
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2092,6 +2231,7 @@ Atualiza missao do agente (objetivo e responsabilidades).
 Atualiza configuracao de conhecimento do agente.
 
 **Request:**
+
 ```json
 {
   "sources": ["ks-1", "ks-2", "ks-3"],
@@ -2102,6 +2242,7 @@ Atualiza configuracao de conhecimento do agente.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2118,6 +2259,7 @@ Atualiza configuracao de conhecimento do agente.
 Atualiza ferramentas do agente.
 
 **Request:**
+
 ```json
 {
   "tools": ["web_search", "file_search", "internal_actions"],
@@ -2127,6 +2269,7 @@ Atualiza ferramentas do agente.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2143,6 +2286,7 @@ Atualiza ferramentas do agente.
 Atualiza configuracao de canais do agente.
 
 **Request:**
+
 ```json
 {
   "enabled": ["whatsapp", "slack"],
@@ -2151,6 +2295,7 @@ Atualiza configuracao de canais do agente.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2166,6 +2311,7 @@ Atualiza configuracao de canais do agente.
 Atualiza configuracao de seguranca do agente.
 
 **Request:**
+
 ```json
 {
   "requiresApproval": true,
@@ -2174,6 +2320,7 @@ Atualiza configuracao de seguranca do agente.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2191,6 +2338,7 @@ Atualiza configuracao de handoff do agente.
 `rules` pode misturar **strings** (presets DSL) e **objetos JSON** de regra (mesmo formato do `dslJsonRuleSchema` no backend). Ver `docs/HANDOFF_DSL.md`.
 
 **Request (exemplo misto):**
+
 ```json
 {
   "targets": ["agent-1", "agent-2"],
@@ -2208,12 +2356,17 @@ Atualiza configuracao de handoff do agente.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
   "data": {
     "targets": ["agent-1", "agent-2"],
-    "rules": ["guard:maxDepth:2", "route:taskType:invoice_validation->agent:agent-2", { "id": "rule-json-1", "version": 0, "when": { "all": [] }, "then": [] }]
+    "rules": [
+      "guard:maxDepth:2",
+      "route:taskType:invoice_validation->agent:agent-2",
+      { "id": "rule-json-1", "version": 0, "when": { "all": [] }, "then": [] }
+    ]
   }
 }
 ```
@@ -2225,6 +2378,7 @@ Executa o **time**: o **coordenador** e o unico agente LLM de topo; **especialis
 **Headers:** padrao (`Authorization`, `X-Workspace-Id`).
 
 **Request:**
+
 ```json
 {
   "message": "texto do usuario ou tarefa",
@@ -2239,6 +2393,7 @@ Executa o **time**: o **coordenador** e o unico agente LLM de topo; **especialis
 - `taskType` / `channel` / `locale` (opcionais): metadados **apenas** no contexto do coordenador (formatados na mensagem); nao sao enviados aos especialistas como roteamento externo.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2256,16 +2411,17 @@ Executa o **time**: o **coordenador** e o unico agente LLM de topo; **especialis
 
 **Erros comuns:**
 
-| HTTP | `error.code` | Quando |
-|------|----------------|--------|
-| 404 | `NOT_FOUND` | Time nao existe no workspace |
-| 400 | `TEAM_RUNTIME_GUARD` / `TEAM_RUNTIME_INVARIANT` | Invariantes de runtime |
+| HTTP | `error.code`                                    | Quando                       |
+| ---- | ----------------------------------------------- | ---------------------------- |
+| 404  | `NOT_FOUND`                                     | Time nao existe no workspace |
+| 400  | `TEAM_RUNTIME_GUARD` / `TEAM_RUNTIME_INVARIANT` | Invariantes de runtime       |
 
 #### POST /agents/:id/archive
 
 Arquiva um agente.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2282,6 +2438,7 @@ Arquiva um agente.
 Ativa um agente arquivado ou em rascunho.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2302,6 +2459,7 @@ Ativa um agente arquivado ou em rascunho.
 Retorna metricas do dashboard.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2323,6 +2481,7 @@ Retorna metricas do dashboard.
 Retorna times recentes.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2344,6 +2503,7 @@ Retorna times recentes.
 Retorna alertas e notificacoes.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2377,6 +2537,7 @@ Retorna alertas e notificacoes.
 Retorna configuracoes do workspace.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2408,6 +2569,7 @@ Retorna configuracoes do workspace.
 Atualiza configuracoes do workspace.
 
 **Request:**
+
 ```json
 {
   "name": "TechCorp Brasil",
@@ -2419,6 +2581,7 @@ Atualiza configuracoes do workspace.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2433,6 +2596,7 @@ Atualiza configuracoes do workspace.
 Retorna estado **mascarado** das integracoes do workspace (OpenAI BYOK, SMTP, Slack). Qualquer membro autenticado.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2461,10 +2625,17 @@ Retorna estado **mascarado** das integracoes do workspace (OpenAI BYOK, SMTP, Sl
 Atualiza segredos do workspace (cifrados). **Admin ou owner.** Corpo parcial; omitir campo mantem valor anterior; `openaiApiKey: ""` remove a chave.
 
 **Request (exemplo):**
+
 ```json
 {
   "openaiApiKey": "sk-...",
-  "smtp": { "host": "smtp.mail.com", "port": 587, "user": "u", "password": "p", "from": "a@b.com" },
+  "smtp": {
+    "host": "smtp.mail.com",
+    "port": 587,
+    "user": "u",
+    "password": "p",
+    "from": "a@b.com"
+  },
   "slack": { "signingSecret": "...", "botToken": "xoxb-..." }
 }
 ```
@@ -2482,6 +2653,7 @@ Atualiza segredos do workspace (cifrados). **Admin ou owner.** Corpo parcial; om
 Retorna perfil do usuario.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2509,6 +2681,7 @@ Retorna perfil do usuario.
 Atualiza perfil do usuario.
 
 **Request:**
+
 ```json
 {
   "name": "Joao Silva Santos",
@@ -2523,6 +2696,7 @@ Atualiza perfil do usuario.
 ```
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2537,9 +2711,11 @@ Atualiza perfil do usuario.
 Upload de avatar.
 
 **Request:** `multipart/form-data`
+
 - `file`: Arquivo de imagem (PNG, JPG, max 1MB)
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2554,6 +2730,7 @@ Upload de avatar.
 Lista chaves de API.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2574,6 +2751,7 @@ Lista chaves de API.
 Cria nova chave de API.
 
 **Request:**
+
 ```json
 {
   "name": "Integracao CRM"
@@ -2581,6 +2759,7 @@ Cria nova chave de API.
 ```
 
 **Response 201:**
+
 ```json
 {
   "success": true,
@@ -2600,6 +2779,7 @@ Cria nova chave de API.
 Remove uma chave de API.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2614,6 +2794,7 @@ Remove uma chave de API.
 Regenera uma chave de API.
 
 **Response 200:**
+
 ```json
 {
   "success": true,
@@ -2632,13 +2813,13 @@ Regenera uma chave de API.
 
 Alem dos recursos documentados nas secoes anteriores, o BFF expoe modulos registados em [`routes.ts`](../backend/src/app/routes.ts), entre outros:
 
-| Area | Prefixo / ficheiro | Notas |
-|------|-------------------|--------|
-| **governance** | `/governance/*` — [`governance.routes.ts`](../backend/src/modules/governance/interfaces/governance.routes.ts) | Analytics, SLOs, eventos de auditoria (`GET /governance/audit-events` com rate limit; ver abaixo) |
-| **runs** | `/runs`, `/runs/:runId`, `/runs/:runId/events` — [`run.routes.ts`](../backend/src/modules/runs/interfaces/run.routes.ts) | Historico de execucoes de times |
-| **agent-plans** | `/agent-plans`, `/agent-plans/:id`, `POST .../execute` — [`agent-plan.routes.ts`](../backend/src/modules/agent-planning/interfaces/agent-plan.routes.ts) | Planos por agente |
-| **agent-governance** | `GET/POST /agent-overlap-reviews` — [`agent-governance.routes.ts`](../backend/src/modules/agent-governance/interfaces/agent-governance.routes.ts) | Revisao de sobreposicao de dominio entre agentes |
-| **platform-agents** | `GET /platform/agent-teams/catalog` — [`platform-agent.routes.ts`](../backend/src/modules/platform-agents/interfaces/platform-agent.routes.ts) | Catálogo de equipas de agentes de plataforma |
+| Area                 | Prefixo / ficheiro                                                                                                                                       | Notas                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **governance**       | `/governance/*` — [`governance.routes.ts`](../backend/src/modules/governance/interfaces/governance.routes.ts)                                            | Analytics, SLOs, eventos de auditoria (`GET /governance/audit-events` com rate limit; ver abaixo) |
+| **runs**             | `/runs`, `/runs/:runId`, `/runs/:runId/events` — [`run.routes.ts`](../backend/src/modules/runs/interfaces/run.routes.ts)                                 | Historico de execucoes de times                                                                   |
+| **agent-plans**      | `/agent-plans`, `/agent-plans/:id`, `POST .../execute` — [`agent-plan.routes.ts`](../backend/src/modules/agent-planning/interfaces/agent-plan.routes.ts) | Planos por agente                                                                                 |
+| **agent-governance** | `GET/POST /agent-overlap-reviews` — [`agent-governance.routes.ts`](../backend/src/modules/agent-governance/interfaces/agent-governance.routes.ts)        | Revisao de sobreposicao de dominio entre agentes                                                  |
+| **platform-agents**  | `GET /platform/agent-teams/catalog` — [`platform-agent.routes.ts`](../backend/src/modules/platform-agents/interfaces/platform-agent.routes.ts)           | Catálogo de equipas de agentes de plataforma                                                      |
 
 As secoes seguintes detalham **audit**, **tool-definitions** e **team-plans**. Todas as rotas autenticadas tipicas exigem `Authorization`, `X-Workspace-Id` e envelope padrao. Detalhes de validacao: schemas Zod nos ficheiros indicados.
 
@@ -2649,25 +2830,25 @@ As secoes seguintes detalham **audit**, **tool-definitions** e **team-plans**. T
 
 #### Tool definitions (`/tool-definitions`)
 
-| Metodo | Path | Papel |
-|--------|------|--------|
-| GET | `/tool-definitions` | Membro autenticado |
-| GET | `/tool-definitions/:id` | Membro autenticado |
-| POST | `/tool-definitions` | Admin workspace |
-| PUT | `/tool-definitions/:id` | Admin workspace |
-| DELETE | `/tool-definitions/:id` | Admin workspace |
+| Metodo | Path                    | Papel              |
+| ------ | ----------------------- | ------------------ |
+| GET    | `/tool-definitions`     | Membro autenticado |
+| GET    | `/tool-definitions/:id` | Membro autenticado |
+| POST   | `/tool-definitions`     | Admin workspace    |
+| PUT    | `/tool-definitions/:id` | Admin workspace    |
+| DELETE | `/tool-definitions/:id` | Admin workspace    |
 
 Corpo de criacao/atualizacao: `name`, `slug`, `kind` (`builtin_ref` \| `http_webhook` \| `mcp_ref`), `jsonSchema` e `config` opcionais. Ver [`tool-definition.routes.ts`](../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts).
 
 #### Team plans (`/team-plans`)
 
-| Metodo | Path | Descricao |
-|--------|------|-----------|
-| POST | `/team-plans` | Cria plano; body `{ problem` (min 10 chars), `context?` } |
-| GET | `/team-plans/:id` | Obtem plano |
-| PUT | `/team-plans/:id` | Atualiza `team`, `agents` e/ou `graph` (parcial) |
-| POST | `/team-plans/:id/execute` | Executa plano; body opcional `{ operationId?` } |
-| POST | `/team-plans/:id/execute/stream` | Mesmo body; resposta **SSE** (`text/event-stream`) com eventos `phase`, `complete` ou `error` |
+| Metodo | Path                             | Descricao                                                                                     |
+| ------ | -------------------------------- | --------------------------------------------------------------------------------------------- |
+| POST   | `/team-plans`                    | Cria plano; body `{ problem` (min 10 chars), `context?` }                                     |
+| GET    | `/team-plans/:id`                | Obtem plano                                                                                   |
+| PUT    | `/team-plans/:id`                | Atualiza `team`, `agents` e/ou `graph` (parcial)                                              |
+| POST   | `/team-plans/:id/execute`        | Executa plano; body opcional `{ operationId?` }                                               |
+| POST   | `/team-plans/:id/execute/stream` | Mesmo body; resposta **SSE** (`text/event-stream`) com eventos `phase`, `complete` ou `error` |
 
 Implementacao: [`team-plan.routes.ts`](../backend/src/modules/team-planning/interfaces/team-plan.routes.ts).
 
@@ -2690,40 +2871,44 @@ export type ChannelType =
   | "gchat"
   | "telegram"
   | "github"
-  | "linear"
+  | "linear";
 
 export interface Channel {
-  id: string
-  type: ChannelType
-  provider?: "native" | "chat_sdk"
-  platform?: string
-  name: string
-  status: "connected" | "disconnected" | "pending"
-  teamId?: string
-  config?: Record<string, unknown>
-  secretsMasked?: Record<string, string>
-  webhookUrl?: string
+  id: string;
+  type: ChannelType;
+  provider?: "native" | "chat_sdk";
+  platform?: string;
+  name: string;
+  status: "connected" | "disconnected" | "pending";
+  teamId?: string;
+  config?: Record<string, unknown>;
+  secretsMasked?: Record<string, string>;
+  webhookUrl?: string;
 }
 
 export interface TeamRunRequest {
-  message: string
-  channel?: string
-  locale?: string
-  requestedAccessLevel?: "read" | "write" | "restricted"
-  taskType?: string
+  message: string;
+  channel?: string;
+  locale?: string;
+  requestedAccessLevel?: "read" | "write" | "restricted";
+  taskType?: string;
 }
 
 export interface TeamRunResponse {
-  runId: string
-  teamId: string
-  coordinatorAgentId: string
+  runId: string;
+  teamId: string;
+  coordinatorAgentId: string;
   externalResponse: {
-    text: string
-    format?: "plain" | "markdown"
-    attachments?: Array<{ type: "image"; url: string }>
-  }
-  specialistResults: { specialistAgentId: string; summary: string; structured?: Record<string, unknown> }[]
-  events: unknown[]
+    text: string;
+    format?: "plain" | "markdown";
+    attachments?: Array<{ type: "image"; url: string }>;
+  };
+  specialistResults: {
+    specialistAgentId: string;
+    summary: string;
+    structured?: Record<string, unknown>;
+  }[];
+  events: unknown[];
 }
 ```
 
@@ -2733,16 +2918,16 @@ Tipos de **plano de time** (`TeamPlanDraft`, `TeamPlanAgentDraft`, …) e restan
 
 ## Codigos de Erro
 
-| Codigo | HTTP | Descricao |
-|--------|------|-----------|
-| `INVALID_CREDENTIALS` | 401 | Credenciais invalidas |
-| `UNAUTHORIZED` | 401 | Token invalido ou expirado |
-| `FORBIDDEN` | 403 | Sem permissao para acessar o recurso |
-| `NOT_FOUND` | 404 | Recurso nao encontrado |
-| `VALIDATION_ERROR` | 400 | Erro de validacao nos dados |
-| `CONFLICT` | 409 | Conflito (ex: nome duplicado) |
-| `TOO_MANY_REQUESTS` | 429 | Limite de pedidos excedido (ex.: `GET /governance/audit-events`); corpo pode incluir `retryAfterSeconds` |
-| `INTERNAL_ERROR` | 500 | Erro interno do servidor |
+| Codigo                | HTTP | Descricao                                                                                                |
+| --------------------- | ---- | -------------------------------------------------------------------------------------------------------- |
+| `INVALID_CREDENTIALS` | 401  | Credenciais invalidas                                                                                    |
+| `UNAUTHORIZED`        | 401  | Token invalido ou expirado                                                                               |
+| `FORBIDDEN`           | 403  | Sem permissao para acessar o recurso                                                                     |
+| `NOT_FOUND`           | 404  | Recurso nao encontrado                                                                                   |
+| `VALIDATION_ERROR`    | 400  | Erro de validacao nos dados                                                                              |
+| `CONFLICT`            | 409  | Conflito (ex: nome duplicado)                                                                            |
+| `TOO_MANY_REQUESTS`   | 429  | Limite de pedidos excedido (ex.: `GET /governance/audit-events`); corpo pode incluir `retryAfterSeconds` |
+| `INTERNAL_ERROR`      | 500  | Erro interno do servidor                                                                                 |
 
 > Limites adicionais podem ser aplicados no reverse proxy.
 
