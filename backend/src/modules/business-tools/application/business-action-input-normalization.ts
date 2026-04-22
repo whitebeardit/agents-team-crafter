@@ -114,6 +114,7 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [
       { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId', 'ownerPartyId'] },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'name', aliases: ['name', 'nome', 'subjectName', 'nomeCompleto'] },
       {
         targetKey: 'subjectKind',
@@ -134,6 +135,8 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [
       { targetKey: 'subjectId', aliases: ['subjectId', 'careSubjectId', 'idSujeito', 'id'] },
+      { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId', 'ownerPartyId'] },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       {
         targetKey: 'subjectKind',
         aliases: ['subjectKind', 'kind', 'tipo'],

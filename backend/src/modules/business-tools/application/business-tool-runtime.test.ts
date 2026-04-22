@@ -300,4 +300,33 @@ describe('BusinessToolRuntime', () => {
       }),
     );
   });
+
+  it('accepts care_create_subject with phone when partyId is absent', async () => {
+    const registry = new BusinessToolRegistry();
+    const handler = jest.fn(async (ctx: { workspaceId: string; input: unknown; correlationId?: string }) => ({
+      payload: ctx.input,
+    }));
+    registry.register('care_create_subject', handler);
+    const append = jest.fn(async () => {});
+    const auditRepo = { append } as unknown as BusinessToolAuditRepository;
+    const runtime = new BusinessToolRuntime(registry, auditRepo);
+
+    const r = await runtime.execute({
+      workspaceId: '507f1f77bcf86cd799439011',
+      toolDefinitionId: 'td-care',
+      actionId: 'care_create_subject',
+      input: { phone: '+351900000000', name: 'Paciente C', subjectKind: 'human' },
+    });
+
+    expect(r.ok).toBe(true);
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          phone: '+351900000000',
+          name: 'Paciente C',
+          subjectKind: 'human',
+        }),
+      }),
+    );
+  });
 });

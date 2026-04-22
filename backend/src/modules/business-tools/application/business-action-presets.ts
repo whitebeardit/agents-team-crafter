@@ -193,6 +193,10 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party dona do sujeito.' },
+        phone: {
+          type: 'string',
+          description: 'Telefone apenas para lookup de entrada; runtime resolve para partyId antes da execução.',
+        },
         name: { type: 'string', description: 'Nome do sujeito de cuidado.' },
         subjectKind: {
           type: 'string',
@@ -239,6 +243,14 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       type: 'object',
       properties: {
         subjectId: { type: 'string', description: 'ID do sujeito.' },
+        partyId: {
+          type: 'string',
+          description: 'ID da party para validação opcional de ownership do sujeito.',
+        },
+        phone: {
+          type: 'string',
+          description: 'Telefone opcional apenas para validar ownership via resolução para partyId.',
+        },
         name: { type: 'string', description: 'Nome atualizado.' },
         subjectKind: { type: 'string', enum: ['human', 'animal', 'psych'] },
         notes: { type: 'string' },

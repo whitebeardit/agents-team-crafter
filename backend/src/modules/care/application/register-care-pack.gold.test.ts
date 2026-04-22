@@ -76,4 +76,75 @@ describe('registerCarePack — care_gold_gate', () => {
       subject: { id: 'subj-1', partyId: 'party-1', subjectKind: 'psych' },
     });
   });
+
+  it('resolves phone to partyId before care_create_subject execution', async () => {
+    const registry = new BusinessToolRegistry();
+    const care = {
+      create: jest.fn(async () => ({ id: 'subj-2', partyId: 'party-by-phone', subjectKind: 'human' })),
+    } as unknown as CareSubjectRepository;
+    const parties = {
+      findByEmailOrPhone: jest.fn(async () => [{ id: 'party-by-phone' }]),
+      findById: jest.fn(async () => ({ id: 'party-by-phone' })),
+    } as unknown as PartyRepository;
+
+    registerCarePack(registry, care, parties);
+    const createSubject = registry.get('care_create_subject');
+    expect(createSubject).toBeDefined();
+
+    await createSubject!({
+      workspaceId: '507f1f77bcf86cd799439011',
+      input: { phone: '+351900000000', name: 'Paciente via lookup', subjectKind: 'human' },
+    });
+
+    expect(parties.findByEmailOrPhone).toHaveBeenCalledWith('507f1f77bcf86cd799439011', {
+      phone: '+351900000000',
+      limit: 3,
+    });
+    expect(care.create).toHaveBeenCalledWith('507f1f77bcf86cd799439011', {
+      partyId: 'party-by-phone',
+      name: 'Paciente via lookup',
+      subjectKind: 'human',
+      notes: undefined,
+    });
+  });
+
+  it('blocks care_create_subject when phone lookup is ambiguous', async () => {
+    const registry = new BusinessToolRegistry();
+    const care = { create: jest.fn() } as unknown as CareSubjectRepository;
+    const parties = {
+      findByEmailOrPhone: jest.fn(async () => [{ id: 'party-1' }, { id: 'party-2' }]),
+      findById: jest.fn(),
+    } as unknown as PartyRepository;
+    registerCarePack(registry, care, parties);
+    const createSubject = registry.get('care_create_subject');
+
+    await expect(
+      createSubject!({
+        workspaceId: '507f1f77bcf86cd799439011',
+        input: { phone: '+351900000000', name: 'Paciente B', subjectKind: 'human' },
+      }),
+    ).rejects.toThrow('Phone ambiguo no workspace');
+    expect(care.create).not.toHaveBeenCalled();
+  });
+
+  it('blocks care_update_subject when informed partyId mismatches subject ownership', async () => {
+    const registry = new BusinessToolRegistry();
+    const care = {
+      findById: jest.fn(async () => ({ id: 'subj-10', partyId: 'party-owner', subjectKind: 'psych' })),
+      update: jest.fn(),
+    } as unknown as CareSubjectRepository;
+    const parties = {
+      findById: jest.fn(async (_ws: string, partyId: string) => ({ id: partyId })),
+    } as unknown as PartyRepository;
+    registerCarePack(registry, care, parties);
+    const updateSubject = registry.get('care_update_subject');
+
+    await expect(
+      updateSubject!({
+        workspaceId: '507f1f77bcf86cd799439011',
+        input: { subjectId: 'subj-10', partyId: 'party-other', notes: 'Atualizar nota' },
+      }),
+    ).rejects.toThrow('partyId informado nao corresponde ao ownership do subject');
+    expect(care.update).not.toHaveBeenCalled();
+  });
 });

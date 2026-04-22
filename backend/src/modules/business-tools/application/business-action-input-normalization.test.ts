@@ -101,6 +101,21 @@ describe('normalizeBusinessActionInput (Loop 98.6)', () => {
     expect(normalized.subjectKind).toBe('human');
   });
 
+  it('normalizes care phone aliases for subject create/update payloads', () => {
+    const createNormalized = normalizeBusinessActionInput('care_create_subject', {
+      celular: '+351900000001',
+      name: 'Paciente D',
+      subjectKind: 'human',
+    }) as Record<string, unknown>;
+    const updateNormalized = normalizeBusinessActionInput('care_update_subject', {
+      subjectId: 'subj-11',
+      telefone: '+351900000002',
+    }) as Record<string, unknown>;
+
+    expect(createNormalized.phone).toBe('+351900000001');
+    expect(updateNormalized.phone).toBe('+351900000002');
+  });
+
   it('normalizes patient creation aliases in care_create_patient', () => {
     const normalized = normalizeBusinessActionInput('care_create_patient', {
       nomeCompleto: 'Paciente C',

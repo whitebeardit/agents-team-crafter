@@ -1,5 +1,11 @@
 import { getBusinessActionPreset } from './business-action-presets.js';
 
+const ALTERNATIVE_REQUIRED_FIELDS: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
+  care_create_subject: {
+    partyId: ['phone'],
+  },
+};
+
 /**
  * Valida campos `required` do `inputSchema` JSON Schema do preset (Loop 87).
  * Strings vazias contam como ausentes.
@@ -21,13 +27,18 @@ export function validateBusinessActionInput(
     return { ok: false, missingFields: [...required] };
   }
   const missing: string[] = [];
+  const alternatives = ALTERNATIVE_REQUIRED_FIELDS[actionId] ?? {};
   for (const key of required) {
     const v = obj[key];
-    if (v === undefined || v === null) {
-      missing.push(key);
-      continue;
-    }
-    if (typeof v === 'string' && v.trim() === '') {
+    const hasValue = !(v === undefined || v === null || (typeof v === 'string' && v.trim() === ''));
+    if (hasValue) continue;
+
+    const alternativeKeys = alternatives[key] ?? [];
+    const hasAlternative = alternativeKeys.some((altKey) => {
+      const altValue = obj[altKey];
+      return !(altValue === undefined || altValue === null || (typeof altValue === 'string' && altValue.trim() === ''));
+    });
+    if (!hasAlternative) {
       missing.push(key);
     }
   }
