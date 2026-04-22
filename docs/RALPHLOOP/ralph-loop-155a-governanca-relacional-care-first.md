@@ -146,12 +146,25 @@ Aplicar o padrao Ralph Loop de governanca relacional nos produtos de negocio, in
 
 **Criterio de saida do slice:**
 
-- [ ] checklist de pre-condicoes publicado no documento de care e no documento de runtime/tools.
+- [x] checklist de pre-condicoes publicado no documento de care e no documento de runtime/tools.
 
 **Registro no ledger (obrigatorio):**
 
 - estado de conformidade por pre-condicao;
 - riscos residuais e acao corretiva sugerida.
+
+#### Checklist canonico de pre-condicoes (Slice 155A.3)
+
+Antes de executar `care_create_subject` ou `care_update_subject`, o fluxo deve cumprir:
+
+1. `partyId` resolvido de forma canonica (quando a entrada original vier por `phone`).
+2. existencia da `Party` confirmada para o `partyId` informado.
+3. ownership validado: `Party.workspaceId` deve ser igual ao `workspaceId` da operacao.
+4. `partyId` deve permanecer valido e inalterado no contexto da action.
+5. qualquer falha nas pre-condicoes bloqueia a execucao final da action `care_*`.
+
+Referencia runtime/tools deste checklist:
+`docs/RALPHLOOP/ralph-loop-155a-runtime-tools-care-first.md`.
 
 ---
 

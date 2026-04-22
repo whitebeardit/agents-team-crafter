@@ -7,7 +7,7 @@
 
 - **Loop:** 155A
 - **Status:** aberto
-- **Slice ativo:** 155A.3
+- **Slice ativo:** 155A.4
 - **Ultima atualizacao:** 2026-04-22
 - **Plano de referencia:** `docs/RALPHLOOP/ralph-loop-155a-governanca-relacional-care-first.md`
 
@@ -17,7 +17,7 @@
 - **Decisao:** continuar
 - **Owner:** definir (operacao/produto)
 - **Prazo do proximo checkpoint:** 2026-04-29
-- **Motivo:** regra canonica `phone -> partyId` formalizada com matriz de decisao; pronto para publicar pre-condicoes de existencia/ownership no care.
+- **Motivo:** checklist de pre-condicoes de existencia/ownership publicado em care + runtime/tools; pronto para padronizar handoff com identificador unico.
 
 ---
 
@@ -58,13 +58,31 @@
 
 ### Slice 155A.3 — Pre-condicao de existencia/ownership no care
 
-- **Status:** on-track
+- **Status:** fechado
 - **Objetivo:** publicar checklist de pre-condicoes obrigatorias para execucao de care.
 - **Dependencia de entrada:** matriz de decisao do 155A.2.
+- **Entregas concluidas:**
+  - checklist canonico de pre-condicoes publicado no plano do loop 155A para `care_create_subject` e `care_update_subject`;
+  - documento de runtime/tools criado com regra operacional de bloqueio quando houver falha de existencia ou ownership;
+  - condicao explicita de consistencia por `workspaceId` formalizada.
+- **Estado de conformidade por pre-condicao:**
+  - resolucao canonica `phone -> partyId`: conforme;
+  - existencia da party: conforme na norma documental;
+  - ownership por `workspaceId`: conforme na norma documental;
+  - bloqueio em falha de validacao: conforme na norma documental.
+- **Evidencias:**
+  - `docs/RALPHLOOP/ralph-loop-155a-governanca-relacional-care-first.md` (secao do slice 155A.3)
+  - `docs/RALPHLOOP/ralph-loop-155a-runtime-tools-care-first.md` (checklist de runtime/tools)
+  - `docs/RALPHLOOP/ralph-loop-155a-ledger.md` (registro de fechamento)
+- **Pendencias imediatas:** nenhuma pendencia aberta do slice.
+- **Riscos residuais:** endurecimento em codigo/runtime ainda depende de loops de implementacao tecnica por modulo.
+- **Acao corretiva sugerida:** priorizar no 155B validacoes hard-fail no boundary runtime para cada produto.
+- **Decisao:** continuar
+- **Proxima acao:** iniciar Slice 155A.4 com checklist anti-drift de handoff coordenador -> especialista.
 
 ### Slice 155A.4 — Handoff coordenador -> especialista com identificador unico
 
-- **Status:** pending
+- **Status:** on-track
 - **Objetivo:** padronizar delegacao com `partyId` obrigatorio na execucao final.
 - **Dependencia de entrada:** pre-condicoes do 155A.3.
 
@@ -85,7 +103,7 @@
 ## Checklist de saida do Loop 155A
 
 - [x] Regra `phone -> partyId` publicada como norma canonica.
-- [ ] Pre-condicoes de existencia/ownership no `care` publicadas.
+- [x] Pre-condicoes de existencia/ownership no `care` publicadas.
 - [ ] Handoff para especialista com `partyId` obrigatorio documentado.
 - [ ] Matriz relacional longitudinal publicada.
 - [ ] Ledger atualizado por slice com evidencias e decisao.
