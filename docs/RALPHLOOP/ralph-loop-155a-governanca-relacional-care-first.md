@@ -222,12 +222,46 @@ Referencia MOC:
 
 **Criterio de saida do slice:**
 
-- [ ] matriz relacional publicada com exemplos de consulta operacional ponta a ponta.
+- [x] matriz relacional publicada com exemplos de consulta operacional ponta a ponta.
 
 **Registro no ledger (obrigatorio):**
 
 - recomendacoes de endurecimento;
 - trade-offs e prioridade de implementacao futura.
+
+#### Matriz relacional longitudinal canonica (Slice 155A.5)
+
+Trilha operacional padrao para historico do cliente:
+
+`phone` -> `partyId` -> `careSubjectId` -> `encounters/evolucoes/anamneses`
+
+| Etapa              | Chave utilizada               | Regra canonica                                       |
+| ------------------ | ----------------------------- | ---------------------------------------------------- |
+| Entrada de negocio | `phone`                       | apenas lookup inicial, nunca identificador final     |
+| Resolucao CRM      | `partyId`                     | identificador canonico unico por `workspaceId`       |
+| Resolucao Care     | `careSubjectId`               | sujeito vinculado a `partyId` no mesmo `workspaceId` |
+| Historico clinico  | `encounterId` / `evolutionId` | eventos consultados por cadeia relacional canonica   |
+
+#### Recomendacoes de indice e lookup (workspace-first)
+
+1. Priorizar indices compostos com `workspaceId` como primeira chave para evitar scans cross-tenant.
+2. Endurecer lookup por relacionamento:
+   - `Party`: indice composto sugerido `{ workspaceId: 1, phone: 1 }`.
+   - `CareSubject`: indice composto sugerido `{ workspaceId: 1, partyId: 1 }`.
+   - Registros clinicos/encounters: indice composto sugerido `{ workspaceId: 1, careSubjectId: 1, createdAt: -1 }`.
+3. Rejeitar consultas que tentem correlacionar entidades sem filtro por `workspaceId`.
+
+#### Query de referencia (uso de negocio)
+
+Pergunta de negocio:
+`cliente 79988228535 teve evolucao X, Y, Z?`
+
+Passo a passo canonico de consulta:
+
+1. resolver `phone=79988228535` para `partyId` no workspace corrente;
+2. recuperar `careSubjectId` associado ao `partyId`;
+3. listar evolucoes/encounters ordenados por data;
+4. responder com trilha consolidada (`X`, `Y`, `Z`) e timestamp por evento.
 
 ---
 
