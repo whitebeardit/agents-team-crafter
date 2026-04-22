@@ -34,8 +34,12 @@ export async function buildApp(env: IEnv) {
   await app.register(multipart, { limits: { fileSize: 1024 * 1024 } });
   await app.register(observabilityPlugin, { auditLogRepo: deps.auditLogRepo });
 
-  app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
-  app.get('/metrics', async (_req, reply) => {
+  app.get(
+    '/health',
+    { logLevel: 'silent' },
+    async () => ({ status: 'ok', timestamp: new Date().toISOString() }),
+  );
+  app.get('/metrics', { logLevel: 'silent' }, async (_req, reply) => {
     reply.header('Content-Type', metricsRegistry.contentType);
     return metricsRegistry.metrics();
   });

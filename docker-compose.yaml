@@ -60,6 +60,7 @@ services:
       PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
       MEDIA_GALLERY_ROOT: /app/data/gallery
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-https://api.myteams.whitebeard.dev}
+      OPENAI_AGENTS_DISABLE_TRACING: "1"
     volumes:
       - backend_gallery:/app/data/gallery
     depends_on:

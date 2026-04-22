@@ -15,6 +15,8 @@ function registerObservability(app: FastifyInstance, auditLogRepo: AuditLogRepos
     const started = (req as { _startedAt?: number })._startedAt;
     const durationMs = started ? Date.now() - started : 0;
     const path = req.url.split('?')[0] ?? req.url;
+    if (path === '/health' || path === '/metrics') return;
+
     req.log.info(
       {
         requestId: req.requestId,
