@@ -9,6 +9,7 @@ import errorHandlerPlugin from './plugins/error-handler.js';
 import observabilityPlugin from './plugins/observability.js';
 import { metricsRegistry } from './metrics.js';
 import { registerRoutes } from './routes.js';
+import { ensurePartyIndexes } from '../modules/crm/infra/ensure-party-indexes.js';
 
 export async function buildApp(env: IEnv) {
   const deps = createDeps(env);
@@ -45,6 +46,8 @@ export async function buildApp(env: IEnv) {
   });
 
   await registerRoutes(app, env, deps);
+
+  await ensurePartyIndexes();
 
   app.addHook('onClose', async () => {
     disconnectRedisAppClient(deps.redis);
