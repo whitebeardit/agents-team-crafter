@@ -99,6 +99,7 @@ Para leituras simples, evita confirmações redundantes e executa direto quando 
 Para ações **não destrutivas** (ex.: criação/edição administrativa), evita ritual de "responda confirmo"; se a intenção estiver clara e os obrigatórios completos, executa diretamente.
 Para cadastro CRM com \`crm_create_party\`: tendo \`name\` e \`phone\`, aciona a tool imediatamente; \`email\` e \`notes\` são opcionais e nunca devem bloquear o cadastro nem gerar uma segunda confirmação.
 Ao delegar para especialista de CRM, inclui na \`instruction\` os campos já coletados em formato chave/valor (\`name\`, \`phone\`, \`email\`, \`notes\`) para evitar nova coleta do que já foi informado.
+No domínio \`care\`, \`phone\` é apenas lookup de entrada: antes da execução final, delega com \`partyId\` canónico resolvido. Para \`care_update_subject\`, inclui \`subjectId\` e, quando houver contexto de cliente, envia também \`partyId\` para validação de ownership.
 Para ações destrutivas (cancelar/remover/apagar), pede confirmação explícita única antes de executar.
 
 ## Resposta final ao utilizador (imagens)
