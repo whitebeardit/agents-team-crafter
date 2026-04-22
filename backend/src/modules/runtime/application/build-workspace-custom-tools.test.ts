@@ -20,12 +20,14 @@ describe('buildWorkspaceCustomTools', () => {
       { businessToolRuntime: runtime },
     ) as Array<{
       strict: boolean;
-      parameters: { type: string; additionalProperties?: boolean };
+      parameters: { type: string; properties: Record<string, unknown>; additionalProperties?: boolean };
       invoke: (runContext: unknown, input: string) => Promise<string>;
     }>;
 
     expect(crmTool.strict).toBe(false);
     expect(crmTool.parameters.type).toBe('object');
+    expect(crmTool.parameters.properties).toBeDefined();
+    expect(typeof crmTool.parameters.properties).toBe('object');
     expect(crmTool.parameters.additionalProperties).toBe(true);
 
     const payload = {
@@ -44,5 +46,61 @@ describe('buildWorkspaceCustomTools', () => {
         input: expect.objectContaining(payload),
       }),
     );
+  });
+
+  it('crm_get_party_summary always exposes parameters.properties (OpenAI API rejects object without properties)', () => {
+    const execute = jest.fn(async () => ({ ok: true, result: {} }));
+    const [summaryTool] = buildWorkspaceCustomTools(
+      [
+        {
+          id: 'tool-crm-summary',
+          name: 'CRM summary',
+          slug: 'ba-crm-get-party-summary',
+          kind: 'internal_action',
+          jsonSchema: { type: 'object', additionalProperties: true },
+          config: { actionId: 'crm_get_party_summary' },
+        },
+      ],
+      { workspaceId: 'workspace-1' },
+      { businessToolRuntime: { execute } },
+    ) as Array<{
+      strict: boolean;
+      parameters: {
+        type: string;
+        properties: Record<string, unknown>;
+        required?: string[];
+        additionalProperties?: boolean;
+      };
+    }>;
+
+    expect(summaryTool.strict).toBe(false);
+    expect(summaryTool.parameters.type).toBe('object');
+    expect(summaryTool.parameters.properties).toBeDefined();
+    expect(summaryTool.parameters.properties.partyId).toBeDefined();
+    expect(Array.isArray(summaryTool.parameters.required) ? summaryTool.parameters.required : []).toContain(
+      'partyId',
+    );
+    expect(summaryTool.parameters.additionalProperties).toBe(true);
+  });
+
+  it('internal_action with no preset and empty definition schema still gets properties object for API compatibility', () => {
+    const execute = jest.fn(async () => ({ ok: true, result: {} }));
+    const [t] = buildWorkspaceCustomTools(
+      [
+        {
+          id: 'tool-unknown',
+          name: 'Unknown action',
+          slug: 'ba-unknown-test',
+          kind: 'internal_action',
+          jsonSchema: {},
+          config: { actionId: 'definitely_missing_action_for_schema_probe_12345' },
+        },
+      ],
+      { workspaceId: 'w1' },
+      { businessToolRuntime: { execute } },
+    ) as Array<{ parameters: { type: string; properties: Record<string, unknown> } }>;
+
+    expect(t.parameters.type).toBe('object');
+    expect(t.parameters.properties).toEqual({});
   });
 });

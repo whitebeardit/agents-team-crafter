@@ -123,6 +123,15 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     title: 'CRM — Resumo da parte',
     description: 'Obtém resumo agregado de uma party.',
     packId: 'crm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        partyId: { type: 'string', description: 'ID da party no CRM.' },
+      },
+      required: ['partyId'],
+    },
+    requiredFieldLabels: ['ID da parte (partyId)'],
+    slotFillingPromptHint: 'Execute com partyId conhecido; se faltar, peça numa única mensagem compacta.',
   },
   'crm_list_parties_by_role': {
     title: 'CRM — Listar por papel',

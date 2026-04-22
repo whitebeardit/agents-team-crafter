@@ -43,11 +43,22 @@ function buildLenientInternalActionJsonSchema(
   presetSchema: Record<string, unknown> | undefined,
 ): Record<string, unknown> {
   const resolved = resolveInternalActionParameterSchema(definitionSchema, presetSchema);
+  /**
+   * OpenAI Responses API rejeita `type: object` sem `properties` ("object schema missing properties").
+   * Sempre incluir `properties` como objeto (vazio no fallback genérico).
+   */
   if (!resolved || typeof resolved !== 'object' || resolved.type !== 'object') {
-    return { type: 'object', additionalProperties: true };
+    return { type: 'object', properties: {}, additionalProperties: true };
   }
+  const rawProps = resolved.properties;
+  const properties =
+    rawProps && typeof rawProps === 'object' && !Array.isArray(rawProps)
+      ? (rawProps as Record<string, unknown>)
+      : {};
   return {
     ...resolved,
+    type: 'object',
+    properties,
     additionalProperties: true,
   };
 }
