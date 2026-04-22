@@ -180,12 +180,33 @@ Referencia runtime/tools deste checklist:
 
 **Criterio de saida do slice:**
 
-- [ ] checklist anti-drift de handoff documentado e referenciado pelo MOC.
+- [x] checklist anti-drift de handoff documentado e referenciado pelo MOC.
 
 **Registro no ledger (obrigatorio):**
 
 - evidencias de atualizacao das notas;
 - validacao de alinhamento coordenador/especialista.
+
+#### Contrato minimo de handoff coordenador -> especialista (Slice 155A.4)
+
+Campos obrigatorios para delegacao efetiva em `care`:
+
+1. `goal`: objetivo claro da acao de negocio.
+2. `partyId`: identificador canonico obrigatorio para execucao final.
+3. `subjectId`: obrigatorio quando a action alvo opera sobre sujeito existente.
+4. `action`: nome da action `care_*` alvo.
+5. `input`: payload minimo exigido pelo schema da action alvo.
+
+#### Checklist anti-drift de handoff (Slice 155A.4)
+
+- Handoff nao e emitido apenas com `phone`; exige `partyId` resolvido.
+- `partyId` e `workspaceId` devem permanecer consistentes do coordenador ao especialista.
+- Quando a action exigir sujeito existente, `subjectId` deve estar presente e valido.
+- Delegacao sem campos obrigatorios e bloqueada antes da execucao da action.
+- O MOC do loop 155A referencia explicitamente esta regra de handoff.
+
+Referencia MOC:
+`docs/RALPHLOOP/ralph-loop-155a-moc.md`.
 
 ---
 

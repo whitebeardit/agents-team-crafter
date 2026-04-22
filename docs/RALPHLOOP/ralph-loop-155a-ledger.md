@@ -7,7 +7,7 @@
 
 - **Loop:** 155A
 - **Status:** aberto
-- **Slice ativo:** 155A.4
+- **Slice ativo:** 155A.5
 - **Ultima atualizacao:** 2026-04-22
 - **Plano de referencia:** `docs/RALPHLOOP/ralph-loop-155a-governanca-relacional-care-first.md`
 
@@ -17,7 +17,7 @@
 - **Decisao:** continuar
 - **Owner:** definir (operacao/produto)
 - **Prazo do proximo checkpoint:** 2026-04-29
-- **Motivo:** checklist de pre-condicoes de existencia/ownership publicado em care + runtime/tools; pronto para padronizar handoff com identificador unico.
+- **Motivo:** handoff coordenador -> especialista padronizado com identificador unico e checklist anti-drift; pronto para matriz relacional longitudinal.
 
 ---
 
@@ -82,13 +82,26 @@
 
 ### Slice 155A.4 — Handoff coordenador -> especialista com identificador unico
 
-- **Status:** on-track
+- **Status:** fechado
 - **Objetivo:** padronizar delegacao com `partyId` obrigatorio na execucao final.
 - **Dependencia de entrada:** pre-condicoes do 155A.3.
+- **Entregas concluidas:**
+  - contrato minimo de handoff publicado com `goal`, `partyId`, `subjectId` (quando aplicavel), `action` e `input`;
+  - checklist anti-drift documentado no plano e no runtime/tools;
+  - MOC dedicado do loop 155A criado para referencia cruzada dos artefatos do handoff.
+- **Evidencias:**
+  - `docs/RALPHLOOP/ralph-loop-155a-governanca-relacional-care-first.md` (secao do slice 155A.4)
+  - `docs/RALPHLOOP/ralph-loop-155a-runtime-tools-care-first.md` (contrato operacional)
+  - `docs/RALPHLOOP/ralph-loop-155a-moc.md` (referencia canonica por slice)
+  - `docs/RALPHLOOP/ralph-loop-155a-ledger.md` (fechamento do slice)
+- **Pendencias imediatas:** nenhuma pendencia aberta do slice.
+- **Validacao de alinhamento coordenador/especialista:** conforme (contrato unico publicado em plano + runtime/tools + MOC).
+- **Decisao:** continuar
+- **Proxima acao:** iniciar Slice 155A.5 com matriz relacional longitudinal e query de referencia de negocio.
 
 ### Slice 155A.5 — Matriz relacional para historico longitudinal do cliente
 
-- **Status:** pending
+- **Status:** on-track
 - **Objetivo:** documentar trilha `phone -> partyId -> careSubjectId -> evolucoes`.
 - **Dependencia de entrada:** handoff fechado no 155A.4.
 
@@ -104,7 +117,7 @@
 
 - [x] Regra `phone -> partyId` publicada como norma canonica.
 - [x] Pre-condicoes de existencia/ownership no `care` publicadas.
-- [ ] Handoff para especialista com `partyId` obrigatorio documentado.
+- [x] Handoff para especialista com `partyId` obrigatorio documentado.
 - [ ] Matriz relacional longitudinal publicada.
 - [ ] Ledger atualizado por slice com evidencias e decisao.
 

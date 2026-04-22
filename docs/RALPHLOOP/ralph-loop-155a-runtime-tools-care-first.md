@@ -29,3 +29,25 @@ Pre-condicoes obrigatorias antes de executar `care_create_subject` ou
 - O coordenador pode coletar dados faltantes, mas o handoff final exige
   `partyId` valido e ownership confirmado.
 - Logs operacionais devem registrar o motivo do bloqueio para trilha de auditoria.
+
+---
+
+## Slice 155A.4 — Handoff coordenador -> especialista com identificador unico
+
+### Contrato minimo de delegacao
+
+Campos que o coordenador deve enviar ao especialista:
+
+- `goal` (obrigatorio): objetivo de negocio da acao.
+- `partyId` (obrigatorio): identificador canonico final para execucao.
+- `subjectId` (condicional): obrigatorio quando a action exige sujeito existente.
+- `action` (obrigatorio): action `care_*` alvo da execucao.
+- `input` (obrigatorio): payload conforme contrato da action alvo.
+
+### Checklist anti-drift em runtime/tools
+
+1. Delegacao sem `partyId` e rejeitada.
+2. Delegacao somente com `phone` e rejeitada.
+3. `workspaceId` do contexto deve ser consistente com `partyId`.
+4. `subjectId` ausente bloqueia actions que exigem sujeito existente.
+5. Falhas de contrato retornam erro de handoff antes da execucao final.
