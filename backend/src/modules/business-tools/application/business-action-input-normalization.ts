@@ -66,6 +66,10 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [{ targetKey: 'displayName', aliases: DISPLAY_NAME_ALIASES }],
   },
+  crm_delete_party: {
+    safetyClass: 'A',
+    rules: [{ targetKey: 'partyId', aliases: ['partyId', 'id', 'party_id', 'clienteId', 'customerId', 'clientId'] }],
+  },
   crm_find_party: {
     safetyClass: 'B',
     rules: [

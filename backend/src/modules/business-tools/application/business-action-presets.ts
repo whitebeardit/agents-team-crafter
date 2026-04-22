@@ -99,6 +99,22 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     slotFillingPromptHint:
       'Se faltar partyId, peça primeiro o identificador da party e os campos que devem ser alterados.',
   },
+  'crm_delete_party': {
+    title: 'CRM — Excluir parte',
+    description:
+      'Remove definitivamente uma party por ID quando não houver agendamentos, sujeitos de cuidado, pedidos, pacotes, sessões ou títulos vinculados.',
+    packId: 'crm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        partyId: { type: 'string', description: 'ID da party a remover.' },
+      },
+      required: ['partyId'],
+    },
+    requiredFieldLabels: ['ID da parte (partyId)'],
+    slotFillingPromptHint:
+      'Execute apenas com partyId confirmado; se existirem vínculos operacionais, o sistema recusa e descreve o que bloqueou.',
+  },
   'crm_find_party': {
     title: 'CRM — Procurar parte',
     description:

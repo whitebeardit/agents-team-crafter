@@ -58,4 +58,17 @@ describe('business action presets — CRM GOLD contract', () => {
     expect(Array.isArray(schema.required) ? schema.required : []).not.toContain('query');
     expect(preset?.slotFillingPromptHint).toContain('query ""');
   });
+
+  it('crm_delete_party requires partyId with object properties', () => {
+    const preset = getBusinessActionPreset('crm_delete_party');
+    expect(preset).toBeDefined();
+    const schema = (preset?.inputSchema ?? {}) as {
+      type?: string;
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+    expect(schema.type).toBe('object');
+    expect(schema.properties).toMatchObject({ partyId: expect.any(Object) });
+    expect(schema.required).toContain('partyId');
+  });
 });

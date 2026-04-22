@@ -21,7 +21,7 @@ describe('registerCrmPack', () => {
       '507f1f77bcf86cd799439011',
       expect.objectContaining({
         displayName: 'Maria Silva',
-        phone: '+55 11 99999-0000',
+        phone: '5511999990000',
         email: 'maria@empresa.test',
         roles: ['customer'],
       }),

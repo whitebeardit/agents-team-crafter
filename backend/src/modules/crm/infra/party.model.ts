@@ -21,6 +21,11 @@ const PartySchema = new Schema(
 
 PartySchema.index({ workspaceId: 1, displayName: 1 });
 PartySchema.index({ workspaceId: 1, status: 1 });
+/** Celular normalizado (apenas digitos) unico por workspace; ignora documentos sem phone. */
+PartySchema.index(
+  { workspaceId: 1, phone: 1 },
+  { unique: true, partialFilterExpression: { phone: { $type: 'string', $gt: '' } } },
+);
 
 export type PartyDoc = mongoose.InferSchemaType<typeof PartySchema> & { _id: mongoose.Types.ObjectId };
 

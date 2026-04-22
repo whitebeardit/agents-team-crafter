@@ -528,7 +528,7 @@ describe('team-plan execute with workspace auto-bind policy override', () => {
       };
     };
 
-    expect(body.data.preview.autoBindActionsRequested).toBe(4);
+    expect(body.data.preview.autoBindActionsRequested).toBe(5);
     expect(body.data.preview.bindOverridesApplied).toBe(true);
     expect(body.data.preview.diffSummary).toEqual({
       affectedAgentCount: 1,

@@ -1,5 +1,7 @@
 import { Types } from 'mongoose';
 import type { UpdateQuery } from 'mongoose';
+import { AppError } from '../../../shared/errors/app-error.js';
+import { assertPersistablePartyPhone, normalizePartyPhone } from '../domain/normalize-party-phone.js';
 import { PartyModel } from './party.model.js';
 
 export type PartyOptionalFieldKey = 'email' | 'phone' | 'notes';
@@ -15,6 +17,10 @@ export type IPartyUpdateOperation = {
   }>;
   unset: PartyOptionalFieldKey[];
 };
+
+function isMongoDuplicateKey(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
+}
 
 export class PartyRepository {
   private computeReadinessDiagnostics(input: {
@@ -95,6 +101,41 @@ export class PartyRepository {
     return { health, checks };
   }
 
+  /** Telefone opcional: undefined ausente; string apenas dígitos persistidos. */
+  private normalizeOptionalPhoneFromRaw(raw?: string): string | undefined {
+    if (raw === undefined) return undefined;
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    const digits = normalizePartyPhone(trimmed);
+    try {
+      assertPersistablePartyPhone(digits);
+    } catch (e) {
+      const tag = e instanceof Error ? e.message : 'PHONE_INVALID';
+      if (tag === 'PHONE_EMPTY') {
+        throw new AppError('VALIDATION_ERROR', 'Celular invalido apos remover formatacao.', 400);
+      }
+      if (tag === 'PHONE_TOO_SHORT') {
+        throw new AppError('VALIDATION_ERROR', 'Celular curto demais apos normalizacao.', 400);
+      }
+      if (tag === 'PHONE_TOO_LONG') {
+        throw new AppError('VALIDATION_ERROR', 'Celular longo demais apos normalizacao.', 400);
+      }
+      throw new AppError('VALIDATION_ERROR', 'Celular invalido.', 400);
+    }
+    return digits;
+  }
+
+  private async throwDuplicatePhoneConflict(workspaceId: string, phoneDigits: string): Promise<never> {
+    const wid = new Types.ObjectId(workspaceId);
+    const found = await PartyModel.findOne({ workspaceId: wid, phone: phoneDigits }).exec();
+    throw new AppError(
+      'CONFLICT',
+      'Ja existe um contato com este celular. Atualize o registro existente (PUT /parties/:id) ou exclua o duplicado (DELETE) apos revisar os dados.',
+      409,
+      found ? { existingParty: this.toPublic(found) } : {},
+    );
+  }
+
   async create(
     workspaceId: string,
     input: {
@@ -106,35 +147,68 @@ export class PartyRepository {
       notes?: string;
     },
   ) {
-    const doc = await PartyModel.create({
-      workspaceId: new Types.ObjectId(workspaceId),
-      displayName: input.displayName.trim(),
-      roles: input.roles ?? [],
-      status: input.status ?? 'active',
-      email: input.email?.trim(),
-      phone: input.phone?.trim(),
-      notes: input.notes?.trim(),
-    });
-    return this.toPublic(doc);
+    const wid = new Types.ObjectId(workspaceId);
+    const phoneDigits = this.normalizeOptionalPhoneFromRaw(input.phone);
+    try {
+      const doc = await PartyModel.create({
+        workspaceId: wid,
+        displayName: input.displayName.trim(),
+        roles: input.roles ?? [],
+        status: input.status ?? 'active',
+        email: input.email?.trim(),
+        phone: phoneDigits,
+        notes: input.notes?.trim(),
+      });
+      return this.toPublic(doc);
+    } catch (err) {
+      if (isMongoDuplicateKey(err) && phoneDigits) {
+        await this.throwDuplicatePhoneConflict(workspaceId, phoneDigits);
+      }
+      throw err;
+    }
   }
 
   async update(workspaceId: string, partyId: string, op: IPartyUpdateOperation) {
-    const update: UpdateQuery<unknown> = {};
-    if (Object.keys(op.set).length > 0) {
-      update.$set = op.set;
+    const set = { ...op.set };
+    if (set.phone !== undefined) {
+      const coerced = this.normalizeOptionalPhoneFromRaw(set.phone);
+      if (coerced === undefined) delete set.phone;
+      else set.phone = coerced;
     }
-    if (op.unset.length > 0) {
-      update.$unset = Object.fromEntries(op.unset.map((k) => [k, 1]));
+    const opNorm: IPartyUpdateOperation = { set, unset: op.unset };
+
+    const update: UpdateQuery<unknown> = {};
+    if (Object.keys(opNorm.set).length > 0) {
+      update.$set = opNorm.set;
+    }
+    if (opNorm.unset.length > 0) {
+      update.$unset = Object.fromEntries(opNorm.unset.map((k) => [k, 1]));
     }
     if (Object.keys(update).length === 0) {
       return null;
     }
-    const doc = await PartyModel.findOneAndUpdate(
-      { _id: partyId, workspaceId: new Types.ObjectId(workspaceId) },
-      update,
-      { new: true },
-    ).exec();
-    return doc ? this.toPublic(doc) : null;
+    const phoneDigits = typeof opNorm.set.phone === 'string' ? opNorm.set.phone : undefined;
+    try {
+      const doc = await PartyModel.findOneAndUpdate(
+        { _id: partyId, workspaceId: new Types.ObjectId(workspaceId) },
+        update,
+        { new: true },
+      ).exec();
+      return doc ? this.toPublic(doc) : null;
+    } catch (err) {
+      if (isMongoDuplicateKey(err) && phoneDigits) {
+        await this.throwDuplicatePhoneConflict(workspaceId, phoneDigits);
+      }
+      throw err;
+    }
+  }
+
+  async deleteById(workspaceId: string, partyId: string): Promise<boolean> {
+    const res = await PartyModel.deleteOne({
+      _id: partyId,
+      workspaceId: new Types.ObjectId(workspaceId),
+    }).exec();
+    return res.deletedCount === 1;
   }
 
   async findById(workspaceId: string, partyId: string) {
@@ -166,11 +240,19 @@ export class PartyRepository {
     },
   ) {
     const email = opts.email?.trim();
-    const phone = opts.phone?.trim();
-    if (!email && !phone) return [];
+    let phoneDigits: string | undefined;
+    if (opts.phone !== undefined && opts.phone.trim() !== '') {
+      phoneDigits = normalizePartyPhone(opts.phone.trim());
+      try {
+        assertPersistablePartyPhone(phoneDigits);
+      } catch {
+        return [];
+      }
+    }
+    if (!email && !phoneDigits) return [];
     const clauses: Record<string, unknown>[] = [];
     if (email) clauses.push({ email: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
-    if (phone) clauses.push({ phone });
+    if (phoneDigits) clauses.push({ phone: phoneDigits });
     const docs = await PartyModel.find({
       workspaceId: new Types.ObjectId(workspaceId),
       $or: clauses,

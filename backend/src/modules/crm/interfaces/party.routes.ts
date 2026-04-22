@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { IAppDeps } from '../../../config/container.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
+import { getPartyDeleteBlockers } from '../application/party-delete-blockers.js';
 import type { IPartyUpdateOperation } from '../infra/party.repository.js';
 
 const listQuerySchema = z.object({
@@ -151,5 +152,22 @@ export async function registerPartyRoutes(app: FastifyInstance, deps: IAppDeps) 
     const row = await deps.partyRepo.update(ws, id, { set, unset });
     if (!row) throw new AppError('NOT_FOUND', 'Contato nao encontrado', 404);
     return reply.send(successEnvelope(row));
+  });
+
+  app.delete('/parties/:id', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = z.object({ id: z.string().min(1) }).parse(req.params).id;
+    const blockers = await getPartyDeleteBlockers(ws, id);
+    if (blockers.length > 0) {
+      throw new AppError(
+        'CONFLICT',
+        'Contato nao pode ser removido porque existem registos operacionais vinculados. Resolva as referencias ou arquive antes de excluir.',
+        409,
+        { references: blockers },
+      );
+    }
+    const ok = await deps.partyRepo.deleteById(ws, id);
+    if (!ok) throw new AppError('NOT_FOUND', 'Contato nao encontrado', 404);
+    return reply.send(successEnvelope({ deleted: true, id }));
   });
 }

@@ -221,7 +221,7 @@ describe('POST /teams/:id/run (team runtime)', () => {
       displayName: 'Cliente Telefone Direto',
       roles: ['customer'],
       status: 'active',
-      phone: '+5511999998888',
+      phone: '5511999998888',
     });
 
     const res = await app.inject({
@@ -241,7 +241,7 @@ describe('POST /teams/:id/run (team runtime)', () => {
     expect(body.data.events?.some((e) => e.type === 'crmDirectReadRoute')).toBe(true);
     expect(body.data.events?.some((e) => e.type === 'coordinatorStarted')).toBe(false);
     expect(body.data.externalResponse?.text).toContain('Cliente Telefone Direto');
-    expect(body.data.externalResponse?.text).toContain('+5511999998888');
+    expect(body.data.externalResponse?.text).toMatch(/5511999998888/);
   });
 
   it('returns early on structured stop command with stop_reason and resume hint', async () => {

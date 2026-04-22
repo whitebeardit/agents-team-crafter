@@ -62,6 +62,7 @@ describe('PLANNER_PACK_IDS', () => {
 describe('actionIdToToolSlug', () => {
   it('normalizes action id to slug', () => {
     expect(actionIdToToolSlug('crm_create_party')).toBe('ba-crm-create-party');
+    expect(actionIdToToolSlug('crm_delete_party')).toBe('ba-crm-delete-party');
   });
 });
 

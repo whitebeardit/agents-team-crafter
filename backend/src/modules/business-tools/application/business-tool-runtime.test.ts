@@ -92,7 +92,7 @@ describe('BusinessToolRuntime', () => {
       expect.objectContaining({
         displayName: 'Rita Davila',
         email: 'rita@gmail.com',
-        phone: '+351900000000',
+        phone: '351900000000',
       }),
     );
     expect(append).toHaveBeenCalledWith(

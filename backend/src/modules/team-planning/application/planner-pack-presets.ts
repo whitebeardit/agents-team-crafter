@@ -6,6 +6,7 @@ export const PLANNER_PACK_TO_ACTION_IDS: Readonly<Record<string, readonly string
   crm: [
     'crm_create_party',
     'crm_update_party',
+    'crm_delete_party',
     'crm_find_party',
     'crm_get_party_summary',
   ],

@@ -25,6 +25,14 @@ describe('normalizeBusinessActionInput (Loop 98.6)', () => {
     expect(normalized.name).toBe('Cliente Natural');
   });
 
+  it('normalizes crm_delete_party partyId aliases', () => {
+    const normalized = normalizeBusinessActionInput('crm_delete_party', {
+      customerId: 'party-99',
+    }) as Record<string, unknown>;
+    expect(normalized.partyId).toBe('party-99');
+    expect(getActionNormalizationSafetyClass('crm_delete_party')).toBe('A');
+  });
+
   it('normalizes crm_update_party displayName aliases', () => {
     const normalized = normalizeBusinessActionInput('crm_update_party', {
       partyId: 'p-1',

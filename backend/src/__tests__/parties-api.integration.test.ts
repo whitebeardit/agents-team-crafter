@@ -138,9 +138,10 @@ describe('parties API', () => {
       },
     });
     expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body) as { data: { id: string; displayName: string; email?: string } };
+    const body = JSON.parse(res.body) as { data: { id: string; displayName: string; email?: string; phone?: string } };
     expect(body.data.displayName).toBe('Gamma Servicos SA');
     expect(body.data.email).toBe('contato@gamma.test');
+    expect(body.data.phone).toBe('5511999990000');
 
     const get = await app.inject({
       method: 'GET',
@@ -167,12 +168,12 @@ describe('parties API', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body) as { data: { displayName: string; phone?: string } };
     expect(body.data.displayName).toBe('Gamma Servicos SA (atualizado)');
-    expect(body.data.phone).toBe('+5511888777666');
+    expect(body.data.phone).toBe('5511888777666');
 
     const get = await app.inject({ method: 'GET', url: `/api/v1/parties/${id}`, headers });
     const one = JSON.parse(get.body) as { data: { displayName: string; phone?: string } };
     expect(one.data.displayName).toBe('Gamma Servicos SA (atualizado)');
-    expect(one.data.phone).toBe('+5511888777666');
+    expect(one.data.phone).toBe('5511888777666');
   });
 
   it('lists parties by exact email filter', async () => {
@@ -230,9 +231,10 @@ describe('parties API', () => {
       },
     });
     expect(create.statusCode).toBe(201);
-    const created = JSON.parse(create.body) as { data: { id: string; status: string; email?: string } };
+    const created = JSON.parse(create.body) as { data: { id: string; status: string; email?: string; phone?: string } };
     expect(created.data.status).toBe('active');
     expect(created.data.email).toBe('omega@gold.test');
+    expect(created.data.phone).toBe('5511990011223');
 
     const byEmail = await app.inject({
       method: 'GET',
@@ -245,7 +247,7 @@ describe('parties API', () => {
 
     const byPhone = await app.inject({
       method: 'GET',
-      url: '/api/v1/parties?phone=%2B5511990011223',
+      url: '/api/v1/parties?phone=5511990011223',
       headers,
     });
     expect(byPhone.statusCode).toBe(200);
@@ -372,8 +374,9 @@ describe('parties API', () => {
       },
     });
     expect(create.statusCode).toBe(201);
-    const { data: created } = JSON.parse(create.body) as { data: { id: string; email?: string } };
+    const { data: created } = JSON.parse(create.body) as { data: { id: string; email?: string; phone?: string } };
     expect(created.email).toBe('delta@example.test');
+    expect(created.phone).toBe('5511999000111');
 
     const put = await app.inject({
       method: 'PUT',
@@ -398,5 +401,116 @@ describe('parties API', () => {
     expect(one.data.email).toBeUndefined();
     expect(one.data.phone).toBeUndefined();
     expect(one.data.notes).toBeUndefined();
+  });
+
+  it('returns 409 CONFLICT when creating party with duplicate normalized phone', async () => {
+    const headers = await authHeaders();
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/v1/parties',
+      headers,
+      payload: {
+        displayName: 'Cliente Celular A',
+        phone: '+55 (79) 9 88228535',
+      },
+    });
+    expect(first.statusCode).toBe(201);
+    const dup = await app.inject({
+      method: 'POST',
+      url: '/api/v1/parties',
+      headers,
+      payload: {
+        displayName: 'Cliente Celular B',
+        phone: '5579988228535',
+      },
+    });
+    expect(dup.statusCode).toBe(409);
+    const body = JSON.parse(dup.body) as {
+      success: false;
+      error: { code: string; details: { existingParty?: { displayName: string; phone?: string } } };
+    };
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('CONFLICT');
+    expect(body.error.details.existingParty?.phone).toBe('5579988228535');
+    expect(body.error.details.existingParty?.displayName).toBe('Cliente Celular A');
+  });
+
+  it('deletes party by id when there are no operational references', async () => {
+    const headers = await authHeaders();
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/parties',
+      headers,
+      payload: { displayName: 'Para Excluir', phone: '+5511988877766' },
+    });
+    expect(create.statusCode).toBe(201);
+    const { data: row } = JSON.parse(create.body) as { data: { id: string } };
+
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/parties/${row.id}`,
+      headers,
+    });
+    expect(del.statusCode).toBe(200);
+    const delBody = JSON.parse(del.body) as { data: { deleted: boolean; id: string } };
+    expect(delBody.data.deleted).toBe(true);
+
+    const get = await app.inject({ method: 'GET', url: `/api/v1/parties/${row.id}`, headers });
+    expect(get.statusCode).toBe(404);
+  });
+
+  it('returns 409 when delete blocked by appointment', async () => {
+    const headers = await authHeaders();
+    const partyRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/parties',
+      headers,
+      payload: {
+        displayName: 'Cliente Com Agenda',
+        phone: '+55 11 96665-5544',
+      },
+    });
+    expect(partyRes.statusCode).toBe(201);
+    const party = JSON.parse(partyRes.body) as { data: { id: string } };
+
+    const availability = await app.inject({
+      method: 'POST',
+      url: '/api/v1/schedule/availability',
+      headers,
+      payload: {
+        startsAt: '2027-05-10T09:00:00.000Z',
+        endsAt: '2027-05-10T12:00:00.000Z',
+        slotMinutes: 60,
+        label: 'Manha CRM delete test',
+      },
+    });
+    expect(availability.statusCode).toBe(201);
+
+    const appt = await app.inject({
+      method: 'POST',
+      url: '/api/v1/schedule/appointments',
+      headers,
+      payload: {
+        partyId: party.data.id,
+        title: 'Consulta bloqueio delete',
+        startsAt: '2027-05-10T10:00:00.000Z',
+        endsAt: '2027-05-10T11:00:00.000Z',
+        remindAt: '2027-05-10T08:00:00.000Z',
+      },
+    });
+    expect(appt.statusCode).toBe(201);
+
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/parties/${party.data.id}`,
+      headers,
+    });
+    expect(del.statusCode).toBe(409);
+    const err = JSON.parse(del.body) as {
+      success: false;
+      error: { code: string; details: { references?: Array<{ domain: string; count: number }> } };
+    };
+    expect(err.error.code).toBe('CONFLICT');
+    expect(err.error.details.references?.some((r) => r.domain === 'appointments' && r.count >= 1)).toBe(true);
   });
 });

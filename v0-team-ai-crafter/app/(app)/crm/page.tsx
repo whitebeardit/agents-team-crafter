@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { CheckCircle2, Clipboard, Loader2, RefreshCw } from "lucide-react"
+import { CheckCircle2, Clipboard, Loader2, RefreshCw, Trash2 } from "lucide-react"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import type { CrmParty, Team } from "@/lib/types"
@@ -13,6 +13,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type PartyStatusFilter = "all" | "active" | "inactive"
 type CrmReadiness = {
@@ -64,6 +73,8 @@ export default function CrmPage() {
   const [readiness, setReadiness] = useState<CrmReadiness | null>(null)
   const [goldGate, setGoldGate] = useState<CrmGoldGate | null>(null)
   const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
+  const [partyPendingDelete, setPartyPendingDelete] = useState<CrmParty | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const api = useMemo(
     () =>
@@ -125,6 +136,35 @@ export default function CrmPage() {
       toast.error("Não foi possível copiar o prompt.")
     }
   }, [])
+
+  const confirmDeleteParty = useCallback(async () => {
+    if (!partyPendingDelete) return
+    setDeletingId(partyPendingDelete.id)
+    try {
+      await api.del<{ deleted: boolean; id: string }>(`/parties/${partyPendingDelete.id}`)
+      toast.success("Contato removido.")
+      setPartyPendingDelete(null)
+      await loadParties()
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        const refs = e.details.references as Array<{ domain: string; count: number }> | undefined
+        const extra = refs?.length ? ` ${refs.map((r) => `${r.domain}: ${r.count}`).join("; ")}` : ""
+        const existing = e.details.existingParty as CrmParty | undefined
+        if (existing) {
+          toast.error(
+            `${e.message} Nome: ${existing.displayName}. ID existente: ${existing.id}. Atualize esse registo ou apague-o antes de voltar a criar.`,
+            { duration: 12_000 },
+          )
+        } else {
+          toast.error(`${e.message}${extra}`, { duration: 10_000 })
+        }
+      } else {
+        toast.error(e instanceof ApiError ? e.message : "Não foi possível excluir o contato.")
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }, [api, partyPendingDelete, loadParties])
 
   return (
     <div className="space-y-6">
@@ -340,6 +380,23 @@ export default function CrmPage() {
                 <p className="text-xs text-muted-foreground">ID: {party.id}</p>
                 <p className="text-sm text-muted-foreground">{party.email || "Sem e-mail"} • {party.phone || "Sem telefone"}</p>
               </div>
+              <div className="flex shrink-0 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10"
+                  disabled={deletingId === party.id}
+                  onClick={() => setPartyPendingDelete(party)}
+                >
+                  {deletingId === party.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  <span className="ml-2">Excluir</span>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -351,6 +408,26 @@ export default function CrmPage() {
           </Card>
         ) : null}
       </div>
+
+      <AlertDialog open={partyPendingDelete !== null} onOpenChange={(open) => !open && setPartyPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {partyPendingDelete
+                ? `Será removido permanentemente o registo «${partyPendingDelete.displayName}» (ID ${partyPendingDelete.id}). Isto só é possível se não existirem agendamentos, cuidados, pedidos ou outros vínculos operacionais.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+            <Button type="button" variant="destructive" disabled={!!deletingId} onClick={() => void confirmDeleteParty()}>
+              {deletingId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirmar exclusão
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

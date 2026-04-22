@@ -1,5 +1,19 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
+import { assertPersistablePartyPhone, normalizePartyPhone } from '../domain/normalize-party-phone.js';
+import { getPartyDeleteBlockers } from './party-delete-blockers.js';
 import type { IPartyUpdateOperation, PartyRepository } from '../infra/party.repository.js';
+
+function normalizePhoneInputOrThrow(raw: string): string {
+  const digits = normalizePartyPhone(raw.trim());
+  try {
+    assertPersistablePartyPhone(digits);
+  } catch (e) {
+    const t = e instanceof Error ? e.message : '';
+    if (t === 'PHONE_TOO_LONG') throw new Error('Celular longo demais apos normalizar (phone).');
+    throw new Error('Celular invalido; informe DDI e numero (ex. +55 11 99999-0000).');
+  }
+  return digits;
+}
 
 export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRepository): void {
   registry.register('crm_create_party', async ({ workspaceId, input }) => {
@@ -22,6 +36,7 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
     if (!displayName.trim()) throw new Error('Nome do cliente obrigatorio');
     const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
     if (!phone) throw new Error('Celular do cliente obrigatorio (phone)');
+    const phoneDigits = normalizePhoneInputOrThrow(phone);
     let roles = Array.isArray(data.roles)
       ? data.roles.filter((x): x is string => typeof x === 'string')
       : [];
@@ -34,7 +49,7 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
       roles,
       status,
       email: typeof data.email === 'string' ? data.email : undefined,
-      phone,
+      phone: phoneDigits,
       notes: typeof data.notes === 'string' ? data.notes : undefined,
     });
   });
@@ -54,7 +69,7 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
     }
     if (typeof data.phone === 'string') {
       const t = data.phone.trim();
-      if (t) set.phone = t;
+      if (t) set.phone = normalizePhoneInputOrThrow(t);
       else unset.push('phone');
     }
     if (typeof data.notes === 'string') {
@@ -127,5 +142,23 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
         limit,
       }),
     };
+  });
+
+  registry.register('crm_delete_party', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const partyId = typeof data.partyId === 'string' ? data.partyId.trim() : '';
+    if (!partyId) throw new Error('partyId obrigatorio');
+    const cur = await parties.findById(workspaceId, partyId);
+    if (!cur) throw new Error('Party nao encontrada');
+    const blockers = await getPartyDeleteBlockers(workspaceId, partyId);
+    if (blockers.length > 0) {
+      const summary = blockers.map((b) => `${b.domain}:${b.count}`).join(', ');
+      throw new Error(
+        `Nao e possivel excluir: existem registos vinculados (${summary}). Resolva as referencias antes de remover o contato.`,
+      );
+    }
+    const ok = await parties.deleteById(workspaceId, partyId);
+    if (!ok) throw new Error('Party nao encontrada');
+    return { deleted: true, id: partyId };
   });
 }
