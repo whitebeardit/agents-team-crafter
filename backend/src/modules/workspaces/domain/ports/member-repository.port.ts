@@ -14,4 +14,5 @@ export interface IMemberRepository {
   >;
   addMember(workspaceId: string, userId: string, role: EMemberRole): Promise<void>;
   updateMemberRole(workspaceId: string, userId: string, role: EMemberRole): Promise<boolean>;
+  deleteByWorkspaceId(workspaceId: string): Promise<number>;
 }

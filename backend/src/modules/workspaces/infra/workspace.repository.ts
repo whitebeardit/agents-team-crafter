@@ -108,4 +108,9 @@ export class WorkspaceRepository implements IWorkspaceRepository {
     });
     return !!res;
   }
+
+  async deleteWorkspace(workspaceId: string): Promise<boolean> {
+    const res = await WorkspaceModel.deleteOne({ _id: new Types.ObjectId(workspaceId) });
+    return res.deletedCount === 1;
+  }
 }

@@ -30,4 +30,6 @@ export interface IWorkspaceRepository {
     workspaceId: string,
     input: { plan: IWorkspaceRecord['plan']; limits: Record<string, unknown> },
   ): Promise<IWorkspaceRecord | null>;
+
+  deleteWorkspace(workspaceId: string): Promise<boolean>;
 }

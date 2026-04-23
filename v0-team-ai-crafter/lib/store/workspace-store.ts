@@ -44,6 +44,7 @@ interface WorkspaceState {
     logo?: string
     plan?: "free" | "pro" | "enterprise"
   }) => Promise<void>
+  deleteWorkspace: (workspaceId: string) => Promise<void>
   /** Admin global: PATCH /platform/workspaces/:id/plan (sem header de tenant). */
   patchWorkspacePlan: (
     workspaceId: string,
@@ -258,6 +259,24 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         await get().bootstrap()
         const ws = get().workspaces.find((w) => w.id === res.data.id)
         if (ws) set({ currentWorkspace: ws })
+      },
+
+      deleteWorkspace: async (workspaceId) => {
+        const { token, refreshToken } = get()
+        if (!token) throw new Error("Nao autenticado")
+        const api = createApiClient({
+          getAuth: () => ({ token, refreshToken }),
+          setAuth: (auth) => set({ token: auth.token, refreshToken: auth.refreshToken ?? refreshToken }),
+          clearAuth: () => set({ token: null, refreshToken: null, isAuthenticated: false, user: null }),
+          getWorkspaceId: () => workspaceId,
+        })
+        await api.del<{ ok: boolean }>(`/workspaces/${workspaceId}`, { tenant: false })
+        const prevCurrentId = get().currentWorkspace?.id
+        await get().bootstrap()
+        if (prevCurrentId === workspaceId) {
+          const fallback = get().workspaces[0] ?? null
+          set({ currentWorkspace: fallback })
+        }
       },
 
       patchWorkspacePlan: async (workspaceId, input) => {

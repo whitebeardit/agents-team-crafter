@@ -82,6 +82,7 @@ export function WorkspaceTeamSection() {
     workspaces,
     currentWorkspace,
     createWorkspace,
+    deleteWorkspace,
     inviteMember,
     listWorkspaceInvites,
     revokeWorkspaceInvite,
@@ -107,6 +108,9 @@ export function WorkspaceTeamSection() {
   const [revoking, setRevoking] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<WorkspaceInviteRow | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [workspaceDeleteTargetId, setWorkspaceDeleteTargetId] = useState<string>("")
+  const [workspaceDeleteConfirmName, setWorkspaceDeleteConfirmName] = useState("")
+  const [deletingWorkspace, setDeletingWorkspace] = useState(false)
 
   const isPlatformAdmin = user?.isPlatformAdmin === true
   const targetWsId = isPlatformAdmin ? inviteWorkspaceId || currentWorkspace?.id : currentWorkspace?.id
@@ -115,7 +119,13 @@ export function WorkspaceTeamSection() {
     if (isPlatformAdmin && workspaces.length > 0 && !inviteWorkspaceId) {
       setInviteWorkspaceId(currentWorkspace?.id ?? workspaces[0].id)
     }
-  }, [isPlatformAdmin, workspaces, currentWorkspace?.id, inviteWorkspaceId])
+  }, [isPlatformAdmin, workspaces, currentWorkspace, inviteWorkspaceId])
+
+  useEffect(() => {
+    if (isPlatformAdmin && workspaces.length > 0 && !workspaceDeleteTargetId) {
+      setWorkspaceDeleteTargetId(currentWorkspace?.id ?? workspaces[0].id)
+    }
+  }, [isPlatformAdmin, workspaces, currentWorkspace, workspaceDeleteTargetId])
 
   useEffect(() => {
     if (!token || !currentWorkspace) {
@@ -141,7 +151,7 @@ export function WorkspaceTeamSection() {
         setLoadingMembers(false)
       }
     })()
-  }, [token, refreshToken, currentWorkspace?.id])
+  }, [token, refreshToken, currentWorkspace])
 
   const copyInviteLink = useCallback(async (inviteId: string) => {
     try {
@@ -289,6 +299,38 @@ export function WorkspaceTeamSection() {
       toast.error(e instanceof Error ? e.message : "Falha ao apagar")
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const workspaceToDelete =
+    (isPlatformAdmin
+      ? workspaces.find((w) => w.id === workspaceDeleteTargetId)
+      : currentWorkspace) ?? null
+  const canDeleteWorkspace =
+    !!workspaceToDelete &&
+    workspaceDeleteConfirmName.trim().toLowerCase() === workspaceToDelete.name.trim().toLowerCase()
+
+  const handleDeleteWorkspace = async () => {
+    if (!workspaceToDelete) return
+    if (!canDeleteWorkspace) {
+      toast.error("Digite exatamente o nome do workspace para confirmar")
+      return
+    }
+    setDeletingWorkspace(true)
+    try {
+      await deleteWorkspace(workspaceToDelete.id)
+      toast.success("Workspace removido em cascata")
+      setWorkspaceDeleteConfirmName("")
+      if (isPlatformAdmin) {
+        const next = workspaces.find((w) => w.id !== workspaceToDelete.id)
+        setWorkspaceDeleteTargetId(next?.id ?? "")
+      }
+      await bootstrap()
+      await loadInvites()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao excluir workspace")
+    } finally {
+      setDeletingWorkspace(false)
     }
   }
 
@@ -592,6 +634,59 @@ export function WorkspaceTeamSection() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-destructive">Zona de perigo do workspace</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Exclui o workspace em cascata, removendo times, agentes e demais dados associados.
+                Esta operacao e irreversivel.
+              </p>
+            </div>
+            {isPlatformAdmin && workspaces.length > 0 ? (
+              <div className="space-y-2">
+                <Label>Workspace para excluir</Label>
+                <Select value={workspaceDeleteTargetId} onValueChange={setWorkspaceDeleteTargetId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Workspace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workspaces.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {w.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            {workspaceToDelete ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="workspace-delete-confirm">
+                    Digite <strong>{workspaceToDelete.name}</strong> para confirmar
+                  </Label>
+                  <Input
+                    id="workspace-delete-confirm"
+                    value={workspaceDeleteConfirmName}
+                    onChange={(e) => setWorkspaceDeleteConfirmName(e.target.value)}
+                    placeholder={workspaceToDelete.name}
+                    disabled={deletingWorkspace}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={!canDeleteWorkspace || deletingWorkspace}
+                  onClick={() => void handleDeleteWorkspace()}
+                >
+                  {deletingWorkspace ? "Excluindo..." : "Excluir workspace em cascata"}
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum workspace disponivel para exclusao.</p>
+            )}
+          </div>
 
         {currentWorkspace && (
           <>

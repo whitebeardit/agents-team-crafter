@@ -21,4 +21,5 @@ export interface IAgentRepository {
   existsAll(workspaceId: string, ids: string[]): Promise<boolean>;
   countByWorkspace(workspaceId: string): Promise<number>;
   listAllIds(workspaceId: string): Promise<Set<string>>;
+  deleteByWorkspaceId(workspaceId: string): Promise<number>;
 }

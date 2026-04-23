@@ -89,4 +89,13 @@ export class UserRepository implements IUserRepository {
       $addToSet: { workspaceIds: new Types.ObjectId(workspaceId) },
     });
   }
+
+  async removeWorkspaceIdFromAllUsers(workspaceId: string): Promise<number> {
+    const { Types } = await import('mongoose');
+    const res = await UserModel.updateMany(
+      { workspaceIds: new Types.ObjectId(workspaceId) },
+      { $pull: { workspaceIds: new Types.ObjectId(workspaceId) } },
+    );
+    return res.modifiedCount ?? 0;
+  }
 }
