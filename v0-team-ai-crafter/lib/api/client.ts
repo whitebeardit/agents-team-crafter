@@ -143,7 +143,7 @@ export interface ITeamPlanExecuteStreamHandlers<T> {
     detail?: string
   }) => void
   onComplete?: (data: T) => void
-  onError?: (e: { code?: string; message: string; status?: number }) => void
+  onError?: (e: { code?: string; message: string; status?: number; details?: Record<string, unknown> }) => void
 }
 
 export function createApiClient(deps: {
@@ -407,11 +407,12 @@ export function createApiClient(deps: {
         if (eventName === "phase") handlers.onPhase?.(data as { phase: any; detail?: string })
         else if (eventName === "complete") handlers.onComplete?.(data as T)
         else if (eventName === "error") {
-          const d = data as { code?: string; message?: string; status?: number }
+          const d = data as { code?: string; message?: string; status?: number; details?: Record<string, unknown> }
           handlers.onError?.({
             code: d.code,
             message: d.message ?? "Erro no stream",
             status: d.status,
+            details: d.details && typeof d.details === "object" ? d.details : undefined,
           })
         }
       } catch {
