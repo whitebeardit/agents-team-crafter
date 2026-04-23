@@ -74,6 +74,18 @@ export class WorkspaceRepository implements IWorkspaceRepository {
     return doc ? toRec(doc as WorkspaceDoc) : null;
   }
 
+  async updateWorkspacePlanAndLimits(
+    workspaceId: string,
+    input: { plan: IWorkspaceRecord['plan']; limits: Record<string, unknown> },
+  ): Promise<IWorkspaceRecord | null> {
+    const doc = await WorkspaceModel.findByIdAndUpdate(
+      workspaceId,
+      { $set: { plan: input.plan, limits: input.limits } },
+      { new: true },
+    );
+    return doc ? toRec(doc as WorkspaceDoc) : null;
+  }
+
   async getIntegrationSecretsEncrypted(workspaceId: string): Promise<IEncryptedPayload | undefined> {
     const doc = await WorkspaceModel.findById(workspaceId).select('integrationSecretsEncrypted').lean();
     if (!doc) return undefined;

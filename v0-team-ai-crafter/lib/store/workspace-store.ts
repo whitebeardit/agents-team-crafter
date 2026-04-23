@@ -44,6 +44,14 @@ interface WorkspaceState {
     logo?: string
     plan?: "free" | "pro" | "enterprise"
   }) => Promise<void>
+  /** Admin global: PATCH /platform/workspaces/:id/plan (sem header de tenant). */
+  patchWorkspacePlan: (
+    workspaceId: string,
+    input: {
+      plan: "free" | "pro" | "enterprise"
+      quotaOverrides?: { maxTeams?: number; maxAgents?: number; maxChannels?: number }
+    },
+  ) => Promise<void>
   inviteMember: (input: {
     workspaceId: string
     email: string
@@ -250,6 +258,23 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         await get().bootstrap()
         const ws = get().workspaces.find((w) => w.id === res.data.id)
         if (ws) set({ currentWorkspace: ws })
+      },
+
+      patchWorkspacePlan: async (workspaceId, input) => {
+        const { token, refreshToken } = get()
+        if (!token) throw new Error("Nao autenticado")
+        const api = createApiClient({
+          getAuth: () => ({ token, refreshToken }),
+          setAuth: (auth) => set({ token: auth.token, refreshToken: auth.refreshToken ?? refreshToken }),
+          clearAuth: () => set({ token: null, refreshToken: null, isAuthenticated: false, user: null }),
+          getWorkspaceId: () => null,
+        })
+        await api.patch<{ id: string; name?: string; logo?: string; plan: string; limits: Record<string, unknown> }>(
+          `/platform/workspaces/${workspaceId}/plan`,
+          input,
+          { tenant: false },
+        )
+        await get().bootstrap()
       },
 
       inviteMember: async ({ workspaceId, email, role }) => {
