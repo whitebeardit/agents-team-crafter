@@ -37,6 +37,7 @@ import {
   plannerOutputSchema,
   type TPlannerOutput,
 } from './team-plan-planner-output.schema.js';
+import { stripPlannerAgentsForImport, teamPlanImportEnvelopeSchema } from './team-plan-snapshot.schema.js';
 import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
 import {
   assertSpecialistsExclusiveCatalogTools,
@@ -738,6 +739,93 @@ export class TeamPlanService {
       plannerMeta: {
         ...(plannerMeta as unknown as Record<string, unknown>),
         platformAssistant: 'team-crafter',
+        briefingSufficiency,
+        integrityModel,
+      },
+      reuseSummary: reuse.reuseSummary,
+    });
+    return created;
+  }
+
+  async importPlanFromSnapshot(workspaceId: string, rawBody: unknown) {
+    const envelopeParse = teamPlanImportEnvelopeSchema.safeParse(rawBody);
+    if (!envelopeParse.success) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'JSON de importacao invalido. Use o formato exportado pelo AI Builder (schemaVersion 1).',
+        422,
+        { issues: envelopeParse.error.issues.slice(0, 24) },
+      );
+    }
+    const { plan } = envelopeParse.data;
+    const teamName =
+      plan.team &&
+      typeof plan.team === 'object' &&
+      plan.team !== null &&
+      'name' in plan.team &&
+      typeof (plan.team as { name?: unknown }).name === 'string'
+        ? String((plan.team as { name: string }).name).trim() || 'Time importado'
+        : 'Time importado';
+    const problemBase = plan.problem.trim();
+    const problem =
+      problemBase.length >= 10 ? problemBase : `Plano importado — ${teamName}`.slice(0, 400);
+    const briefing = plan.briefing as ITeamPlannerStructuredBriefing | undefined;
+    const briefingSufficiency = evaluateTeamPlanBriefingSufficiency(briefing);
+    const integrityModel = buildTeamPlanIntegrityModel(briefing);
+    const strippedAgents = stripPlannerAgentsForImport(plan.agents);
+    const raw: TPlannerOutput = {
+      team: plan.team as TPlannerOutput['team'],
+      agents: strippedAgents as TPlannerOutput['agents'],
+      graph: plan.graph ?? { nodes: [], edges: [] },
+      executionChecklist: plan.executionChecklist,
+      requiredPacks: plan.requiredPacks,
+      requiredTools: plan.requiredTools,
+    };
+    const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
+    const parsedForGraph = plannerOutputSchema.parse({
+      team: raw.team,
+      agents: padPlannerAgentsForSchemaValidation(reuse.agents),
+      graph: raw.graph,
+      executionChecklist: raw.executionChecklist,
+      requiredPacks: raw.requiredPacks,
+      requiredTools: raw.requiredTools,
+    });
+    const agentsMaterialized = materializePlannerAgentCatalogTools(parsedForGraph);
+    assertSpecialistWorkflowOwnership(parsedForGraph.agents);
+    assertSpecialistsExclusiveCatalogTools(agentsMaterialized);
+    const graph = this.buildDefaultGraph({ ...parsedForGraph, agents: agentsMaterialized });
+    const bindUniverse = computePlannerBindActionUniverse(
+      agentsMaterialized.map((a) => ({
+        role: a.role,
+        requiredBusinessActionIds: a.requiredBusinessActionIds,
+        requiredPackIds: a.requiredPackIds,
+      })),
+      parsedForGraph.requiredTools,
+      parsedForGraph.requiredPacks,
+      TEAM_PLAN_AUTO_BIND_MAX_ACTIONS,
+    );
+    const normalizedBindOverrides = normalizeBindOverrides(
+      plan.bindOverrides,
+      plannerAgentKeys(parsedForGraph.agents),
+      bindUniverse.actionIds,
+    );
+    const created = await this.repo.create(workspaceId, {
+      problem,
+      context: plan.context,
+      briefing: briefing ?? null,
+      status: 'ready',
+      team: parsedForGraph.team,
+      agents: agentsMaterialized.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
+      graph,
+      executionChecklist: raw.executionChecklist,
+      requiredPacks: raw.requiredPacks,
+      requiredTools: raw.requiredTools,
+      bindOverrides: normalizedBindOverrides,
+      plannerMeta: {
+        usedOpenAi: false,
+        usedFallback: false,
+        openaiResolvedFromEnv: false,
+        importedSnapshot: true,
         briefingSufficiency,
         integrityModel,
       },

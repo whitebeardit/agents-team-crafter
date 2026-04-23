@@ -1,3 +1,4 @@
+import { resolveChannelHintToProductType } from '../../channels/domain/product-channel-type.js';
 import type { ITeamPlannerStructuredBriefing } from './team-plan-planner-prompt.js';
 import type { TPlannerOutput } from './team-plan-planner-output.schema.js';
 
@@ -45,8 +46,10 @@ export function evaluateTeamPlanAdequacy(params: {
   }
 
   const planChannel = params.plan.team.primaryChannel?.trim().toLowerCase();
-  const briefingChannel = params.briefing?.primaryChannel?.trim().toLowerCase();
-  if (briefingChannel && planChannel && briefingChannel !== planChannel) {
+  const briefingResolved = resolveChannelHintToProductType(params.briefing?.primaryChannel);
+  const briefingNorm =
+    briefingResolved ?? params.briefing?.primaryChannel?.trim().toLowerCase();
+  if (briefingNorm && planChannel && briefingNorm !== planChannel) {
     issues.push('Canal principal do plano diverge do canal principal do briefing.');
     suggestions.push('Alinhe team.primaryChannel ao canal principal informado na descoberta.');
   }

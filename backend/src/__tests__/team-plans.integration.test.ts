@@ -24,6 +24,7 @@ const MOCK_LLM_PLAN = {
     objective: 'Melhorar atendimento e reduzir tempo de resposta dos clientes com fluxo coordenado.',
     description: 'Plano gerado para teste de integracao.',
     channelIds: [],
+    primaryChannel: 'api',
   },
   agents: [
     {
@@ -589,5 +590,45 @@ describe('team-plans flow', () => {
     expect(envelope.success).toBe(false);
     expect(envelope.error.code).toBe('VALIDATION_ERROR');
     expect(envelope.error.message).toContain('calendar_access');
+  });
+
+  it('imports team plan snapshot json sem planner', async () => {
+    const headers = await authHeaders();
+    const envelope = {
+      schemaVersion: 1,
+      kind: 'team-plan-draft',
+      exportedAt: new Date().toISOString(),
+      plan: {
+        problem: 'Plano importado para teste de integracao continua.',
+        context: 'snap',
+        briefing: { primaryChannel: 'api', domainsNeeded: ['crm'] },
+        team: MOCK_LLM_PLAN.team,
+        agents: MOCK_LLM_PLAN.agents.map((a, i) =>
+          i === 0
+            ? {
+                ...a,
+                planningMode: 'existing' as const,
+                existingAgentId: 'deadbeefdeadbeefdeadbeef',
+                overlapScore: 0.99,
+                overlapReason: 'legado',
+              }
+            : a,
+        ),
+        graph: MOCK_LLM_PLAN.graph,
+        executionChecklist: MOCK_LLM_PLAN.executionChecklist,
+        requiredPacks: [] as string[],
+        requiredTools: [] as string[],
+      },
+    };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/team-plans/import',
+      headers,
+      payload: envelope,
+    });
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body) as { data: { id: string; problem: string } };
+    expect(body.data.id).toBeTruthy();
+    expect(body.data.problem).toContain('Plano importado');
   });
 });
