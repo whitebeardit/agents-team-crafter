@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,10 +23,20 @@ import {
   LayoutDashboard,
   Download,
   ClipboardCopy,
+  Upload,
 } from "lucide-react"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
-import type { Agent, Channel, ChannelType, Team, TeamExportPayload, TeamReadinessResult, TeamRunRecord } from "@/lib/types"
+import type {
+  Agent,
+  Channel,
+  ChannelType,
+  Team,
+  TeamExportPayload,
+  TeamImportResult,
+  TeamReadinessResult,
+  TeamRunRecord,
+} from "@/lib/types"
 import { channelTypeLabels, channelStatusLabels } from "@/lib/constants/channel-labels"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { copyJsonToClipboard, downloadJsonFile } from "@/lib/utils/export-json"
@@ -152,6 +162,8 @@ export default function TeamDetailsPage({
   const [readinessLoading, setReadinessLoading] = useState(false)
   const [mainTab, setMainTab] = useState("overview")
   const [exportTeamJsonBusy, setExportTeamJsonBusy] = useState(false)
+  const [importTeamJsonBusy, setImportTeamJsonBusy] = useState(false)
+  const importTeamFileRef = useRef<HTMLInputElement | null>(null)
 
   const TEAM_PAGE_TAB_VALUES = ["overview", "agents", "channels", "runs", "debug"] as const
 
@@ -399,6 +411,41 @@ export default function TeamDetailsPage({
     }
   }
 
+  const handleImportTeamJsonReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file || !team) return
+    const api = buildApiClient()
+    if (!api) return
+    setImportTeamJsonBusy(true)
+    try {
+      const text = await file.text()
+      let payload: unknown
+      try {
+        payload = JSON.parse(text) as unknown
+      } catch {
+        toast.error("Ficheiro JSON inválido")
+        return
+      }
+      const res = await api.put<TeamImportResult>(`/teams/${team.id}/import`, {
+        payload,
+        retireReplacedAgents: false,
+      })
+      const fromMeta = res.meta.warnings
+      const warnList: string[] = Array.isArray(fromMeta) ? (fromMeta as string[]) : res.data.warnings
+      for (const w of warnList) {
+        toast.message(w)
+      }
+      toast.success("Conteúdo do time substituído a partir do JSON. A recarregar…")
+      window.location.reload()
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Falha ao importar JSON (substituir time)"
+      toast.error(msg)
+    } finally {
+      setImportTeamJsonBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <ContextualTourHost screenKey="team_detail" />
@@ -424,6 +471,24 @@ export default function TeamDetailsPage({
         </div>
         <div className="-mx-1 flex max-w-full flex-wrap items-center gap-2 px-1 sm:mx-0 sm:justify-end sm:px-0">
           <ContextualTourManualTrigger screenKey="team_detail" />
+          <input
+            ref={importTeamFileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleImportTeamJsonReplace}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={importTeamJsonBusy || exportTeamJsonBusy}
+            onClick={() => importTeamFileRef.current?.click()}
+            title="Substitui o conteúdo do time (mesmo ID) a partir de um ficheiro export v2"
+          >
+            <Upload className="h-4 w-4" />
+            {importTeamJsonBusy ? "A importar…" : "Importar (substituir)"}
+          </Button>
           <Button
             type="button"
             variant="outline"

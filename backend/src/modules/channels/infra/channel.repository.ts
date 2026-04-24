@@ -246,4 +246,41 @@ export class ChannelRepository {
       { $set: { status: 'connected', connectedAt: new Date(), metrics } },
     ).exec();
   }
+
+  /**
+   * Reidrata um canal a partir de um export de time (v2) — IDs novos, opcional `teamId`.
+   */
+  async createFromImportSnapshot(
+    workspaceId: string,
+    input: {
+      type: ChannelDoc['type'];
+      name: string;
+      status: ChannelDoc['status'];
+      provider: 'native' | 'chat_sdk';
+      platform?: string;
+      config: Record<string, unknown>;
+      teamId?: string;
+      metrics?: Record<string, unknown>;
+      connectedAt?: Date;
+      disconnectedAt?: Date;
+      secretsEncrypted?: IEncryptedPayload;
+    },
+  ): Promise<string> {
+    const payload: Record<string, unknown> = {
+      workspaceId: new Types.ObjectId(workspaceId),
+      type: input.type,
+      provider: input.provider,
+      name: input.name,
+      status: input.status,
+      config: input.config,
+    };
+    if (input.platform !== undefined) payload.platform = input.platform;
+    if (input.teamId) payload.teamId = new Types.ObjectId(input.teamId);
+    if (input.metrics !== undefined) payload.metrics = input.metrics;
+    if (input.connectedAt) payload.connectedAt = input.connectedAt;
+    if (input.disconnectedAt) payload.disconnectedAt = input.disconnectedAt;
+    if (input.secretsEncrypted) payload.secretsEncrypted = input.secretsEncrypted;
+    const doc = await ChannelModel.create(payload);
+    return (doc as ChannelDoc)._id.toString();
+  }
 }

@@ -10,17 +10,6 @@ import type { TeamGraphRepository } from '../../graphs/infra/team-graph.reposito
 import { AppError } from '../../../shared/errors/app-error.js';
 import type { TeamRepository } from '../infra/team.repository.js';
 
-function orderedUniqueAgentIds(coordinatorId: string, agentIds: string[]): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const id of [coordinatorId, ...agentIds]) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push(id);
-  }
-  return out;
-}
-
 function toChannelRow(c: Record<string, unknown>) {
   const raw = c['_id'] as { toString(): string } | string | undefined;
   const id = typeof raw === 'object' && raw && 'toString' in raw ? raw.toString() : String(raw ?? '');
@@ -32,6 +21,73 @@ function toChannelRow(c: Record<string, unknown>) {
   };
 }
 
+/**
+ * Snapshot serializável do canal (sem _id/workspaceId/teamId/timestamps) — usado no import.
+ */
+export function toChannelFullSnapshot(
+  c: Record<string, unknown>,
+): TTeamExportChannelFullSnapshot {
+  const raw = c['_id'] as { toString(): string } | string | undefined;
+  const legacyId =
+    typeof raw === 'object' && raw && 'toString' in raw ? raw.toString() : String(raw ?? '');
+
+  return {
+    legacyId,
+    type: c['type'] as TTeamExportChannelFullSnapshot['type'],
+    name: String(c['name'] ?? ''),
+    status: c['status'] as TTeamExportChannelFullSnapshot['status'],
+    provider: (c['provider'] as 'native' | 'chat_sdk' | undefined) ?? 'native',
+    platform: c['platform'] as string | undefined,
+    config: (c['config'] as Record<string, unknown>) ?? {},
+    secretsEncrypted: c['secretsEncrypted'] as TTeamExportChannelFullSnapshot['secretsEncrypted'],
+    metrics: c['metrics'] as Record<string, unknown> | undefined,
+    connectedAt: toIso(c['connectedAt']),
+    disconnectedAt: toIso(c['disconnectedAt']),
+  };
+}
+
+function toIso(d: unknown): string | undefined {
+  if (d == null) return undefined;
+  if (d instanceof Date) return d.toISOString();
+  if (typeof d === 'string') return d;
+  if (typeof d === 'object' && d && 'toISOString' in d && typeof (d as Date).toISOString === 'function') {
+    return (d as Date).toISOString();
+  }
+  return undefined;
+}
+
+/** Linha mínima + snapshot completo (v2) para reidratar o canal. */
+export type TTeamExportChannelFullSnapshot = {
+  legacyId: string;
+  type: import('../../channels/infra/channel.model.js').ChannelDoc['type'];
+  name: string;
+  status: 'connected' | 'disconnected' | 'pending';
+  provider: 'native' | 'chat_sdk';
+  platform?: string;
+  config: Record<string, unknown>;
+  secretsEncrypted?: {
+    algorithm: string;
+    keyVersion: number;
+    iv: string;
+    ciphertext: string;
+    authTag: string;
+  };
+  metrics?: Record<string, unknown>;
+  connectedAt?: string;
+  disconnectedAt?: string;
+};
+
+export function orderedUniqueAgentIds(coordinatorId: string, agentIds: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of [coordinatorId, ...agentIds]) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 export type TTeamExportPayload = {
   exportVersion: string;
   exportKind: 'team';
@@ -39,6 +95,8 @@ export type TTeamExportPayload = {
   team: Record<string, unknown>;
   graph: { nodes: unknown[]; edges: unknown[] };
   channels: ReturnType<typeof toChannelRow>[];
+  /** v2: dados completos de cada canal, alinhado com `channels` pela ordem. */
+  channelsFull?: TTeamExportChannelFullSnapshot[];
   agents: TAgentExportPayload[];
 };
 
@@ -68,6 +126,7 @@ export async function buildTeamExportPayload(
   const graph = await deps.teamGraphRepo.get(workspaceId, teamId);
   const chRows = await deps.channelRepo.listByIds(workspaceId, channelIds);
   const channels = (chRows as Record<string, unknown>[]).map(toChannelRow);
+  const channelsFull = (chRows as Record<string, unknown>[]).map(toChannelFullSnapshot);
 
   const missing: string[] = [];
   const agents: TAgentExportPayload[] = [];
@@ -93,6 +152,7 @@ export async function buildTeamExportPayload(
     team: t,
     graph: { nodes: graph.nodes ?? [], edges: graph.edges ?? [] },
     channels,
+    channelsFull,
     agents,
   };
 }

@@ -15,12 +15,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
-import { Plus, Users } from "lucide-react"
+import { Plus, Upload, Users } from "lucide-react"
 import { TeamCard } from "@/components/teams/team-card"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { TeamStatus } from "@/lib/types"
-import type { Agent, Team } from "@/lib/types"
-import { createApiClient } from "@/lib/api/client"
+import type { Agent, Team, TeamImportResult } from "@/lib/types"
+import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { toast } from "sonner"
 
@@ -32,6 +32,8 @@ export default function TeamsPage() {
   const [agentsById, setAgentsById] = useState<Record<string, Agent>>({})
   const [teamPendingDelete, setTeamPendingDelete] = useState<Team | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const importFileRef = useRef<HTMLInputElement | null>(null)
 
   const buildApiClient = useCallback(() => {
     if (!token || !currentWorkspace) return null
@@ -67,6 +69,41 @@ export default function TeamsPage() {
       router.push(`/teams/${team.id}?edit=1`)
     },
     [router],
+  )
+
+  const handleImportFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      e.target.value = ""
+      if (!file) return
+      const api = buildApiClient()
+      if (!api) return
+      setImporting(true)
+      try {
+        const text = await file.text()
+        let payload: unknown
+        try {
+          payload = JSON.parse(text) as unknown
+        } catch {
+          toast.error("Ficheiro JSON inválido")
+          return
+        }
+        const res = await api.post<TeamImportResult>("/teams/import", { payload })
+        const fromMeta = res.meta.warnings
+        const warnList: string[] = Array.isArray(fromMeta) ? (fromMeta as string[]) : res.data.warnings
+        for (const w of warnList) {
+          toast.message(w)
+        }
+        toast.success("Time importado. Redirecionando…")
+        router.push(`/teams/${res.data.teamId}`)
+      } catch (err) {
+        const msg = err instanceof ApiError ? err.message : "Falha ao importar o JSON do time"
+        toast.error(msg)
+      } finally {
+        setImporting(false)
+      }
+    },
+    [buildApiClient, router],
   )
 
   const handleConfirmDelete = useCallback(async () => {
@@ -108,6 +145,23 @@ export default function TeamsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <ContextualTourManualTrigger screenKey="teams_list" />
+          <input
+            ref={importFileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={!token || !currentWorkspace || importing}
+            onClick={() => importFileRef.current?.click()}
+          >
+            <Upload className="h-4 w-4" />
+            {importing ? "A importar…" : "Importar JSON"}
+          </Button>
           <Link href="/teams/create">
             <Button className="gap-2">
               <Plus className="w-4 h-4" />

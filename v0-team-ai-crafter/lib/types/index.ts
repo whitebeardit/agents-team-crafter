@@ -307,6 +307,27 @@ export interface TeamExportChannelRow {
   status: string
 }
 
+/** Canal completo no export v2 (alinhado a `channelIds` do time). */
+export interface TeamExportChannelFullSnapshot {
+  legacyId: string
+  type: string
+  name: string
+  status: string
+  provider: "native" | "chat_sdk"
+  platform?: string
+  config: Record<string, unknown>
+  secretsEncrypted?: {
+    algorithm: string
+    keyVersion: number
+    iv: string
+    ciphertext: string
+    authTag: string
+  }
+  metrics?: Record<string, unknown>
+  connectedAt?: string
+  disconnectedAt?: string
+}
+
 /** Resposta de `GET /teams/:id/export` (campo `data` do envelope). */
 export interface TeamExportPayload {
   exportVersion: string
@@ -315,7 +336,17 @@ export interface TeamExportPayload {
   team: Team & { objective?: string; primaryChannel?: string }
   graph: { nodes: unknown[]; edges: unknown[] }
   channels: TeamExportChannelRow[]
+  /** Presente a partir do export v2. */
+  channelsFull?: TeamExportChannelFullSnapshot[]
   agents: AgentExportPayload[]
+}
+
+/** Resposta de `POST /teams/import` e `PUT /teams/:id/import` (campo `data` do envelope). */
+export interface TeamImportResult {
+  teamId: string
+  oldToNewAgentIds: Record<string, string>
+  oldToNewChannelIds: Record<string, string>
+  warnings: string[]
 }
 
 /** Resposta de `GET /api/v1/teams/:id/readiness` (preflight operacional, Loop 88). */

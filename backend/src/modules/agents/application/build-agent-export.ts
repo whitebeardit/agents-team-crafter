@@ -1,5 +1,5 @@
 /** Versão do formato de export (agente e time alinham a mesma string). */
-export const AGENT_EXPORT_VERSION = '1';
+export const AGENT_EXPORT_VERSION = '2';
 
 function buildAgentExportSections(agent: Record<string, unknown>) {
   return {

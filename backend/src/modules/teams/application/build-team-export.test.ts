@@ -1,3 +1,4 @@
+import { AGENT_EXPORT_VERSION } from '../../agents/application/build-agent-export.js';
 import { buildTeamExportPayload } from './build-team-export.js';
 
 describe('buildTeamExportPayload', () => {
@@ -14,7 +15,16 @@ describe('buildTeamExportPayload', () => {
       teamRepo: { findById: jest.fn(async () => team) },
       teamGraphRepo: { get: jest.fn(async () => ({ nodes: [{ id: 'n1' }], edges: [] })) },
       channelRepo: {
-        listByIds: jest.fn(async () => [{ _id: { toString: () => 'ch1' }, type: 'api', name: 'Ch', status: 'active' }]),
+        listByIds: jest.fn(async () => [
+          {
+            _id: { toString: () => 'ch1' },
+            type: 'api',
+            name: 'Ch',
+            status: 'connected',
+            provider: 'native',
+            config: { x: 1 },
+          },
+        ]),
       },
       agentRepo: {
         findById: jest.fn(async (_ws: string, id: string) => (id === 'c1' ? agentC : id === 's1' ? agentS : null)),
@@ -23,10 +33,14 @@ describe('buildTeamExportPayload', () => {
     };
 
     const p = await buildTeamExportPayload(deps as never, 'ws1', 't1');
+    expect(p.exportVersion).toBe(AGENT_EXPORT_VERSION);
     expect(p.exportKind).toBe('team');
     expect(p.team).toBe(team);
     expect(p.graph.nodes).toEqual([{ id: 'n1' }]);
     expect(p.channels[0].id).toBe('ch1');
+    expect(p.channelsFull).toBeDefined();
+    expect(p.channelsFull![0]!.legacyId).toBe('ch1');
+    expect(p.channelsFull![0]!.config).toEqual({ x: 1 });
     expect(p.agents).toHaveLength(2);
     expect(p.agents[0].agent).toBe(agentC);
     expect(p.agents[1].agent).toBe(agentS);

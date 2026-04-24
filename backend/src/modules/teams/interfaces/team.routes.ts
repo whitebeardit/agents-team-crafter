@@ -28,6 +28,7 @@ import {
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
 import { computeTeamReadiness } from '../application/team-readiness.service.js';
 import { buildTeamExportPayload } from '../application/build-team-export.js';
+import { importTeamFromExport, teamImportBodySchema } from '../application/import-team-from-export.js';
 
 async function loadTeamRunConversation(
   deps: IAppDeps,
@@ -143,6 +144,58 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
       status: 'draft',
     });
     return reply.code(201).send(successEnvelope(created));
+  });
+
+  app.post('/teams/import', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const body = teamImportBodySchema.parse(req.body);
+    const mcpMap = body.mcpConnectionIdMap;
+    const sameWorkspaceMcp = !mcpMap || Object.keys(mcpMap).length === 0;
+    const out = await importTeamFromExport(deps, ws, {
+      mode: 'create',
+      importBody: body,
+      sameWorkspaceMcp,
+    });
+    const oCoord = (body.payload as { team?: { coordinatorId?: string } })?.team?.coordinatorId;
+    if (oCoord) {
+      const n = out.oldToNewAgentIds[oCoord];
+      if (n) await assertCoordinatorRole(deps, ws, n);
+    }
+    await deps.governanceAuditRepo.append({
+      workspaceId: ws,
+      userId: req.user!.sub,
+      correlationId: req.requestId,
+      eventType: 'governance.team_import',
+      payload: { mode: 'create', teamId: out.teamId, warnings: out.warnings },
+    });
+    return reply.code(201).send(successEnvelope(out, { warnings: out.warnings }));
+  });
+
+  app.put('/teams/:id/import', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const body = teamImportBodySchema.parse(req.body);
+    const mcpMap = body.mcpConnectionIdMap;
+    const sameWorkspaceMcp = !mcpMap || Object.keys(mcpMap).length === 0;
+    const out = await importTeamFromExport(deps, ws, {
+      mode: 'replace',
+      replaceTeamId: teamId,
+      importBody: body,
+      sameWorkspaceMcp,
+    });
+    const oCoord2 = (body.payload as { team?: { coordinatorId?: string } })?.team?.coordinatorId;
+    if (oCoord2) {
+      const n = out.oldToNewAgentIds[oCoord2];
+      if (n) await assertCoordinatorRole(deps, ws, n);
+    }
+    await deps.governanceAuditRepo.append({
+      workspaceId: ws,
+      userId: req.user!.sub,
+      correlationId: req.requestId,
+      eventType: 'governance.team_import',
+      payload: { mode: 'replace', teamId: out.teamId, warnings: out.warnings },
+    });
+    return reply.send(successEnvelope(out, { warnings: out.warnings }));
   });
 
   app.get('/teams/:id/graph', { preHandler: tenant }, async (req, reply) => {
