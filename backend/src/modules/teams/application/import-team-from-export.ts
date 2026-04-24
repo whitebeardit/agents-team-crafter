@@ -15,6 +15,7 @@ import {
   type TTeamExportChannelFullSnapshot,
 } from './build-team-export.js';
 import type { IAppDeps } from '../../../config/container.js';
+import type { TeamRepository } from '../infra/team.repository.js';
 import type { TAgentExportPayload } from '../../agents/application/build-agent-export.js';
 import { z } from 'zod';
 import type { IEncryptedPayload } from '../../../utils/secrets-crypto.js';
@@ -26,8 +27,16 @@ export const teamImportBodySchema = z.object({
   /** Snapshot exportado por `GET /teams/:id/export` (v1/v2) ou enriquecido com `channelsFull` (v2). */
   payload: z.unknown(),
   mcpConnectionIdMap: mcpConnectionIdMapSchema.optional(),
-  /** Só aplica a `replace`: tentar arquivar agentes antigos se só serviam este time. */
-  retireReplacedAgents: z.boolean().optional().default(false),
+  /**
+   * Só aplica a `replace` (incl. substituição automática em `POST /teams/import` quando o `team.id`
+   * do export já existe no workspace). Por defeito **true** para evitar agentes duplicados no catálogo.
+   */
+  retireReplacedAgents: z.boolean().optional().default(true),
+  /**
+   * Se `true`, `POST /teams/import` cria sempre um time novo, mesmo que `payload.team.id` exista
+   * no workspace (duplicação intencional).
+   */
+  forceCreate: z.boolean().optional().default(false),
 });
 
 export type TTeamImportResult = {
@@ -36,6 +45,27 @@ export type TTeamImportResult = {
   oldToNewChannelIds: Record<string, string>;
   warnings: string[];
 };
+
+/**
+ * `POST /teams/import`: se o export contém `team.id` e esse time ainda existe no workspace,
+ * substitui o conteúdo em vez de criar outro (evita duplicar agentes). `forceCreate` força criação.
+ */
+export async function resolveTeamImportMode(
+  teamRepo: Pick<TeamRepository, 'findById'>,
+  workspaceId: string,
+  payload: unknown,
+  forceCreate: boolean,
+): Promise<{ mode: 'create' | 'replace'; replaceTeamId?: string; autoResolvedReplace: boolean }> {
+  if (forceCreate) return { mode: 'create', autoResolvedReplace: false };
+  const p = payload as { team?: { id?: string } } | null;
+  const tid = typeof p?.team?.id === 'string' ? p.team.id.trim() : '';
+  if (!tid) return { mode: 'create', autoResolvedReplace: false };
+  const existing = await teamRepo.findById(workspaceId, tid);
+  if (existing) {
+    return { mode: 'replace', replaceTeamId: tid, autoResolvedReplace: true };
+  }
+  return { mode: 'create', autoResolvedReplace: false };
+}
 
 const teamShapeSchema = z
   .object({

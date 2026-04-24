@@ -28,7 +28,11 @@ import {
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
 import { computeTeamReadiness } from '../application/team-readiness.service.js';
 import { buildTeamExportPayload } from '../application/build-team-export.js';
-import { importTeamFromExport, teamImportBodySchema } from '../application/import-team-from-export.js';
+import {
+  importTeamFromExport,
+  resolveTeamImportMode,
+  teamImportBodySchema,
+} from '../application/import-team-from-export.js';
 
 async function loadTeamRunConversation(
   deps: IAppDeps,
@@ -151,11 +155,19 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     const body = teamImportBodySchema.parse(req.body);
     const mcpMap = body.mcpConnectionIdMap;
     const sameWorkspaceMcp = !mcpMap || Object.keys(mcpMap).length === 0;
+    const resolved = await resolveTeamImportMode(deps.teamRepo, ws, body.payload, body.forceCreate);
     const out = await importTeamFromExport(deps, ws, {
-      mode: 'create',
+      mode: resolved.mode,
+      replaceTeamId: resolved.replaceTeamId,
       importBody: body,
       sameWorkspaceMcp,
     });
+    const w = out.warnings.slice();
+    if (resolved.autoResolvedReplace) {
+      w.unshift(
+        'O ficheiro referia um time que ja existia (mesmo id do export). O conteudo foi substituido; nao foi criado um segundo time.',
+      );
+    }
     const oCoord = (body.payload as { team?: { coordinatorId?: string } })?.team?.coordinatorId;
     if (oCoord) {
       const n = out.oldToNewAgentIds[oCoord];
@@ -166,9 +178,23 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
       userId: req.user!.sub,
       correlationId: req.requestId,
       eventType: 'governance.team_import',
-      payload: { mode: 'create', teamId: out.teamId, warnings: out.warnings },
+      payload: {
+        mode: resolved.mode,
+        teamId: out.teamId,
+        importAutoResolvedReplace: resolved.autoResolvedReplace,
+        warnings: w,
+      },
     });
-    return reply.code(201).send(successEnvelope(out, { warnings: out.warnings }));
+    const meta: Record<string, unknown> = {
+      warnings: w,
+      importMode: resolved.mode,
+      importAutoResolvedReplace: resolved.autoResolvedReplace,
+    };
+    const data = { ...out, warnings: w };
+    if (resolved.mode === 'replace') {
+      return reply.send(successEnvelope(data, meta));
+    }
+    return reply.code(201).send(successEnvelope(data, meta));
   });
 
   app.put('/teams/:id/import', { preHandler: tenant }, async (req, reply) => {

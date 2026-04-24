@@ -94,7 +94,12 @@ export default function TeamsPage() {
         for (const w of warnList) {
           toast.message(w)
         }
-        toast.success("Time importado. Redirecionando…")
+        const updatedExisting = res.meta.importMode === "replace"
+        toast.success(
+          updatedExisting
+            ? "Conteúdo do time actualizado a partir do ficheiro (mesmo id no workspace; não foi duplicado)."
+            : "Time importado. A redirecionar…",
+        )
         router.push(`/teams/${res.data.teamId}`)
       } catch (err) {
         const msg = err instanceof ApiError ? err.message : "Falha ao importar o JSON do time"

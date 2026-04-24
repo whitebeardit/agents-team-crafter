@@ -1,4 +1,4 @@
-import { parseExportPayload } from './import-team-from-export.js';
+import { parseExportPayload, resolveTeamImportMode } from './import-team-from-export.js';
 
 describe('parseExportPayload', () => {
   it('aceita v2 com channelsFull alinhado a channelIds', () => {
@@ -67,5 +67,33 @@ describe('parseExportPayload', () => {
     };
     const p = parseExportPayload(raw);
     expect(p.kind).toBe('error');
+  });
+});
+
+describe('resolveTeamImportMode', () => {
+  it('substitui automaticamente se team.id do export existir no workspace (e forceCreate e false)', async () => {
+    const teamRepo = {
+      findById: jest.fn(async (_ws: string, id: string) => (id === 't1' ? { id: 't1' } : null)),
+    };
+    const p = { team: { id: 't1' } };
+    const r = await resolveTeamImportMode(teamRepo as never, 'ws1', p, false);
+    expect(r.mode).toBe('replace');
+    expect(r.replaceTeamId).toBe('t1');
+    expect(r.autoResolvedReplace).toBe(true);
+  });
+
+  it('cria se team.id nao existir', async () => {
+    const teamRepo = { findById: jest.fn(async () => null) };
+    const r = await resolveTeamImportMode(teamRepo as never, 'ws1', { team: { id: 't1' } }, false);
+    expect(r.mode).toBe('create');
+    expect(r.autoResolvedReplace).toBe(false);
+  });
+
+  it('forca create com forceCreate', async () => {
+    const teamRepo = {
+      findById: jest.fn(async () => ({ id: 't1' })),
+    };
+    const r = await resolveTeamImportMode(teamRepo as never, 'ws1', { team: { id: 't1' } }, true);
+    expect(r.mode).toBe('create');
   });
 });
