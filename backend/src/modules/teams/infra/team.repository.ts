@@ -213,4 +213,11 @@ export class TeamRepository implements ITeamRepository {
     }
     return toPublic(copy as TeamDoc);
   }
+
+  async deleteByWorkspaceId(workspaceId: string): Promise<number> {
+    const workspaceObjectId = new Types.ObjectId(workspaceId);
+    await TeamGraphModel.deleteMany({ workspaceId: workspaceObjectId });
+    const res = await TeamModel.deleteMany({ workspaceId: workspaceObjectId });
+    return res.deletedCount ?? 0;
+  }
 }

@@ -173,4 +173,11 @@ export class AgentRepository implements IAgentRepository {
       $and: [notDeleted()],
     });
   }
+
+  async deleteByWorkspaceId(workspaceId: string): Promise<number> {
+    const res = await AgentModel.deleteMany({
+      workspaceId: new Types.ObjectId(workspaceId),
+    });
+    return res.deletedCount ?? 0;
+  }
 }

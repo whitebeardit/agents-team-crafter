@@ -24,4 +24,12 @@ export interface IWorkspaceRepository {
     workspaceId: string,
     patch: Partial<Pick<IWorkspaceRecord, 'name' | 'logo' | 'settings'>>,
   ): Promise<IWorkspaceRecord | null>;
+
+  /** Admin global: persiste `plan` e o documento `limits` completo já calculado. */
+  updateWorkspacePlanAndLimits(
+    workspaceId: string,
+    input: { plan: IWorkspaceRecord['plan']; limits: Record<string, unknown> },
+  ): Promise<IWorkspaceRecord | null>;
+
+  deleteWorkspace(workspaceId: string): Promise<boolean>;
 }

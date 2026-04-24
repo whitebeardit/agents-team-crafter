@@ -1,10 +1,20 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Loader2, Sparkles, Play, PencilLine, AlertTriangle, ChevronDown, Settings2 } from "lucide-react"
+import {
+  Loader2,
+  Sparkles,
+  Play,
+  PencilLine,
+  AlertTriangle,
+  ChevronDown,
+  Settings2,
+  Download,
+  Upload,
+} from "lucide-react"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import type {
@@ -28,6 +38,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { resolveChannelHintToProductType } from "@/lib/briefing-channel-hint"
+import { buildTeamPlanExportEnvelope } from "@/lib/team-plan-snapshot"
 import { createOperationId } from "@/lib/utils/operation-id"
 import { bindPreviewApprovalFingerprint } from "@/lib/team-plan-bind-preview-fingerprint"
 import { planHasBindReviewHints, teamPlanBindFingerprint } from "@/lib/team-plan-bind-fingerprint"
@@ -223,7 +235,9 @@ function buildStructuredBriefingFromDiscovery(
     domainsNeeded: domains,
     mainEntities: entities,
     sharedEntities: entities,
-    primaryChannel: normalizeSingleValue(answers.primaryChannel),
+    primaryChannel:
+      resolveChannelHintToProductType(answers.primaryChannel) ??
+      normalizeSingleValue(answers.primaryChannel),
     operationKinds,
     constraints,
     mustHaveCapabilities: domains,
@@ -239,26 +253,42 @@ type DiscoverySufficiency = {
   expectedSignals: number
 }
 
+function normalizeBriefingStringList(values: string[] | undefined): string[] {
+  return [...new Set((values ?? []).map((value) => value.trim().toLowerCase()).filter(Boolean))]
+}
+
+/** Espelha `evaluateTeamPlanAdequacy` do backend para mensagens consistentes. */
 function evaluateClientPlanAdequacy(plan: TeamPlanDraft | null): string[] {
   if (!plan) return []
   const issues: string[] = []
   const coordinatorCount = plan.agents.filter((agent) => agent.role === "coordinator").length
-  const specialistCount = plan.agents.filter((agent) => agent.role === "specialist").length
-  if (coordinatorCount !== 1) issues.push("Plano precisa de exatamente 1 coordenador.")
-  if (specialistCount === 0) issues.push("Plano precisa de pelo menos 1 especialista.")
-  const briefingDomains = (plan.briefing?.domainsNeeded ?? []).length
-  if (briefingDomains > 1 && specialistCount < Math.min(briefingDomains, 3)) {
-    issues.push("Especialistas insuficientes para os domínios pedidos no briefing.")
+  const specialists = plan.agents.filter((agent) => agent.role === "specialist")
+  if (coordinatorCount !== 1) issues.push("Plano precisa de exatamente um coordenador ativo.")
+  if (specialists.length === 0) issues.push("Plano sem especialista operacional.")
+  const domainsNeeded = normalizeBriefingStringList(plan.briefing?.domainsNeeded)
+  const sharedEntities = normalizeBriefingStringList(plan.briefing?.sharedEntities)
+  const integrityNeeds = normalizeBriefingStringList(plan.briefing?.crossDomainIntegrityNeeds)
+  if (domainsNeeded.length > 0 && specialists.length < Math.min(domainsNeeded.length, 3)) {
+    issues.push("Quantidade de especialistas parece insuficiente para os domínios informados.")
   }
-  const briefingChannel = plan.briefing?.primaryChannel?.trim().toLowerCase()
+  if (domainsNeeded.length > 1 && sharedEntities.length === 0) {
+    issues.push("Briefing multi-domínio sem entidades partilhadas explícitas para integridade.")
+  }
+  if (domainsNeeded.length > 1 && integrityNeeds.length === 0) {
+    issues.push("Briefing multi-domínio sem regra de integridade entre domínios.")
+  }
   const planChannel = plan.team.primaryChannel?.trim().toLowerCase()
-  if (briefingChannel && planChannel && briefingChannel !== planChannel) {
-    issues.push("Canal do plano difere do canal principal informado no briefing.")
+  const briefingResolved = resolveChannelHintToProductType(plan.briefing?.primaryChannel)
+  const briefingNorm = briefingResolved ?? plan.briefing?.primaryChannel?.trim().toLowerCase()
+  if (briefingNorm && planChannel && briefingNorm !== planChannel) {
+    issues.push("Canal principal do plano diverge do canal principal do briefing.")
   }
-  const hasOpsKinds = (plan.briefing?.operationKinds ?? []).length > 0
-  const hasOpsCapabilities = (plan.requiredPacks?.length ?? 0) > 0 || (plan.requiredTools?.length ?? 0) > 0
-  if (hasOpsKinds && !hasOpsCapabilities) {
-    issues.push("Plano sem packs/tools para operação declarada no briefing.")
+  const needsOperationalTools = normalizeBriefingStringList(plan.briefing?.operationKinds).some((kind) =>
+    ["crud", "atendimento", "automacao", "acompanhamento"].some((token) => kind.includes(token)),
+  )
+  const hasOperationalCapability = (plan.requiredTools?.length ?? 0) > 0 || (plan.requiredPacks?.length ?? 0) > 0
+  if (needsOperationalTools && !hasOperationalCapability) {
+    issues.push("Plano sem packs/tools de negócio para a operação declarada no briefing.")
   }
   return issues
 }
@@ -487,6 +517,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
+  const [isImportingSnapshot, setIsImportingSnapshot] = useState(false)
+  const importSnapshotInputRef = useRef<HTMLInputElement>(null)
   const [plan, setPlan] = useState<TeamPlanDraft | null>(null)
   const [operationId] = useState(() => createOperationId())
   const [executionPhase, setExecutionPhase] = useState<
@@ -994,8 +1026,65 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
+  const downloadTeamPlanSnapshot = () => {
+    if (!plan) return
+    const envelope = buildTeamPlanExportEnvelope(plan)
+    const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    const base =
+      plan.team.name
+        .replace(/[^a-zA-Z0-9\-_.\s]+/g, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 80) || "team-plan"
+    a.href = url
+    a.download = `${base}-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success("JSON exportado.")
+  }
+
+  const triggerImportTeamPlanSnapshot = () => importSnapshotInputRef.current?.click()
+
+  const onImportTeamPlanSnapshotFile = async (ev: ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0]
+    ev.target.value = ""
+    if (!file || !api) return
+    if (plan && !window.confirm("Substituir o plano atual pelo JSON importado? Alterações não guardadas perdem-se.")) {
+      return
+    }
+    setIsImportingSnapshot(true)
+    try {
+      const text = await file.text()
+      const json = JSON.parse(text) as unknown
+      const res = await api.post<TeamPlanDraft>("/team-plans/import", json)
+      setLastExecutionMeta(null)
+      setBindPreview(null)
+      setBindPreviewApproved(false)
+      setPlan(res.data)
+      if (planHasBindReviewHints(res.data)) void refreshBindPreview(res.data.id)
+      toast.success("Plano importado. Revise antes de executar.")
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Falha ao importar JSON"
+      toast.error(message)
+    } finally {
+      setIsImportingSnapshot(false)
+    }
+  }
+
   const executePlan = async () => {
     if (!api || !plan) return
+    if (executePlanBlockers.length > 0) {
+      toast.warning(
+        `Corrija os bloqueios antes de executar: ${executePlanBlockers.slice(0, 4).join(" · ")}${
+          executePlanBlockers.length > 4 ? "…" : ""
+        }`,
+      )
+      return
+    }
     setIsExecuting(true)
     setExecutionPhase(null)
     setExecutionDetail("")
@@ -1075,7 +1164,13 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
             if (teamId) router.push(`/teams/${teamId}`)
           },
           onError: (e) => {
-            toast.error(e.message)
+            const adequacy = e.details?.adequacy as { issues?: string[] } | undefined
+            const issues = adequacy?.issues?.filter(Boolean) ?? []
+            if (issues.length > 0) {
+              toast.error(e.message, { description: issues.join("\n") })
+            } else {
+              toast.error(e.message)
+            }
           },
         },
       )
@@ -2357,7 +2452,38 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </AlertDescription>
               </Alert>
             ) : null}
+            <input
+              ref={importSnapshotInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={onImportTeamPlanSnapshotFile}
+            />
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={downloadTeamPlanSnapshot}
+                disabled={!plan}
+                className="w-full sm:w-auto"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Descarregar JSON
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={triggerImportTeamPlanSnapshot}
+                disabled={!api || isImportingSnapshot}
+                className="w-full sm:w-auto"
+              >
+                {isImportingSnapshot ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                Importar JSON
+              </Button>
               <Button
                 variant="outline"
                 onClick={saveEdits}
@@ -2372,6 +2498,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 onClick={executePlan}
                 disabled={
                   isExecuting ||
+                  executePlanBlockers.length > 0 ||
                   specialistExclusiveCollisions.length > 0 ||
                   specialistWorkflowDuplicates.length > 0 ||
                   (requiresExplicitBindApproval && (!bindPreview || !bindPreviewApproved)) ||

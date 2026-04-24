@@ -7,10 +7,12 @@ import { ChannelModel } from '../../channels/infra/channel.model.js';
 import { resolveEffectiveMaxLimits } from '../../workspaces/application/workspace-plan-limits.js';
 
 export class SettingsRepository {
-  async getWorkspace(workspaceId: string) {
-    const doc = await WorkspaceModel.findById(workspaceId);
-    if (!doc) return null;
-    const ws = doc as WorkspaceDoc;
+  /** Contagens de uso para quotas (teams, agentes activos, canais). */
+  async countWorkspaceUsage(workspaceId: string): Promise<{
+    usedTeams: number;
+    usedAgents: number;
+    usedChannels: number;
+  }> {
     const id = new Types.ObjectId(workspaceId);
     const [usedTeams, usedAgents, usedChannels] = await Promise.all([
       TeamModel.countDocuments({ workspaceId: id }),
@@ -20,6 +22,14 @@ export class SettingsRepository {
       }),
       ChannelModel.countDocuments({ workspaceId: id }),
     ]);
+    return { usedTeams, usedAgents, usedChannels };
+  }
+
+  async getWorkspace(workspaceId: string) {
+    const doc = await WorkspaceModel.findById(workspaceId);
+    if (!doc) return null;
+    const ws = doc as WorkspaceDoc;
+    const { usedTeams, usedAgents, usedChannels } = await this.countWorkspaceUsage(workspaceId);
     const limitsRaw = (ws.limits as Record<string, unknown>) ?? {};
     const effective = resolveEffectiveMaxLimits(ws.plan, limitsRaw);
     return {

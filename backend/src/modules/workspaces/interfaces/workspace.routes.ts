@@ -4,6 +4,7 @@ import type { IAppDeps } from '../../../config/container.js';
 import type { IWorkspaceRecord } from '../domain/ports/workspace-repository.port.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
+import { deleteWorkspaceCascade } from '../application/delete-workspace-cascade.service.js';
 
 const putWsSchema = z.object({
   name: z.string().optional(),
@@ -55,6 +56,22 @@ async function assertCanInviteToWorkspace(
   const role = await deps.memberRepo.findRole(userId, workspaceId);
   if (!role || !['owner', 'admin'].includes(role)) {
     throw new AppError('FORBIDDEN', 'Sem permissao para convidar', 403);
+  }
+}
+
+async function assertCanDeleteWorkspace(
+  deps: IAppDeps,
+  user: { sub: string; isPlatformAdmin?: boolean },
+  workspaceId: string,
+): Promise<void> {
+  if (user.isPlatformAdmin) {
+    const ws = await deps.workspaceRepo.findById(workspaceId);
+    if (!ws) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
+    return;
+  }
+  const role = await deps.memberRepo.findRole(user.sub, workspaceId);
+  if (!role || !['owner', 'admin'].includes(role)) {
+    throw new AppError('FORBIDDEN', 'Sem permissao para excluir workspace', 403);
   }
 }
 
@@ -179,6 +196,17 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, deps: IAppDe
           settings: ws.settings,
         }),
       );
+    },
+  );
+
+  app.delete(
+    '/workspaces/:id',
+    { preHandler: [deps.authenticate] },
+    async (req, reply) => {
+      const id = (req.params as { id: string }).id;
+      await assertCanDeleteWorkspace(deps, req.user!, id);
+      await deleteWorkspaceCascade(deps, id);
+      return reply.send(successEnvelope({ ok: true }));
     },
   );
 

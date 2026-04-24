@@ -4,6 +4,21 @@ import type { IAppDeps } from '../../../config/container.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { wipeAllApplicationCollections } from '../application/wipe-factory-collections.js';
+import {
+  assertUsageWithinEffectivePlanLimits,
+  mergeLimitsRecordAfterPlanPatch,
+} from '../../workspaces/application/workspace-plan-patch.js';
+
+const patchWorkspacePlanBodySchema = z.object({
+  plan: z.enum(['free', 'pro', 'enterprise']),
+  quotaOverrides: z
+    .object({
+      maxTeams: z.number().int().min(-1).optional(),
+      maxAgents: z.number().int().min(-1).optional(),
+      maxChannels: z.number().int().min(-1).optional(),
+    })
+    .optional(),
+});
 
 const factoryResetBodySchema = z.object({
   confirmPhrase: z.literal('RESET_FACTORY_INSTALLATION'),
@@ -34,6 +49,35 @@ function requiresProductionSafetyPhrase(env: IAppDeps['env']): boolean {
 
 export async function registerPlatformRoutes(app: FastifyInstance, deps: IAppDeps) {
   const platformAdmin = [deps.authenticate, deps.requirePlatformAdmin];
+
+  app.patch(
+    '/platform/workspaces/:id/plan',
+    { preHandler: platformAdmin },
+    async (req, reply) => {
+      const workspaceId = (req.params as { id: string }).id;
+      const body = patchWorkspacePlanBodySchema.parse(req.body ?? {});
+      const ws = await deps.workspaceRepo.findById(workspaceId);
+      if (!ws) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
+      const used = await deps.settingsRepo.countWorkspaceUsage(workspaceId);
+      const limitsRaw = (ws.limits as Record<string, unknown>) ?? {};
+      const nextLimits = mergeLimitsRecordAfterPlanPatch(limitsRaw, body.quotaOverrides);
+      assertUsageWithinEffectivePlanLimits(body.plan, nextLimits, used);
+      const updated = await deps.workspaceRepo.updateWorkspacePlanAndLimits(workspaceId, {
+        plan: body.plan,
+        limits: nextLimits,
+      });
+      if (!updated) throw new AppError('NOT_FOUND', 'Workspace nao encontrado', 404);
+      return reply.send(
+        successEnvelope({
+          id: updated.id,
+          name: updated.name,
+          logo: updated.logo,
+          plan: updated.plan,
+          limits: updated.limits,
+        }),
+      );
+    },
+  );
 
   app.get('/platform/danger-zone/status', { preHandler: platformAdmin }, async (_req, reply) => {
     const gate = factoryResetAllowed(deps.env);

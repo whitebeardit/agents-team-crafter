@@ -151,4 +151,11 @@ export class InviteRepository {
     });
     return !!res;
   }
+
+  async deleteByWorkspaceId(workspaceId: string): Promise<number> {
+    const res = await InviteModel.deleteMany({
+      workspaceId: new Types.ObjectId(workspaceId),
+    });
+    return res.deletedCount ?? 0;
+  }
 }

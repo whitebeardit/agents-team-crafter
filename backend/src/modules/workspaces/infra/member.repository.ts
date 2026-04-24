@@ -57,4 +57,11 @@ export class MemberRepository implements IMemberRepository {
     );
     return !!res;
   }
+
+  async deleteByWorkspaceId(workspaceId: string): Promise<number> {
+    const res = await WorkspaceMemberModel.deleteMany({
+      workspaceId: new Types.ObjectId(workspaceId),
+    });
+    return res.deletedCount ?? 0;
+  }
 }

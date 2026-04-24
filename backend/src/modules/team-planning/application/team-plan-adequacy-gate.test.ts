@@ -68,4 +68,59 @@ describe('team-plan-adequacy-gate (Loop 130.5)', () => {
     expect(result.status).toBe('inadequate');
     expect(result.issues.length).toBeGreaterThan(0);
   });
+
+  it('briefing Web/App alinha com team.primaryChannel api (sinónimo)', () => {
+    const result = evaluateTeamPlanAdequacy({
+      plan: {
+        team: {
+          name: 'Time Clinica',
+          objective: 'Operar jornada com dez chars.',
+          description: 'x',
+          channelIds: [],
+          primaryChannel: 'api',
+        },
+        agents: [
+          {
+            name: 'Coord',
+            role: 'coordinator',
+            description: '',
+            objective: '',
+            responsibilities: [],
+            skills: [],
+            category: 'coord',
+            channels: ['api'],
+            catalogTools: ['web_search'],
+            workflowKey: 'coordination',
+            requiredBusinessActionIds: [],
+            requiredPackIds: [],
+            exampleUserPhrases: [],
+          },
+          {
+            name: 'Esp CRM',
+            role: 'specialist',
+            description: '',
+            objective: '',
+            responsibilities: [],
+            skills: [],
+            category: 'crm',
+            channels: [],
+            catalogTools: ['internal_actions'],
+            workflowKey: 'crm_ops',
+            requiredBusinessActionIds: [],
+            requiredPackIds: ['crm'],
+            exampleUserPhrases: ['Cria cliente', 'Lista clientes cadastrados'],
+          },
+        ],
+        requiredPacks: ['crm'],
+        requiredTools: ['crm_create_party'],
+      },
+      briefing: {
+        domainsNeeded: ['crm'],
+        operationKinds: ['crud'],
+        primaryChannel: 'Web/App',
+      },
+    });
+    expect(result.status).toBe('adequate');
+    expect(result.issues.filter((i) => i.includes('Canal'))).toHaveLength(0);
+  });
 });

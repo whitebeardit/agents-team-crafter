@@ -206,8 +206,16 @@ function toastApiRequestError(err: unknown, fallback: string) {
 export default function SettingsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { token, refreshToken, currentWorkspace, bootstrap, refreshSessionUser, logout, user } =
-    useWorkspaceStore()
+  const {
+    token,
+    refreshToken,
+    currentWorkspace,
+    bootstrap,
+    refreshSessionUser,
+    logout,
+    user,
+    patchWorkspacePlan,
+  } = useWorkspaceStore()
   const logoFileInputRef = useRef<HTMLInputElement>(null)
   const avatarFileInputRef = useRef<HTMLInputElement>(null)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -277,6 +285,8 @@ export default function SettingsPage() {
   const [pwdBusy, setPwdBusy] = useState(false)
   const [revokeBusy, setRevokeBusy] = useState(false)
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
+  const [platformPlanDraft, setPlatformPlanDraft] = useState<"free" | "pro" | "enterprise">("free")
+  const [platformPlanBusy, setPlatformPlanBusy] = useState(false)
   const [dangerZoneStatus, setDangerZoneStatus] = useState<IPlatformDangerZoneStatus | null>(null)
   const [dangerZoneLoading, setDangerZoneLoading] = useState(false)
   const [factoryResetPhrase, setFactoryResetPhrase] = useState("")
@@ -300,6 +310,11 @@ export default function SettingsPage() {
     const tpm = data.secretsMasked.teamPlannerModel
     setTeamPlannerModelPick(tpm ?? "__unset__")
   }, [])
+
+  useEffect(() => {
+    const p = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
+    setPlatformPlanDraft(p)
+  }, [workspace?.plan])
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -1033,6 +1048,38 @@ export default function SettingsPage() {
       toastApiRequestError(err, "Falha ao remover chave de API")
     } finally {
       setApiKeyBusy(false)
+    }
+  }
+
+  const handleApplyPlatformPlan = async () => {
+    if (!token || !currentWorkspace?.id) return
+    setPlatformPlanBusy(true)
+    try {
+      await patchWorkspacePlan(currentWorkspace.id, { plan: platformPlanDraft })
+      toast.success("Plano do workspace actualizado")
+      const api = createApiClient({
+        getAuth: () => ({ token, refreshToken }),
+        setAuth: () => {},
+        clearAuth: () => {},
+        getWorkspaceId: () => currentWorkspace.id,
+      })
+      const wr = await api.get<SettingsWorkspaceState>("/settings/workspace")
+      setWorkspace(wr.data)
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "QUOTA_CONFLICT") {
+        const conflicts = err.details.conflicts as
+          | Array<{ resource: string; used: number; max: number }>
+          | undefined
+        const msg =
+          conflicts && conflicts.length > 0
+            ? conflicts.map((c) => `${c.resource}: ${c.used}/${c.max}`).join("; ")
+            : err.message
+        toast.error(`Nao e possivel reduzir o plano: ${msg}`)
+        return
+      }
+      toastApiRequestError(err, "Nao foi possivel alterar o plano do workspace")
+    } finally {
+      setPlatformPlanBusy(false)
     }
   }
 
@@ -2180,6 +2227,53 @@ export default function SettingsPage() {
 
         {/* Billing Settings */}
         <TabsContent value="billing" className="space-y-6">
+          {user?.isPlatformAdmin === true && currentWorkspace?.id ? (
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle>Plano do workspace (admin global)</CardTitle>
+                <CardDescription>
+                  Aplica-se ao workspace actual ({currentWorkspace.id}). Downgrade e bloqueado se o uso
+                  (times, agentes ou canais) exceder os limites do plano escolhido.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:flex-wrap">
+                <div className="space-y-2 min-w-[200px] flex-1">
+                  <Label htmlFor="platform-plan-select">Plano</Label>
+                  <Select
+                    value={platformPlanDraft}
+                    onValueChange={(v) => setPlatformPlanDraft(v as "free" | "pro" | "enterprise")}
+                  >
+                    <SelectTrigger id="platform-plan-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="free">{planLabels.free}</SelectItem>
+                      <SelectItem value="pro">{planLabels.pro}</SelectItem>
+                      <SelectItem value="enterprise">{planLabels.enterprise}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  disabled={
+                    platformPlanBusy ||
+                    platformPlanDraft === (workspace?.plan ?? currentWorkspace.plan ?? "free")
+                  }
+                  onClick={() => void handleApplyPlatformPlan()}
+                >
+                  {platformPlanBusy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      A aplicar...
+                    </>
+                  ) : (
+                    "Aplicar plano"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>Plano Atual</CardTitle>
@@ -2220,7 +2314,15 @@ export default function SettingsPage() {
                 <AlertTitle>Pagamentos e historico de faturas</AlertTitle>
                 <AlertDescription>
                   Nao ha gateway de pagamento ligado nesta versao. Os limites acima reflectem a regra do plano no
-                  servidor; nao e possivel alterar o plano pela UI ate haver integracao de billing.
+                  servidor.
+                  {user?.isPlatformAdmin !== true ? (
+                    <>
+                      {" "}
+                      Para alterar o plano, utilize um administrador global (ou contacte suporte).
+                    </>
+                  ) : (
+                    <> Administrador global: use o cartao acima para definir o plano.</>
+                  )}
                 </AlertDescription>
               </Alert>
             </CardContent>
