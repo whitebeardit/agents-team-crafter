@@ -22,6 +22,7 @@ import { requireCoordinatorForChannelInstance } from '../application/resolve-inb
 import { postCoordinatorExternalResponse } from './post-coordinator-external-response.js';
 import { startTelegramTypingLoop } from './telegram-typing-loop.js';
 import { createTelegramInboundStatusDebouncer } from './telegram-inbound-status-debouncer.js';
+import { buildInboundDebugConversationId } from './inbound-conversation-id.js';
 
 function createStateAdapter(workspaceId: string, env: IEnv) {
   const logger = new ConsoleLogger('info', `[chat-sdk:${workspaceId}]`);
@@ -45,12 +46,21 @@ function bindInbound(
       workspaceId,
       channelIdStr,
     );
+    const conversationId = buildInboundDebugConversationId(agentChannelLabel, thread.id);
+    const history = await deps.teamDebugSessionRepo.getRecentTurns(
+      workspaceId,
+      teamId,
+      conversationId,
+    );
+    const conversation =
+      history.length > 0 ? { id: conversationId, history } : undefined;
     const invocation = buildChatTeamInvocation(
       workspaceId,
       teamId,
       coordinatorId,
       text,
       agentChannelLabel,
+      { conversationId, conversation },
     );
     const stopTyping = agentChannelLabel === 'telegram' ? startTelegramTypingLoop(thread) : undefined;
     const telegramStatusDebouncer =
@@ -101,6 +111,15 @@ function bindInbound(
           events: result.events,
         },
       });
+      const assistantText = result.externalResponse?.text?.trim() ?? '';
+      await deps.teamDebugSessionRepo.appendExchange(
+        workspaceId,
+        teamId,
+        conversationId,
+        undefined,
+        text,
+        assistantText || '(sem texto)',
+      );
       await deps.runRecorderService.recordCompleted({
         workspaceId,
         teamId,

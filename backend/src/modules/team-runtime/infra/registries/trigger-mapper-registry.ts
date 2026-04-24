@@ -71,7 +71,14 @@ export function buildChatTeamInvocation(
   coordinatorId: string,
   message: string,
   channelLabel: string,
+  options?: {
+    /** Mesmo padrão do manual: referência e logs (ex. inbound + debug session). */
+    conversationId?: string;
+    /** Turnos anteriores persistidos; mensagem corrente é só `message` (não entra no histórico ainda). */
+    conversation?: ITeamInvocation['conversation'];
+  },
 ): ITeamInvocation {
+  const convId = options?.conversationId?.trim();
   return {
     trigger: 'chat',
     workspaceId,
@@ -79,5 +86,7 @@ export function buildChatTeamInvocation(
     coordinatorId,
     message,
     coordinatorExternalContext: { channelLabel },
+    ...(convId ? { metadata: { conversationId: convId } } : {}),
+    ...(options?.conversation ? { conversation: options.conversation } : {}),
   };
 }
