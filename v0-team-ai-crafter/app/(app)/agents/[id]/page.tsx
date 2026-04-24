@@ -90,6 +90,15 @@ const knowledgeTypeIcons: Record<string, typeof Database> = {
   website: Globe,
 }
 
+const OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK: readonly string[] = [
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4o",
+  "gpt-4o-mini",
+]
+
 type TBusinessCatalogItem = {
   actionId: string
   title: string
@@ -166,6 +175,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [securityAccessLevel, setSecurityAccessLevel] = useState<"read" | "write" | "restricted">("read")
   const [requiresApproval, setRequiresApproval] = useState(false)
   const [workspaceOpenAiConfigured, setWorkspaceOpenAiConfigured] = useState<boolean | null>(null)
+  const [chatModelsForAgentSelect, setChatModelsForAgentSelect] = useState<string[]>([])
+  const [openaiRuntimeModelPick, setOpenaiRuntimeModelPick] = useState<string>("__unset__")
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
   const [businessActionCatalog, setBusinessActionCatalog] = useState<TBusinessCatalogItem[]>([])
 
@@ -191,6 +202,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     setCanReplyDirectly(a.channelConfig?.canReplyDirectly ?? true)
     setSecurityAccessLevel((a.security?.accessLevel ?? "read") as "read" | "write" | "restricted")
     setRequiresApproval(a.security?.requiresApproval ?? false)
+    setOpenaiRuntimeModelPick(a.openaiRuntimeModel ?? "__unset__")
   },
   [],
 )
@@ -226,13 +238,18 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             .catch(() => ({ data: [], meta: {} })),
           api
             .get<{
-              secretsMasked: { openaiApiKeyConfigured: boolean }
+              secretsMasked: {
+                openaiApiKeyConfigured: boolean
+                enabledOpenAiChatModels?: string[]
+              }
               operationalCatalogTools: OperationalCatalogTool[]
+              availableOpenAiChatModels?: string[]
             }>("/settings/workspace/integrations")
             .catch(() => ({
               data: {
                 secretsMasked: { openaiApiKeyConfigured: false },
                 operationalCatalogTools: [] as OperationalCatalogTool[],
+                availableOpenAiChatModels: [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK],
               },
               meta: {},
             })),
@@ -243,6 +260,15 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         const opIds = new Set(opTools.map((tool) => tool.id))
         applyAgentPayload(agentRes.data, { operationalCatalogToolIds: opIds })
         setWorkspaceOpenAiConfigured(integrationsRes.data.secretsMasked.openaiApiKeyConfigured)
+        const avail =
+          integrationsRes.data.availableOpenAiChatModels &&
+          integrationsRes.data.availableOpenAiChatModels.length > 0
+            ? integrationsRes.data.availableOpenAiChatModels
+            : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
+        const en = integrationsRes.data.secretsMasked.enabledOpenAiChatModels
+        const choices =
+          en && en.length > 0 ? avail.filter((m) => en.includes(m)) : [...avail]
+        setChatModelsForAgentSelect(choices.length > 0 ? choices : [...avail])
         setMcps(mcpsRes.data)
         setBindings(bindingsRes.data)
         setKnowledgeSources(knowledgeRes.data)
@@ -382,6 +408,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           run: () =>
             api.put(`/agents/${agent.id}/config`, {
               systemInstruction,
+              openaiRuntimeModel: openaiRuntimeModelPick === "__unset__" ? null : openaiRuntimeModelPick,
             }),
         },
       ]
@@ -411,8 +438,12 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       const [agentFreshRes, integrationsFreshRes] = await Promise.all([
         api.get<Agent>(`/agents/${id}`),
         api.get<{
-          secretsMasked: { openaiApiKeyConfigured: boolean }
+          secretsMasked: {
+            openaiApiKeyConfigured: boolean
+            enabledOpenAiChatModels?: string[]
+          }
           operationalCatalogTools: OperationalCatalogTool[]
+          availableOpenAiChatModels?: string[]
         }>("/settings/workspace/integrations"),
       ])
       const opTools = integrationsFreshRes.data.operationalCatalogTools ?? []
@@ -420,6 +451,15 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       const opIds = new Set(opTools.map((tool) => tool.id))
       applyAgentPayload(agentFreshRes.data, { operationalCatalogToolIds: opIds })
       setWorkspaceOpenAiConfigured(integrationsFreshRes.data.secretsMasked.openaiApiKeyConfigured)
+      const intData = integrationsFreshRes.data
+      const availFresh =
+        intData.availableOpenAiChatModels && intData.availableOpenAiChatModels.length > 0
+          ? intData.availableOpenAiChatModels
+          : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
+      const enFresh = intData.secretsMasked.enabledOpenAiChatModels
+      const choicesFresh =
+        enFresh && enFresh.length > 0 ? availFresh.filter((m) => enFresh.includes(m)) : [...availFresh]
+      setChatModelsForAgentSelect(choicesFresh.length > 0 ? choicesFresh : [...availFresh])
     } catch (e) {
       const msg = e instanceof ApiError ? `${e.message} (${e.code})` : "Falha ao salvar"
       toast.error(msg)
@@ -854,6 +894,39 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                   rows={6}
                   className="font-mono text-sm"
                 />
+              </CardContent>
+            </Card>
+          )}
+
+          {isAdvancedMode && (
+            <Card>
+              <CardHeader>
+                <CardTitleWithInfo title="Modelo OpenAI (override)" infoAriaLabel="Ajuda sobre modelo de runtime">
+                  <p>Opcional: sobrepoe o modelo padrao do workspace para este agente (coordenador ou especialista).</p>
+                </CardTitleWithInfo>
+                <CardDescription>
+                  Opcoes listadas respeitam os modelos habilitados em{" "}
+                  <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
+                    Configuracoes &gt; Integracoes
+                  </Link>
+                  .
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 max-w-lg">
+                <Label htmlFor="agent-openai-model">Modelo</Label>
+                <Select value={openaiRuntimeModelPick} onValueChange={setOpenaiRuntimeModelPick}>
+                  <SelectTrigger id="agent-openai-model">
+                    <SelectValue placeholder="Escolher..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unset__">Usar padrao do workspace / produto</SelectItem>
+                    {chatModelsForAgentSelect.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </CardContent>
             </Card>
           )}

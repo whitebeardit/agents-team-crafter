@@ -206,7 +206,9 @@ export interface Agent {
   platformManaged?: boolean
   systemRole?: AgentSystemRole
   systemInstruction?: string
-  
+  /** Override do modelo OpenAI (runtime); omitido = usar default do workspace / produto. */
+  openaiRuntimeModel?: string
+
   capabilities?: AgentCapabilities
   knowledge?: AgentKnowledge
   channelConfig?: AgentChannelConfig
@@ -490,6 +492,8 @@ export interface TeamPlanPlannerMeta {
     | "schema_validation_failed"
     | string
   openaiResolvedFromEnv?: boolean
+  /** Modelo OpenAI usado na ultima geracao/reparo do planner. */
+  plannerModel?: string
   parseErrorSummary?: string
   briefingSufficiency?: {
     status: "sufficient" | "partial" | "insufficient"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
@@ -133,7 +133,18 @@ type ProfileApiResponse = {
   preferences?: IUserPreferences & Record<string, unknown>
 }
 
+/** Alinhado ao enum do BFF (`EOpenAiWorkspaceChatModel`). */
+const OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK: readonly string[] = [
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4o",
+  "gpt-4o-mini",
+]
+
 type IntegrationsApiData = {
+  availableOpenAiChatModels?: string[]
   operationalCatalogTools?: Array<{ id: string; name: string; description: string }>
   secretsMasked: {
     openaiApiKeyConfigured: boolean
@@ -155,6 +166,9 @@ type IntegrationsApiData = {
     toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean }
     /** Padrao workspace para tool catalog_image_generation quando model=default */
     imageGenerationModel?: "dall-e-2" | "dall-e-3"
+    enabledOpenAiChatModels?: string[]
+    agentsRuntimeModel?: string
+    teamPlannerModel?: string
   }
 }
 
@@ -216,6 +230,10 @@ export default function SettingsPage() {
   const [imageGenModelDefault, setImageGenModelDefault] = useState<"__default__" | "dall-e-2" | "dall-e-3">(
     "__default__",
   )
+  const [availableChatModels, setAvailableChatModels] = useState<string[]>([])
+  const [enabledChatModelsSelection, setEnabledChatModelsSelection] = useState<string[]>([])
+  const [agentsRuntimeModelPick, setAgentsRuntimeModelPick] = useState<string>("__unset__")
+  const [teamPlannerModelPick, setTeamPlannerModelPick] = useState<string>("__unset__")
   const [smtpHost, setSmtpHost] = useState("")
   const [smtpPort, setSmtpPort] = useState("587")
   const [smtpSecure, setSmtpSecure] = useState(false)
@@ -268,6 +286,21 @@ export default function SettingsPage() {
   const [factoryBusy, setFactoryBusy] = useState(false)
   const currentPlan = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
 
+  const applyIntegrationsChatState = useCallback((data: IntegrationsApiData) => {
+    const avail =
+      data.availableOpenAiChatModels && data.availableOpenAiChatModels.length > 0
+        ? data.availableOpenAiChatModels
+        : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
+    setAvailableChatModels(avail)
+    const en = data.secretsMasked.enabledOpenAiChatModels
+    if (en && en.length > 0) setEnabledChatModelsSelection([...en])
+    else setEnabledChatModelsSelection([...avail])
+    const arm = data.secretsMasked.agentsRuntimeModel
+    setAgentsRuntimeModelPick(arm ?? "__unset__")
+    const tpm = data.secretsMasked.teamPlannerModel
+    setTeamPlannerModelPick(tpm ?? "__unset__")
+  }, [])
+
   useEffect(() => {
     if (!token || !currentWorkspace) return
     const api = createApiClient({
@@ -287,6 +320,7 @@ export default function SettingsPage() {
               openaiApiKeyConfigured: false,
             },
             operationalCatalogTools: [],
+            availableOpenAiChatModels: [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK],
           },
         })),
         api.get<TeamPlanningPolicy>("/settings/workspace/team-planning-policy").catch((): { data: TeamPlanningPolicy } => ({
@@ -302,6 +336,7 @@ export default function SettingsPage() {
       setProfile(profileRes.data)
       setApiKeys(apiKeysRes.data)
       setIntegrations(integrationsRes.data.secretsMasked)
+      applyIntegrationsChatState(integrationsRes.data)
       setTeamPlanPolicy(teamPlanPolicyRes.data)
       setTeamPlanAutoBindMode(teamPlanPolicyRes.data.autoBindMode)
       setReusedAgentBindMode(teamPlanPolicyRes.data.reusedAgentBindMode)
@@ -330,7 +365,7 @@ export default function SettingsPage() {
       setPrefTheme(th === "light" || th === "dark" || th === "system" ? th : "dark")
       setNotificationPrefs(parseNotificationPrefs(prefs as Record<string, unknown>))
     })()
-  }, [token, refreshToken, currentWorkspace])
+  }, [token, refreshToken, currentWorkspace, applyIntegrationsChatState])
 
   useEffect(() => {
     if (defaultTab === "security" && token) {
@@ -642,8 +677,15 @@ export default function SettingsPage() {
       const res = await api.put<{
         message: string
         secretsMasked: IntegrationsApiData["secretsMasked"]
+        availableOpenAiChatModels?: string[]
+        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
       }>("/settings/workspace/integrations", { openaiApiKey: openaiKeyInput })
       setIntegrations(res.data.secretsMasked)
+      applyIntegrationsChatState({
+        secretsMasked: res.data.secretsMasked,
+        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
+        operationalCatalogTools: res.data.operationalCatalogTools,
+      })
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       setOpenaiKeyInput("")
@@ -692,8 +734,15 @@ export default function SettingsPage() {
       const res = await api.put<{
         message: string
         secretsMasked: IntegrationsApiData["secretsMasked"]
+        availableOpenAiChatModels?: string[]
+        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
       }>("/settings/workspace/integrations", { openaiApiKey: "" })
       setIntegrations(res.data.secretsMasked)
+      applyIntegrationsChatState({
+        secretsMasked: res.data.secretsMasked,
+        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
+        operationalCatalogTools: res.data.operationalCatalogTools,
+      })
       setOpenaiKeyInput("")
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
@@ -713,10 +762,17 @@ export default function SettingsPage() {
       const res = await api.put<{
         message: string
         secretsMasked: IntegrationsApiData["secretsMasked"]
+        availableOpenAiChatModels?: string[]
+        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
       }>("/settings/workspace/integrations", {
         imageGenerationModel: imageGenModelDefault === "__default__" ? "" : imageGenModelDefault,
       })
       setIntegrations(res.data.secretsMasked)
+      applyIntegrationsChatState({
+        secretsMasked: res.data.secretsMasked,
+        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
+        operationalCatalogTools: res.data.operationalCatalogTools,
+      })
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       toast.success("Modelo padrao de imagem guardado")
@@ -724,6 +780,48 @@ export default function SettingsPage() {
       toastIntegrationRequestError(
         err,
         "Falha ao guardar (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)",
+      )
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const toggleEnabledChatModel = (modelId: string, checked: boolean) => {
+    setEnabledChatModelsSelection((prev) => {
+      if (checked) return prev.includes(modelId) ? prev : [...prev, modelId]
+      if (prev.length <= 1) return prev
+      return prev.filter((m) => m !== modelId)
+    })
+  }
+
+  const saveOpenAiChatModelsIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const enabledPayload =
+        enabledChatModelsSelection.length === availableChatModels.length ? [] : enabledChatModelsSelection
+      const res = await api.put<{
+        message: string
+        secretsMasked: IntegrationsApiData["secretsMasked"]
+        availableOpenAiChatModels?: string[]
+        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
+      }>("/settings/workspace/integrations", {
+        enabledOpenAiChatModels: enabledPayload,
+        agentsRuntimeModel: agentsRuntimeModelPick === "__unset__" ? "" : agentsRuntimeModelPick,
+        teamPlannerModel: teamPlannerModelPick === "__unset__" ? "" : teamPlannerModelPick,
+      })
+      setIntegrations(res.data.secretsMasked)
+      applyIntegrationsChatState({
+        secretsMasked: res.data.secretsMasked,
+        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
+        operationalCatalogTools: res.data.operationalCatalogTools,
+      })
+      toast.success("Modelos de chat OpenAI guardados")
+    } catch (err) {
+      toastIntegrationRequestError(
+        err,
+        "Falha ao guardar modelos (precisa ser admin e ENCRYPTION_MASTER_KEY no servidor)",
       )
     } finally {
       setIntBusy(false)
@@ -1365,6 +1463,73 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Modelos de chat OpenAI</CardTitle>
+              <CardDescription>
+                Catalogo fechado no produto. Por defeito o planner usa <code className="text-xs">gpt-5.4</code> e o
+                runtime dos agentes <code className="text-xs">gpt-5.4-mini</code>, salvo override aqui ou por agente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Modelos habilitados neste workspace</Label>
+                <p className="text-xs text-muted-foreground">
+                  Quando todos estao assinalados, o servidor trata como &quot;todos os modelos do catalogo&quot;. Desmarque
+                  para restringir o que aparece nos selects e nos overrides por agente.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {availableChatModels.map((m) => (
+                    <label key={m} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={enabledChatModelsSelection.includes(m)}
+                        onCheckedChange={(c) => toggleEnabledChatModel(m, c === true)}
+                      />
+                      <span className="font-mono">{m}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="agents-runtime-model">Modelo padrao do runtime (coordenador + especialistas)</Label>
+                  <Select value={agentsRuntimeModelPick} onValueChange={setAgentsRuntimeModelPick}>
+                    <SelectTrigger id="agents-runtime-model" className="w-full">
+                      <SelectValue placeholder="Escolher..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unset__">Usar padrao do produto (gpt-5.4-mini)</SelectItem>
+                      {enabledChatModelsSelection.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="team-planner-model">Modelo padrao do team planner</Label>
+                  <Select value={teamPlannerModelPick} onValueChange={setTeamPlannerModelPick}>
+                    <SelectTrigger id="team-planner-model" className="w-full">
+                      <SelectValue placeholder="Escolher..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unset__">Usar padrao do produto (gpt-5.4)</SelectItem>
+                      {enabledChatModelsSelection.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button type="button" onClick={() => void saveOpenAiChatModelsIntegration()} disabled={intBusy}>
+                Guardar modelos de chat
+              </Button>
             </CardContent>
           </Card>
 
