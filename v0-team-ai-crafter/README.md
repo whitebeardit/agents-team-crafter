@@ -158,14 +158,14 @@ Superficies de **negócio** com página dedicada (ex.: `/crm`, `/schedule`) coex
 | `/dashboard`          | Dashboard principal com metricas                   |
 | `/agents`             | Catalogo de agentes disponiveis                    |
 | `/agents/create`      | Wizard de criacao de agente                        |
-| `/agents/[id]`        | Detalhe de um agente                               |
+| `/agents/[id]`        | Detalhe de um agente; exportar ou copiar JSON (`GET /api/v1/agents/:id/export`) |
 | `/governance`         | Painel de governance (metricas, auditoria)         |
 | `/runs`               | Historico de execucoes de times                    |
 | `/tool-definitions`   | Gestao de definicoes de tools (conforme permissao) |
 | `/teams`              | Listagem de times                                  |
 | `/teams/create`       | Wizard de criacao de time (5 etapas)               |
 | `/teams/ai-create`    | Fluxo de criacao de time assistido por IA          |
-| `/teams/[id]`         | Detalhes do time                                   |
+| `/teams/[id]`         | Detalhes do time; exportar ou copiar JSON do time (`GET /api/v1/teams/:id/export`) |
 | `/teams/[id]/graph`   | Editor visual de grafo do time                     |
 | `/teams/[id]/gallery` | Galeria associada ao time                          |
 | `/templates`          | Galeria de templates                               |
@@ -582,6 +582,14 @@ Retorna detalhes de um agente.
 }
 ```
 
+#### GET /agents/:id/export
+
+Exporta a configuração canónica do agente (missão, system, domínio, capabilities, knowledge, vínculos MCP, etc.) num único objeto JSON. Requer o mesmo contexto de autenticação e workspace que as restantes rotas de agente.
+
+**Response 200** — `data` inclui `exportVersion`, `exportKind: "agent"`, `exportedAt`, `agent` (documento público do agente), `mcpBindings` e `sections` (vista derivada: `mission`, `system`, `domainProfile`, `quality`, `runtime`).
+
+Implementação: `backend/src/modules/agents/application/build-agent-export.ts`.
+
 #### POST /agents
 
 Cria um novo agente customizado (company).
@@ -786,6 +794,16 @@ Retorna detalhes de um time.
   }
 }
 ```
+
+#### GET /teams/:id/export
+
+Exporta o time, o grafo **persistido** (nós/arestas tal como guardados; não aplica a pipeline de normalização de `GET /teams/:id/graph`), canais resolvidos, e para cada agente (coordenador e `agentIds`, sem duplicar o coordenador) um bloco com o mesmo contrato que `GET /agents/:id/export`.
+
+**Response 200** — `data` inclui `exportVersion`, `exportKind: "team"`, `exportedAt`, `team`, `graph`, `channels` e `agents` (array de export de agente).
+
+**Response 422** — se algum id referenciado no time não existir como agente: `code` `AGENT_REFS_INCOMPLETE` e `details.missingAgentIds`.
+
+Código: `backend/src/modules/teams/application/build-team-export.ts`. Na UI, botões “Exportar JSON” / “Copiar JSON” no detalhe do time.
 
 #### POST /teams
 

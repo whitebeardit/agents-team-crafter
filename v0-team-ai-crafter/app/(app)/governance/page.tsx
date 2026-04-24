@@ -149,7 +149,7 @@ export default function GovernancePage() {
           `/governance/audit-events?page=${auditPage}&perPage=${perPage}`,
         )
         full = a.data
-        const m = a.meta as GovernanceAuditListMeta
+        const m = a.meta as unknown as GovernanceAuditListMeta
         if (m && typeof m.page === "number") pageMeta = m
       } catch (e) {
         if (e instanceof ApiError && e.status === 403) {
@@ -195,7 +195,7 @@ export default function GovernancePage() {
         const res = await api.get<GovernanceAuditEvent[]>(
           `/governance/audit-events?page=${page}&perPage=${per}`,
         )
-        const m = res.meta as GovernanceAuditListMeta
+        const m = res.meta as unknown as GovernanceAuditListMeta
         all.push(...res.data)
         totalPages = m?.totalPages ?? 1
         page += 1

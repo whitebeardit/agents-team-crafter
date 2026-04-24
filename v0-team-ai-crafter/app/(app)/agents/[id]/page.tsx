@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import type {
   Agent,
+  AgentExportPayload,
   AgentMCPBinding,
   KnowledgeSource,
   MCPConnection,
@@ -64,11 +65,14 @@ import {
   AlertCircle,
   Info,
   ExternalLink,
+  Download,
+  ClipboardCopy,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { CardTitleWithInfo, FieldInfo, LabelWithInfo } from "@/components/agents/field-info"
 import { agentFieldHelp } from "@/lib/copy/agent-field-help"
 import { normalizeAgentCategory } from "@/lib/utils/agent-category"
+import { copyJsonToClipboard, downloadJsonFile } from "@/lib/utils/export-json"
 
 const channelLabels: Record<string, string> = {
   whatsapp: "WhatsApp",
@@ -179,6 +183,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [openaiRuntimeModelPick, setOpenaiRuntimeModelPick] = useState<string>("__unset__")
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
   const [businessActionCatalog, setBusinessActionCatalog] = useState<TBusinessCatalogItem[]>([])
+  const [exportJsonBusy, setExportJsonBusy] = useState(false)
 
   const applyAgentPayload = useCallback(
     (a: Agent, options?: { operationalCatalogToolIds?: Set<string> }) => {
@@ -265,7 +270,11 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           integrationsRes.data.availableOpenAiChatModels.length > 0
             ? integrationsRes.data.availableOpenAiChatModels
             : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
-        const en = integrationsRes.data.secretsMasked.enabledOpenAiChatModels
+        const sm = integrationsRes.data.secretsMasked
+        const en =
+          "enabledOpenAiChatModels" in sm && Array.isArray(sm.enabledOpenAiChatModels)
+            ? sm.enabledOpenAiChatModels
+            : undefined
         const choices =
           en && en.length > 0 ? avail.filter((m) => en.includes(m)) : [...avail]
         setChatModelsForAgentSelect(choices.length > 0 ? choices : [...avail])
@@ -291,6 +300,36 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       getWorkspaceId: () => currentWorkspace.id,
     })
   }, [token, refreshToken, currentWorkspace])
+
+  const handleExportAgentJsonDownload = useCallback(async () => {
+    if (!api || !agent) return
+    setExportJsonBusy(true)
+    try {
+      const res = await api.get<AgentExportPayload>(`/agents/${agent.id}/export`)
+      downloadJsonFile(`agent-${agent.id}-export.json`, res.data)
+      toast.success("Configuracao exportada")
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao exportar"
+      toast.error(msg)
+    } finally {
+      setExportJsonBusy(false)
+    }
+  }, [api, agent])
+
+  const handleExportAgentJsonCopy = useCallback(async () => {
+    if (!api || !agent) return
+    setExportJsonBusy(true)
+    try {
+      const res = await api.get<AgentExportPayload>(`/agents/${agent.id}/export`)
+      await copyJsonToClipboard(res.data)
+      toast.success("JSON copiado para a area de transferencia")
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao copiar"
+      toast.error(msg)
+    } finally {
+      setExportJsonBusy(false)
+    }
+  }, [api, agent])
 
   const businessActionCatalogById = useMemo(() => {
     const m: Record<string, { title: string; packId?: string }> = {}
@@ -590,9 +629,31 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               disabled={readOnly}
             />
           </div>
-          <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving || readOnly}>
-            {readOnly ? "Somente leitura" : saving ? "Salvando..." : "Salvar alteracoes"}
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={!api || exportJsonBusy}
+              onClick={handleExportAgentJsonDownload}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar JSON
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={!api || exportJsonBusy}
+              onClick={handleExportAgentJsonCopy}
+            >
+              <ClipboardCopy className="mr-2 h-4 w-4" />
+              Copiar JSON
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving || readOnly}>
+              {readOnly ? "Somente leitura" : saving ? "Salvando..." : "Salvar alteracoes"}
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -23,6 +23,7 @@ import {
   EOpenAiWorkspaceChatModel,
   parseOpenAiWorkspaceChatModel,
 } from '../../../shared/kernel/openai-workspace-chat-models.js';
+import { buildAgentExportPayload } from '../application/build-agent-export.js';
 
 const openaiRuntimeModelField = z.nativeEnum(EOpenAiWorkspaceChatModel);
 
@@ -249,6 +250,16 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     const id = (req.params as { id: string }).id;
     const a = await loadAgent(deps, ws, id);
     return reply.send(successEnvelope(a));
+  });
+
+  app.get('/agents/:id/export', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = (req.params as { id: string }).id;
+    const a = await deps.agentRepo.findById(ws, id);
+    if (!a) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
+    const mcp = await deps.agentMcpBindingRepo.listByAgent(ws, id);
+    const payload = buildAgentExportPayload(a as Record<string, unknown>, mcp);
+    return reply.send(successEnvelope(payload));
   });
 
   app.put('/agents/:id', { preHandler: tenant }, async (req, reply) => {

@@ -21,12 +21,15 @@ import {
   MessageSquareCode,
   ShieldCheck,
   LayoutDashboard,
+  Download,
+  ClipboardCopy,
 } from "lucide-react"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
-import type { Agent, Channel, ChannelType, Team, TeamReadinessResult, TeamRunRecord } from "@/lib/types"
+import type { Agent, Channel, ChannelType, Team, TeamExportPayload, TeamReadinessResult, TeamRunRecord } from "@/lib/types"
 import { channelTypeLabels, channelStatusLabels } from "@/lib/constants/channel-labels"
-import { createApiClient } from "@/lib/api/client"
+import { ApiError, createApiClient } from "@/lib/api/client"
+import { copyJsonToClipboard, downloadJsonFile } from "@/lib/utils/export-json"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -148,6 +151,7 @@ export default function TeamDetailsPage({
   const [readiness, setReadiness] = useState<TeamReadinessResult | null>(null)
   const [readinessLoading, setReadinessLoading] = useState(false)
   const [mainTab, setMainTab] = useState("overview")
+  const [exportTeamJsonBusy, setExportTeamJsonBusy] = useState(false)
 
   const TEAM_PAGE_TAB_VALUES = ["overview", "agents", "channels", "runs", "debug"] as const
 
@@ -363,6 +367,38 @@ export default function TeamDetailsPage({
     }
   }
 
+  const handleExportTeamJsonDownload = async () => {
+    const api = buildApiClient()
+    if (!api) return
+    setExportTeamJsonBusy(true)
+    try {
+      const res = await api.get<TeamExportPayload>(`/teams/${team.id}/export`)
+      downloadJsonFile(`team-${team.id}-export.json`, res.data)
+      toast.success("Time exportado em JSON")
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao exportar o time"
+      toast.error(msg)
+    } finally {
+      setExportTeamJsonBusy(false)
+    }
+  }
+
+  const handleExportTeamJsonCopy = async () => {
+    const api = buildApiClient()
+    if (!api) return
+    setExportTeamJsonBusy(true)
+    try {
+      const res = await api.get<TeamExportPayload>(`/teams/${team.id}/export`)
+      await copyJsonToClipboard(res.data)
+      toast.success("JSON do time copiado")
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao copiar"
+      toast.error(msg)
+    } finally {
+      setExportTeamJsonBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <ContextualTourHost screenKey="team_detail" />
@@ -388,6 +424,26 @@ export default function TeamDetailsPage({
         </div>
         <div className="-mx-1 flex max-w-full flex-wrap items-center gap-2 px-1 sm:mx-0 sm:justify-end sm:px-0">
           <ContextualTourManualTrigger screenKey="team_detail" />
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={exportTeamJsonBusy}
+            onClick={handleExportTeamJsonDownload}
+          >
+            <Download className="w-4 h-4" />
+            Exportar JSON
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={exportTeamJsonBusy}
+            onClick={handleExportTeamJsonCopy}
+          >
+            <ClipboardCopy className="w-4 h-4" />
+            Copiar JSON
+          </Button>
           <Link href={`/teams/${team.id}/gallery`}>
             <Button variant="outline" className="gap-2">
               <Images className="w-4 h-4" />

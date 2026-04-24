@@ -13,11 +13,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Crown, Plus, Copy, Settings2, Plug, Brain, Radio, Wrench } from "lucide-react"
+import { Crown, Plus, Copy, Settings2, Plug, Brain, Radio, Wrench, Download, ClipboardCopy } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { toast } from "sonner"
-import type { Agent, AgentMCPBinding } from "@/lib/types"
-import { createApiClient } from "@/lib/api/client"
+import type { Agent, AgentExportPayload, AgentMCPBinding } from "@/lib/types"
+import { ApiError, createApiClient } from "@/lib/api/client"
+import { copyJsonToClipboard, downloadJsonFile } from "@/lib/utils/export-json"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { formatCategoryLabel } from "@/lib/utils/agent-category"
 
@@ -49,7 +50,8 @@ export function AgentDetailsDrawer({
   const router = useRouter()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [agentBindings, setAgentBindings] = useState<AgentMCPBinding[]>([])
-  
+  const [exportJsonBusy, setExportJsonBusy] = useState(false)
+
   const api = useMemo(() => {
     if (!token || !currentWorkspace) return null
     return createApiClient({
@@ -72,6 +74,36 @@ export function AgentDetailsDrawer({
       }
     })()
   }, [api, agent, open])
+
+  const handleExportJsonDownload = async () => {
+    if (!api || !agent) return
+    setExportJsonBusy(true)
+    try {
+      const res = await api.get<AgentExportPayload>(`/agents/${agent.id}/export`)
+      downloadJsonFile(`agent-${agent.id}-export.json`, res.data)
+      toast.success("Configuracao exportada")
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao exportar"
+      toast.error(msg)
+    } finally {
+      setExportJsonBusy(false)
+    }
+  }
+
+  const handleExportJsonCopy = async () => {
+    if (!api || !agent) return
+    setExportJsonBusy(true)
+    try {
+      const res = await api.get<AgentExportPayload>(`/agents/${agent.id}/export`)
+      await copyJsonToClipboard(res.data)
+      toast.success("JSON copiado")
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao copiar"
+      toast.error(msg)
+    } finally {
+      setExportJsonBusy(false)
+    }
+  }
 
   if (!agent) return null
 
@@ -290,6 +322,28 @@ export function AgentDetailsDrawer({
 
           {/* Actions */}
           <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={!api || exportJsonBusy}
+                onClick={handleExportJsonDownload}
+              >
+                <Download className="w-4 h-4 mr-1" />
+                JSON
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={!api || exportJsonBusy}
+                onClick={handleExportJsonCopy}
+              >
+                <ClipboardCopy className="w-4 h-4 mr-1" />
+                Copiar
+              </Button>
+            </div>
             <Button onClick={() => onAddToTeam?.(agent)} className="w-full">
               <Plus className="w-4 h-4 mr-2" />
               Adicionar ao Time

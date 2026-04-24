@@ -10,6 +10,7 @@
 - [Visão geral](#visão-geral)
 - [Stack](#stack)
 - [Registo de rotas](#registo-de-rotas)
+- [Export de configuração (JSON)](#export-de-configuração-json)
 - [Autenticação e tenant](#autenticação-e-tenant)
 - [Módulos de domínio](#módulos-de-domínio)
 - [Ver também](#ver-também)
@@ -58,6 +59,25 @@ Ordem lógica de registo (todas com prefixo `/api/v1`):
 14. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
 
 Execução por time: **`POST /teams/:id/run`** em `registerTeamRoutes` (`invokeTeam` / `team-runtime`).
+
+### Export de configuração (JSON)
+
+Rotas de **leitura** (JWT + `X-Workspace-Id` como as restantes) que devolvem um snapshot versionado no campo `data` do envelope de sucesso.
+
+| Método | Rota | Origem (código) |
+|--------|------|-----------------|
+| `GET` | `/agents/:id/export` | `buildAgentExportPayload` em [`backend/src/modules/agents/application/build-agent-export.ts`](../../backend/src/modules/agents/application/build-agent-export.ts), rota em [`agent.routes.ts`](../../backend/src/modules/agents/interfaces/agent.routes.ts) |
+| `GET` | `/teams/:id/export` | `buildTeamExportPayload` em [`backend/src/modules/teams/application/build-team-export.ts`](../../backend/src/modules/teams/application/build-team-export.ts), rota em [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts) |
+
+**Agente** — `exportKind: "agent"`, `exportVersion` (hoje `"1"`), `exportedAt`, `agent` (mesmo shape que `GET /agents/:id`), `mcpBindings`, e `sections` derivado (missão, system, domínio, qualidade, runtime).
+
+**Time** — `exportKind: "team"`, o documento do time, `graph` com nós/arestas **persistidos** (`teamGraphRepo.get`, sem a pipeline de normalização/upsert de `GET /teams/:id/graph`), `channels` (linhas resolvidas a partir de `channelIds`), e `agents` como array de export de agente (um por membro: coordenador primeiro, depois `agentIds` sem duplicar o coordenador).
+
+**Erro** — se algum `ObjectId` referenciado no time não existir como agente, o export de time responde **`422`** com código `AGENT_REFS_INCOMPLETE` e `details.missingAgentIds` (lista de strings).
+
+**Testes** — `backend/src/modules/agents/application/build-agent-export.test.ts`, `backend/src/modules/teams/application/build-team-export.test.ts`.
+
+A UI Next.js chama estes endpoints a partir de botões “Exportar JSON” / “Copiar JSON” no detalhe de agente, no drawer de agente e no detalhe de time (ficheiros em `v0-team-ai-crafter/app/...` e `components/...`).
 
 ---
 

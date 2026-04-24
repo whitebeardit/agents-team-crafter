@@ -103,7 +103,7 @@ flowchart TB
 | Documento | Conteúdo |
 |-----------|----------|
 | [frontend.md](./frontend.md) | Next.js App Router, cliente API, stores e fluxo auth → workspace ativo. |
-| [backend-api.md](./backend-api.md) | Fastify, módulos e rotas sob `/api/v1`, autenticação e tenant. |
+| [backend-api.md](./backend-api.md) | Fastify, módulos e rotas sob `/api/v1`, autenticação, tenant, e secção *Export de configuração (JSON)* (`/agents/:id/export`, `/teams/:id/export`). |
 | [data-layer.md](./data-layer.md) | MongoDB como fonte de verdade, `workspaceId`, cifra de segredos. |
 | [chat-sdk.md](./chat-sdk.md) | Webhooks, adapters, estado Redis/memory, ligação ao runtime. |
 | [agents-and-handoff.md](./agents-and-handoff.md) | Team runtime, coordenador, tools de especialistas, OpenAI Agents SDK. |

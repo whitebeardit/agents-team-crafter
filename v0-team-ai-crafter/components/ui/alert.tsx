@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
@@ -9,6 +10,7 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: 'bg-card text-card-foreground',
+        secondary: 'bg-muted/50 text-foreground border-border',
         destructive:
           'text-destructive bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-destructive/90',
       },
@@ -49,10 +51,12 @@ function AlertTitle({ className, ...props }: React.ComponentProps<'div'>) {
 
 function AlertDescription({
   className,
+  asChild,
   ...props
-}: React.ComponentProps<'div'>) {
+}: React.ComponentProps<'div'> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot : 'div'
   return (
-    <div
+    <Comp
       data-slot="alert-description"
       className={cn(
         'text-muted-foreground col-start-2 grid justify-items-start gap-1 text-sm [&_p]:leading-relaxed',

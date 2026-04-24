@@ -418,15 +418,34 @@ function bindOverrideModeLabel(mode: TeamPlanBindPreview["agents"][number]["over
   }
 }
 
+function asBindOverrideEntry(
+  raw: string | TeamPlanBindOverrideEntry,
+): TeamPlanBindOverrideEntry {
+  if (typeof raw === "string") {
+    return { mode: "inherit", excludedActionIds: [] }
+  }
+  return {
+    mode: raw.mode ?? "inherit",
+    excludedActionIds: Array.isArray(raw.excludedActionIds) ? raw.excludedActionIds : [],
+  }
+}
+
 function normalizeBindOverrides(overrides: TeamPlanBindOverrides): TeamPlanBindOverrides {
-  const agents = Object.fromEntries(
-    Object.entries(overrides.agents ?? {})
-      .map(([agentKey, entry]) => {
-        const excludedActionIds = [...new Set((entry.excludedActionIds ?? []).map((value) => value.trim()).filter(Boolean))]
-        return [agentKey, { mode: entry.mode ?? "inherit", excludedActionIds }]
-      })
-      .filter(([, entry]) => entry.mode !== "inherit" || entry.excludedActionIds.length > 0),
-  )
+  const agents: Record<string, TeamPlanBindOverrideEntry> = {}
+  for (const [agentKey, raw] of Object.entries(overrides.agents ?? {})) {
+    const entry = asBindOverrideEntry(raw)
+    const excludedActionIds = [
+      ...new Set((entry.excludedActionIds ?? []).map((value) => value.trim()).filter(Boolean)),
+    ]
+    const normalized: TeamPlanBindOverrideEntry = {
+      mode: entry.mode ?? "inherit",
+      excludedActionIds,
+    }
+    if (normalized.mode === "inherit" && normalized.excludedActionIds.length === 0) {
+      continue
+    }
+    agents[agentKey] = normalized
+  }
   return { agents }
 }
 
@@ -471,15 +490,14 @@ function buildOverridesFromPreview(
   preview: TeamPlanBindPreview,
   mutator: (agent: TeamPlanBindPreviewAgent, currentSelectedActionIds: string[]) => string[],
 ): TeamPlanBindOverrides {
-  const agents = Object.fromEntries(
-    preview.agents
-      .map((agent) => {
-        const desired = normalizeStringList(mutator(agent, [...agent.actionIdsToLink]))
-        const entry = deriveBindOverrideEntry(agent, desired)
-        return [agent.planAgentKey, entry] as const
-      })
-      .filter(([, entry]): entry is TeamPlanBindOverrideEntry => entry !== null),
-  )
+  const agents: Record<string, TeamPlanBindOverrideEntry> = {}
+  for (const agent of preview.agents) {
+    const desired = normalizeStringList(mutator(agent, [...agent.actionIdsToLink]))
+    const entry = deriveBindOverrideEntry(agent, desired)
+    if (entry !== null) {
+      agents[agent.planAgentKey] = entry
+    }
+  }
   return { agents }
 }
 

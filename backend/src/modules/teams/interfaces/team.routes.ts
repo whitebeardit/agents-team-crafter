@@ -27,6 +27,7 @@ import {
 } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
 import { computeTeamReadiness } from '../application/team-readiness.service.js';
+import { buildTeamExportPayload } from '../application/build-team-export.js';
 
 async function loadTeamRunConversation(
   deps: IAppDeps,
@@ -324,6 +325,23 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const data = await computeTeamReadiness(ws, teamId, deps);
     return reply.send(successEnvelope(data));
+  });
+
+  app.get('/teams/:id/export', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const payload = await buildTeamExportPayload(
+      {
+        agentRepo: deps.agentRepo,
+        teamRepo: deps.teamRepo,
+        teamGraphRepo: deps.teamGraphRepo,
+        channelRepo: deps.channelRepo,
+        agentMcpBindingRepo: deps.agentMcpBindingRepo,
+      },
+      ws,
+      teamId,
+    );
+    return reply.send(successEnvelope(payload));
   });
 
   app.get('/teams/:id', { preHandler: tenant }, async (req, reply) => {

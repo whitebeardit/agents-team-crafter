@@ -95,6 +95,8 @@ export interface TeamRunExecutionEvent {
   interruptPolicy?: string
   progressState?: string
   nextStep?: string
+  /** Dica de retomada quando o run é cancelado (alinhado ao backend quando existir). */
+  resumeHint?: string
 }
 
 /** Item de `GET /teams/:id/debug-sessions` (Loop 91). */
@@ -270,6 +272,50 @@ export interface Team {
   channelIds: string[]
   createdAt: string
   updatedAt: string
+}
+
+export type AgentMCPBindingWithConnection = AgentMCPBinding & {
+  mcpConnection?: { id: string; name: string; status: string }
+}
+
+/** Resposta de `GET /agents/:id/export` (campo `data` do envelope). */
+export interface AgentExportPayload {
+  exportVersion: string
+  exportKind: "agent"
+  exportedAt: string
+  agent: Agent
+  mcpBindings: AgentMCPBindingWithConnection[]
+  sections: {
+    mission: { goal?: string; responsibilities?: string[] }
+    system: { systemInstruction?: string; systemRole?: AgentSystemRole; openaiRuntimeModel?: string }
+    domainProfile?: AgentDomainProfile
+    quality: { qualityCriteria?: string[]; reuseHints?: string[] }
+    runtime: {
+      capabilities?: AgentCapabilities
+      knowledge?: AgentKnowledge
+      channelConfig?: AgentChannelConfig
+      security?: AgentSecurity
+    }
+  }
+}
+
+/** Linha de canal no export de time (subset estável do backend). */
+export interface TeamExportChannelRow {
+  id: string
+  type: string
+  name: string
+  status: string
+}
+
+/** Resposta de `GET /teams/:id/export` (campo `data` do envelope). */
+export interface TeamExportPayload {
+  exportVersion: string
+  exportKind: "team"
+  exportedAt: string
+  team: Team & { objective?: string; primaryChannel?: string }
+  graph: { nodes: unknown[]; edges: unknown[] }
+  channels: TeamExportChannelRow[]
+  agents: AgentExportPayload[]
 }
 
 /** Resposta de `GET /api/v1/teams/:id/readiness` (preflight operacional, Loop 88). */
