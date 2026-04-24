@@ -92,6 +92,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
           message: 'Integracoes atualizadas',
           secretsMasked: r.secretsMasked,
           operationalCatalogTools: r.operationalCatalogTools,
+          availableOpenAiChatModels: r.availableOpenAiChatModels,
         }),
       );
     },

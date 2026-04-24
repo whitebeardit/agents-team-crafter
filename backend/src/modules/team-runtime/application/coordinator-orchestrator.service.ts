@@ -803,6 +803,11 @@ export class CoordinatorOrchestratorService {
         config: r.config,
       }));
 
+      const specialistRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
+        ws,
+        typeof srow['openaiRuntimeModel'] === 'string' ? srow['openaiRuntimeModel'] : null,
+      );
+
       const config = composeExecutableAgentConfig({
         agentId: specialistAgentId,
         workspaceId: ws,
@@ -815,6 +820,7 @@ export class CoordinatorOrchestratorService {
         customToolDefinitions,
         businessToolRuntime: this.businessToolRuntime,
         teamContext: { teamId: teamRow.id, teamName: teamRow.name },
+        openaiRuntimeModel: specialistRuntimeModel,
       });
       await this.agentRuntime.compile(config);
       const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
@@ -859,6 +865,10 @@ export class CoordinatorOrchestratorService {
     const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
     const userMessage = formatCoordinatorUserMessage(invocation);
     const crow = coordinator as Record<string, unknown>;
+    const coordinatorRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
+      ws,
+      typeof crow['openaiRuntimeModel'] === 'string' ? crow['openaiRuntimeModel'] : null,
+    );
     const baseCoordinatorSystem = (crow['systemInstruction'] as string | undefined)?.trim();
     const coordinatorCore = baseCoordinatorSystem?.length
       ? baseCoordinatorSystem
@@ -882,6 +892,7 @@ export class CoordinatorOrchestratorService {
       workspaceId: ws,
       systemInstruction: coordinatorSystemInstruction,
       userMessage,
+      openaiRuntimeModel: coordinatorRuntimeModel,
       ...(openaiApiKey ? { openaiApiKey } : {}),
       sdkTools,
       ...(streamText && options?.onCoordinatorTextDelta

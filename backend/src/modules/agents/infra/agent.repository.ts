@@ -25,6 +25,7 @@ function toPublic(doc: AgentDoc) {
     platformManaged: doc.platformManaged ?? false,
     systemRole: doc.systemRole ?? null,
     systemInstruction: doc.systemInstruction,
+    ...(doc.openaiRuntimeModel ? { openaiRuntimeModel: doc.openaiRuntimeModel } : {}),
     capabilities: doc.capabilities,
     knowledge: doc.knowledge,
     channelConfig: doc.channelConfig,
@@ -100,9 +101,19 @@ export class AgentRepository implements IAgentRepository {
     });
     if (!current) return null;
     const nextVersion = bumpVersion((current as AgentDoc).version ?? '1.0.0');
+    const setPayload: Record<string, unknown> = { ...data, version: nextVersion };
+    const unset: Record<string, 1> = {};
+    if (Object.prototype.hasOwnProperty.call(setPayload, 'openaiRuntimeModel') && setPayload.openaiRuntimeModel === null) {
+      delete setPayload.openaiRuntimeModel;
+      unset.openaiRuntimeModel = 1;
+    }
+    const updateDoc =
+      Object.keys(unset).length > 0
+        ? { $set: setPayload, $unset: unset }
+        : { $set: setPayload };
     const doc = await AgentModel.findOneAndUpdate(
       { _id: id, workspaceId: new Types.ObjectId(workspaceId) },
-      { $set: { ...data, version: nextVersion } },
+      updateDoc,
       { new: true },
     );
     return doc ? toPublic(doc as AgentDoc) : null;

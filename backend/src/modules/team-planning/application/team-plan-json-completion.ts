@@ -48,6 +48,3 @@ export async function fetchTeamPlanJsonCompletion(params: {
   return { content };
 }
 
-export function teamPlanModelFromEnv(): string {
-  return process.env.OPENAI_TEAM_PLAN_MODEL?.trim() || 'gpt-4o-mini';
-}

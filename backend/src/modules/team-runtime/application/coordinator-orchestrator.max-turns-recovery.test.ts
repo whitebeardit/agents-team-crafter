@@ -29,6 +29,7 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
     const workspaceIntegrationsService = {
       resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
       getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
+      resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };
     const execute = jest.fn<() => Promise<{ ok: boolean; result?: unknown; errorCode?: string; error?: string }>>();
     // preflight attempt fails; runtime proceeds to coordinator
@@ -98,6 +99,7 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
     const workspaceIntegrationsService = {
       resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
       getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
+      resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };
     const businessToolRuntime = {
       execute: jest.fn(async () => ({ ok: false, errorCode: 'EXECUTION_ERROR', error: 'unavailable' })),

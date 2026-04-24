@@ -43,6 +43,8 @@ export interface IExecutableAgentConfig {
   businessToolRuntime?: IBusinessToolRuntime;
   /** Quando a execucao e no contexto de um time (ex.: especialista no orquestrador). */
   teamContext?: { teamId: string; teamName: string };
+  /** ID do modelo OpenAI (valor do enum de workspace) resolvido antes do runStep. */
+  openaiRuntimeModel: string;
 }
 
 export type TRuntimeEvent =
@@ -84,6 +86,7 @@ export interface ICoordinatorRunParams {
   systemInstruction?: string;
   userMessage: string;
   openaiApiKey?: string;
+  openaiRuntimeModel: string;
   sdkTools: readonly TCoordinatorSdkTool[];
   /** When set, coordinator run uses streaming mode and forwards text chunks (SSE / live UI). */
   onAssistantTextDelta?: (delta: string) => void;

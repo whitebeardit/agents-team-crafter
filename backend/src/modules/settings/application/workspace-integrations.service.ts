@@ -5,12 +5,23 @@ import type { WorkspaceRepository } from '../../workspaces/infra/workspace.repos
 import {
   type IWorkspaceIntegrationsPayload,
   type IPutWorkspaceIntegrationsBody,
+  assertWorkspaceChatModelsCoherent,
   maskIntegrationsForApi,
   mergeWorkspaceIntegrationsPayload,
 } from '../domain/workspace-integrations.schema.js';
 import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
 import { resolveOperationalCatalogTools } from '../../agents/domain/operational-catalog-tools.js';
 import nodemailer from 'nodemailer';
+import {
+  type EOpenAiWorkspaceChatModel,
+  DEFAULT_AGENTS_RUNTIME_MODEL,
+  DEFAULT_TEAM_PLANNER_MODEL,
+  availableWorkspaceChatModels,
+  parseAgentsRuntimeModelFromEnv,
+  parseOpenAiWorkspaceChatModel,
+  parseTeamPlannerModelFromEnv,
+  pickResolvedWorkspaceChatModel,
+} from '../../../shared/kernel/openai-workspace-chat-models.js';
 
 function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): boolean {
   return (
@@ -21,7 +32,10 @@ function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): bool
         Object.values(next.slack).some((v) => typeof v === 'string' && v.trim().length > 0),
     ) ||
     Boolean(next.toolCalendar?.restBaseUrl?.trim() || next.toolCalendar?.authHeader?.trim()) ||
-    Boolean(next.imageGenerationModel)
+    Boolean(next.imageGenerationModel) ||
+    Boolean(next.enabledOpenAiChatModels?.length) ||
+    Boolean(next.agentsRuntimeModel) ||
+    Boolean(next.teamPlannerModel)
   );
 }
 
@@ -76,18 +90,21 @@ export class WorkspaceIntegrationsService {
     return {
       secretsMasked: maskIntegrationsForApi(plain),
       operationalCatalogTools: resolveOperationalCatalogTools(ctx),
+      availableOpenAiChatModels: availableWorkspaceChatModels(plain?.enabledOpenAiChatModels),
     };
   }
 
   async putPartial(workspaceId: string, patch: IPutWorkspaceIntegrationsBody) {
     const current = (await this.getPlainPayload(workspaceId)) ?? {};
     const next = mergeWorkspaceIntegrationsPayload(current, patch);
+    assertWorkspaceChatModelsCoherent(next);
     const hasAny = integrationPayloadHasSecrets(next);
     if (!hasAny) {
       await this.workspaceRepo.setIntegrationSecretsEncrypted(workspaceId, null);
       return {
         secretsMasked: maskIntegrationsForApi(null),
         operationalCatalogTools: resolveOperationalCatalogTools({}),
+        availableOpenAiChatModels: availableWorkspaceChatModels(undefined),
       };
     }
     const enc = encryptJson(this.requireMasterKey(), next);
@@ -96,6 +113,7 @@ export class WorkspaceIntegrationsService {
     return {
       secretsMasked: maskIntegrationsForApi(next),
       operationalCatalogTools: resolveOperationalCatalogTools(ctxAfter),
+      availableOpenAiChatModels: availableWorkspaceChatModels(next.enabledOpenAiChatModels),
     };
   }
 
@@ -138,6 +156,52 @@ export class WorkspaceIntegrationsService {
   async resolveOpenAiApiKey(workspaceId: string): Promise<string | undefined> {
     const r = await this.resolveOpenAiApiKeyWithSource(workspaceId);
     return r.apiKey;
+  }
+
+  async resolveTeamPlannerModel(workspaceId: string): Promise<EOpenAiWorkspaceChatModel> {
+    const p = (await this.getPlainPayload(workspaceId)) ?? {};
+    return pickResolvedWorkspaceChatModel({
+      preferenceChain: [p.teamPlannerModel, parseTeamPlannerModelFromEnv()],
+      enabled: p.enabledOpenAiChatModels,
+      productDefault: DEFAULT_TEAM_PLANNER_MODEL,
+    });
+  }
+
+  /**
+   * Modelo de chat para runtime Agents SDK (coordenador e especialistas).
+   * @param agentOverrideRaw valor persistido no agente (string API); opcional.
+   */
+  async resolveAgentsRuntimeModel(
+    workspaceId: string,
+    agentOverrideRaw?: string | null,
+  ): Promise<EOpenAiWorkspaceChatModel> {
+    const p = (await this.getPlainPayload(workspaceId)) ?? {};
+    return pickResolvedWorkspaceChatModel({
+      preferenceChain: [
+        parseOpenAiWorkspaceChatModel(agentOverrideRaw),
+        p.agentsRuntimeModel,
+        parseAgentsRuntimeModelFromEnv(),
+      ],
+      enabled: p.enabledOpenAiChatModels,
+      productDefault: DEFAULT_AGENTS_RUNTIME_MODEL,
+    });
+  }
+
+  /** Valida override por agente contra o subset habilitado no workspace. */
+  async assertAgentRuntimeModelAllowed(
+    workspaceId: string,
+    model: EOpenAiWorkspaceChatModel | undefined | null,
+  ): Promise<void> {
+    if (model === undefined || model === null) return;
+    const p = (await this.getPlainPayload(workspaceId)) ?? {};
+    const allowed = availableWorkspaceChatModels(p.enabledOpenAiChatModels);
+    if (!allowed.includes(model)) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'O modelo OpenAI escolhido nao esta habilitado para este workspace (Configuracoes > Integracoes).',
+        400,
+      );
+    }
   }
 
   async getPlainSmtp(workspaceId: string) {

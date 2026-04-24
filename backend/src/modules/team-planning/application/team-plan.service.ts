@@ -7,7 +7,7 @@ import { assertActiveChannelBindingUnique } from '../../teams/application/assert
 import type { IAppDeps } from '../../../config/container.js';
 import type { IGraphNode } from '../../graphs/domain/graph-types.js';
 import type { TeamPlanRepository } from '../infra/team-plan.repository.js';
-import { fetchTeamPlanJsonCompletion, teamPlanModelFromEnv } from './team-plan-json-completion.js';
+import { fetchTeamPlanJsonCompletion } from './team-plan-json-completion.js';
 import {
   type ITeamPlannerStructuredBriefing,
   TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
@@ -37,6 +37,7 @@ import {
   plannerOutputSchema,
   type TPlannerOutput,
 } from './team-plan-planner-output.schema.js';
+import { stripPlannerAgentsForImport, teamPlanImportEnvelopeSchema } from './team-plan-snapshot.schema.js';
 import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
 import {
   assertSpecialistsExclusiveCatalogTools,
@@ -71,11 +72,15 @@ export interface ITeamPlannerMeta {
   usedFallback: boolean;
   fallbackReason?: string;
   openaiResolvedFromEnv: boolean;
+  /** Modelo OpenAI efectivamente usado na ultima geracao/reparo do planner. */
+  plannerModel?: string;
   parseErrorSummary?: string;
   /** Loop 80: chamadas de reparo ao modelo apos colisao de catalogTools entre especialistas */
   catalogToolRepairAttempts?: number;
   /** Loop 80: plano final passou apos pelo menos uma rodada de reparo */
   catalogUniquenessRepaired?: boolean;
+  /** Plano criado via importacao de snapshot (sem chamada ao planner). */
+  importedSnapshot?: boolean;
 }
 
 export interface ITeamPlanBindPreviewDefinition {
@@ -477,6 +482,7 @@ export class TeamPlanService {
   }
 
   private async fetchRepairedPlannerOutput(params: {
+    workspaceId: string;
     apiKey: string;
     problem: string;
     context?: string;
@@ -484,7 +490,7 @@ export class TeamPlanService {
     diagnosis: string;
     repairAttempt: number;
   }): Promise<TPlannerOutput | null> {
-    const model = teamPlanModelFromEnv();
+    const model = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(params.workspaceId);
     const { content } = await fetchTeamPlanJsonCompletion({
       apiKey: params.apiKey,
       model,
@@ -562,6 +568,7 @@ export class TeamPlanService {
       const diagnosis = diagnosisParts.join(' | ');
       const invalidPlanJson = this.formatPlanPayloadForRepair(ev);
       const repaired = await this.fetchRepairedPlannerOutput({
+        workspaceId: params.workspaceId,
         apiKey: params.apiKey,
         problem: params.problem,
         context: params.context,
@@ -637,10 +644,11 @@ export class TeamPlanService {
       };
     } else {
       try {
-        const model = teamPlanModelFromEnv();
+        const plannerModelResolved =
+          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
         const { content } = await fetchTeamPlanJsonCompletion({
           apiKey,
-          model,
+          model: plannerModelResolved,
           systemPrompt: TEAM_PLANNER_SYSTEM_PROMPT,
           userMessage: buildTeamPlannerUserMessage(input.problem, input.context, input.briefing),
         });
@@ -653,6 +661,7 @@ export class TeamPlanService {
             usedFallback: true,
             fallbackReason: 'json_extract_failed',
             openaiResolvedFromEnv,
+            plannerModel: plannerModelResolved,
           };
         } else {
           const ext = extracted as Record<string, unknown>;
@@ -667,6 +676,7 @@ export class TeamPlanService {
               usedOpenAi: true,
               usedFallback: false,
               openaiResolvedFromEnv,
+              plannerModel: plannerModelResolved,
             };
           } else {
             const parseSummary = parsed.error.message.slice(0, 400);
@@ -678,6 +688,7 @@ export class TeamPlanService {
               fallbackReason: 'schema_validation_failed',
               openaiResolvedFromEnv,
               parseErrorSummary: parseSummary,
+              plannerModel: plannerModelResolved,
             };
           }
         }
@@ -685,12 +696,15 @@ export class TeamPlanService {
         const msg = e instanceof Error ? e.message : String(e);
         log.warn({ workspaceId, err: msg }, 'team plan: falha na chamada OpenAI');
         raw = this.buildFallback(input.problem, input.context, input.briefing);
+        const plannerModelResolved =
+          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
         plannerMeta = {
           usedOpenAi: false,
           usedFallback: true,
           fallbackReason: 'openai_request_failed',
           openaiResolvedFromEnv,
           parseErrorSummary: msg.slice(0, 400),
+          plannerModel: plannerModelResolved,
         };
       }
     }
@@ -708,6 +722,13 @@ export class TeamPlanService {
       plannerMeta = {
         ...plannerMeta,
         ...resolved.plannerMetaExtras,
+      };
+    }
+
+    if (apiKey && !plannerMeta.plannerModel) {
+      plannerMeta = {
+        ...plannerMeta,
+        plannerModel: await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId),
       };
     }
 
@@ -738,6 +759,93 @@ export class TeamPlanService {
       plannerMeta: {
         ...(plannerMeta as unknown as Record<string, unknown>),
         platformAssistant: 'team-crafter',
+        briefingSufficiency,
+        integrityModel,
+      },
+      reuseSummary: reuse.reuseSummary,
+    });
+    return created;
+  }
+
+  async importPlanFromSnapshot(workspaceId: string, rawBody: unknown) {
+    const envelopeParse = teamPlanImportEnvelopeSchema.safeParse(rawBody);
+    if (!envelopeParse.success) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'JSON de importacao invalido. Use o formato exportado pelo AI Builder (schemaVersion 1).',
+        422,
+        { issues: envelopeParse.error.issues.slice(0, 24) },
+      );
+    }
+    const { plan } = envelopeParse.data;
+    const teamName =
+      plan.team &&
+      typeof plan.team === 'object' &&
+      plan.team !== null &&
+      'name' in plan.team &&
+      typeof (plan.team as { name?: unknown }).name === 'string'
+        ? String((plan.team as { name: string }).name).trim() || 'Time importado'
+        : 'Time importado';
+    const problemBase = plan.problem.trim();
+    const problem =
+      problemBase.length >= 10 ? problemBase : `Plano importado — ${teamName}`.slice(0, 400);
+    const briefing = plan.briefing as ITeamPlannerStructuredBriefing | undefined;
+    const briefingSufficiency = evaluateTeamPlanBriefingSufficiency(briefing);
+    const integrityModel = buildTeamPlanIntegrityModel(briefing);
+    const strippedAgents = stripPlannerAgentsForImport(plan.agents);
+    const raw: TPlannerOutput = {
+      team: plan.team as TPlannerOutput['team'],
+      agents: strippedAgents as TPlannerOutput['agents'],
+      graph: plan.graph ?? { nodes: [], edges: [] },
+      executionChecklist: plan.executionChecklist,
+      requiredPacks: plan.requiredPacks,
+      requiredTools: plan.requiredTools,
+    };
+    const reuse = await this.annotateAgentsWithReuse(workspaceId, raw.agents);
+    const parsedForGraph = plannerOutputSchema.parse({
+      team: raw.team,
+      agents: padPlannerAgentsForSchemaValidation(reuse.agents),
+      graph: raw.graph,
+      executionChecklist: raw.executionChecklist,
+      requiredPacks: raw.requiredPacks,
+      requiredTools: raw.requiredTools,
+    });
+    const agentsMaterialized = materializePlannerAgentCatalogTools(parsedForGraph);
+    assertSpecialistWorkflowOwnership(parsedForGraph.agents);
+    assertSpecialistsExclusiveCatalogTools(agentsMaterialized);
+    const graph = this.buildDefaultGraph({ ...parsedForGraph, agents: agentsMaterialized });
+    const bindUniverse = computePlannerBindActionUniverse(
+      agentsMaterialized.map((a) => ({
+        role: a.role,
+        requiredBusinessActionIds: a.requiredBusinessActionIds,
+        requiredPackIds: a.requiredPackIds,
+      })),
+      parsedForGraph.requiredTools,
+      parsedForGraph.requiredPacks,
+      TEAM_PLAN_AUTO_BIND_MAX_ACTIONS,
+    );
+    const normalizedBindOverrides = normalizeBindOverrides(
+      plan.bindOverrides,
+      plannerAgentKeys(parsedForGraph.agents),
+      bindUniverse.actionIds,
+    );
+    const created = await this.repo.create(workspaceId, {
+      problem,
+      context: plan.context,
+      briefing: briefing ?? null,
+      status: 'ready',
+      team: parsedForGraph.team,
+      agents: agentsMaterialized.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
+      graph,
+      executionChecklist: raw.executionChecklist,
+      requiredPacks: raw.requiredPacks,
+      requiredTools: raw.requiredTools,
+      bindOverrides: normalizedBindOverrides as unknown as Record<string, unknown>,
+      plannerMeta: {
+        usedOpenAi: false,
+        usedFallback: false,
+        openaiResolvedFromEnv: false,
+        importedSnapshot: true,
         briefingSufficiency,
         integrityModel,
       },
@@ -800,7 +908,7 @@ export class TeamPlanService {
       team: parsed.team,
       agents: agentsMaterialized.map((a) => ({ ...a, category: normalizeAgentCategory(a.category) })),
       graph: parsed.graph,
-      bindOverrides: normalizedBindOverrides,
+      bindOverrides: normalizedBindOverrides as unknown as Record<string, unknown>,
       status: 'ready',
       reuseSummary: reuse.reuseSummary,
     });
@@ -844,7 +952,9 @@ export class TeamPlanService {
       plannerAgentKeys(parsed.agents),
       bindUniverse.actionIds,
     );
-    const updated = await this.repo.update(workspaceId, id, { bindOverrides: normalizedBindOverrides });
+    const updated = await this.repo.update(workspaceId, id, {
+      bindOverrides: normalizedBindOverrides as unknown as Record<string, unknown>,
+    });
     if (!updated) throw new AppError('NOT_FOUND', 'Plano nao encontrado', 404);
     const workspaceRecord = await this.deps.workspaceRepo.findById(workspaceId);
     const envDefaultEnabled = (this.deps.env.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0') === '1';

@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { maskSecretValue } from '../../../utils/mask-secret.js';
+import {
+  EOpenAiWorkspaceChatModel,
+  effectiveEnabledChatModels,
+} from '../../../shared/kernel/openai-workspace-chat-models.js';
+import { AppError } from '../../../shared/errors/app-error.js';
 
 /** Payload interno (plaintext) guardado cifrado em Workspace.integrationSecretsEncrypted */
 /** Modelo padrao para a tool de catalogo `image_generation` (override por chamada na tool com `model`). */
@@ -30,6 +35,12 @@ export interface IWorkspaceIntegrationsPayload {
     /** Valor completo do header Authorization (ex. Bearer ...) */
     authHeader?: string;
   };
+  /** Subconjunto do catálogo; vazio ou omitido = todos os modelos do enum permitidos na UI. */
+  enabledOpenAiChatModels?: EOpenAiWorkspaceChatModel[];
+  /** Default runtime (coordenador + especialistas) quando o agente não define override. */
+  agentsRuntimeModel?: EOpenAiWorkspaceChatModel;
+  /** Modelo do team planner (JSON). */
+  teamPlannerModel?: EOpenAiWorkspaceChatModel;
 }
 
 export const putWorkspaceIntegrationsBodySchema = z.object({
@@ -61,6 +72,13 @@ export const putWorkspaceIntegrationsBodySchema = z.object({
     .optional(),
   /** Padrao workspace para geracao de imagem; string vazia remove e volta ao default dall-e-3 no runtime. */
   imageGenerationModel: z.union([z.enum(['dall-e-2', 'dall-e-3']), z.literal('')]).optional(),
+  enabledOpenAiChatModels: z.array(z.nativeEnum(EOpenAiWorkspaceChatModel)).optional(),
+  agentsRuntimeModel: z
+    .union([z.nativeEnum(EOpenAiWorkspaceChatModel), z.literal('')])
+    .optional(),
+  teamPlannerModel: z
+    .union([z.nativeEnum(EOpenAiWorkspaceChatModel), z.literal('')])
+    .optional(),
 });
 
 export type IPutWorkspaceIntegrationsBody = z.infer<typeof putWorkspaceIntegrationsBodySchema>;
@@ -84,6 +102,9 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
   };
   toolCalendar?: { restBaseUrl?: string; authHeaderConfigured: boolean };
   imageGenerationModel?: TImageGenerationModel;
+  enabledOpenAiChatModels?: EOpenAiWorkspaceChatModel[];
+  agentsRuntimeModel?: EOpenAiWorkspaceChatModel;
+  teamPlannerModel?: EOpenAiWorkspaceChatModel;
 } {
   if (!payload) {
     return { openaiApiKeyConfigured: false };
@@ -130,6 +151,11 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
         }
       : {}),
     ...(payload.imageGenerationModel ? { imageGenerationModel: payload.imageGenerationModel } : {}),
+    ...(payload.enabledOpenAiChatModels?.length
+      ? { enabledOpenAiChatModels: payload.enabledOpenAiChatModels }
+      : {}),
+    ...(payload.agentsRuntimeModel ? { agentsRuntimeModel: payload.agentsRuntimeModel } : {}),
+    ...(payload.teamPlannerModel ? { teamPlannerModel: payload.teamPlannerModel } : {}),
   };
 }
 
@@ -210,5 +236,41 @@ export function mergeWorkspaceIntegrationsPayload(
     else next.imageGenerationModel = patch.imageGenerationModel;
   }
 
+  if (patch.enabledOpenAiChatModels !== undefined) {
+    if (!patch.enabledOpenAiChatModels.length) delete next.enabledOpenAiChatModels;
+    else next.enabledOpenAiChatModels = [...new Set(patch.enabledOpenAiChatModels)];
+  }
+
+  if (patch.agentsRuntimeModel !== undefined) {
+    if (patch.agentsRuntimeModel === '') delete next.agentsRuntimeModel;
+    else next.agentsRuntimeModel = patch.agentsRuntimeModel;
+  }
+
+  if (patch.teamPlannerModel !== undefined) {
+    if (patch.teamPlannerModel === '') delete next.teamPlannerModel;
+    else next.teamPlannerModel = patch.teamPlannerModel;
+  }
+
   return next;
+}
+
+/** Valida defaults de chat contra `enabledOpenAiChatModels` quando a lista está definida e não vazia. */
+export function assertWorkspaceChatModelsCoherent(payload: IWorkspaceIntegrationsPayload): void {
+  const lim = payload.enabledOpenAiChatModels;
+  if (!lim?.length) return;
+  const eff = effectiveEnabledChatModels(lim);
+  if (payload.agentsRuntimeModel && !eff.includes(payload.agentsRuntimeModel)) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'O modelo de runtime dos agentes deve estar entre os modelos OpenAI habilitados neste workspace.',
+      400,
+    );
+  }
+  if (payload.teamPlannerModel && !eff.includes(payload.teamPlannerModel)) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'O modelo do planner de times deve estar entre os modelos OpenAI habilitados neste workspace.',
+      400,
+    );
+  }
 }

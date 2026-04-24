@@ -11,6 +11,20 @@ import type {
 import { formatAgentUserMessage } from '../application/format-agent-user-message.js';
 import { buildCapabilityCatalogTools, buildMcpSdkTools } from '../application/build-specialist-sdk-tools.js';
 import { buildWorkspaceCustomTools } from '../application/build-workspace-custom-tools.js';
+import { isGpt5FamilyModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
+
+function buildAgentModelOptions(modelId: string): { model: string; modelSettings?: object } {
+  if (!isGpt5FamilyModel(modelId)) {
+    return { model: modelId };
+  }
+  return {
+    model: modelId,
+    modelSettings: {
+      reasoning: { effort: 'none' },
+      text: { verbosity: 'low' },
+    },
+  };
+}
 
 export function formatRuntimeErrorWithFallback(prefix: string, msg: string): string {
   const lower = msg.toLowerCase();
@@ -98,7 +112,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   async compile(config: IExecutableAgentConfig) {
     return {
       ok: true,
-      detail: `openai-agents-runtime ready (catalogTools=${config.tools.length}, mcpToolSpecs=${config.mcpToolSpecs.length}, mcpBindingIds=${config.mcpBindingIds.length})`,
+      detail: `openai-agents-runtime ready (model=${config.openaiRuntimeModel}, catalogTools=${config.tools.length}, mcpToolSpecs=${config.mcpToolSpecs.length}, mcpBindingIds=${config.mcpBindingIds.length})`,
     };
   }
 
@@ -133,6 +147,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       instructions: config.systemInstruction ?? 'Voce e um agente de IA.',
       tools: sdkTools,
       handoffs: [],
+      ...buildAgentModelOptions(config.openaiRuntimeModel),
     });
 
     const userMessage = formatAgentUserMessage(input);
@@ -175,6 +190,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       instructions: params.systemInstruction ?? 'Voce e o coordenador do time de agentes.',
       tools,
       handoffs: [],
+      ...buildAgentModelOptions(params.openaiRuntimeModel),
     });
 
     const runner = new Runner({

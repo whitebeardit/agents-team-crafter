@@ -31,6 +31,7 @@ describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () =>
     const workspaceIntegrationsService = {
       resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
       getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
+      resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };
     const businessToolRuntime = {
       execute: jest.fn(async () => ({ ok: false, errorCode: 'EXECUTION_ERROR', error: 'unavailable' })),

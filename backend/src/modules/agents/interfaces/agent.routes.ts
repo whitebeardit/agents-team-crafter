@@ -19,6 +19,12 @@ import { getWorkspaceOverlapMode } from '../../governance/application/workspace-
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import { ensureCoordinatorSystemInstructionPolicy } from '../application/coordinator-system-instruction-policy.js';
+import {
+  EOpenAiWorkspaceChatModel,
+  parseOpenAiWorkspaceChatModel,
+} from '../../../shared/kernel/openai-workspace-chat-models.js';
+
+const openaiRuntimeModelField = z.nativeEnum(EOpenAiWorkspaceChatModel);
 
 const listQuerySchema = paginationQuerySchema.merge(
   z.object({
@@ -46,6 +52,7 @@ const createAgentSchema = z.object({
   systemRole: systemRoleSchema,
   allowConflictOverride: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
+  openaiRuntimeModel: openaiRuntimeModelField.optional(),
 });
 
 const updateAgentSchema = z.object({
@@ -62,6 +69,7 @@ const updateAgentSchema = z.object({
   platformManaged: z.boolean().optional(),
   systemRole: systemRoleSchema,
   allowConflictOverride: z.boolean().optional(),
+  openaiRuntimeModel: z.union([openaiRuntimeModelField, z.literal('')]).optional(),
 });
 
 function asRec(a: unknown): Record<string, unknown> {
@@ -120,6 +128,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
   app.post('/agents', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const body = createAgentSchema.parse(req.body);
+    if (body.openaiRuntimeModel) {
+      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, body.openaiRuntimeModel);
+    }
     await assertWorkspaceQuota(deps.settingsRepo, ws, 'agents');
     if (body.role === 'specialist' && body.channels.length > 0) {
       throw new AppError(
@@ -202,6 +213,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       reuseHints: body.reuseHints ?? [],
       platformManaged: body.platformManaged ?? false,
       systemRole: body.systemRole ?? null,
+      ...(body.openaiRuntimeModel ? { openaiRuntimeModel: body.openaiRuntimeModel } : {}),
       ...(body.role === 'coordinator'
         ? { systemInstruction: ensureCoordinatorSystemInstructionPolicy() }
         : {}),
@@ -245,6 +257,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     const cur = await loadAgent(deps, ws, id);
     assertCompany(cur);
     const body = updateAgentSchema.parse(req.body);
+    if (body.openaiRuntimeModel !== undefined && body.openaiRuntimeModel !== '') {
+      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, body.openaiRuntimeModel);
+    }
     const current = cur as Record<string, unknown>;
     if (body.channels !== undefined && cur['role'] !== 'coordinator') {
       assertCoordinatorForChannels(cur);
@@ -325,6 +340,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       });
     }
     delete patch.allowConflictOverride;
+    if (body.openaiRuntimeModel === '') {
+      (patch as Record<string, unknown>).openaiRuntimeModel = null;
+    }
     const updated = await deps.agentRepo.update(ws, id, patch);
     const overrideOnUpdate =
       draftForReview.role === 'specialist'
@@ -436,6 +454,19 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     assertCompany(cur);
     const body = z.record(z.string(), z.unknown()).parse(req.body);
     delete body['handoff'];
+    const rawModel = body['openaiRuntimeModel'];
+    if (rawModel !== undefined) {
+      if (rawModel === null || rawModel === '') {
+        body['openaiRuntimeModel'] = null;
+      } else {
+        const parsed = parseOpenAiWorkspaceChatModel(String(rawModel));
+        if (!parsed) {
+          throw new AppError('VALIDATION_ERROR', 'Modelo OpenAI invalido para o agente.', 400);
+        }
+        await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, parsed);
+        body['openaiRuntimeModel'] = parsed;
+      }
+    }
     await deps.agentRepo.update(ws, id, body);
     return reply.send(
       successEnvelope({

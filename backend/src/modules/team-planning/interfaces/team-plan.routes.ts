@@ -63,6 +63,13 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
     return reply.code(201).send(successEnvelope(plan));
   });
 
+  /** Importa snapshot JSON exportado (sem planner); cria novo plano no workspace. */
+  app.post('/team-plans/import', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const plan = await service.importPlanFromSnapshot(ws, req.body);
+    return reply.code(201).send(successEnvelope(plan));
+  });
+
   /** Cria o plano e executa materialização (agentes, bind, time) numa única chamada HTTP. */
   app.post('/team-plans/create-and-execute', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
@@ -161,7 +168,8 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
         const message = err instanceof Error ? err.message : String(err);
         const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
         const status = err instanceof AppError ? err.httpStatus : 500;
-        writeSse('error', { code, message, status });
+        const details = err instanceof AppError ? err.details : {};
+        writeSse('error', { code, message, status, details });
       } finally {
         stream.end();
       }
