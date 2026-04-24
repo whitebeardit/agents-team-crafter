@@ -264,6 +264,12 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 - Sem `REDIS_URL`, o SSE live só vê eventos publicados **na mesma instância** do servidor que trata o webhook.
 - Com Live **desligado**, o espelho no console é limpo; mensagens inbound aparecem apenas no canal externo (ex.: Telegram). A consola continua a usar `POST .../run/stream` apenas para mensagens escritas localmente.
 
+### Sessão de debug e transcrição (inbound + auditoria)
+
+- Mensagens tratadas em [`workspace-chats.ts`](../backend/src/modules/chat-sdk/infra/workspace-chats.ts) (`runInbound`) persistem o par **mensagem de utilizador / resposta do coordenador** na coleção **`TeamDebugSession`**, o mesmo mecanismo que o console quando envia `conversationId` no body de `run` / `run/stream`.
+- O identificador da conversa é **estabelecido e determinístico** por fio: `inbound:<channel>:<threadId>` (ex. `inbound:telegram:…`); geração e limites: [`inbound-conversation-id.ts`](../backend/src/modules/chat-sdk/infra/inbound-conversation-id.ts). Antes de cada run, o backend carrega turnos anteriores (`getRecentTurns`) e injeta o bloco de histórico no prompt do coordenador (paridade com a consola).
+- **Não** há `userId` de workspace no webhook; o `userId` do documento de sessão fica vazio; a auditoria fica no transcript e em runs (ex. `RunRecorder`).
+
 ---
 
 ## OpenAI Agent SDK
@@ -286,3 +292,4 @@ O runtime envia `channel` como prefixo na mensagem do usuário (`[channel=slack]
 - Telegram typing: `backend/src/modules/chat-sdk/infra/telegram-typing-loop.test.ts`
 - Telegram estado inbound (debounce): `backend/src/modules/chat-sdk/infra/telegram-inbound-status-debouncer.test.ts`
 - Resposta final inbound (Telegram fallback / 429): `backend/src/modules/chat-sdk/infra/post-coordinator-external-response.test.ts`
+- Id de conversa debug inbound: `backend/src/modules/chat-sdk/infra/inbound-conversation-id.test.ts`

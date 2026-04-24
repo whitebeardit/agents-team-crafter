@@ -60,6 +60,7 @@ Em [`workspace-chats.ts`](../../backend/src/modules/chat-sdk/infra/workspace-cha
 2. O BFF valida assinatura / parâmetros conforme plataforma (detalhes no doc de triggers).
 3. Carrega segredos do canal (cifrados ou fallback env em demo) e constrói `Chat` + adapter.
 4. Em menções / threads subscritas, o handler inbound chama **`invokeTeam`** (mesmo motor que `POST /teams/:id/run`) com `TeamInvocation` (`trigger: chat`), após resolver canal → time → coordenador; metadados de canal entram só no contexto do coordenador ([`format-coordinator-user-message`](../../backend/src/modules/team-runtime/application/format-coordinator-user-message.ts)).
+5. **Sessão de debug / auditoria (MongoDB)** — O mesmo fio lógico que o console (UUID) é mapeado para um `conversationId` estabelecido: `inbound:<plataforma>:<thread.id>` (com hash se o id exceder 128 caracteres) via [`inbound-conversation-id.ts`](../../backend/src/modules/chat-sdk/infra/inbound-conversation-id.ts). Antes de cada `invokeTeam` carrega-se o histórico em [`team-debug-session.repository.getRecentTurns`](../../backend/src/modules/team-runtime/infra/team-debug-session.repository.ts); após resposta de sucesso, [`appendExchange`](../../backend/src/modules/team-runtime/infra/team-debug-session.repository.ts) regista o par utilizador/assistente, como em `POST /teams/:id/run` com `conversationId`. Isto alimenta `GET /teams/:id/debug-sessions` (lista e abrir turnos) para Telegram e restantes canais do Chat SDK, não só para mensagens da consola.
 
 ```mermaid
 flowchart LR
@@ -67,10 +68,12 @@ flowchart LR
   Hook[chat-webhook.routes]
   ChatMod[workspace-chats Chat]
   Run[invokeTeam]
+  Sess[TeamDebugSession]
 
   Ext --> Hook
   Hook --> ChatMod
   ChatMod --> Run
+  Sess <--> ChatMod
 ```
 
 ---
