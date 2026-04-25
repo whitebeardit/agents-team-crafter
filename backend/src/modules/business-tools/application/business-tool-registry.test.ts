@@ -34,4 +34,26 @@ describe('BusinessToolRegistry', () => {
     expect((update?.inputSchema as { required?: string[] })?.required).toContain('partyId');
     expect((update?.inputSchema as { properties?: Record<string, unknown> })?.properties).toHaveProperty('partyId');
   });
+
+  it('exposes semantic defaults and guard profile metadata in catalog', () => {
+    const registry = new BusinessToolRegistry();
+    registry.register('crm_create_party', async () => ({}));
+    registry.register('care_gold_gate', async () => ({}));
+    registry.register('clinic_schedule_session', async () => ({}));
+
+    const cat = registry.listCatalog();
+    const crm = cat.find((x) => x.actionId === 'crm_create_party');
+    const gate = cat.find((x) => x.actionId === 'care_gold_gate');
+    const clinic = cat.find((x) => x.actionId === 'clinic_schedule_session');
+
+    expect(crm?.capabilityKind).toBe('business_action');
+    expect(crm?.uiExposureMode).toBe('primary');
+    expect(crm?.domainScope).toBe('crm');
+
+    expect(gate?.capabilityKind).toBe('gold_gate');
+    expect(gate?.uiExposureMode).toBe('advanced');
+
+    expect(clinic?.guardProfileId).toBe('care_subject_context_guard');
+    expect(clinic?.guardProfileSummary?.rulesSummary?.length).toBeGreaterThan(0);
+  });
 });

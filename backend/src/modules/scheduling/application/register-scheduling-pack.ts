@@ -268,4 +268,42 @@ export function registerSchedulingPack(
 
     return { availability, slots, appointments: agenda };
   });
+
+  registry.register('clinic_schedule_session', async ({ workspaceId, input, correlationId }) => {
+    const data = input as Record<string, unknown>;
+    const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
+    if (!careSubjectId) throw new Error('careSubjectId obrigatorio para agendamento clinico');
+    const subject = await careSubjects.findById(workspaceId, careSubjectId);
+    if (!subject) throw new Error('careSubject nao encontrado');
+    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
+    if (!partyId) throw new Error('partyId obrigatorio para agendamento clinico');
+    if (subject.partyId !== partyId) throw new Error('careSubject deve pertencer ao mesmo partyId no contexto clinico');
+    const handler = registry.get('schedule_create_appointment');
+    if (!handler) throw new Error('schedule_create_appointment indisponivel');
+    return handler({ workspaceId, input: data, correlationId });
+  });
+
+  registry.register('clinic_reschedule_session', async ({ workspaceId, input, correlationId }) => {
+    const data = input as Record<string, unknown>;
+    const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : '';
+    if (!appointmentId) throw new Error('appointmentId obrigatorio');
+    const existing = await appointments.findById(workspaceId, appointmentId);
+    if (!existing) throw new Error('appointment nao encontrado');
+    if (!existing.careSubjectId) throw new Error('appointment sem contexto clinico (careSubjectId)');
+    const handler = registry.get('schedule_reschedule_appointment');
+    if (!handler) throw new Error('schedule_reschedule_appointment indisponivel');
+    return handler({ workspaceId, input: data, correlationId });
+  });
+
+  registry.register('clinic_cancel_session', async ({ workspaceId, input, correlationId }) => {
+    const data = input as Record<string, unknown>;
+    const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : '';
+    if (!appointmentId) throw new Error('appointmentId obrigatorio');
+    const existing = await appointments.findById(workspaceId, appointmentId);
+    if (!existing) throw new Error('appointment nao encontrado');
+    if (!existing.careSubjectId) throw new Error('appointment sem contexto clinico (careSubjectId)');
+    const handler = registry.get('schedule_cancel_appointment');
+    if (!handler) throw new Error('schedule_cancel_appointment indisponivel');
+    return handler({ workspaceId, input: data, correlationId });
+  });
 }

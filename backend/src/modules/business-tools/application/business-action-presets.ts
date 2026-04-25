@@ -15,6 +15,18 @@ export type TBusinessActionPreset = {
   examples?: Array<Record<string, unknown>>;
   /** Texto curto para o modelo pedir dados em falta de uma vez. */
   slotFillingPromptHint?: string;
+  /** Classificação semântica para UX/planner (Ralph Loop 120+). */
+  capabilityKind?: 'business_action' | 'primitive_like' | 'gold_gate';
+  /** Exposição padrão na UI. */
+  uiExposureMode?: 'primary' | 'advanced' | 'hidden';
+  /** Domínio principal da ação (ex.: crm, scheduling, care). */
+  domainScope?: string;
+  /** Dependência explícita de builtins de catálogo (quando aplicável). */
+  dependsOnCatalogTools?: string[];
+  /** Dependência explícita de outras actions (composite). */
+  dependsOnActionIds?: string[];
+  /** Primeira camada de policy incremental (guard profile). */
+  guardProfileId?: string;
 };
 
 const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
@@ -1028,8 +1040,115 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     },
     requiredFieldLabels: ['Dia (date)'],
   },
+  'clinic_schedule_session': {
+    title: 'Clínica — Agendar sessão (composite)',
+    description:
+      'Composite action clínica: valida pré-condições de domínio e delega no scheduling universal.',
+    packId: 'scheduling',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        partyId: { type: 'string' },
+        careSubjectId: { type: 'string' },
+        packageSaleId: { type: 'string' },
+        title: { type: 'string' },
+        startsAt: { type: 'string' },
+        endsAt: { type: 'string' },
+        notes: { type: 'string' },
+      },
+      required: ['partyId', 'careSubjectId', 'title', 'startsAt', 'endsAt'],
+    },
+    requiredFieldLabels: ['Party (partyId)', 'Sujeito (careSubjectId)', 'Título (title)', 'Início (startsAt)', 'Fim (endsAt)'],
+    domainScope: 'clinical_scheduling',
+    dependsOnActionIds: ['schedule_create_appointment'],
+    guardProfileId: 'care_subject_context_guard',
+  },
+  'clinic_reschedule_session': {
+    title: 'Clínica — Reagendar sessão (composite)',
+    description:
+      'Composite action clínica: aplica policy/guard e delega no reagendamento universal de scheduling.',
+    packId: 'scheduling',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appointmentId: { type: 'string' },
+        startsAt: { type: 'string' },
+        endsAt: { type: 'string' },
+        notes: { type: 'string' },
+      },
+      required: ['appointmentId', 'startsAt', 'endsAt'],
+    },
+    requiredFieldLabels: ['Compromisso (appointmentId)', 'Início (startsAt)', 'Fim (endsAt)'],
+    domainScope: 'clinical_scheduling',
+    dependsOnActionIds: ['schedule_reschedule_appointment'],
+    guardProfileId: 'care_subject_context_guard',
+  },
+  'clinic_cancel_session': {
+    title: 'Clínica — Cancelar sessão (composite)',
+    description:
+      'Composite action clínica: aplica policy/guard e delega no cancelamento universal de scheduling.',
+    packId: 'scheduling',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appointmentId: { type: 'string' },
+      },
+      required: ['appointmentId'],
+    },
+    requiredFieldLabels: ['Compromisso (appointmentId)'],
+    domainScope: 'clinical_scheduling',
+    dependsOnActionIds: ['schedule_cancel_appointment'],
+    guardProfileId: 'care_subject_context_guard',
+  },
 };
 
+function inferCapabilityKind(actionId: string): 'business_action' | 'primitive_like' | 'gold_gate' {
+  if (actionId.endsWith('_gold_gate')) return 'gold_gate';
+  if (actionId.startsWith('schedule_')) return 'primitive_like';
+  return 'business_action';
+}
+
+function inferUiExposureMode(
+  actionId: string,
+  kind: 'business_action' | 'primitive_like' | 'gold_gate',
+): 'primary' | 'advanced' | 'hidden' {
+  if (kind === 'gold_gate') return 'advanced';
+  if (actionId === 'business.ping') return 'hidden';
+  if (kind === 'primitive_like') return 'advanced';
+  if (
+    actionId === 'crm_create_party' ||
+    actionId === 'crm_update_party' ||
+    actionId === 'crm_find_party' ||
+    actionId === 'crm_list_parties' ||
+    actionId === 'crm_get_party_summary' ||
+    actionId === 'clinic_schedule_session'
+  ) {
+    return 'primary';
+  }
+  return 'advanced';
+}
+
+function inferDomainScope(actionId: string): string | undefined {
+  const [prefix] = actionId.split('_');
+  if (!prefix) return undefined;
+  if (actionId === 'business.ping' || actionId.startsWith('platform_')) return 'platform';
+  if (prefix === 'schedule') return 'scheduling';
+  return prefix;
+}
+
+function withSemanticDefaults(actionId: string, preset: TBusinessActionPreset): TBusinessActionPreset {
+  const capabilityKind = preset.capabilityKind ?? inferCapabilityKind(actionId);
+  return {
+    ...preset,
+    capabilityKind,
+    uiExposureMode: preset.uiExposureMode ?? inferUiExposureMode(actionId, capabilityKind),
+    domainScope: preset.domainScope ?? inferDomainScope(actionId),
+  };
+}
+
 export function getBusinessActionPreset(actionId: string): TBusinessActionPreset | undefined {
-  return PRESETS[actionId.trim()];
+  const id = actionId.trim();
+  const preset = PRESETS[id];
+  if (!preset) return undefined;
+  return withSemanticDefaults(id, preset);
 }

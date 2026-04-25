@@ -1,4 +1,5 @@
 import { getBusinessActionPreset } from './business-action-presets.js';
+import { getBusinessActionGuardProfile } from './business-action-guard-profiles.js';
 import {
   classifyBusinessActionOperation,
   type TBusinessActionOperationType,
@@ -26,6 +27,17 @@ export interface IBusinessActionCatalogItem {
   requiredFieldLabels?: string[];
   examples?: Array<Record<string, unknown>>;
   slotFillingPromptHint?: string;
+  capabilityKind?: 'business_action' | 'primitive_like' | 'gold_gate';
+  uiExposureMode?: 'primary' | 'advanced' | 'hidden';
+  domainScope?: string;
+  dependsOnCatalogTools?: string[];
+  dependsOnActionIds?: string[];
+  guardProfileId?: string;
+  guardProfileSummary?: {
+    title: string;
+    description: string;
+    rulesSummary: string[];
+  };
 }
 
 export class BusinessToolRegistry {
@@ -62,6 +74,23 @@ export class BusinessToolRegistry {
         requiredFieldLabels: preset?.requiredFieldLabels,
         examples: preset?.examples,
         slotFillingPromptHint: preset?.slotFillingPromptHint,
+        capabilityKind: preset?.capabilityKind,
+        uiExposureMode: preset?.uiExposureMode,
+        domainScope: preset?.domainScope,
+        dependsOnCatalogTools: preset?.dependsOnCatalogTools,
+        dependsOnActionIds: preset?.dependsOnActionIds,
+        guardProfileId: preset?.guardProfileId,
+        guardProfileSummary: preset?.guardProfileId
+          ? (() => {
+              const gp = getBusinessActionGuardProfile(preset.guardProfileId);
+              if (!gp) return undefined;
+              return {
+                title: gp.title,
+                description: gp.description,
+                rulesSummary: gp.rulesSummary,
+              };
+            })()
+          : undefined,
       });
     }
     items.sort((a, b) => a.title.localeCompare(b.title, 'pt'));

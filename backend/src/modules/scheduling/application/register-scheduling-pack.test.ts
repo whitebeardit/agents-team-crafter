@@ -292,4 +292,76 @@ describe('registerSchedulingPack', () => {
     expect(del.deleted).toBe(true);
     expect(await appointments.findById(workspaceId, created.id)).toBeNull();
   });
+
+  it('clinic composite actions enforce clinical context before delegating to scheduling primitive', async () => {
+    const registry = new BusinessToolRegistry();
+    const appointments = new AppointmentRepository();
+    const availability = new AvailabilitySlotRepository();
+    const parties = new PartyRepository();
+    const careSubjects = new CareSubjectRepository();
+    const serviceOrders = new ServiceOrderRepository();
+    const packageSales = new PackageSaleRepository();
+    const reminders = new ReminderRepository();
+    const encounters = new EncounterRepository();
+
+    registerSchedulingPack(
+      registry,
+      appointments,
+      availability,
+      parties,
+      careSubjects,
+      serviceOrders,
+      packageSales,
+      reminders,
+      encounters,
+    );
+
+    const party = await parties.create(workspaceId, { displayName: 'Cliente Clinico' });
+
+    await expect(
+      registry.get('clinic_schedule_session')!({
+        workspaceId,
+        input: {
+          partyId: party.id,
+          title: 'Sessao sem sujeito',
+          startsAt: '2026-06-01T09:00:00.000Z',
+          endsAt: '2026-06-01T10:00:00.000Z',
+        },
+      }),
+    ).rejects.toThrow('careSubjectId obrigatorio');
+
+    const subject = await careSubjects.create(workspaceId, {
+      partyId: party.id,
+      name: 'Paciente Clinico',
+      subjectKind: 'psych',
+    });
+
+    const created = (await registry.get('clinic_schedule_session')!({
+      workspaceId,
+      input: {
+        partyId: party.id,
+        careSubjectId: subject.id,
+        title: 'Sessao clinica',
+        startsAt: '2026-06-01T09:00:00.000Z',
+        endsAt: '2026-06-01T10:00:00.000Z',
+      },
+    })) as { id: string; careSubjectId?: string };
+    expect(created.careSubjectId).toBe(subject.id);
+
+    const rescheduled = (await registry.get('clinic_reschedule_session')!({
+      workspaceId,
+      input: {
+        appointmentId: created.id,
+        startsAt: '2026-06-01T10:00:00.000Z',
+        endsAt: '2026-06-01T11:00:00.000Z',
+      },
+    })) as { startsAt: string };
+    expect(rescheduled.startsAt).toBe('2026-06-01T10:00:00.000Z');
+
+    const cancelled = (await registry.get('clinic_cancel_session')!({
+      workspaceId,
+      input: { appointmentId: created.id },
+    })) as { status: string };
+    expect(cancelled.status).toBe('cancelled');
+  });
 });
