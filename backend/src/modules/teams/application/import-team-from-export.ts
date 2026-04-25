@@ -295,23 +295,35 @@ export async function importTeamFromExport(
 
   const warnings: string[] = [];
   const channelSnapshots = toChannelSnapshotsFromExport(parsed.value);
-  for (const s of channelSnapshots) {
-    if (!s.secretsEncrypted) {
-      warnings.push(`Canal ${s.name} (${s.legacyId}): importado sem segredos; pode ser necessario reconectar.`);
-    }
-  }
 
   const nAgents = exAgentOrder.length;
-  const nCh = channelSnapshots.length;
-
-  if (params.mode === 'create') {
-    await assertWorkspaceQuotaDelta(deps.settingsRepo, workspaceId, { teams: 1, agents: nAgents, channels: nCh });
-  } else {
-    await assertWorkspaceQuotaDelta(deps.settingsRepo, workspaceId, { agents: nAgents, channels: nCh });
-  }
-
   const oldToNewChannelIds: Record<string, string> = {};
   const oldToNewAgentIds: Record<string, string> = {};
+  /** Canais a criar: reutilizamos documentos existentes quando `findById(workspaceId, legacyId)` existe (import repetido / mesmo ID). */
+  const snapshotsToCreate: TTeamExportChannelFullSnapshot[] = [];
+
+  for (const snap of channelSnapshots) {
+    const existing = await deps.channelRepo.findById(workspaceId, snap.legacyId);
+    if (existing) {
+      oldToNewChannelIds[snap.legacyId] = snap.legacyId;
+    } else {
+      snapshotsToCreate.push(snap);
+    }
+  }
+  const channelsToCreate = snapshotsToCreate.length;
+
+  if (params.mode === 'create') {
+    await assertWorkspaceQuotaDelta(deps.settingsRepo, workspaceId, {
+      teams: 1,
+      agents: nAgents,
+      channels: channelsToCreate,
+    });
+  } else {
+    await assertWorkspaceQuotaDelta(deps.settingsRepo, workspaceId, {
+      agents: nAgents,
+      channels: channelsToCreate,
+    });
+  }
 
   let previousTeam: Record<string, unknown> | null = null;
   const exTeamIds: string[] = [];
@@ -329,7 +341,12 @@ export async function importTeamFromExport(
     }
   }
 
-  for (const snap of channelSnapshots) {
+  for (const snap of snapshotsToCreate) {
+    if (!snap.secretsEncrypted) {
+      warnings.push(
+        `Canal ${snap.name} (${snap.legacyId}): importado sem segredos no ficheiro; pode ser necessario reconectar.`,
+      );
+    }
     const connectedAt = snap.connectedAt ? new Date(snap.connectedAt) : undefined;
     const disconnectedAt = snap.disconnectedAt ? new Date(snap.disconnectedAt) : undefined;
     const newId = await deps.channelRepo.createFromImportSnapshot(workspaceId, {
