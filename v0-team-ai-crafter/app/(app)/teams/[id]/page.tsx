@@ -24,6 +24,9 @@ import {
   Download,
   ClipboardCopy,
   Upload,
+  FileStack,
+  BookMarked,
+  Sparkles,
 } from "lucide-react"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
@@ -33,6 +36,7 @@ import type {
   ChannelType,
   Team,
   TeamExportPayload,
+  TeamTemplateExportPayload,
   TeamImportResult,
   TeamReadinessResult,
   TeamRunRecord,
@@ -46,6 +50,7 @@ import { ptBR } from "date-fns/locale"
 import { toast } from "sonner"
 import { formatCategoryLabel } from "@/lib/utils/agent-category"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -145,7 +150,7 @@ export default function TeamDetailsPage({
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = params.id
-  const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, user } = useWorkspaceStore()
   const [team, setTeam] = useState<(Team & { coordinator?: Partial<Agent>; agents?: Agent[]; channels?: Channel[] }) | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editName, setEditName] = useState("")
@@ -164,6 +169,14 @@ export default function TeamDetailsPage({
   const [exportTeamJsonBusy, setExportTeamJsonBusy] = useState(false)
   const [importTeamJsonBusy, setImportTeamJsonBusy] = useState(false)
   const importTeamFileRef = useRef<HTMLInputElement | null>(null)
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
+  const [saveTemplateName, setSaveTemplateName] = useState("")
+  const [saveTemplateDescription, setSaveTemplateDescription] = useState("")
+  const [saveTemplateCategory, setSaveTemplateCategory] = useState("Geral")
+  const [saveTemplateBusy, setSaveTemplateBusy] = useState(false)
+  const [exportTemplateBusy, setExportTemplateBusy] = useState(false)
+  const [promoteOpen, setPromoteOpen] = useState(false)
+  const [promoteBusy, setPromoteBusy] = useState(false)
 
   const TEAM_PAGE_TAB_VALUES = ["overview", "agents", "channels", "runs", "debug"] as const
 
@@ -411,6 +424,86 @@ export default function TeamDetailsPage({
     }
   }
 
+  const openSaveAsTemplate = () => {
+    if (!team) return
+    setSaveTemplateName(`${team.name} (template)`)
+    setSaveTemplateDescription(team.description ?? "")
+    setSaveTemplateCategory("Geral")
+    setSaveTemplateOpen(true)
+  }
+
+  const handleSaveAsTemplate = async () => {
+    const api = buildApiClient()
+    if (!api || !team) return
+    if (!saveTemplateName.trim()) {
+      toast.error("Indique o nome do template")
+      return
+    }
+    setSaveTemplateBusy(true)
+    try {
+      await api.post("/templates", {
+        teamId: team.id,
+        name: saveTemplateName.trim(),
+        description: saveTemplateDescription.trim() || "",
+        category: saveTemplateCategory.trim() || "Geral",
+      })
+      toast.success("Template guardado no catálogo (minha empresa)")
+      setSaveTemplateOpen(false)
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao guardar template"
+      toast.error(msg)
+    } finally {
+      setSaveTemplateBusy(false)
+    }
+  }
+
+  const handleExportTemplate = async () => {
+    const api = buildApiClient()
+    if (!api || !team) return
+    setExportTemplateBusy(true)
+    try {
+      const res = await api.get<TeamTemplateExportPayload>(`/teams/${team.id}/template-export`)
+      downloadJsonFile(`template-team-${team.id}.json`, res.data)
+      toast.success("Ficheiro de template (sem segredos) descarregado")
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao exportar template"
+      toast.error(msg)
+    } finally {
+      setExportTemplateBusy(false)
+    }
+  }
+
+  const handlePromoteToGlobal = async () => {
+    const api = buildApiClient()
+    if (!api || !team || !currentWorkspace) return
+    if (!user?.isPlatformAdmin) {
+      toast.error("Apenas admin da plataforma")
+      return
+    }
+    setPromoteBusy(true)
+    try {
+      await api.post(
+        "/platform/templates/promote-from-team",
+        {
+          workspaceId: currentWorkspace.id,
+          teamId: team.id,
+          name: `${team.name} (GOLD)`,
+          description: team.description ?? "",
+          category: "Geral",
+          templateScope: "global",
+        },
+        { tenant: false },
+      )
+      toast.success("Modelo publicado no catálogo global Whitebeard")
+      setPromoteOpen(false)
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Falha ao promover"
+      toast.error(msg)
+    } finally {
+      setPromoteBusy(false)
+    }
+  }
+
   const handleImportTeamJsonReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ""
@@ -509,6 +602,38 @@ export default function TeamDetailsPage({
             <ClipboardCopy className="w-4 h-4" />
             Copiar JSON
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={exportTemplateBusy}
+            onClick={handleExportTemplate}
+            title="JSON partilhável, sem credenciais"
+          >
+            <FileStack className="w-4 h-4" />
+            {exportTemplateBusy ? "…" : "Exportar template"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={openSaveAsTemplate}
+            title="Gravar no catálogo (minha empresa)"
+          >
+            <BookMarked className="w-4 h-4" />
+            Guardar template
+          </Button>
+          {user?.isPlatformAdmin ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="gap-2"
+              onClick={() => setPromoteOpen(true)}
+            >
+              <Sparkles className="w-4 h-4" />
+              Promover p/ catálogo
+            </Button>
+          ) : null}
           <Link href={`/teams/${team.id}/gallery`}>
             <Button variant="outline" className="gap-2">
               <Images className="w-4 h-4" />
@@ -1157,6 +1282,71 @@ export default function TeamDetailsPage({
             </Button>
             <Button onClick={handleSaveEdit} disabled={savingEdit || !editName.trim()}>
               {savingEdit ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Guardar como template (minha empresa)</DialogTitle>
+            <DialogDescription>
+              Cria um registo no catálogo com o time completo (sem credenciais), reutilizável via import unificado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="tpl-name">Nome do template</Label>
+              <Input
+                id="tpl-name"
+                value={saveTemplateName}
+                onChange={(e) => setSaveTemplateName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-desc">Descrição</Label>
+              <Textarea
+                id="tpl-desc"
+                rows={3}
+                value={saveTemplateDescription}
+                onChange={(e) => setSaveTemplateDescription(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-cat">Categoria</Label>
+              <Input
+                id="tpl-cat"
+                value={saveTemplateCategory}
+                onChange={(e) => setSaveTemplateCategory(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveTemplateOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveAsTemplate} disabled={saveTemplateBusy || !saveTemplateName.trim()}>
+              {saveTemplateBusy ? "A guardar…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={promoteOpen} onOpenChange={setPromoteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Promover para catálogo Whitebeard (global)</DialogTitle>
+            <DialogDescription>
+              O time actual é exportado de forma sanitizada e fica disponível para todos os workspaces no catálogo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPromoteOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handlePromoteToGlobal} disabled={promoteBusy}>
+              {promoteBusy ? "A publicar…" : "Confirmar"}
             </Button>
           </DialogFooter>
         </DialogContent>

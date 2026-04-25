@@ -27,12 +27,19 @@ const TemplateSchema = new Schema(
     goldenPrompts: [{ type: String }],
     /** Comportamento esperado num cenario feliz (1–3 frases) */
     expectedOutcome: { type: String, default: '' },
+    /** JSON completo sanitizado (exportKind: template) — fonte de verdade para `apply` via import. */
+    templatePayload: { type: Schema.Types.Mixed, default: undefined },
+    /**
+     * `global` = visível com catálogo Whitebeard em qualquer workspace (só com `requirePlatformAdmin` a gravar).
+     */
+    templateScope: { type: String, enum: ['workspace', 'global'], default: 'workspace' },
   },
   { timestamps: true },
 );
 
 TemplateSchema.index({ workspaceId: 1, origin: 1 });
 TemplateSchema.index({ workspaceId: 1, category: 1 });
+TemplateSchema.index({ templateScope: 1, origin: 1 });
 
 export type TemplateDoc = mongoose.InferSchemaType<typeof TemplateSchema> & { _id: mongoose.Types.ObjectId };
 

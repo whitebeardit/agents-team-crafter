@@ -1,3 +1,4 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import { AGENT_EXPORT_VERSION } from '../../agents/application/build-agent-export.js';
 import { buildTeamExportPayload } from './build-team-export.js';
 

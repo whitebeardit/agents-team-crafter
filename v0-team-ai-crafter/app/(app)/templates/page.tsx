@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, Copy, Download, FileStack, Info, Share2 } from "lucide-react"
+import { CheckCircle2, ChevronDown, Copy, Download, FileStack, Info, Pencil, Share2, Trash2, Upload } from "lucide-react"
 import { TemplateCard } from "@/components/templates/template-card"
-import type { AgentOrigin, Channel, Template } from "@/lib/types"
+import type { AgentOrigin, Template, TemplateCredentialSlot } from "@/lib/types"
 import { toast } from "sonner"
-import { createApiClient } from "@/lib/api/client"
+import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import {
   Dialog,
@@ -21,7 +21,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
@@ -34,9 +33,23 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type TemplateApplyDetail = Template & {
   agents?: Array<{ id?: string; name?: string; role?: string }>
+  templatePayload?: unknown
+  credentialSlots?: TemplateCredentialSlot[]
 }
 
 type TemplateApplyResponse = {
@@ -44,6 +57,8 @@ type TemplateApplyResponse = {
   name: string
   status: string
   message: string
+  importWarnings?: string[]
+  importMode?: string
 }
 
 const TEMPLATE_ORIGIN_LABELS: Record<AgentOrigin, string> = {
@@ -55,6 +70,10 @@ type GoldStarterRecommendation = {
   businessLabel: string
   description: string
   matcher: (template: Template) => boolean
+}
+
+function isWorkspaceCompanyTemplate(t: Template) {
+  return t.origin === "company" && t.templateScope !== "global"
 }
 
 const GOLD_STARTER_RECOMMENDATIONS: GoldStarterRecommendation[] = [
@@ -86,14 +105,26 @@ export default function TemplatesPage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [originFilter, setOriginFilter] = useState<AgentOrigin | "all">("all")
   const [catalogTemplates, setCatalogTemplates] = useState<Template[]>([])
-  const [channels, setChannels] = useState<Channel[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [applyDetail, setApplyDetail] = useState<TemplateApplyDetail | null>(null)
   const [applyDetailLoading, setApplyDetailLoading] = useState(false)
   const [teamName, setTeamName] = useState("")
   const [teamDescription, setTeamDescription] = useState("")
-  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([])
+  const [channelSecretsJson, setChannelSecretsJson] = useState("")
   const [isApplying, setIsApplying] = useState(false)
+  const [importingFile, setImportingFile] = useState(false)
+  const importFileRef = useRef<HTMLInputElement | null>(null)
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editCategory, setEditCategory] = useState("")
+  const [editVertical, setEditVertical] = useState("")
+  const [editPrerequisitesText, setEditPrerequisitesText] = useState("")
+  const [editSaving, setEditSaving] = useState(false)
+  const editReplacePayloadRef = useRef<HTMLInputElement | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Template | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [guidesOpen, setGuidesOpen] = useState(false)
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -104,12 +135,8 @@ export default function TemplatesPage() {
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const [templatesRes, channelsRes] = await Promise.all([
-        api.get<Template[]>("/templates"),
-        api.get<Channel[]>("/channels"),
-      ])
+      const templatesRes = await api.get<Template[]>("/templates")
       setCatalogTemplates(templatesRes.data)
-      setChannels(channelsRes.data)
     })()
   }, [token, refreshToken, currentWorkspace])
 
@@ -221,41 +248,174 @@ export default function TemplatesPage() {
     setApplyDetail(null)
     setTeamName("")
     setTeamDescription("")
-    setSelectedChannelIds([])
+    setChannelSecretsJson("")
   }
 
   const handleImport = (template: Template) => {
     setSelectedTemplate(template)
     setTeamName(`${template.name} - Novo Time`)
     setTeamDescription(template.description || "")
-    setSelectedChannelIds([])
+    setChannelSecretsJson("")
   }
 
-  const handleShare = (template: Template) => {
-    toast.info(`Compartilhamento de "${template.name}" em breve!`)
-  }
-
-  const handleApplyTemplate = async () => {
-    if (!selectedTemplate || !teamName.trim() || !token || !currentWorkspace) return
-    const api = createApiClient({
+  const buildApi = useCallback(() => {
+    if (!token || !currentWorkspace) return null
+    return createApiClient({
       getAuth: () => ({ token, refreshToken }),
       setAuth: () => {},
       clearAuth: () => {},
       getWorkspaceId: () => currentWorkspace.id,
     })
+  }, [token, refreshToken, currentWorkspace])
+
+  const handleImportTemplateFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      e.target.value = ""
+      if (!file) return
+      const nameDefault = file.name.replace(/\.json$/i, "") || "Template importado"
+      const description = `Importado a partir de ${file.name}`
+      const api = buildApi()
+      if (!api) return
+      setImportingFile(true)
+      try {
+        const text = await file.text()
+        const payload = JSON.parse(text) as unknown
+        await api.post("/templates/import", {
+          name: nameDefault,
+          description,
+          category: "Geral",
+          origin: "company",
+          payload,
+        })
+        toast.success("Template adicionado ao catálogo")
+        const templatesRes = await api.get<Template[]>("/templates")
+        setCatalogTemplates(templatesRes.data)
+      } catch (err) {
+        const msg = err instanceof ApiError ? err.message : "Falha ao importar JSON"
+        toast.error(msg)
+      } finally {
+        setImportingFile(false)
+      }
+    },
+    [buildApi],
+  )
+
+  const handleShare = (template: Template) => {
+    toast.info(`Compartilhamento de "${template.name}" em breve!`)
+  }
+
+  const refreshCatalog = useCallback(async () => {
+    const api = buildApi()
+    if (!api) return
+    const templatesRes = await api.get<Template[]>("/templates")
+    setCatalogTemplates(templatesRes.data)
+  }, [buildApi])
+
+  const openEdit = (t: Template) => {
+    setEditingTemplate(t)
+    setEditName(t.name)
+    setEditDescription(t.description ?? "")
+    setEditCategory(t.category ?? "Geral")
+    setEditVertical(t.vertical ?? "")
+    setEditPrerequisitesText((t.prerequisites ?? []).join("\n"))
+    if (editReplacePayloadRef.current) editReplacePayloadRef.current.value = ""
+  }
+
+  const closeEdit = () => {
+    setEditingTemplate(null)
+    if (editReplacePayloadRef.current) editReplacePayloadRef.current.value = ""
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingTemplate || !editName.trim()) return
+    const api = buildApi()
+    if (!api) return
+    setEditSaving(true)
+    try {
+      const pre = editPrerequisitesText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const file = editReplacePayloadRef.current?.files?.[0]
+      let templatePayload: unknown | undefined
+      if (file) {
+        const text = await file.text()
+        templatePayload = JSON.parse(text) as unknown
+      }
+      await api.patch(`/templates/${editingTemplate.id}`, {
+        name: editName.trim(),
+        description: editDescription,
+        category: editCategory.trim() || "Geral",
+        vertical: editVertical.trim() || undefined,
+        prerequisites: pre,
+        ...(templatePayload !== undefined ? { templatePayload } : {}),
+      })
+      toast.success("Template atualizado")
+      closeEdit()
+      await refreshCatalog()
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Falha ao guardar"
+      toast.error(msg)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    const api = buildApi()
+    if (!api) return
+    setDeleteLoading(true)
+    try {
+      await api.del(`/templates/${deleteTarget.id}`)
+      toast.success("Template removido")
+      setDeleteTarget(null)
+      await refreshCatalog()
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Falha ao apagar"
+      toast.error(msg)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleApplyTemplate = async () => {
+    if (!selectedTemplate || !teamName.trim() || !token || !currentWorkspace) return
+    const api = buildApi()
+    if (!api) return
+    let channelSecretPayloads: Record<string, unknown> | undefined
+    if (channelSecretsJson.trim()) {
+      try {
+        const parsed = JSON.parse(channelSecretsJson) as unknown
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          channelSecretPayloads = parsed as Record<string, unknown>
+        } else {
+          toast.error("Segredos: o JSON tem de ser um objecto (legacyId → corpo).")
+          return
+        }
+      } catch {
+        toast.error("Segredos: JSON inválido")
+        return
+      }
+    }
     setIsApplying(true)
     try {
       const res = await api.post<TemplateApplyResponse>(`/templates/${selectedTemplate.id}/apply`, {
         teamName: teamName.trim(),
         teamDescription: teamDescription.trim() || undefined,
-        channelIds: selectedChannelIds,
+        channelSecretPayloads,
       })
-      const teamId = res.data.teamId
+      const data = res.data
+      for (const w of data.importWarnings ?? []) {
+        toast.message(w)
+      }
       toast.success("Template aplicado — a abrir o time na consola de teste.")
       resetApplyModal()
-      router.push(`/teams/${teamId}?tab=debug`)
-    } catch {
-      toast.error("Falha ao aplicar template")
+      router.push(`/teams/${data.teamId}?tab=debug`)
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Falha ao aplicar template"
+      toast.error(msg)
     } finally {
       setIsApplying(false)
     }
@@ -323,10 +483,31 @@ export default function TemplatesPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Templates</h1>
           <p className="text-muted-foreground mt-1">
-            Catalogo alinhado ao seed: cada modelo indica quantos agentes referencia e os requisitos antes de aplicar.
+            Catálogo com modelo completo (payload v2) ou legado. Aplicar cria um time novo. Importe JSON exportado de um time
+            (<code className="text-xs">exportKind: team</code>) ou ficheiro de template (<code className="text-xs">template</code>) — o
+            servidor sanitiza credenciais.
           </p>
         </div>
-        <ContextualTourManualTrigger screenKey="templates_catalog" />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={importFileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleImportTemplateFile}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={!token || !currentWorkspace || importingFile}
+            onClick={() => importFileRef.current?.click()}
+          >
+            <Upload className="h-4 w-4" />
+            {importingFile ? "A importar…" : "Importar JSON (time ou template)"}
+          </Button>
+          <ContextualTourManualTrigger screenKey="templates_catalog" />
+        </div>
       </div>
 
       {/* Origin Tabs */}
@@ -356,6 +537,150 @@ export default function TemplatesPage() {
         </TabsList>
       </Tabs>
 
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Catálogo de templates</CardTitle>
+          <CardDescription>
+            Filtre por origem nas tabs. Modelos com <strong>payload completo</strong> aplicam import unificado; <strong>legado</strong>{" "}
+            encaixa por nome. Em &quot;Minha Empresa&quot; pode editar metadados, substituir o JSON ou apagar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-0">
+          {filteredTemplates.length > 0 ? (
+            <>
+              <div className="grid gap-4 md:hidden">
+                {filteredTemplates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    onImport={handleImport}
+                    onShare={handleShare}
+                    showManageActions={isWorkspaceCompanyTemplate(template)}
+                    onEdit={openEdit}
+                    onDelete={(t) => setDeleteTarget(t)}
+                  />
+                ))}
+              </div>
+              <div className="hidden md:block">
+                <ResponsiveTableScroll>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Template</TableHead>
+                        <TableHead>Origem</TableHead>
+                        <TableHead>Modelo</TableHead>
+                        <TableHead className="whitespace-nowrap">v / Categoria</TableHead>
+                        <TableHead className="text-right">Agentes</TableHead>
+                        <TableHead className="min-w-[160px]">Descrição</TableHead>
+                        <TableHead className="w-[240px] text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTemplates.map((template) => (
+                        <TableRow key={template.id}>
+                          <TableCell>
+                            <div className="font-medium">{template.name}</div>
+                            {template.vertical ? (
+                              <div className="text-xs text-muted-foreground">Vertical: {template.vertical}</div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {TEMPLATE_ORIGIN_LABELS[template.origin]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={template.hasFullPayload ? "default" : "secondary"} className="text-xs">
+                              {template.hasFullPayload ? "Completo" : "Legado"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            v{template.version} · {template.category}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{template.agentCount}</TableCell>
+                          <TableCell
+                            className="max-w-[280px] truncate text-sm text-muted-foreground"
+                            title={template.description}
+                          >
+                            {template.description}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleImport(template)}
+                                className="gap-1"
+                              >
+                                <Download className="h-4 w-4 shrink-0" />
+                                Usar
+                              </Button>
+                              {isWorkspaceCompanyTemplate(template) ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="shrink-0"
+                                    type="button"
+                                    title="Editar"
+                                    onClick={() => openEdit(template)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="shrink-0 text-destructive"
+                                    type="button"
+                                    title="Apagar"
+                                    onClick={() => setDeleteTarget(template)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              ) : template.origin === "company" ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="shrink-0"
+                                  onClick={() => handleShare(template)}
+                                >
+                                  <Share2 className="h-4 w-4" />
+                                </Button>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableScroll>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-md border border-dashed py-12 text-center">
+              <FileStack className="mb-3 h-10 w-10 text-muted-foreground" />
+              <h3 className="text-base font-medium text-foreground">Nenhum template neste filtro</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Importe um JSON ou ajuste o filtro de origem.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Collapsible open={guidesOpen} onOpenChange={setGuidesOpen} className="rounded-lg border border-border">
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex h-auto w-full items-center justify-between gap-2 px-4 py-3 font-medium"
+          >
+            <span className="text-left text-sm">
+              Verticais GOLD, validação 131–137 e prompts sugeridos (opcional)
+            </span>
+            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${guidesOpen ? "rotate-180" : ""}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 border-t border-border px-4 pb-4 pt-4">
       <Alert>
         <Info className="h-4 w-4" />
         <AlertTitle>Starter Teams GOLD (Loop 130.8)</AlertTitle>
@@ -682,98 +1007,8 @@ export default function TemplatesPage() {
           </p>
         </AlertDescription>
       </Alert>
-
-      {/* Catálogo: cartões (TemplateCard) vs tabela — Loop 76 */}
-      {filteredTemplates.length > 0 ? (
-        <>
-          <div className="grid gap-4 md:hidden">
-            {filteredTemplates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                onImport={handleImport}
-                onShare={handleShare}
-              />
-            ))}
-          </div>
-          <div className="hidden md:block">
-            <ResponsiveTableScroll>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Template</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead className="whitespace-nowrap">v / Categoria</TableHead>
-                    <TableHead className="text-right">Agentes</TableHead>
-                    <TableHead className="min-w-[160px]">Descrição</TableHead>
-                    <TableHead className="w-[200px] text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTemplates.map((template) => (
-                    <TableRow key={template.id}>
-                      <TableCell>
-                        <div className="font-medium">{template.name}</div>
-                        {template.vertical ? (
-                          <div className="text-xs text-muted-foreground">Vertical: {template.vertical}</div>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {TEMPLATE_ORIGIN_LABELS[template.origin]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        v{template.version} · {template.category}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{template.agentCount}</TableCell>
-                      <TableCell
-                        className="max-w-[280px] truncate text-sm text-muted-foreground"
-                        title={template.description}
-                      >
-                        {template.description}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleImport(template)}
-                            className="gap-1"
-                          >
-                            <Download className="h-4 w-4 shrink-0" />
-                            Usar
-                          </Button>
-                          {template.origin === "company" ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="shrink-0"
-                              onClick={() => handleShare(template)}
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ResponsiveTableScroll>
-          </div>
-        </>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <FileStack className="w-12 h-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium text-foreground">
-            Nenhum template encontrado
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Templates aparecerão aqui quando disponíveis
-          </p>
-        </div>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
 
       <Dialog open={Boolean(selectedTemplate)} onOpenChange={(open) => !open && resetApplyModal()}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -873,10 +1108,33 @@ export default function TemplatesPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-muted-foreground pt-1">
-                  O servidor associa por nome; o coordenador efectivo segue a regra do backend (primeiro coordenador
-                  do workspace).
+                {applyDetail.hasFullPayload ? (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Este template tem payload completo: ao aplicar, cria-se um novo time com agentes e canais a partir
+                    do ficheiro (import unificado), sem reutilizar agentes do workspace.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Modo legado: o servidor associa por nome; o coordenador efectivo segue a regra do backend
+                    (primeiro coordenador do workspace).
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {applyDetail?.credentialSlots && applyDetail.credentialSlots.length > 0 ? (
+              <div className="space-y-2">
+                <Label>Segredos pendentes (canais)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Ids: {applyDetail.credentialSlots.map((c) => c.legacyId).join(", ")}. Corpo: JSON (Chat SDK) por
+                  `legacyId` chave, veja documentação.
                 </p>
+                <Textarea
+                  value={channelSecretsJson}
+                  onChange={(e) => setChannelSecretsJson(e.target.value)}
+                  rows={5}
+                  placeholder='{"<legacyId>": { "platform": "whatsapp", ... } }'
+                />
               </div>
             ) : null}
 
@@ -898,29 +1156,19 @@ export default function TemplatesPage() {
                 rows={3}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Canais iniciais (opcional)</Label>
-              <div className="space-y-2 max-h-40 overflow-y-auto rounded-md border border-border p-3">
-                {channels.map((channel) => (
-                  <label key={channel.id} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={selectedChannelIds.includes(channel.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedChannelIds((prev) => [...prev, channel.id])
-                          return
-                        }
-                        setSelectedChannelIds((prev) => prev.filter((id) => id !== channel.id))
-                      }}
-                    />
-                    <span>{channel.name}</span>
-                  </label>
-                ))}
-                {channels.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Nenhum canal cadastrado.</p>
-                )}
+            {(!applyDetail?.credentialSlots || applyDetail.credentialSlots.length === 0) && (
+              <div className="space-y-2">
+                <Label>Segredos opcionais (JSON avançado)</Label>
+                <p className="text-xs text-muted-foreground">Objecto `legacyId` de canal (Chat SDK) se precisar de cifra ao aplicar.</p>
+                <Textarea
+                  value={channelSecretsJson}
+                  onChange={(e) => setChannelSecretsJson(e.target.value)}
+                  rows={3}
+                  className="font-mono text-xs"
+                  placeholder="{}"
+                />
               </div>
-            </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -936,6 +1184,96 @@ export default function TemplatesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={Boolean(editingTemplate)} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar template</DialogTitle>
+            <DialogDescription>
+              Metadados do catálogo. Opcionalmente escolha um ficheiro JSON (<code className="text-xs">team</code> ou{" "}
+              <code className="text-xs">template</code>) para substituir o modelo guardado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-tpl-name">Nome</Label>
+              <Input id="edit-tpl-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-tpl-desc">Descrição</Label>
+              <Textarea
+                id="edit-tpl-desc"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-tpl-cat">Categoria</Label>
+              <Input id="edit-tpl-cat" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-tpl-vert">Vertical (opcional)</Label>
+              <Input id="edit-tpl-vert" value={editVertical} onChange={(e) => setEditVertical(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-tpl-pre">Requisitos (um por linha)</Label>
+              <Textarea
+                id="edit-tpl-pre"
+                value={editPrerequisitesText}
+                onChange={(e) => setEditPrerequisitesText(e.target.value)}
+                rows={4}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Substituir payload (opcional)</Label>
+              <p className="text-xs text-muted-foreground">Só preencha se quiser trocar o JSON completo do template.</p>
+              <input
+                ref={editReplacePayloadRef}
+                type="file"
+                accept="application/json,.json"
+                className="block w-full text-sm text-muted-foreground file:mr-2 file:rounded file:border file:bg-secondary file:px-2 file:py-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeEdit}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => void handleSaveEdit()} disabled={editSaving || !editName.trim()}>
+              {editSaving ? "A guardar…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `O modelo «${deleteTarget.name}» será removido do catálogo deste workspace. Esta acção não pode ser anulada.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                void handleConfirmDelete()
+              }}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? "A apagar…" : "Apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

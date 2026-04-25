@@ -1,3 +1,4 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import { parseExportPayload, resolveTeamImportMode } from './import-team-from-export.js';
 
 describe('parseExportPayload', () => {

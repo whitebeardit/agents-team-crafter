@@ -14,6 +14,7 @@ import {
   orderedUniqueAgentIds,
   type TTeamExportChannelFullSnapshot,
 } from './build-team-export.js';
+import { mergeChannelSecretsIntoImportPayload } from './merge-channel-secrets-into-payload.js';
 import type { IAppDeps } from '../../../config/container.js';
 import type { TeamRepository } from '../infra/team.repository.js';
 import type { TAgentExportPayload } from '../../agents/application/build-agent-export.js';
@@ -37,6 +38,11 @@ export const teamImportBodySchema = z.object({
    * no workspace (duplicação intencional).
    */
   forceCreate: z.boolean().optional().default(false),
+  /**
+   * `legacyId` de canal (do export) → corpo de segredos Chat SDK (ex.: { platform, ... } depois de validado),
+   * cifrado no servidor antes de criar o canal. Usado com templates e import sem ficheiro de segredos.
+   */
+  channelSecretPayloads: z.record(z.string().min(1), z.unknown()).optional(),
 });
 
 export type TTeamImportResult = {
@@ -87,8 +93,8 @@ export function parseExportPayload(
   | { kind: 'error'; message: string } {
   const p = raw as Record<string, unknown> | null;
   if (!p || typeof p !== 'object') return { kind: 'error', message: 'Payload invalido' };
-  if (p['exportKind'] !== 'team') {
-    return { kind: 'error', message: 'exportKind deve ser "team"' };
+  if (p['exportKind'] !== 'team' && p['exportKind'] !== 'template') {
+    return { kind: 'error', message: 'exportKind deve ser "team" ou "template"' };
   }
   const ev = String(p['exportVersion'] ?? '1');
   if (ev !== '1' && ev !== '2') {
@@ -267,8 +273,16 @@ export async function importTeamFromExport(
     sameWorkspaceMcp: boolean;
   },
 ): Promise<TTeamImportResult> {
-  const { payload, mcpConnectionIdMap, retireReplacedAgents } = params.importBody;
-  const parsed = parseExportPayload(payload);
+  const { payload, mcpConnectionIdMap, retireReplacedAgents, channelSecretPayloads } = params.importBody;
+  let effectivePayload: unknown = payload;
+  if (channelSecretPayloads && Object.keys(channelSecretPayloads).length > 0) {
+    effectivePayload = mergeChannelSecretsIntoImportPayload(
+      payload,
+      channelSecretPayloads,
+      deps.channelSecretsService,
+    );
+  }
+  const parsed = parseExportPayload(effectivePayload);
   if (parsed.kind === 'error') {
     throw new AppError('IMPORT_PAYLOAD_INVALID', parsed.message, 400);
   }

@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { FileStack, Download, Share2 } from "lucide-react"
+import { FileStack, Download, Share2, Pencil, Trash2 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import type { Template } from "@/lib/types"
 
@@ -11,6 +11,10 @@ interface TemplateCardProps {
   template: Template
   onImport?: (template: Template) => void
   onShare?: (template: Template) => void
+  onEdit?: (template: Template) => void
+  onDelete?: (template: Template) => void
+  /** Templates da empresa no workspace (editáveis / removíveis). */
+  showManageActions?: boolean
 }
 
 const originLabels = {
@@ -23,7 +27,14 @@ const originColors = {
   company: "bg-accent/10 text-accent border-accent/20",
 }
 
-export function TemplateCard({ template, onImport, onShare }: TemplateCardProps) {
+export function TemplateCard({
+  template,
+  onImport,
+  onShare,
+  onEdit,
+  onDelete,
+  showManageActions,
+}: TemplateCardProps) {
   return (
     <Card className="border-border bg-card hover:bg-card/80 transition-colors group">
       <CardContent className="p-5">
@@ -44,6 +55,9 @@ export function TemplateCard({ template, onImport, onShare }: TemplateCardProps)
                 <span className="text-xs text-muted-foreground">
                   v{template.version}
                 </span>
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  {template.hasFullPayload ? "Payload completo" : "Legado"}
+                </Badge>
               </div>
             </div>
           </div>
@@ -92,7 +106,17 @@ export function TemplateCard({ template, onImport, onShare }: TemplateCardProps)
             <Download className="w-4 h-4 mr-2" />
             Usar Template
           </Button>
-          {template.origin === "company" && (
+          {showManageActions ? (
+            <>
+              <Button variant="ghost" size="icon" type="button" onClick={() => onEdit?.(template)} title="Editar">
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" type="button" onClick={() => onDelete?.(template)} title="Apagar">
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </Button>
+            </>
+          ) : null}
+          {template.origin === "company" && !showManageActions && (
             <Button
               variant="ghost"
               size="icon"

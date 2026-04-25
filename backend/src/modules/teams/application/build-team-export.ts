@@ -75,6 +75,8 @@ export type TTeamExportChannelFullSnapshot = {
   metrics?: Record<string, unknown>;
   connectedAt?: string;
   disconnectedAt?: string;
+  /** Marcado em exports `template` quando o canal original tinha segredos (pedir de novo no import). */
+  secretRequired?: boolean;
 };
 
 export function orderedUniqueAgentIds(coordinatorId: string, agentIds: string[]): string[] {

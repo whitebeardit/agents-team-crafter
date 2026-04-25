@@ -7,7 +7,10 @@ import { registerAgentRoutes } from '../modules/agents/interfaces/agent.routes.j
 import { registerAgentMcpBindingRoutes } from '../modules/agents/interfaces/agent-mcp-binding.routes.js';
 import { registerMcpRoutes } from '../modules/mcps/interfaces/mcp.routes.js';
 import { registerTeamRoutes } from '../modules/teams/interfaces/team.routes.js';
-import { registerTemplateRoutes } from '../modules/templates/interfaces/template.routes.js';
+import {
+  registerTemplateRoutes,
+  registerPlatformTemplateRoutes,
+} from '../modules/templates/interfaces/template.routes.js';
 import { registerChannelRoutes } from '../modules/channels/interfaces/channel.routes.js';
 import { registerKnowledgeRoutes } from '../modules/knowledge/interfaces/knowledge.routes.js';
 import { registerDashboardRoutes } from '../modules/dashboard/interfaces/dashboard.routes.js';
@@ -55,6 +58,7 @@ export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDe
       await registerPartyRoutes(r, resolvedDeps);
       await registerObservabilityRoutes(r, resolvedDeps);
       await registerPlatformRoutes(r, resolvedDeps);
+      await registerPlatformTemplateRoutes(r, resolvedDeps);
       await registerChatWebhookRoutes(r, env, resolvedDeps);
     },
     { prefix: '/api/v1' },

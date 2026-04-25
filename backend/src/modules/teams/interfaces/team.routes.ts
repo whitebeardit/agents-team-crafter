@@ -28,6 +28,7 @@ import {
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
 import { computeTeamReadiness } from '../application/team-readiness.service.js';
 import { buildTeamExportPayload } from '../application/build-team-export.js';
+import { sanitizeTeamExportToTemplate } from '../../templates/application/sanitize-template-export.js';
 import {
   importTeamFromExport,
   resolveTeamImportMode,
@@ -421,6 +422,25 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
       teamId,
     );
     return reply.send(successEnvelope(payload));
+  });
+
+  /** JSON de template (export de time sem credenciais) — partilha e catálogo. */
+  app.get('/teams/:id/template-export', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const full = await buildTeamExportPayload(
+      {
+        agentRepo: deps.agentRepo,
+        teamRepo: deps.teamRepo,
+        teamGraphRepo: deps.teamGraphRepo,
+        channelRepo: deps.channelRepo,
+        agentMcpBindingRepo: deps.agentMcpBindingRepo,
+      },
+      ws,
+      teamId,
+    );
+    const template = sanitizeTeamExportToTemplate(full, { includeSourceTeamId: true, sourceTeamId: teamId });
+    return reply.send(successEnvelope(template));
   });
 
   app.get('/teams/:id', { preHandler: tenant }, async (req, reply) => {

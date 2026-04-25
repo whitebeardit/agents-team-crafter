@@ -326,6 +326,15 @@ export interface TeamExportChannelFullSnapshot {
   metrics?: Record<string, unknown>
   connectedAt?: string
   disconnectedAt?: string
+  secretRequired?: boolean
+}
+
+export type TemplateCredentialSlot = {
+  legacyId: string
+  name: string
+  type: string
+  provider: "native" | "chat_sdk"
+  platform?: string
 }
 
 /** Resposta de `GET /teams/:id/export` (campo `data` do envelope). */
@@ -339,6 +348,12 @@ export interface TeamExportPayload {
   /** Presente a partir do export v2. */
   channelsFull?: TeamExportChannelFullSnapshot[]
   agents: AgentExportPayload[]
+}
+
+/** `GET /teams/:id/template-export` — sem credenciais; partilhável. */
+export interface TeamTemplateExportPayload extends Omit<TeamExportPayload, "exportKind"> {
+  exportKind: "template"
+  templateSourceTeamId?: string
 }
 
 /** Resposta de `POST /teams/import` e `PUT /teams/:id/import` (campo `data` do envelope). */
@@ -380,6 +395,8 @@ export interface Template {
   origin: AgentOrigin
   category: string
   agentCount: number
+  hasFullPayload?: boolean
+  templateScope?: "workspace" | "global"
   teamConfig: Partial<Team>
   /** Vertical de negocio (ex.: saude, atendimento) quando curado no seed */
   vertical?: string

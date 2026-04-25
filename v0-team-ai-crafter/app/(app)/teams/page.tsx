@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
-import { Plus, Upload, Users } from "lucide-react"
+import { FileStack, Plus, Upload, Users } from "lucide-react"
 import { TeamCard } from "@/components/teams/team-card"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { TeamStatus } from "@/lib/types"
@@ -167,6 +167,12 @@ export default function TeamsPage() {
             <Upload className="h-4 w-4" />
             {importing ? "A importar…" : "Importar JSON"}
           </Button>
+          <Link href="/templates">
+            <Button type="button" variant="secondary" className="gap-2">
+              <FileStack className="w-4 h-4" />
+              Catálogo de templates
+            </Button>
+          </Link>
           <Link href="/teams/create">
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
