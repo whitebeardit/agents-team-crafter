@@ -31,7 +31,7 @@ export const CATALOG_UTILITY_TOOL_IDS: readonly CatalogToolId[] = CATALOG_TOOL_I
 const LABELS_PT: Record<CatalogToolId, string> = {
   web_search: "Pesquisa web",
   file_search: "Busca em ficheiros",
-  internal_actions: "Ações internas (catálogo)",
+  internal_actions: "Ações internas (técnico/avançado)",
   code_execution: "Execução de código",
   email_send: "Envio de email",
   calendar_access: "Calendário",

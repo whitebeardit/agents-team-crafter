@@ -30,3 +30,19 @@
   - `backend/src/modules/business-tools/application/business-tool-registry.test.ts`
   - `backend/src/modules/scheduling/application/register-scheduling-pack.test.ts`
 - **Proxima etapa:** frontend (120.B, 120.C, 120.D parcial, 120.E, 120.G UI, 121.D) + docs e gate fullstack.
+
+### Etapa 2 — Frontend snapshot v2 e UX tecnico/avancado
+
+- **Slices cobertos:** 120.B, 120.E (frontend), ajustes UX de 120.C/121.D
+- **Status:** fechado
+- **Entregas concluidas:**
+  - `internal_actions` ficou explicitamente tecnico/avancado na taxonomia de labels;
+  - modo simples passou a ocultar badge de `internal_actions`, mantendo acesso no modo avancado;
+  - snapshot exportado em `schemaVersion: 2` com envelope de capability view (`uiCapabilityView`, `catalogMetadataSnapshot`);
+  - import no builder agora aceita e normaliza snapshot v1/v2 antes de enviar ao backend.
+- **Gate executado:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` ✅
+- **Evidencias tecnicas:**
+  - `v0-team-ai-crafter/lib/catalog-tool-ids.ts`
+  - `v0-team-ai-crafter/lib/team-plan-snapshot.ts`
+  - `v0-team-ai-crafter/components/teams/team-ai-builder.tsx`
+- **Proxima etapa:** consolidacao documental final (120.I/121.A) e gate final com checkpoint de encerramento.

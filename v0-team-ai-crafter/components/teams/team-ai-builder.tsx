@@ -39,7 +39,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { resolveChannelHintToProductType } from "@/lib/briefing-channel-hint"
-import { buildTeamPlanExportEnvelope } from "@/lib/team-plan-snapshot"
+import { buildTeamPlanExportEnvelope, normalizeImportedTeamPlanSnapshot } from "@/lib/team-plan-snapshot"
 import { createOperationId } from "@/lib/utils/operation-id"
 import { bindPreviewApprovalFingerprint } from "@/lib/team-plan-bind-preview-fingerprint"
 import { planHasBindReviewHints, teamPlanBindFingerprint } from "@/lib/team-plan-bind-fingerprint"
@@ -1078,7 +1078,8 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     try {
       const text = await file.text()
       const json = JSON.parse(text) as unknown
-      const res = await api.post<TeamPlanDraft>("/team-plans/import", json)
+      const normalized = normalizeImportedTeamPlanSnapshot(json)
+      const res = await api.post<TeamPlanDraft>("/team-plans/import", normalized)
       setLastExecutionMeta(null)
       setBindPreview(null)
       setBindPreviewApproved(false)
@@ -2321,12 +2322,19 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                           Nenhuma seleccionada — o servidor pode inferir na execução.
                         </span>
                       ) : (
-                        (agent.catalogTools ?? []).map((tid) => (
+                        (agent.catalogTools ?? [])
+                          .filter((tid) => builderAdvancedUi || tid !== "internal_actions")
+                          .map((tid) => (
                           <Badge key={tid} variant="secondary" className="font-normal">
                             {catalogToolLabelPt(tid as CatalogToolId)}
                           </Badge>
-                        ))
+                          ))
                       )}
+                      {!builderAdvancedUi && (agent.catalogTools ?? []).includes("internal_actions") ? (
+                        <span className="text-xs text-muted-foreground">
+                          `internal_actions` está oculto no modo simples (apenas técnico/avançado).
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <Collapsible defaultOpen={false}>
