@@ -4,7 +4,7 @@
 
 ## Estado atual
 
-- **Status:** em andamento
+- **Status:** fechado
 - **Ultima atualizacao:** 2026-04-25
 - **Plano de referencia:** `docs/RALPHLOOP/ralph-loop-primitive-tools-domain-policies-e-composite.md`
 
@@ -46,3 +46,21 @@
   - `v0-team-ai-crafter/lib/team-plan-snapshot.ts`
   - `v0-team-ai-crafter/components/teams/team-ai-builder.tsx`
 - **Proxima etapa:** consolidacao documental final (120.I/121.A) e gate final com checkpoint de encerramento.
+
+### Etapa 3 — Consolidacao documental e fechamento do loop
+
+- **Slices cobertos:** 120.I, 121.A, 121.E (checkpoint final)
+- **Status:** fechado
+- **Entregas concluidas:**
+  - plano Ralph Loop de referencia consolidado e versionado;
+  - ledger finalizada com trilha de execucao por etapa e evidencias tecnicas;
+  - gate fullstack executado no fechamento tecnico da trilha.
+- **Gate final:** `RALPH_LOOP_INCLUDE_FRONTEND=1 ./scripts/ralph-loop-gate.sh` ✅
+- **Evidencias documentais:**
+  - `docs/RALPHLOOP/ralph-loop-primitive-tools-domain-policies-e-composite.md`
+  - `docs/RALPHLOOP/ralph-loop-120-121-ledger.md`
+
+## Encerramento
+
+- **Status final do loop:** fechado
+- **Resultado:** primitive tools mantidas universais, guard/profile introduzido como policy incremental, e composite actions clinicas aplicando regra vertical no nivel correto.
