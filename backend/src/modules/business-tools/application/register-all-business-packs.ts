@@ -44,8 +44,8 @@ export function registerAllBusinessPacks(deps: {
     deps.careSubjectRepo,
   );
   const clinicalRepo = new ClinicalRepository(deps.partyRepo);
-  registerClinicalPack(deps.registry, clinicalRepo);
-  registerFinancePack(deps.registry, deps.financeRepo);
+  registerClinicalPack(deps.registry, clinicalRepo, deps.partyRepo);
+  registerFinancePack(deps.registry, deps.financeRepo, deps.partyRepo);
   registerReminderPack(deps.registry, deps.reminderRepo);
   registerGithubOpsPack(deps.registry);
   registerSchedulingPack(

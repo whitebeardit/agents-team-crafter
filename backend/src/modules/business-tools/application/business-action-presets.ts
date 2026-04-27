@@ -149,17 +149,23 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'crm_get_party_summary': {
     title: 'CRM — Resumo da parte',
-    description: 'Obtém resumo agregado de uma party.',
+    description:
+      'Obtém resumo agregado de uma party. Aceita `partyId` ou `phone` (celular) para identificar o mesmo cadastro.',
     packId: 'crm',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party no CRM.' },
+        phone: {
+          type: 'string',
+          description: 'Celular do paciente no CRM; substitui partyId quando único.',
+        },
       },
       required: ['partyId'],
     },
-    requiredFieldLabels: ['ID da parte (partyId)'],
-    slotFillingPromptHint: 'Execute com partyId conhecido; se faltar, peça numa única mensagem compacta.',
+    requiredFieldLabels: ['ID da parte (partyId) ou celular (phone)'],
+    slotFillingPromptHint:
+      'Execute com partyId ou phone (celular) para lookup único no CRM; não peça IDs internos ao utilizador se ele já deu o número.',
   },
   'crm_list_parties_by_role': {
     title: 'CRM — Listar por papel',
@@ -405,18 +411,20 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'package_sell_to_party': {
     title: 'Pacotes — Vender pacote à parte',
-    description: 'Regista venda de pacote a uma party.',
+    description:
+      'Regista venda de pacote. Identifique a party com `partyId` ou com `phone` (celular) do CRM.',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party compradora.' },
+        phone: { type: 'string', description: 'Celular do paciente; alternativa a partyId.' },
         packageName: { type: 'string', description: 'Nome comercial do pacote.' },
         unitsTotal: { type: 'number', description: 'Quantidade total de unidades/sessões.' },
       },
       required: ['partyId', 'packageName', 'unitsTotal'],
     },
-    requiredFieldLabels: ['Party (partyId)', 'Pacote (packageName)', 'Unidades (unitsTotal)'],
+    requiredFieldLabels: ['Party (partyId) ou phone', 'Pacote (packageName)', 'Unidades (unitsTotal)'],
   },
   'package_get_balance': {
     title: 'Pacotes — Saldo do pacote',
@@ -433,45 +441,50 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'package_list_by_party': {
     title: 'Pacotes — Listar por parte',
-    description: 'Lista pacotes/saldos de uma party e informa elegibilidade para agendamento.',
+    description:
+      'Lista pacotes/saldos. Use `partyId` ou `phone` (celular) do CRM para identificar o paciente.',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party para consulta de pacotes.' },
+        phone: { type: 'string', description: 'Celular; alternativa a partyId.' },
       },
       required: ['partyId'],
     },
-    requiredFieldLabels: ['Party (partyId)'],
+    requiredFieldLabels: ['Party (partyId) ou phone'],
   },
   'attendance_register_session': {
     title: 'Atendimentos — Registar sessão',
-    description: 'Regista uma sessão de atendimento.',
+    description:
+      'Regista uma sessão de atendimento. Identifique o paciente com `partyId` ou `phone`.',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party atendida.' },
+        phone: { type: 'string', description: 'Celular do paciente; alternativa a partyId.' },
         packageSaleId: { type: 'string', description: 'ID opcional do pacote consumido.' },
         notes: { type: 'string', description: 'Notas da sessão.' },
         durationMinutes: { type: 'number', description: 'Duração da sessão em minutos.' },
       },
       required: ['partyId'],
     },
-    requiredFieldLabels: ['Party (partyId)'],
+    requiredFieldLabels: ['Party (partyId) ou phone'],
   },
   'attendance_list_by_party': {
     title: 'Atendimentos — Listar por parte',
-    description: 'Lista atendimentos associados à party.',
+    description: 'Lista atendimentos. Use `partyId` ou `phone` do paciente.',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party.' },
+        phone: { type: 'string', description: 'Celular; alternativa a partyId.' },
       },
       required: ['partyId'],
     },
-    requiredFieldLabels: ['Party (partyId)'],
+    requiredFieldLabels: ['Party (partyId) ou phone'],
   },
   'attendance_list_by_package_sale': {
     title: 'Atendimentos — Listar por venda de pacote',
@@ -488,16 +501,17 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'attendance_get_party_care_summary': {
     title: 'Atendimentos — Resumo de cuidado',
-    description: 'Resumo de cuidados/atendimentos da party.',
+    description: 'Resumo de cuidados/atendimentos. Identifique com `partyId` ou `phone`.',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party para sumarização.' },
+        phone: { type: 'string', description: 'Celular; alternativa a partyId.' },
       },
       required: ['partyId'],
     },
-    requiredFieldLabels: ['Party (partyId)'],
+    requiredFieldLabels: ['Party (partyId) ou phone'],
   },
   'packages_encounters_gold_gate': {
     title: 'Pacotes/Atendimentos — Gate GOLD operacional',
@@ -582,18 +596,20 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'clinical_open_encounter': {
     title: 'Clínico — Abrir encontro',
-    description: 'Abre encontro clínico.',
+    description:
+      'Abre encontro clínico. Identifique a party com `partyId` ou `phone` (celular do CRM).',
     packId: 'clinical',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party responsável.' },
+        phone: { type: 'string', description: 'Celular do paciente; alternativa a partyId.' },
         careSubjectId: { type: 'string', description: 'ID do sujeito de cuidado.' },
         notes: { type: 'string', description: 'Notas clínicas opcionais.' },
       },
       required: ['partyId', 'careSubjectId'],
     },
-    requiredFieldLabels: ['Party (partyId)', 'Sujeito (careSubjectId)'],
+    requiredFieldLabels: ['Party (partyId) ou phone', 'Sujeito (careSubjectId)'],
   },
   'clinical_close_encounter': {
     title: 'Clínico — Fechar encontro',
@@ -620,12 +636,14 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'finance_create_receivable': {
     title: 'Financeiro — Criar conta a receber',
-    description: 'Regista título a receber.',
+    description:
+      'Regista título a receber. O pagador pode ser identificado por `partyId` ou `phone` (celular no CRM).',
     packId: 'finance',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party pagadora.' },
+        phone: { type: 'string', description: 'Celular do pagador; alternativa a partyId.' },
         amount: { type: 'number', description: 'Valor do título.' },
         dueDate: { type: 'string', description: 'Data de vencimento (ISO YYYY-MM-DD).' },
         description: { type: 'string', description: 'Descrição opcional.' },
@@ -633,7 +651,7 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       },
       required: ['partyId', 'amount', 'dueDate'],
     },
-    requiredFieldLabels: ['Pagador (partyId)', 'Valor (amount)', 'Vencimento (dueDate)'],
+    requiredFieldLabels: ['Pagador (partyId) ou phone', 'Valor (amount)', 'Vencimento (dueDate)'],
     slotFillingPromptHint:
       'Se faltar algum obrigatório, peça numa única mensagem: pagador, valor e data de vencimento.',
   },
@@ -724,16 +742,18 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'finance_customer_financial_summary': {
     title: 'Financeiro — Resumo financeiro do cliente',
-    description: 'Resumo financeiro consolidado por cliente/party.',
+    description:
+      'Resumo financeiro consolidado. Identifique o cliente com `partyId` ou `phone` (celular).',
     packId: 'finance',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party para sumarização.' },
+        phone: { type: 'string', description: 'Celular; alternativa a partyId.' },
       },
       required: ['partyId'],
     },
-    requiredFieldLabels: ['Cliente (partyId)'],
+    requiredFieldLabels: ['Cliente (partyId) ou phone'],
   },
   'finance_gold_gate': {
     title: 'Financeiro — Gate GOLD operacional',
@@ -917,12 +937,14 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'schedule_create_appointment': {
     title: 'Agenda — Criar compromisso',
-    description: 'Cria compromisso na agenda.',
+    description:
+      'Cria compromisso na agenda. O paciente pode ser identificado por `partyId` ou `phone` (celular no CRM).',
     packId: 'scheduling',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party titular do compromisso.' },
+        phone: { type: 'string', description: 'Celular do paciente; alternativa a partyId.' },
         title: { type: 'string', description: 'Título do compromisso.' },
         startsAt: { type: 'string', description: 'Início ISO do compromisso.' },
         endsAt: { type: 'string', description: 'Fim ISO do compromisso.' },
@@ -935,9 +957,9 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       },
       required: ['partyId', 'title', 'startsAt', 'endsAt'],
     },
-    requiredFieldLabels: ['Party (partyId)', 'Título (title)', 'Início (startsAt)', 'Fim (endsAt)'],
+    requiredFieldLabels: ['Party (partyId) ou phone', 'Título (title)', 'Início (startsAt)', 'Fim (endsAt)'],
     slotFillingPromptHint:
-      'Se faltar obrigatório, peça numa mensagem única: party, título, início e fim (ISO).',
+      'Se faltar obrigatório, peça numa mensagem única: celular ou partyId, título, início e fim (ISO).',
   },
   'schedule_reschedule_appointment': {
     title: 'Agenda — Reagendar',

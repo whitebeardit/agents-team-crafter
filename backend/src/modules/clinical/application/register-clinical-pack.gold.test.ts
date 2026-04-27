@@ -2,6 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
 import { registerClinicalPack } from './register-clinical-pack.js';
 import type { ClinicalRepository } from '../infra/clinical.repository.js';
+import type { PartyRepository } from '../../crm/infra/party.repository.js';
 
 describe('registerClinicalPack — clinical_gold_gate', () => {
   it('exposes clinical_gold_gate with deterministic contract', async () => {
@@ -23,7 +24,7 @@ describe('registerClinicalPack — clinical_gold_gate', () => {
       })),
     } as unknown as ClinicalRepository;
 
-    registerClinicalPack(registry, clinical);
+    registerClinicalPack(registry, clinical, {} as PartyRepository);
     const gate = registry.get('clinical_gold_gate');
     expect(gate).toBeDefined();
     const out = await gate!({

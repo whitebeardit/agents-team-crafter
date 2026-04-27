@@ -27,7 +27,11 @@ describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () 
         avgDurationMinutes: 50,
       })),
     } as unknown as EncounterRepository;
-    const parties = {} as PartyRepository;
+    const parties = {
+      findById: jest.fn(async (_ws: string, id: string) =>
+        id ? { id, displayName: 'stub' } : undefined,
+      ),
+    } as unknown as PartyRepository;
     const careSubjects = {} as CareSubjectRepository;
 
     registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects);
@@ -71,7 +75,11 @@ describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () 
         avgDurationMinutes: 0,
       })),
     } as unknown as EncounterRepository;
-    const parties = {} as PartyRepository;
+    const parties = {
+      findById: jest.fn(async (_ws: string, id: string) =>
+        id ? { id, displayName: 'stub' } : undefined,
+      ),
+    } as unknown as PartyRepository;
     const careSubjects = {} as CareSubjectRepository;
 
     registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects);
@@ -93,5 +101,43 @@ describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () 
     expect(out.eligiblePackageSaleIds).toEqual(['sale-1']);
     expect(out.ineligibleReason).toBeNull();
     expect(out.packageSales).toHaveLength(2);
+  });
+
+  it('package_list_by_party resolves partyId from phone when unique', async () => {
+    const registry = new BusinessToolRegistry();
+    const packages = {
+      listByParty: jest.fn(async () => []),
+      goldGateSnapshot: jest.fn(async () => ({
+        totalSales: 0,
+        fullyConsumedSales: 0,
+        activeSales: 0,
+        unitsTotal: 0,
+        unitsUsed: 0,
+        unitsRemaining: 0,
+      })),
+    } as unknown as PackageSaleRepository;
+    const encounters = {
+      goldGateSnapshot: jest.fn(async () => ({
+        totalEncounters: 0,
+        packageLinkedEncounters: 0,
+        totalDurationMinutes: 0,
+        avgDurationMinutes: 0,
+      })),
+    } as unknown as EncounterRepository;
+    const parties = {
+      findByEmailOrPhone: jest.fn(async () => [{ id: 'party-from-phone' }]),
+      findById: jest.fn(async () => ({ id: 'party-from-phone', displayName: 'X' })),
+    } as unknown as PartyRepository;
+    const careSubjects = {} as CareSubjectRepository;
+
+    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects);
+    const list = registry.get('package_list_by_party');
+    await list!({
+      workspaceId: '507f1f77bcf86cd799439011',
+      input: { phone: '+5599988877766' },
+    });
+
+    expect(parties.findByEmailOrPhone).toHaveBeenCalled();
+    expect(packages.listByParty).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'party-from-phone');
   });
 });

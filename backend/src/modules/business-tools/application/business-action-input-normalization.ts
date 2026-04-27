@@ -80,10 +80,18 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
       { targetKey: 'query', aliases: ['query', 'termo', 'search', 'nome', 'name'] },
     ],
   },
+  crm_get_party_summary: {
+    safetyClass: 'A',
+    rules: [
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
+  },
   finance_create_receivable: {
     safetyClass: 'A',
     rules: [
       { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId', 'payerId'] },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'amount', aliases: ['amount', 'valor'] },
       { targetKey: 'dueDate', aliases: ['dueDate', 'due_date', 'vencimento', 'dataVencimento'] },
     ],
@@ -109,7 +117,10 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   },
   finance_customer_financial_summary: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] }],
+    rules: [
+      { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
   },
   care_create_subject: {
     safetyClass: 'A',
@@ -176,6 +187,7 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [
       { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'careSubjectId', aliases: ['careSubjectId', 'subjectId', 'idSujeito'] },
     ],
   },
@@ -187,12 +199,16 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [
       { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'packageName', aliases: ['packageName', 'packName', 'nomePacote'] },
     ],
   },
   package_list_by_party: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'partyId', aliases: PARTY_ID_ALIASES }],
+    rules: [
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
   },
   package_get_balance: {
     safetyClass: 'A',
@@ -202,12 +218,16 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [
       { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'packageSaleId', aliases: ['packageSaleId', 'saleId', 'idVendaPacote'] },
     ],
   },
   attendance_list_by_party: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'partyId', aliases: PARTY_ID_ALIASES }],
+    rules: [
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
   },
   attendance_list_by_package_sale: {
     safetyClass: 'A',
@@ -215,7 +235,10 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   },
   attendance_get_party_care_summary: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'partyId', aliases: PARTY_ID_ALIASES }],
+    rules: [
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
   },
   service_catalog_create_item: {
     safetyClass: 'A',
@@ -284,6 +307,7 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [
       { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'startsAt', aliases: ['startsAt', 'startAt', 'inicio', 'inicioEm'] },
       { targetKey: 'endsAt', aliases: ['endsAt', 'endAt', 'fim', 'fimEm'] },
       { targetKey: 'remindAt', aliases: ['remindAt', 'reminderAt', 'lembrarEm'] },

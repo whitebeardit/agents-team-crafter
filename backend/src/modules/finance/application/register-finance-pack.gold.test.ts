@@ -2,6 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
 import { registerFinancePack } from './register-finance-pack.js';
 import type { FinanceRepository } from '../infra/finance.repository.js';
+import type { PartyRepository } from '../../crm/infra/party.repository.js';
 
 describe('registerFinancePack — finance_gold_gate', () => {
   it('exposes finance_gold_gate with deterministic contract', async () => {
@@ -16,7 +17,7 @@ describe('registerFinancePack — finance_gold_gate', () => {
       })),
     } as unknown as FinanceRepository;
 
-    registerFinancePack(registry, finance);
+    registerFinancePack(registry, finance, {} as PartyRepository);
     const gate = registry.get('finance_gold_gate');
     expect(gate).toBeDefined();
     const out = await gate!({

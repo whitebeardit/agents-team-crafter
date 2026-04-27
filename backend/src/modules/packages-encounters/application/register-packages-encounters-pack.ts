@@ -1,4 +1,5 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
+import { resolvePartyIdFromPartyOrPhone } from '../../crm/application/resolve-party-id-from-input.js';
 import type { PackageSaleRepository } from '../infra/package-sale.repository.js';
 import type { EncounterRepository } from '../infra/encounter.repository.js';
 import type { PartyRepository } from '../../crm/infra/party.repository.js';
@@ -13,11 +14,17 @@ export function registerPackagesEncountersPack(
 ): void {
   registry.register('package_sell_to_party', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     const packageName = typeof data.packageName === 'string' ? data.packageName : '';
     const unitsTotal = Number(data.unitsTotal);
-    if (!partyId || !packageName.trim() || Number.isNaN(unitsTotal) || unitsTotal < 1) {
-      throw new Error('partyId, packageName e unitsTotal validos obrigatorios');
+    if (!packageName.trim() || Number.isNaN(unitsTotal) || unitsTotal < 1) {
+      throw new Error('packageName e unitsTotal validos obrigatorios');
     }
     return packages.create(workspaceId, { partyId, packageName: packageName.trim(), unitsTotal });
   });
@@ -33,8 +40,13 @@ export function registerPackagesEncountersPack(
 
   registry.register('package_list_by_party', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
-    if (!partyId) throw new Error('partyId obrigatorio');
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     const sales = await packages.listByParty(workspaceId, partyId);
     const eligibleSales = sales.filter((sale) => sale.remaining > 0);
     return {
@@ -48,8 +60,13 @@ export function registerPackagesEncountersPack(
 
   registry.register('attendance_register_session', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
-    if (!partyId) throw new Error('partyId obrigatorio');
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     const packageSaleId = typeof data.packageSaleId === 'string' ? data.packageSaleId : undefined;
     if (packageSaleId) {
       const consumed = await packages.consumeUnit(workspaceId, packageSaleId);
@@ -65,8 +82,13 @@ export function registerPackagesEncountersPack(
 
   registry.register('attendance_list_by_party', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
-    if (!partyId) throw new Error('partyId obrigatorio');
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     return { encounters: await encounters.listByParty(workspaceId, partyId) };
   });
 
@@ -79,8 +101,13 @@ export function registerPackagesEncountersPack(
 
   registry.register('attendance_get_party_care_summary', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
-    if (!partyId) throw new Error('partyId obrigatorio');
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     const party = await parties.findById(workspaceId, partyId);
     const enc = await encounters.listByParty(workspaceId, partyId);
     const subs = await careSubjects.listByParty(workspaceId, partyId);

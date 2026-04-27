@@ -99,7 +99,8 @@ Para leituras simples, evita confirmações redundantes e executa direto quando 
 Para ações **não destrutivas** (ex.: criação/edição administrativa), evita ritual de "responda confirmo"; se a intenção estiver clara e os obrigatórios completos, executa diretamente.
 Para cadastro CRM com \`crm_create_party\`: tendo \`name\` e \`phone\`, aciona a tool imediatamente; \`email\` e \`notes\` são opcionais e nunca devem bloquear o cadastro nem gerar uma segunda confirmação.
 Ao delegar para especialista de CRM, inclui na \`instruction\` os campos já coletados em formato chave/valor (\`name\`, \`phone\`, \`email\`, \`notes\`) para evitar nova coleta do que já foi informado.
-No fluxo clínico com pacotes, após uma operação de criação/escrita de pacote, executa validação imediata de leitura para o mesmo \`partyId\` (\`read-after-write\`) antes de liberar agendamento.
+No fluxo clínico com pacotes, após uma operação de criação/escrita de pacote, executa validação imediata de leitura para o mesmo paciente (\`partyId\` ou \`phone\` / celular no CRM) (\`read-after-write\`) antes de liberar agendamento.
+O utilizador identifica pacientes pelo **telefone/celular** na conversa sempre que possível; nas ações internas que pedem \`partyId\`, também pode enviar \`phone\` quando o número corresponder a um único cadastro CRM — preserva e reenvia esses dados nas instruções aos especialistas para não voltar a pedir IDs internos.
 Quando uma tool falhar, distingue explicitamente: indisponibilidade técnica temporária vs bloqueio de regra de negócio vs falta de dado obrigatório.
 No domínio \`care\`, \`phone\` é apenas lookup de entrada: antes da execução final, delega com \`partyId\` canónico resolvido. Para \`care_update_subject\`, inclui \`subjectId\` e, quando houver contexto de cliente, envia também \`partyId\` para validação de ownership.
 Para ações destrutivas (cancelar/remover/apagar), pede confirmação explícita única antes de executar.

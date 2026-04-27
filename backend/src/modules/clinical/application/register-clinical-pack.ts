@@ -1,7 +1,13 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
+import { resolvePartyIdFromPartyOrPhone } from '../../crm/application/resolve-party-id-from-input.js';
+import type { PartyRepository } from '../../crm/infra/party.repository.js';
 import type { ClinicalRepository } from '../infra/clinical.repository.js';
 
-export function registerClinicalPack(registry: BusinessToolRegistry, clinical: ClinicalRepository): void {
+export function registerClinicalPack(
+  registry: BusinessToolRegistry,
+  clinical: ClinicalRepository,
+  parties: PartyRepository,
+): void {
   registry.register('clinical_create_anamnesis', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
     const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
@@ -39,9 +45,14 @@ export function registerClinicalPack(registry: BusinessToolRegistry, clinical: C
 
   registry.register('clinical_open_encounter', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
     const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
-    if (!partyId || !careSubjectId) throw new Error('partyId e careSubjectId obrigatorios');
+    if (!partyId || !careSubjectId) throw new Error('partyId ou phone e careSubjectId obrigatorios');
     return clinical.openClinicalEncounter(workspaceId, {
       partyId,
       careSubjectId,

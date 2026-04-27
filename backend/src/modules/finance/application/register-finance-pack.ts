@@ -1,13 +1,24 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
+import { resolvePartyIdFromPartyOrPhone } from '../../crm/application/resolve-party-id-from-input.js';
+import type { PartyRepository } from '../../crm/infra/party.repository.js';
 import type { FinanceRepository } from '../infra/finance.repository.js';
 
-export function registerFinancePack(registry: BusinessToolRegistry, finance: FinanceRepository): void {
+export function registerFinancePack(
+  registry: BusinessToolRegistry,
+  finance: FinanceRepository,
+  parties: PartyRepository,
+): void {
   registry.register('finance_create_receivable', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
     const amount = Number(data.amount);
     const dueDate = typeof data.dueDate === 'string' ? data.dueDate : '';
-    if (!partyId || Number.isNaN(amount) || !dueDate) throw new Error('partyId, amount e dueDate obrigatorios');
+    if (!partyId || Number.isNaN(amount) || !dueDate) throw new Error('partyId ou phone, amount e dueDate obrigatorios');
     return finance.createReceivable(workspaceId, {
       partyId,
       amount,
@@ -71,8 +82,13 @@ export function registerFinancePack(registry: BusinessToolRegistry, finance: Fin
 
   registry.register('finance_customer_financial_summary', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
-    if (!partyId) throw new Error('partyId obrigatorio');
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     return finance.customerFinancialSummary(workspaceId, partyId);
   });
 

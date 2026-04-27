@@ -1,5 +1,6 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
 import { assertPersistablePartyPhone, normalizePartyPhone } from '../domain/normalize-party-phone.js';
+import { resolvePartyIdFromPartyOrPhone } from './resolve-party-id-from-input.js';
 import { getPartyDeleteBlockers } from './party-delete-blockers.js';
 import type { IPartyUpdateOperation, PartyRepository } from '../infra/party.repository.js';
 
@@ -110,8 +111,13 @@ export function registerCrmPack(registry: BusinessToolRegistry, parties: PartyRe
 
   registry.register('crm_get_party_summary', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
-    if (!partyId) throw new Error('partyId obrigatorio');
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     const p = await parties.findById(workspaceId, partyId);
     if (!p) throw new Error('Party nao encontrada');
     return { summary: p };

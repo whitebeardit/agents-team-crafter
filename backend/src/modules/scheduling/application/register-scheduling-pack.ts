@@ -1,4 +1,5 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
+import { resolvePartyIdFromPartyOrPhone } from '../../crm/application/resolve-party-id-from-input.js';
 import type { AppointmentRepository } from '../infra/appointment.repository.js';
 import type { AvailabilitySlotRepository } from '../infra/availability-slot.repository.js';
 import type { PartyRepository } from '../../crm/infra/party.repository.js';
@@ -47,10 +48,13 @@ export function registerSchedulingPack(
 
   registry.register('schedule_create_appointment', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
-    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
-    if (!partyId) throw new Error('partyId obrigatorio');
-    const party = await parties.findById(workspaceId, partyId);
-    if (!party) throw new Error('party nao encontrada');
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
     const title = typeof data.title === 'string' ? data.title : '';
     if (!title.trim()) throw new Error('title obrigatorio');
     const startsAt = parseIso(data.startsAt, 'startsAt');
