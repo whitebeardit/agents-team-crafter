@@ -28,6 +28,12 @@ function isTransientExecutionError(message: string): boolean {
   return RETRYABLE_EXECUTION_ERROR_PATTERNS.some((pattern) => pattern.test(message));
 }
 
+function classifyExecutionError(message: string): 'TOOL_UNAVAILABLE' | 'BUSINESS_RULE' | 'INTERNAL_ERROR' {
+  if (isTransientExecutionError(message)) return 'TOOL_UNAVAILABLE';
+  if (/(obrigatorio|invalido|deve|nao encontrado|sem saldo|pertencer)/i.test(message)) return 'BUSINESS_RULE';
+  return 'INTERNAL_ERROR';
+}
+
 export interface IBusinessToolRuntime {
   execute(params: {
     workspaceId: string;
@@ -146,6 +152,7 @@ export class BusinessToolRuntime implements IBusinessToolRuntime {
           continue;
         }
 
+        const errorType = classifyExecutionError(msg);
         await this.auditRepo.append({
           workspaceId: params.workspaceId,
           toolDefinitionId: params.toolDefinitionId,
@@ -156,14 +163,14 @@ export class BusinessToolRuntime implements IBusinessToolRuntime {
           normalizedInput,
           submittedInput: normalizedInput,
           validationResult: { ok: true },
-          result: { message: msg, submittedInput: normalizedInput, retry: retryMeta },
+          result: { message: msg, submittedInput: normalizedInput, retry: retryMeta, errorType },
           correlationId: params.correlationId,
         });
         return {
           ok: false,
           error: msg,
           errorCode: 'EXECUTION_ERROR',
-          result: { submittedInput: normalizedInput, retry: retryMeta },
+          result: { submittedInput: normalizedInput, retry: retryMeta, errorType },
         };
       }
     }

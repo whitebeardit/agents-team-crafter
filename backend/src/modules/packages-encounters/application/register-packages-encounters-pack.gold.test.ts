@@ -46,4 +46,52 @@ describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () 
       snapshot: expect.any(Object),
     });
   });
+
+  it('lists package sales by party with eligibility summary', async () => {
+    const registry = new BusinessToolRegistry();
+    const packages = {
+      listByParty: jest.fn(async () => [
+        { id: 'sale-1', partyId: 'party-1', packageName: 'Pacote A', unitsTotal: 4, unitsUsed: 1, remaining: 3 },
+        { id: 'sale-2', partyId: 'party-1', packageName: 'Pacote B', unitsTotal: 2, unitsUsed: 2, remaining: 0 },
+      ]),
+      goldGateSnapshot: jest.fn(async () => ({
+        totalSales: 0,
+        fullyConsumedSales: 0,
+        activeSales: 0,
+        unitsTotal: 0,
+        unitsUsed: 0,
+        unitsRemaining: 0,
+      })),
+    } as unknown as PackageSaleRepository;
+    const encounters = {
+      goldGateSnapshot: jest.fn(async () => ({
+        totalEncounters: 0,
+        packageLinkedEncounters: 0,
+        totalDurationMinutes: 0,
+        avgDurationMinutes: 0,
+      })),
+    } as unknown as EncounterRepository;
+    const parties = {} as PartyRepository;
+    const careSubjects = {} as CareSubjectRepository;
+
+    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects);
+    const list = registry.get('package_list_by_party');
+    expect(list).toBeDefined();
+
+    const out = (await list!({
+      workspaceId: '507f1f77bcf86cd799439011',
+      input: { partyId: 'party-1' },
+    })) as {
+      eligible: boolean;
+      eligiblePackageSaleIds: string[];
+      ineligibleReason: string | null;
+      packageSales: unknown[];
+    };
+
+    expect(packages.listByParty).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'party-1');
+    expect(out.eligible).toBe(true);
+    expect(out.eligiblePackageSaleIds).toEqual(['sale-1']);
+    expect(out.ineligibleReason).toBeNull();
+    expect(out.packageSales).toHaveLength(2);
+  });
 });

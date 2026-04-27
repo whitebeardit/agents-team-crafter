@@ -176,11 +176,15 @@ describe('normalizeBusinessActionInput (Loop 98.6)', () => {
       clientId: 'party-44',
       idVendaPacote: 'sale-900',
     }) as Record<string, unknown>;
+    const listByParty = normalizeBusinessActionInput('package_list_by_party', {
+      patientId: 'party-44',
+    }) as Record<string, unknown>;
 
     expect(sellPackage.partyId).toBe('party-44');
     expect(sellPackage.packageName).toBe('Pacote Fisio');
     expect(registerSession.partyId).toBe('party-44');
     expect(registerSession.packageSaleId).toBe('sale-900');
+    expect(listByParty.partyId).toBe('party-44');
   });
 
   it('normalizes services/sales aliases for service name, party and order ids', () => {

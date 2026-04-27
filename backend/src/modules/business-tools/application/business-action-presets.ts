@@ -431,6 +431,19 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     },
     requiredFieldLabels: ['Pacote vendido (packageSaleId)'],
   },
+  'package_list_by_party': {
+    title: 'Pacotes — Listar por parte',
+    description: 'Lista pacotes/saldos de uma party e informa elegibilidade para agendamento.',
+    packId: 'packages_encounters',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        partyId: { type: 'string', description: 'ID da party para consulta de pacotes.' },
+      },
+      required: ['partyId'],
+    },
+    requiredFieldLabels: ['Party (partyId)'],
+  },
   'attendance_register_session': {
     title: 'Atendimentos — Registar sessão',
     description: 'Regista uma sessão de atendimento.',

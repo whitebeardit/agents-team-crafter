@@ -31,6 +31,21 @@ export function registerPackagesEncountersPack(
     return b;
   });
 
+  registry.register('package_list_by_party', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const partyId = typeof data.partyId === 'string' ? data.partyId : '';
+    if (!partyId) throw new Error('partyId obrigatorio');
+    const sales = await packages.listByParty(workspaceId, partyId);
+    const eligibleSales = sales.filter((sale) => sale.remaining > 0);
+    return {
+      partyId,
+      packageSales: sales,
+      eligible: eligibleSales.length > 0,
+      eligiblePackageSaleIds: eligibleSales.map((sale) => sale.id),
+      ineligibleReason: eligibleSales.length > 0 ? null : 'NO_ELIGIBLE_PACKAGE_FOR_PARTY',
+    };
+  });
+
   registry.register('attendance_register_session', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
     const partyId = typeof data.partyId === 'string' ? data.partyId : '';

@@ -28,6 +28,7 @@ const DISPLAY_NAME_ALIASES = [
 const EMAIL_ALIASES = ['email', 'e-mail', 'mail'] as const;
 
 const PHONE_ALIASES = ['phone', 'telefone', 'celular'] as const;
+const PARTY_ID_ALIASES = ['partyId', 'patientId', 'customerId', 'clientId'] as const;
 
 const CARE_SUBJECT_KIND_VALUE_ALIASES: Readonly<Record<string, string>> = {
   human: 'human',
@@ -185,9 +186,13 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   package_sell_to_party: {
     safetyClass: 'A',
     rules: [
-      { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] },
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
       { targetKey: 'packageName', aliases: ['packageName', 'packName', 'nomePacote'] },
     ],
+  },
+  package_list_by_party: {
+    safetyClass: 'A',
+    rules: [{ targetKey: 'partyId', aliases: PARTY_ID_ALIASES }],
   },
   package_get_balance: {
     safetyClass: 'A',
@@ -196,13 +201,13 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   attendance_register_session: {
     safetyClass: 'A',
     rules: [
-      { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] },
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
       { targetKey: 'packageSaleId', aliases: ['packageSaleId', 'saleId', 'idVendaPacote'] },
     ],
   },
   attendance_list_by_party: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] }],
+    rules: [{ targetKey: 'partyId', aliases: PARTY_ID_ALIASES }],
   },
   attendance_list_by_package_sale: {
     safetyClass: 'A',
@@ -210,7 +215,7 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   },
   attendance_get_party_care_summary: {
     safetyClass: 'A',
-    rules: [{ targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] }],
+    rules: [{ targetKey: 'partyId', aliases: PARTY_ID_ALIASES }],
   },
   service_catalog_create_item: {
     safetyClass: 'A',
@@ -278,7 +283,7 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
   schedule_create_appointment: {
     safetyClass: 'A',
     rules: [
-      { targetKey: 'partyId', aliases: ['partyId', 'customerId', 'clientId'] },
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
       { targetKey: 'startsAt', aliases: ['startsAt', 'startAt', 'inicio', 'inicioEm'] },
       { targetKey: 'endsAt', aliases: ['endsAt', 'endAt', 'fim', 'fimEm'] },
       { targetKey: 'remindAt', aliases: ['remindAt', 'reminderAt', 'lembrarEm'] },

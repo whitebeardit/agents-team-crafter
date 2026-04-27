@@ -75,6 +75,8 @@ export function registerSchedulingPack(
     if (packageSaleId) {
       const sale = await packageSales.findById(workspaceId, packageSaleId);
       if (!sale) throw new Error('packageSale nao encontrado');
+      if (sale.partyId !== partyId) throw new Error('packageSale deve pertencer ao mesmo partyId');
+      if (sale.remaining < 1) throw new Error('packageSale sem saldo elegivel para agendamento');
     }
 
     const encounterId = typeof data.encounterId === 'string' ? data.encounterId : undefined;

@@ -364,4 +364,63 @@ describe('registerSchedulingPack', () => {
     })) as { status: string };
     expect(cancelled.status).toBe('cancelled');
   });
+
+  it('blocks appointment creation when package does not belong to party or has no remaining units', async () => {
+    const registry = new BusinessToolRegistry();
+    const appointments = new AppointmentRepository();
+    const availability = new AvailabilitySlotRepository();
+    const parties = new PartyRepository();
+    const careSubjects = new CareSubjectRepository();
+    const serviceOrders = new ServiceOrderRepository();
+    const packageSales = new PackageSaleRepository();
+    const reminders = new ReminderRepository();
+    const encounters = new EncounterRepository();
+
+    registerSchedulingPack(
+      registry,
+      appointments,
+      availability,
+      parties,
+      careSubjects,
+      serviceOrders,
+      packageSales,
+      reminders,
+      encounters,
+    );
+
+    const partyA = await parties.create(workspaceId, { displayName: 'Party A' });
+    const partyB = await parties.create(workspaceId, { displayName: 'Party B' });
+    const packageFromA = await packageSales.create(workspaceId, {
+      partyId: partyA.id,
+      packageName: 'Pacote A',
+      unitsTotal: 1,
+    });
+
+    await expect(
+      registry.get('schedule_create_appointment')!({
+        workspaceId,
+        input: {
+          partyId: partyB.id,
+          packageSaleId: packageFromA.id,
+          title: 'Sessao indevida',
+          startsAt: '2026-06-02T09:00:00.000Z',
+          endsAt: '2026-06-02T10:00:00.000Z',
+        },
+      }),
+    ).rejects.toThrow('packageSale deve pertencer ao mesmo partyId');
+
+    await packageSales.consumeUnit(workspaceId, packageFromA.id);
+    await expect(
+      registry.get('schedule_create_appointment')!({
+        workspaceId,
+        input: {
+          partyId: partyA.id,
+          packageSaleId: packageFromA.id,
+          title: 'Sessao sem saldo',
+          startsAt: '2026-06-02T11:00:00.000Z',
+          endsAt: '2026-06-02T12:00:00.000Z',
+        },
+      }),
+    ).rejects.toThrow('packageSale sem saldo elegivel para agendamento');
+  });
 });

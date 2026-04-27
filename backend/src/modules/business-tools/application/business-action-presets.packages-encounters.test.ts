@@ -5,6 +5,7 @@ describe('business-action-presets packages/encounters (Loop 103)', () => {
   it('defines explicit schema for package sale actions', () => {
     const sell = getBusinessActionPreset('package_sell_to_party');
     const balance = getBusinessActionPreset('package_get_balance');
+    const listByParty = getBusinessActionPreset('package_list_by_party');
 
     expect((sell?.inputSchema as { required?: string[] }).required).toEqual([
       'partyId',
@@ -12,6 +13,7 @@ describe('business-action-presets packages/encounters (Loop 103)', () => {
       'unitsTotal',
     ]);
     expect((balance?.inputSchema as { required?: string[] }).required).toEqual(['packageSaleId']);
+    expect((listByParty?.inputSchema as { required?: string[] }).required).toEqual(['partyId']);
   });
 
   it('defines explicit schema for attendance actions', () => {

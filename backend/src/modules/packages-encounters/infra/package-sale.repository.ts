@@ -38,6 +38,16 @@ export class PackageSaleRepository {
     return doc ? this.pub(doc) : null;
   }
 
+  async listByParty(workspaceId: string, partyId: string) {
+    const docs = await PackageSaleModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      partyId: new Types.ObjectId(partyId),
+    })
+      .sort({ createdAt: -1 })
+      .exec();
+    return docs.map((doc) => this.pub(doc));
+  }
+
   async consumeUnit(workspaceId: string, packageSaleId: string) {
     const doc = await PackageSaleModel.findOneAndUpdate(
       {
@@ -93,9 +103,16 @@ export class PackageSaleRepository {
     };
   }
 
-  private pub(doc: { _id: Types.ObjectId; unitsTotal: number; unitsUsed: number; packageName: string }) {
+  private pub(doc: {
+    _id: Types.ObjectId;
+    partyId: Types.ObjectId;
+    unitsTotal: number;
+    unitsUsed: number;
+    packageName: string;
+  }) {
     return {
       id: doc._id.toString(),
+      partyId: doc.partyId.toString(),
       packageName: doc.packageName,
       unitsTotal: doc.unitsTotal,
       unitsUsed: doc.unitsUsed,
