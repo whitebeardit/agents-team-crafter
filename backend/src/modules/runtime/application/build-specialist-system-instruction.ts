@@ -15,6 +15,11 @@ const TOOL_CONTRACT_PROMPT_POLICY = `## Tool contract policy (Loop 98.5)
   - Para “buscar cliente por e-mail/telefone/ID”, use \`crm_find_party\` com identificador direto, sem pedir \`query\`.
   - Para “cadastrar/criar novo cliente”, tendo \`name\` e \`phone\`, execute \`crm_create_party\` diretamente; \`email\` e \`notes\` são opcionais e só devem ser oferecidos uma vez, sem bloquear a execução.
   - Em reads simples de CRM (list all / find by identifier), no máximo **uma** clarificação apenas se existir ambiguidade real.
+- Guardrail agendamento (clínica / telefone) (Loop 139):
+  - Para \`schedule_create_appointment\`, o runtime aceita \`phone\` **ou** \`partyId\` (são alternativas para a mesma identificação; não penses que “só importa” \`partyId\` no catálogo).
+  - Tendo \`phone\` na mensagem do utilizador **ou** na tarefa, **não** respondas com texto a dizer que “falta o paciente identificado no CRM” ou “falta o pacote ativo” **antes** de tentar a ação. Chama \`schedule_create_appointment\` com \`phone\`, \`title\` e janela em ISO (\`startsAt\`, \`endsAt\`); converte “amanhã 10h”, “próxima terça 15:00” etc. para ISO assumindo a data/hora de referência da conversa. Se faltar dado, o runtime devolve \`MISSING_REQUIRED_FIELDS\` ou \`EXECUTION_ERROR\` com detalhe — aí explicas com base nisso.
+  - \`packageSaleId\` é **opcional** quando existe **uma** venda elegível com saldo para essa party: o motor pode amarrar; não deixes o modelo inventar bloqueio por isso.
+  - Reserva \`clinic_schedule_session\` a fluxos em que já tens \`careSubjectId\` explícito; com só telefone e intenção de marcar na agenda, usa a primitiva \`schedule_create_appointment\` com \`phone\`.
 - Se receber \`MISSING_REQUIRED_FIELDS\`, usa \`missingFields\` e \`submittedInput\` para corrigir a próxima tentativa; não repitas payload inválido.
 - Se receber \`EXECUTION_ERROR\`, não faças retry cego. Só repete quando houver sinal explícito de erro transitório/seguro no diagnóstico devolvido pelo runtime.
 - Se receber \`UNKNOWN_ACTION\`, não tentes novamente a mesma action; explica limitação e pede alternativa válida.`;

@@ -25,6 +25,8 @@ describe('buildSpecialistSystemInstruction', () => {
     expect(text).toContain('crm_create_party');
     expect(text).toContain('name');
     expect(text).toContain('phone');
+    expect(text).toContain('schedule_create_appointment');
+    expect(text).toContain('Guardrail agendamento');
   });
 
   it('appends knowledge appendix when provided', () => {
