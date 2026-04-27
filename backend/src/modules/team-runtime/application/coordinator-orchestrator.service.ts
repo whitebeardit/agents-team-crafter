@@ -338,12 +338,80 @@ function extractPartyIdHint(text: string): string | undefined {
   return m?.[1]?.trim();
 }
 
+/** Removes jargon like `party-id` so `\bparty\b` does not false-trigger CRM mention detection. */
+function stripPartyIdJargonForCrmMention(text: string): string {
+  return text
+    .replace(/\bparty[-_ ]?id\b/gi, ' ')
+    .replace(/\bpartyid\b/gi, ' ')
+    .replace(/\bparty_id\b/gi, ' ');
+}
+
+/**
+ * Messages that mix CRM identifiers with operational domains (packages, scheduling, billing)
+ * must go through the coordinator — the CRM direct-read shortcut would end the turn too early.
+ */
+export function isCompositeOperationalMessage(lower: string): boolean {
+  if (/\bnota\s+fiscal\b/i.test(lower)) return true;
+  const compositeWord = new RegExp(
+    [
+      'agendar',
+      'reagendar',
+      'remarcar',
+      'agendamento',
+      'agendamentos',
+      '\\bagenda\\b',
+      'marcar',
+      'marque',
+      'encaixe',
+      'consulta',
+      'consultas',
+      'sess[aã]o',
+      'sess[oô]es',
+      'atendimento',
+      'atendimentos',
+      'venda',
+      'vendas',
+      'vender',
+      'registrar',
+      'registra',
+      'registro',
+      'pacote',
+      'pacotes',
+      'saldo',
+      'saldos',
+      'financeiro',
+      'financeira',
+      'pagamento',
+      'pagamentos',
+      'pagar',
+      'cobrar',
+      'cobran[cç]a',
+      'fatura',
+      'faturas',
+      'faturamento',
+      'boleto',
+      'boletos',
+      'or[cç]amento',
+      'recarga',
+      'recargas',
+      'cancelar',
+      'pix',
+    ].join('|'),
+    'i',
+  );
+  return compositeWord.test(lower);
+}
+
 export function parseCrmDirectReadIntent(message: string): TCrmDirectReadIntent | null {
   const raw = message.trim();
   if (!raw) return null;
   const lower = raw.toLowerCase();
 
-  const mentionsCustomer = /\b(cliente|clientes|customer|customers|party|parties)\b/.test(lower);
+  if (isCompositeOperationalMessage(lower)) return null;
+
+  const forCustomerMention = stripPartyIdJargonForCrmMention(lower);
+  const mentionsCustomer =
+    /\b(cliente|clientes|customer|customers|party|parties|paciente|pacientes)\b/.test(forCustomerMention);
   if (!mentionsCustomer) return null;
 
   const email = extractFirstEmail(raw);

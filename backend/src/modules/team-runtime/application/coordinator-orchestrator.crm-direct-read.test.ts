@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   formatCrmDirectReadResponse,
+  isCompositeOperationalMessage,
   isMaxTurnsExceededOutput,
   parseCrmDirectReadIntent,
 } from './coordinator-orchestrator.service.js';
@@ -27,6 +28,50 @@ describe('coordinator-orchestrator CRM direct read routing (Loop 138)', () => {
   it('returns null when message is not CRM-related', () => {
     const intent = parseCrmDirectReadIntent('qual o clima em Lisboa?');
     expect(intent).toBeNull();
+  });
+
+  it('returns null for composite operational intent (packages/scheduling) even with phone + party-id jargon', () => {
+    expect(
+      parseCrmDirectReadIntent(
+        'Mesmo paciente celular +55 11 98888-7766. Registra uma venda de pacote com 4 sessões. Não quero party-id, só o número.',
+      ),
+    ).toBeNull();
+    expect(isCompositeOperationalMessage('registra uma venda de pacote')).toBe(true);
+  });
+
+  it('returns null when user mentions party-id jargon but asks to schedule (no false CRM-only route)', () => {
+    expect(
+      parseCrmDirectReadIntent(
+        'Preciso agendar consulta para o cliente do celular +55 11 91111-2222. Sem party-id.',
+      ),
+    ).toBeNull();
+  });
+
+  it('still routes simple phone lookup when message is CRM-only', () => {
+    const intent = parseCrmDirectReadIntent('buscar cliente pelo celular +5511999998888');
+    expect(intent).toEqual({
+      actionId: 'crm_find_party',
+      input: { phone: '+5511999998888' },
+      reason: 'find_customer_by_identifier',
+    });
+  });
+
+  it('does not treat party-id jargon as mentioning customer when stripped', () => {
+    const intent = parseCrmDirectReadIntent(
+      'Qual o cadastro associado a party-id? telefone +55 11 92222-3333',
+    );
+    expect(intent).toBeNull();
+  });
+
+  it('allows find by paciente + telefone when not composite', () => {
+    const intent = parseCrmDirectReadIntent(
+      'encontrar paciente com telefone +5511987654321',
+    );
+    expect(intent).toEqual({
+      actionId: 'crm_find_party',
+      input: { phone: '+5511987654321' },
+      reason: 'find_customer_by_identifier',
+    });
   });
 
   it('formats list response with readable lines', () => {

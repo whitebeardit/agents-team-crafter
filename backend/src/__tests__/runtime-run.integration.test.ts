@@ -244,6 +244,40 @@ describe('POST /teams/:id/run (team runtime)', () => {
     expect(body.data.externalResponse?.text).toMatch(/5511999998888/);
   });
 
+  it('does not use CRM direct read shortcut when message mixes operational intent with phone', async () => {
+    const token = await loginAndGetToken();
+    const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();
+    const workspaceId = String((ws as { _id: unknown })._id);
+
+    await PartyModel.create({
+      workspaceId,
+      displayName: 'Cliente Venda Composta',
+      roles: ['customer'],
+      status: 'active',
+      phone: '5511999997777',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/teams/${teamId}/run`,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+      },
+      payload: {
+        message:
+          'Regista venda de pacote para o cliente com telefone +5511999997777, 4 sessões, 800 reais. Não quero party-id.',
+        taskType: 'invoice_validation',
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      data: { events?: Array<{ type?: string; detail?: string }> };
+    };
+    expect(body.data.events?.some((e) => e.type === 'crmDirectReadRoute')).toBe(false);
+  });
+
   it('returns early on structured stop command with stop_reason and resume hint', async () => {
     const token = await loginAndGetToken();
     const ws = await WorkspaceModel.findOne({ name: 'W' }).lean();

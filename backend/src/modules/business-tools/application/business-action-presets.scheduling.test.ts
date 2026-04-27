@@ -8,7 +8,7 @@ describe('business-action-presets scheduling/reminders (Loop 99)', () => {
     const getAvailability = getBusinessActionPreset('schedule_get_availability');
 
     expect(createAppointment?.inputSchema).toBeDefined();
-    expect(createAppointment?.requiredFieldLabels).toContain('Party (partyId)');
+    expect(createAppointment?.requiredFieldLabels).toContain('Party (partyId) ou phone');
     expect((createAppointment?.inputSchema as { required?: string[] }).required).toEqual(
       expect.arrayContaining(['partyId', 'title', 'startsAt', 'endsAt']),
     );
