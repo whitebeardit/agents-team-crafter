@@ -119,6 +119,49 @@ describe('registerSchedulingPack', () => {
     );
   });
 
+  it('binds sole eligible package sale when packageSaleId omitted', async () => {
+    const registry = new BusinessToolRegistry();
+    const appointments = new AppointmentRepository();
+    const availability = new AvailabilitySlotRepository();
+    const parties = new PartyRepository();
+    const careSubjects = new CareSubjectRepository();
+    const serviceOrders = new ServiceOrderRepository();
+    const packageSales = new PackageSaleRepository();
+    const reminders = new ReminderRepository();
+    const encounters = new EncounterRepository();
+
+    registerSchedulingPack(
+      registry,
+      appointments,
+      availability,
+      parties,
+      careSubjects,
+      serviceOrders,
+      packageSales,
+      reminders,
+      encounters,
+    );
+
+    const party = await parties.create(workspaceId, { displayName: 'Cliente AutoPacote' });
+    const sale = await packageSales.create(workspaceId, {
+      partyId: party.id,
+      packageName: 'Pacote único',
+      unitsTotal: 4,
+    });
+
+    const apt = (await registry.get('schedule_create_appointment')!({
+      workspaceId,
+      input: {
+        partyId: party.id,
+        title: 'Consulta só party',
+        startsAt: '2026-06-02T17:00:00.000Z',
+        endsAt: '2026-06-02T17:50:00.000Z',
+      },
+    })) as { packageSaleId?: string };
+
+    expect(apt.packageSaleId).toBe(sale.id);
+  });
+
   it('reschedules and cancels appointment reminders', async () => {
     const registry = new BusinessToolRegistry();
     const appointments = new AppointmentRepository();

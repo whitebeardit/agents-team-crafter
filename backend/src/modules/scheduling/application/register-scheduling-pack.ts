@@ -75,7 +75,20 @@ export function registerSchedulingPack(
       if (order.partyId !== partyId) throw new Error('serviceOrder deve pertencer ao mesmo partyId');
     }
 
-    const packageSaleId = typeof data.packageSaleId === 'string' ? data.packageSaleId : undefined;
+    let packageSaleId =
+      typeof data.packageSaleId === 'string' && data.packageSaleId.trim()
+        ? data.packageSaleId.trim()
+        : undefined;
+
+    /** Quando só há uma venda elegível para a party, amarra ao agendamento sem exigir packageSaleId ao utilizador. */
+    if (!packageSaleId) {
+      const partySales = await packageSales.listByParty(workspaceId, partyId);
+      const eligibleSales = partySales.filter((s) => s.remaining >= 1);
+      if (eligibleSales.length === 1) {
+        packageSaleId = eligibleSales[0]?.id;
+      }
+    }
+
     if (packageSaleId) {
       const sale = await packageSales.findById(workspaceId, packageSaleId);
       if (!sale) throw new Error('packageSale nao encontrado');

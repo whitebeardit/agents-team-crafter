@@ -428,7 +428,8 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   },
   'package_get_balance': {
     title: 'Pacotes — Saldo do pacote',
-    description: 'Consulta saldo/sessões restantes do pacote.',
+    description:
+      'Consulta saldo por **packageSaleId** da venda. Para descobrir vendas/saldos por paciente ou celular, use antes `package_list_by_party` com `phone` ou `partyId`.',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
@@ -438,6 +439,8 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       required: ['packageSaleId'],
     },
     requiredFieldLabels: ['Pacote vendido (packageSaleId)'],
+    slotFillingPromptHint:
+      'Não serve para lookup por telefone. Obtenha packageSaleId via package_list_by_party (phone ou partyId) ou contexto da venda.',
   },
   'package_list_by_party': {
     title: 'Pacotes — Listar por parte',
@@ -453,6 +456,8 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       required: ['partyId'],
     },
     requiredFieldLabels: ['Party (partyId) ou phone'],
+    slotFillingPromptHint:
+      'Lista pacotes da party com phone OU partyId; devolve packageSaleId para saldo ou agendamento. Não confundir com package_get_balance.',
   },
   'attendance_register_session': {
     title: 'Atendimentos — Registar sessão',
@@ -959,7 +964,7 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     },
     requiredFieldLabels: ['Party (partyId) ou phone', 'Título (title)', 'Início (startsAt)', 'Fim (endsAt)'],
     slotFillingPromptHint:
-      'Se faltar obrigatório, peça numa mensagem única: celular ou partyId, título, início e fim (ISO).',
+      'Se faltar obrigatório, peça numa mensagem única: celular ou partyId, título, início e fim (ISO). Com um único pacote elegível para o paciente, pode omitir packageSaleId.',
   },
   'schedule_reschedule_appointment': {
     title: 'Agenda — Reagendar',
