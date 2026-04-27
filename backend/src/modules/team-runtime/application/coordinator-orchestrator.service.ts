@@ -402,12 +402,32 @@ export function isCompositeOperationalMessage(lower: string): boolean {
   return compositeWord.test(lower);
 }
 
+/**
+ * Phrases that ask to *create* or *register* a person in the CRM are not a direct read
+ * of `crm_find_party` — routing there would return "not found" before the coordenador
+ * can run the cadastro tool.
+ */
+export function isCrmCreateOrRegistrationMessage(lower: string): boolean {
+  if (
+    /\b(cadastre|cadastrar|cadastrando|cadastra|cadastram|cadastramos|incluir|incluindo|adicionar|adiciona|inscrever|inscrevendo|inscreva|inscreveu)\b/.test(
+      lower,
+    )
+  ) {
+    return true;
+  }
+  if (/\bcri(ação|ar|amos|ando)\b/.test(lower)) return true;
+  if (/\b(nov[oa]\s+)(paciente|cliente|customer|contato)\b/.test(lower)) return true;
+  if (/\b(crie|cria)\b/.test(lower) && /\b(paciente|cliente|customer)\b/.test(lower)) return true;
+  return false;
+}
+
 export function parseCrmDirectReadIntent(message: string): TCrmDirectReadIntent | null {
   const raw = message.trim();
   if (!raw) return null;
   const lower = raw.toLowerCase();
 
   if (isCompositeOperationalMessage(lower)) return null;
+  if (isCrmCreateOrRegistrationMessage(lower)) return null;
 
   const forCustomerMention = stripPartyIdJargonForCrmMention(lower);
   const mentionsCustomer =

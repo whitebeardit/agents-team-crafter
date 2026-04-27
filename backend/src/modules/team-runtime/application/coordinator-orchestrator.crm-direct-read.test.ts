@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   formatCrmDirectReadResponse,
   isCompositeOperationalMessage,
+  isCrmCreateOrRegistrationMessage,
   isMaxTurnsExceededOutput,
   parseCrmDirectReadIntent,
 } from './coordinator-orchestrator.service.js';
@@ -28,6 +29,13 @@ describe('coordinator-orchestrator CRM direct read routing (Loop 138)', () => {
   it('returns null when message is not CRM-related', () => {
     const intent = parseCrmDirectReadIntent('qual o clima em Lisboa?');
     expect(intent).toBeNull();
+  });
+
+  it('returns null for create/register patient intent (do not run find-only CRM shortcut)', () => {
+    expect(
+      parseCrmDirectReadIntent('Cadastra a paciente Maria X, celular +55 11 91111-0001.'),
+    ).toBeNull();
+    expect(isCrmCreateOrRegistrationMessage('cadastra o cliente no crm'.toLowerCase())).toBe(true);
   });
 
   it('returns null for composite operational intent (packages/scheduling) even with phone + party-id jargon', () => {
