@@ -163,6 +163,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [usePersistentMemory, setUsePersistentMemory] = useState(false)
   const [fixedContext, setFixedContext] = useState("")
   const [enabledTools, setEnabledTools] = useState<string[]>([])
+  const [openaiBuiltInTools, setOpenaiBuiltInTools] = useState<string[]>([])
   const [customToolDefinitionIds, setCustomToolDefinitionIds] = useState<string[]>([])
   const [workspaceToolDefs, setWorkspaceToolDefs] = useState<
     Array<{
@@ -197,11 +198,14 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     setFixedContext(a.knowledge?.fixedContext ?? "")
     if (options?.operationalCatalogToolIds) {
       setEnabledTools(
-        (a.capabilities?.tools ?? []).filter((id) => options.operationalCatalogToolIds!.has(id)),
+        (a.capabilities?.platformBuiltInTools ?? a.capabilities?.tools ?? []).filter((id) =>
+          options.operationalCatalogToolIds!.has(id),
+        ),
       )
     } else {
-      setEnabledTools(a.capabilities?.tools ?? [])
+      setEnabledTools(a.capabilities?.platformBuiltInTools ?? a.capabilities?.tools ?? [])
     }
+    setOpenaiBuiltInTools(a.capabilities?.openaiBuiltInTools ?? [])
     setCustomToolDefinitionIds(a.capabilities?.customToolDefinitionIds ?? [])
     setEnabledChannels((a.channelConfig?.enabled ?? a.channels) as Array<"whatsapp" | "slack" | "email" | "api">)
     setCanReplyDirectly(a.channelConfig?.canReplyDirectly ?? true)
@@ -419,6 +423,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           run: () =>
             api.put(`/agents/${agent.id}/tools`, {
               tools: enabledTools,
+              platformBuiltInTools: enabledTools,
+              openaiBuiltInTools,
               customToolDefinitionIds,
             }),
         },

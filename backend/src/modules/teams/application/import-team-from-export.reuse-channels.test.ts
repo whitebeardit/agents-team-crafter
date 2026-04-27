@@ -72,6 +72,47 @@ describe('importTeamFromExport — reutilização de canais', () => {
     };
   }
 
+  function buildDepsForImport(agentCreateSpy: ReturnType<typeof jest.fn>) {
+    const createFromImportSnapshot = jest.fn();
+    const findByIdCh = jest.fn(
+      async (_w: string, id: string) => (id === 'c1' ? { id: 'c1', teamId: null } : null),
+    );
+    const agentRepo = {
+      create: agentCreateSpy,
+      listAllIds: jest.fn(async () => new Set(['na1', 'na2', 'c1'])),
+      softDelete: jest.fn(),
+    };
+    const channelRepo = {
+      findById: findByIdCh,
+      createFromImportSnapshot,
+      update: jest.fn(async () => ({})),
+      listAllIds: jest.fn(async () => new Set(['c1'])),
+    };
+    const teamRepo = {
+      create: jest.fn(async () => ({ id: 't-new' })),
+      findById: jest.fn(async (_ws, id) => {
+        if (id === 't-new') {
+          return { id: 't-new', coordinatorId: 'na1', agentIds: ['na2'], channelIds: ['c1'] };
+        }
+        return null;
+      }),
+      update: jest.fn(),
+      findTeamsReferencingAgent: jest.fn(async () => []),
+    };
+    return {
+      deps: {
+        agentRepo,
+        channelRepo,
+        teamRepo,
+        teamGraphRepo: { upsert: jest.fn(async () => undefined) },
+        mcpRepo: { findById: jest.fn(async () => null) },
+        agentMcpBindingRepo: { create: jest.fn(async () => ({})) },
+        workspaceIntegrationsService: undefined,
+      } as unknown as IAppDeps,
+      createFromImportSnapshot,
+    };
+  }
+
   it('não chama createFromImportSnapshot e mapeia identidade; quota de canais = 0', async () => {
     const createFromImportSnapshot = jest.fn();
     const findByIdCh = jest.fn(
@@ -135,5 +176,105 @@ describe('importTeamFromExport — reutilização de canais', () => {
       (c) => c[1] === workspaceId && c[2].channels === 0,
     );
     expect(quotaWithZeroChannels).toBeTruthy();
+  });
+
+  it('usa runtime em sections.runtime quando agent nao tiver runtime', async () => {
+    const payload = buildMinV2Export();
+    payload.agents[1]!.agent = { id: 'a2', name: 'S', role: 'specialist' };
+    (payload.agents[1] as Record<string, unknown>).sections = {
+      runtime: {
+        capabilities: {
+          tools: ['legacy.tool'],
+          platformBuiltInTools: ['crm.search_customer'],
+          openaiBuiltInTools: ['web_search'],
+          customToolDefinitionIds: ['507f1f77bcf86cd799439011'],
+        },
+        knowledge: { sources: ['source-1'], useSessionMemory: true, usePersistentMemory: false },
+        security: { requiresApproval: true, accessLevel: 'write' },
+        channelConfig: { enabled: ['api'], canReplyDirectly: true },
+        openaiRuntimeModel: 'gpt-5.4-mini',
+      },
+      system: {},
+    } as never;
+
+    let created = 0;
+    const createSpy = jest.fn(async (_ws: string, body: Record<string, unknown>) => {
+      created += 1;
+      return { id: created === 1 ? 'na1' : 'na2', ...body };
+    });
+    const { deps } = buildDepsForImport(createSpy);
+
+    await importTeamFromExport(deps, workspaceId, {
+      mode: 'create',
+      importBody: teamImportBodySchemaFn.parse({ payload }),
+      sameWorkspaceMcp: true,
+    });
+
+    const specialistBody = createSpy.mock.calls[1]?.[1] as Record<string, unknown>;
+    expect((specialistBody.capabilities as Record<string, unknown>)['platformBuiltInTools']).toEqual([
+      'crm.search_customer',
+    ]);
+    expect((specialistBody.capabilities as Record<string, unknown>)['openaiBuiltInTools']).toEqual([
+      'web_search',
+    ]);
+    expect(specialistBody.knowledge).toEqual({
+      sources: ['source-1'],
+      useSessionMemory: true,
+      usePersistentMemory: false,
+    });
+    expect(specialistBody.security).toEqual({ requiresApproval: true, accessLevel: 'write' });
+    expect(specialistBody.channelConfig).toEqual({ enabled: ['api'], canReplyDirectly: true });
+    expect(specialistBody.openaiRuntimeModel).toBe('gpt-5.4-mini');
+  });
+
+  it('prioriza runtime em agent sobre sections.runtime', async () => {
+    const payload = buildMinV2Export();
+    payload.agents[1]!.agent = {
+      id: 'a2',
+      name: 'S',
+      role: 'specialist',
+      capabilities: {
+        tools: ['legacy.agent'],
+        platformBuiltInTools: ['scheduling.create_appointment'],
+        openaiBuiltInTools: ['file_search'],
+        customToolDefinitionIds: ['507f1f77bcf86cd799439012'],
+      },
+      openaiRuntimeModel: 'gpt-4o-mini',
+    } as never;
+    (payload.agents[1] as Record<string, unknown>).sections = {
+      runtime: {
+        capabilities: {
+          tools: ['legacy.runtime'],
+          platformBuiltInTools: ['crm.search_customer'],
+          openaiBuiltInTools: ['web_search'],
+          customToolDefinitionIds: ['507f1f77bcf86cd799439011'],
+        },
+        openaiRuntimeModel: 'gpt-5.4-mini',
+      },
+      system: {},
+    } as never;
+
+    let created = 0;
+    const createSpy = jest.fn(async (_ws: string, body: Record<string, unknown>) => {
+      created += 1;
+      return { id: created === 1 ? 'na1' : 'na2', ...body };
+    });
+    const { deps } = buildDepsForImport(createSpy);
+
+    await importTeamFromExport(deps, workspaceId, {
+      mode: 'create',
+      importBody: teamImportBodySchemaFn.parse({ payload }),
+      sameWorkspaceMcp: true,
+    });
+
+    const specialistBody = createSpy.mock.calls[1]?.[1] as Record<string, unknown>;
+    expect((specialistBody.capabilities as Record<string, unknown>)['tools']).toEqual(['legacy.agent']);
+    expect((specialistBody.capabilities as Record<string, unknown>)['platformBuiltInTools']).toEqual([
+      'scheduling.create_appointment',
+    ]);
+    expect((specialistBody.capabilities as Record<string, unknown>)['openaiBuiltInTools']).toEqual([
+      'file_search',
+    ]);
+    expect(specialistBody.openaiRuntimeModel).toBe('gpt-4o-mini');
   });
 });

@@ -18,6 +18,7 @@ import { mergeChannelSecretsIntoImportPayload } from './merge-channel-secrets-in
 import type { IAppDeps } from '../../../config/container.js';
 import type { TeamRepository } from '../infra/team.repository.js';
 import type { TAgentExportPayload } from '../../agents/application/build-agent-export.js';
+import { normalizeAgentCapabilities } from '../../agents/application/agent-capabilities.js';
 import { z } from 'zod';
 import type { IEncryptedPayload } from '../../../utils/secrets-crypto.js';
 import type { EOpenAiWorkspaceChatModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
@@ -224,6 +225,21 @@ function buildAgentCreateBody(agentRecord: Record<string, unknown>, role: string
   return base;
 }
 
+function extractAgentRuntimeFromExport(exp: TAgentExportPayload) {
+  const agent = exp.agent as Record<string, unknown>;
+  const sections = exp.sections as Record<string, unknown> | undefined;
+  const runtime = sections?.['runtime'] as Record<string, unknown> | undefined;
+  const system = sections?.['system'] as Record<string, unknown> | undefined;
+  return {
+    capabilities: normalizeAgentCapabilities(agent['capabilities'] ?? runtime?.['capabilities']),
+    knowledge: agent['knowledge'] ?? runtime?.['knowledge'],
+    security: agent['security'] ?? runtime?.['security'],
+    channelConfig: agent['channelConfig'] ?? runtime?.['channelConfig'],
+    openaiRuntimeModel:
+      agent['openaiRuntimeModel'] ?? runtime?.['openaiRuntimeModel'] ?? system?.['openaiRuntimeModel'],
+  };
+}
+
 function toChannelSnapshotsFromExport(parsed: {
   team: { channelIds: string[] };
   channels: { id: string; type: unknown; name: string; status: unknown }[];
@@ -383,10 +399,11 @@ export async function importTeamFromExport(
 
   for (const exp of exportAgents) {
     const a = exp.agent as Record<string, unknown>;
+    const runtime = extractAgentRuntimeFromExport(exp);
     const oldId = String(a['id'] ?? '');
     const role = String(a['role'] ?? 'specialist');
-    if (deps.workspaceIntegrationsService && a['openaiRuntimeModel']) {
-      const m = a['openaiRuntimeModel'] as string;
+    if (deps.workspaceIntegrationsService && runtime.openaiRuntimeModel) {
+      const m = runtime.openaiRuntimeModel as string;
       if (m) {
         try {
           await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(
@@ -394,12 +411,22 @@ export async function importTeamFromExport(
             m as EOpenAiWorkspaceChatModel,
           );
         } catch (e) {
-          delete a['openaiRuntimeModel'];
+          runtime.openaiRuntimeModel = undefined;
           warnings.push(`Modelo removido para o agente ${a['name'] ?? oldId} (plano/integracoes nao permitem: ${m}).`);
         }
       }
     }
-    const body = buildAgentCreateBody(a, role);
+    const body = buildAgentCreateBody(
+      {
+        ...a,
+        capabilities: runtime.capabilities,
+        knowledge: runtime.knowledge,
+        security: runtime.security,
+        channelConfig: runtime.channelConfig,
+        openaiRuntimeModel: runtime.openaiRuntimeModel,
+      },
+      role,
+    );
     const created = await deps.agentRepo.create(workspaceId, body);
     oldToNewAgentIds[oldId] = (created as { id: string }).id;
   }

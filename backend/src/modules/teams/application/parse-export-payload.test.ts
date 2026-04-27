@@ -37,4 +37,35 @@ describe('parseExportPayload', () => {
     const p = parseExportPayload(raw);
     expect(p.kind).toBe('ok');
   });
+
+  it('aceita payload legado sem platformBuiltInTools/openaiBuiltInTools', () => {
+    const raw = {
+      exportVersion: '2',
+      exportKind: 'team',
+      team: {
+        name: 'T',
+        coordinatorId: 'a1',
+        agentIds: [],
+        channelIds: [],
+      },
+      graph: { nodes: [], edges: [] },
+      channels: [],
+      agents: [
+        {
+          exportVersion: AGENT_EXPORT_VERSION,
+          exportKind: 'agent' as const,
+          exportedAt: 'x',
+          agent: {
+            id: 'a1',
+            name: 'A',
+            role: 'coordinator',
+            capabilities: { tools: ['legacy.tool'], customToolDefinitionIds: ['abc'] },
+          } as never,
+          mcpBindings: [],
+        },
+      ],
+    };
+    const p = parseExportPayload(raw);
+    expect(p.kind).toBe('ok');
+  });
 });

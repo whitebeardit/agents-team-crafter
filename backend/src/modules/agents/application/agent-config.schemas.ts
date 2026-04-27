@@ -42,8 +42,12 @@ export const toolsSchema = z.object({
     .transform(stripDeprecatedCatalogToolIds)
     .refine((arr) => arr.every((t) => isAllowedTool(t)), {
       message: 'Tool id invalida',
-    }),
-  customToolDefinitionIds: z.array(mongoId).optional(),
+    })
+    .optional()
+    .default([]),
+  platformBuiltInTools: z.array(z.string()).optional().default([]),
+  openaiBuiltInTools: z.array(z.string()).optional().default([]),
+  customToolDefinitionIds: z.array(mongoId).optional().default([]),
 });
 
 export const channelsCfgSchema = z.object({

@@ -24,6 +24,7 @@ import {
   parseOpenAiWorkspaceChatModel,
 } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { buildAgentExportPayload } from '../application/build-agent-export.js';
+import { normalizeAgentCapabilities } from '../application/agent-capabilities.js';
 
 const openaiRuntimeModelField = z.nativeEnum(EOpenAiWorkspaceChatModel);
 
@@ -516,16 +517,14 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     const cap = { ...(asRec(cur)['capabilities'] as Record<string, unknown> | undefined) };
     delete cap['canDelegate'];
     delete cap['canReceiveHandoff'];
-    await deps.agentRepo.update(ws, id, {
-      capabilities: {
-        ...cap,
-        tools: body.tools,
-        ...(body.customToolDefinitionIds !== undefined
-          ? { customToolDefinitionIds: body.customToolDefinitionIds }
-          : {}),
-      },
+    const capabilities = normalizeAgentCapabilities({
+      ...cap,
+      ...body,
     });
-    return reply.send(successEnvelope({ tools: body.tools, customToolDefinitionIds: body.customToolDefinitionIds }));
+    await deps.agentRepo.update(ws, id, {
+      capabilities,
+    });
+    return reply.send(successEnvelope(capabilities));
   });
 
   app.put('/agents/:id/channels', { preHandler: tenant }, async (req, reply) => {

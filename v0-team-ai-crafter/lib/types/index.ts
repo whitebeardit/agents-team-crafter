@@ -7,6 +7,8 @@ export type AgentSystemRole = "team-crafter" | "agent-crafter" | "domain-guard" 
 
 export interface AgentCapabilities {
   tools: string[]
+  platformBuiltInTools?: string[]
+  openaiBuiltInTools?: string[]
   mcpBindings: string[]
   customToolDefinitionIds?: string[]
 }

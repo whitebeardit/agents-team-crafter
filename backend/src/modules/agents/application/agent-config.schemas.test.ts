@@ -53,4 +53,14 @@ describe('toolsSchema', () => {
     });
     expect(parsed.customToolDefinitionIds).toHaveLength(1);
   });
+
+  it('aplica defaults nos novos campos', () => {
+    const parsed = toolsSchema.parse({});
+    expect(parsed).toEqual({
+      tools: [],
+      platformBuiltInTools: [],
+      openaiBuiltInTools: [],
+      customToolDefinitionIds: [],
+    });
+  });
 });

@@ -1,7 +1,20 @@
+import { normalizeAgentCapabilities } from './agent-capabilities.js';
+
 /** Versão do formato de export (agente e time alinham a mesma string). */
 export const AGENT_EXPORT_VERSION = '2';
 
-function buildAgentExportSections(agent: Record<string, unknown>) {
+export function buildAgentRuntimeSnapshot(agent: Record<string, unknown>, mcpBindings: unknown[]) {
+  return {
+    openaiRuntimeModel: agent['openaiRuntimeModel'],
+    capabilities: normalizeAgentCapabilities(agent['capabilities']),
+    knowledge: agent['knowledge'],
+    channelConfig: agent['channelConfig'],
+    security: agent['security'],
+    mcpBindings,
+  };
+}
+
+function buildAgentExportSections(agent: Record<string, unknown>, runtime: ReturnType<typeof buildAgentRuntimeSnapshot>) {
   return {
     mission: {
       goal: agent['goal'],
@@ -17,23 +30,25 @@ function buildAgentExportSections(agent: Record<string, unknown>) {
       qualityCriteria: agent['qualityCriteria'],
       reuseHints: agent['reuseHints'],
     },
-    runtime: {
-      capabilities: agent['capabilities'],
-      knowledge: agent['knowledge'],
-      channelConfig: agent['channelConfig'],
-      security: agent['security'],
-    },
+    runtime,
   };
 }
 
 export function buildAgentExportPayload(agent: Record<string, unknown>, mcpBindings: unknown[]) {
+  const runtime = buildAgentRuntimeSnapshot(agent, mcpBindings);
   return {
     exportVersion: AGENT_EXPORT_VERSION,
     exportKind: 'agent' as const,
     exportedAt: new Date().toISOString(),
-    agent,
+    agent: {
+      ...agent,
+      capabilities: runtime.capabilities,
+      knowledge: runtime.knowledge,
+      security: runtime.security,
+      channelConfig: runtime.channelConfig,
+    },
     mcpBindings,
-    sections: buildAgentExportSections(agent),
+    sections: buildAgentExportSections(agent, runtime),
   };
 }
 
