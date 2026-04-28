@@ -11,6 +11,17 @@ import type { IAppDeps } from '../../../config/container.js';
 import type { ITeamReadinessItem, ITeamReadinessResult, TTeamReadinessLevel } from './team-readiness.types.js';
 
 const CATALOG_NEEDING_INTEGRATION = new Set(['calendar_access', 'image_generation']);
+const CLINIC_COORDINATION_ACTION_IDS = new Set([
+  'clinic_context_get_current_patient',
+  'clinic_context_update_current_patient',
+  'clinic_get_patient_full_snapshot',
+]);
+const CLINIC_EXECUTION_WORKFLOW_ACTION_IDS = new Set([
+  'clinic_schedule_session',
+  'clinic_reschedule_session',
+  'clinic_cancel_session',
+]);
+const PRIMITIVE_SENSITIVE_PREFIXES = ['schedule_', 'attendance_', 'clinical_', 'finance_', 'package_'];
 
 export type TTeamReadinessDeps = Pick<
   IAppDeps,
@@ -37,6 +48,14 @@ function headlineFor(level: TTeamReadinessLevel): string {
     default:
       return 'Time pronto para operar com a configuração actual.';
   }
+}
+
+function isSensitivePrimitiveAction(actionId: string): boolean {
+  return PRIMITIVE_SENSITIVE_PREFIXES.some((prefix) => actionId.startsWith(prefix));
+}
+
+function isClinicalExecutionWorkflow(actionId: string): boolean {
+  return CLINIC_EXECUTION_WORKFLOW_ACTION_IDS.has(actionId);
 }
 
 /**
@@ -118,8 +137,10 @@ export async function computeTeamReadiness(
 
   const agentIdList = [team.coordinatorId, ...(team.agentIds ?? [])];
   const uniqueAgentIds = [...new Set(agentIdList)];
+  const agentById = new Map<string, Awaited<ReturnType<TTeamReadinessDeps['agentRepo']['findById']>>>();
   for (const aid of uniqueAgentIds) {
     const exists = await deps.agentRepo.findById(workspaceId, aid);
+    agentById.set(aid, exists);
     if (!exists) {
       push({
         code: 'team_agent_missing',
@@ -129,6 +150,92 @@ export async function computeTeamReadiness(
         nextStep: 'Remova o agente ou restaure-o em Agentes.',
         routeHint: '/agents',
         ctaLabel: 'Workspace — Agentes',
+      });
+    }
+  }
+
+  if ((team.agentIds ?? []).length === 0 && (team.channelIds ?? []).length > 0) {
+    push({
+      code: 'team_without_specialists',
+      severity: 'attention',
+      title: 'Time sem especialistas de domínio',
+      detail:
+        'O plano SO de Clínica recomenda que a coordenadora interprete e delegue; a execução dos workflows deve ficar com especialistas.',
+      nextStep:
+        'Adicione especialistas ao time ou crie um time pelo template clínico antes de colocar tráfego externo em produção.',
+      routeHint: `/teams/${teamId}?tab=agents`,
+      ctaLabel: 'Ver agentes do time',
+    });
+  }
+
+  const actionIdCache = new Map<string, string | null>();
+  const resolveActionId = async (definitionId: string): Promise<string | null> => {
+    if (actionIdCache.has(definitionId)) return actionIdCache.get(definitionId) ?? null;
+    const def = await deps.workspaceToolDefinitionRepo.findById(workspaceId, definitionId);
+    const actionId =
+      def?.kind === 'internal_action' && typeof def.config?.actionId === 'string'
+        ? def.config.actionId.trim()
+        : '';
+    const normalized = actionId || null;
+    actionIdCache.set(definitionId, normalized);
+    return normalized;
+  };
+
+  const actionIdsByAgent = new Map<string, string[]>();
+  for (const aid of uniqueAgentIds) {
+    const agent = agentById.get(aid);
+    const cap = (agent as { capabilities?: { customToolDefinitionIds?: string[] } } | null)?.capabilities;
+    const customIds = cap?.customToolDefinitionIds ?? [];
+    const actionIds: string[] = [];
+    for (const defId of customIds) {
+      const actionId = await resolveActionId(defId);
+      if (actionId) actionIds.push(actionId);
+    }
+    actionIdsByAgent.set(aid, actionIds);
+  }
+
+  const coordinatorActionIds = actionIdsByAgent.get(team.coordinatorId) ?? [];
+  const coordinatorExecutionWorkflows = coordinatorActionIds.filter(isClinicalExecutionWorkflow);
+  if (coordinatorExecutionWorkflows.length > 0) {
+    push({
+      code: 'coordinator_has_execution_workflows',
+      severity: 'attention',
+      title: 'Coordenador com workflows de execução',
+      detail: `A coordenadora deve delegar em vez de executar diretamente: ${coordinatorExecutionWorkflows.join(', ')}.`,
+      nextStep: 'Mova workflows compostos para especialistas de domínio e mantenha no coordenador apenas contexto/roteamento.',
+      routeHint: `/agents/${team.coordinatorId}`,
+      ctaLabel: 'Abrir coordenador',
+    });
+  }
+
+  const coordinatorPrimitiveActions = coordinatorActionIds.filter(
+    (actionId) => isSensitivePrimitiveAction(actionId) && !CLINIC_COORDINATION_ACTION_IDS.has(actionId),
+  );
+  if (coordinatorPrimitiveActions.length > 0) {
+    push({
+      code: 'coordinator_has_sensitive_primitives',
+      severity: 'attention',
+      title: 'Coordenador com primitivas sensíveis',
+      detail: `Primitivas de escrita/agenda no coordenador aumentam o risco de fluxos incompletos: ${coordinatorPrimitiveActions.join(', ')}.`,
+      nextStep: 'Use workflows compostos nos especialistas e deixe primitivas apenas em modo avançado/admin.',
+      routeHint: `/agents/${team.coordinatorId}`,
+      ctaLabel: 'Rever tools',
+    });
+  }
+
+  for (const specialistId of team.agentIds ?? []) {
+    const actionIds = actionIdsByAgent.get(specialistId) ?? [];
+    const riskyPrimitive = actionIds.find(isSensitivePrimitiveAction);
+    if (riskyPrimitive && !actionIds.some(isClinicalExecutionWorkflow)) {
+      const agent = agentById.get(specialistId) as { name?: string } | null;
+      push({
+        code: 'specialist_uses_primitive_without_workflow',
+        severity: 'attention',
+        title: 'Especialista com primitiva sem workflow composto',
+        detail: `«${agent?.name ?? specialistId}» usa ${riskyPrimitive} sem um workflow clínico composto equivalente.`,
+        nextStep: 'Prefira actions compostas de clínica para validar paciente, pacote, timezone e persistência final.',
+        routeHint: `/agents/${specialistId}`,
+        ctaLabel: 'Abrir especialista',
       });
     }
   }

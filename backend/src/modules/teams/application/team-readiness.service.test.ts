@@ -75,4 +75,59 @@ describe('computeTeamReadiness', () => {
     expect(r.items.some((i) => i.code === 'team_status_draft')).toBe(true);
     expect(['attention', 'blocked']).toContain(r.level);
   });
+
+  it('flags active channel team without specialists as attention', async () => {
+    const deps = mockDeps({
+      teamRepo: {
+        findById: jest.fn(async () => ({
+          id: 't1',
+          status: 'active',
+          coordinatorId: 'c1',
+          agentIds: [],
+          channelIds: ['ch1'],
+        })),
+      } as unknown as TTeamReadinessDeps['teamRepo'],
+      channelRepo: {
+        findById: jest.fn(async () => ({ id: 'ch1', status: 'connected' })),
+        listAllIds: jest.fn(async () => new Set(['ch1'])),
+      } as unknown as TTeamReadinessDeps['channelRepo'],
+    });
+    const r = await computeTeamReadiness('ws', 't1', deps);
+    expect(r.items.some((i) => i.code === 'team_without_specialists')).toBe(true);
+  });
+
+  it('flags coordinator execution workflows from workspace tools', async () => {
+    const deps = mockDeps({
+      agentRepo: {
+        findById: jest.fn(async (_ws: string, id: string) => {
+          if (id === 'c1') {
+            return {
+              id: 'c1',
+              name: 'Coord',
+              role: 'coordinator',
+              capabilities: { tools: [], customToolDefinitionIds: ['def1'] },
+            };
+          }
+          if (id === 's1') return { id: 's1', name: 'Spec', role: 'specialist', capabilities: { tools: [] } };
+          return null;
+        }),
+        listAllIds: jest.fn(async () => new Set(['c1', 's1'])),
+      } as unknown as TTeamReadinessDeps['agentRepo'],
+      workspaceToolDefinitionRepo: {
+        findById: jest.fn(async (_ws: string, id: string) =>
+          id === 'def1'
+            ? {
+                id: 'def1',
+                enabled: true,
+                kind: 'internal_action',
+                name: 'Clínica — Agendar sessão',
+                config: { actionId: 'clinic_schedule_session' },
+              }
+            : null,
+        ),
+      } as unknown as TTeamReadinessDeps['workspaceToolDefinitionRepo'],
+    });
+    const r = await computeTeamReadiness('ws', 't1', deps);
+    expect(r.items.some((i) => i.code === 'coordinator_has_execution_workflows')).toBe(true);
+  });
 });

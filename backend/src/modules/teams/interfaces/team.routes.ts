@@ -109,6 +109,7 @@ function toTeamAgentDigest(a: Record<string, unknown>) {
     category: a['category'],
     skills: (a['skills'] as string[]) ?? [],
     channels: (a['channels'] as string[]) ?? [],
+    capabilities: a['capabilities'],
   };
 }
 

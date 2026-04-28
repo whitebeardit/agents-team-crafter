@@ -27,6 +27,7 @@ import {
   FileStack,
   BookMarked,
   Sparkles,
+  Stethoscope,
 } from "lucide-react"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
@@ -40,6 +41,7 @@ import type {
   TeamImportResult,
   TeamReadinessResult,
   TeamRunRecord,
+  AgentCapabilities,
 } from "@/lib/types"
 import { channelTypeLabels, channelStatusLabels } from "@/lib/constants/channel-labels"
 import { ApiError, createApiClient } from "@/lib/api/client"
@@ -75,6 +77,51 @@ const statusLabels = {
   draft: "Rascunho",
   inactive: "Inativo",
 }
+
+const clinicCapabilityPlan = [
+  {
+    role: "Coordenadora da Clínica",
+    owner: "coordinator",
+    capabilities: ["Coordenação e roteamento", "Contexto da paciente", "Síntese para o usuário"],
+    tools: ["clinic_context_get_current_patient", "clinic_context_update_current_patient", "clinic_get_patient_full_snapshot"],
+    note: "Não deve executar workflows de domínio diretamente; deve delegar para especialistas.",
+  },
+  {
+    role: "Especialista Paciente/CRM",
+    owner: "patient",
+    capabilities: ["Cadastrar paciente", "Buscar paciente"],
+    tools: ["clinic_create_patient"],
+    note: "Resolve Party + CareSubject antes de agenda, atendimento ou financeiro.",
+  },
+  {
+    role: "Especialista Pacotes",
+    owner: "packages",
+    capabilities: ["Vender pacote", "Consultar saldo"],
+    tools: ["clinic_sell_default_package", "clinic_list_patient_packages"],
+    note: "Mantém pacote elegível e saldo fora da coordenadora.",
+  },
+  {
+    role: "Especialista Agenda Clínica",
+    owner: "scheduling",
+    capabilities: ["Agendar sessão", "Remarcar sessão", "Cancelar sessão"],
+    tools: ["clinic_schedule_session", "clinic_reschedule_session", "clinic_cancel_session"],
+    note: "Usa workflows compostos com validação clínica antes das primitivas de agenda.",
+  },
+  {
+    role: "Especialista Atendimento/Prontuário",
+    owner: "attendance",
+    capabilities: ["Registrar atendimento", "Adicionar evolução"],
+    tools: ["clinic_register_attendance_by_phone_and_time", "clinical_add_evolution_note"],
+    note: "Registra atendimento com vínculo operacional claro.",
+  },
+  {
+    role: "Especialista Financeiro",
+    owner: "finance",
+    capabilities: ["Cobrar sessão", "Ver pendências"],
+    tools: ["clinic_create_receivable_for_session", "finance_list_receivables"],
+    note: "Separa cobranças e pendências da coordenação conversacional.",
+  },
+] as const
 
 function TeamAgentDigestMeta({
   agent,
@@ -305,6 +352,21 @@ export default function TeamDetailsPage({
       .slice(0, 4)
   }, [readiness])
 
+  const assignedClinicActionIds = useMemo(() => {
+    const ids = new Set<string>()
+    if (!team) return ids
+    const collect = (agent?: Partial<Agent>) => {
+      for (const actionId of agent?.capabilities?.workspaceActionIds ?? []) {
+        ids.add(actionId)
+      }
+    }
+    collect((team as { coordinator?: Partial<Agent> }).coordinator)
+    for (const agent of ((team as { agents?: Agent[] }).agents ?? [])) {
+      collect(agent)
+    }
+    return ids
+  }, [team])
+
   if (!team) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -316,6 +378,25 @@ export default function TeamDetailsPage({
   const coordinator = (team as any).coordinator as Partial<Agent> | undefined
   const specialists = ((team as any).agents as Agent[] | undefined) ?? []
   const channels = teamChannels
+  const clinicCapabilityStatus = clinicCapabilityPlan.map((item) => {
+    const candidates =
+      item.owner === "coordinator" ? (coordinator ? [coordinator] : []) : specialists
+    const owner =
+      candidates.find((agent) => {
+        const haystack = [agent.name, agent.category, ...(agent.skills ?? [])]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+        return item.match.some((needle) => haystack.includes(needle))
+      }) ?? null
+    const customIds = owner?.capabilities?.customToolDefinitionIds ?? []
+    return {
+      ...item,
+      owner,
+      customToolCount: customIds.length,
+      ready: Boolean(owner && (item.owner === "coordinator" || customIds.length > 0)),
+    }
+  })
 
   const createdAt = format(new Date(team.createdAt), "dd 'de' MMMM 'de' yyyy", {
     locale: ptBR,
@@ -937,6 +1018,81 @@ export default function TeamDetailsPage({
                 </Button>
                 <Button type="button" variant="outline" size="sm" asChild>
                   <Link href="/runs">Todas as runs</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <Stethoscope className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-lg">Plano SO de Clínica</CardTitle>
+                  <CardDescription className="mt-0.5">
+                    Capabilities esperadas pelo plano: coordenadora delega; especialistas executam workflows compostos.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Regra principal:</span> no modo padrão, exponha workflows
+                compostos aos especialistas e deixe primitivas como modo avançado/admin.
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {clinicCapabilityPlan.map((entry) => {
+                  const status = clinicCapabilityStatus[entry.role]
+                  return (
+                    <div key={entry.role} className="rounded-lg border border-border bg-secondary/20 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium">{entry.role}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{entry.note}</p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={
+                            status.configured
+                              ? "border-success/30 bg-success/10 text-success"
+                              : "border-warning/30 bg-warning/10 text-warning"
+                          }
+                        >
+                          {status.configured ? "No time" : "Pendente"}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {entry.capabilities.map((capability) => (
+                          <Badge key={capability} variant="secondary" className="text-xs font-normal">
+                            {capability}
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="mt-3 space-y-1">
+                        {entry.tools.map((tool) => (
+                          <div key={tool} className="flex items-center justify-between gap-2 text-xs">
+                            <code className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">{tool}</code>
+                            <span className={status.boundTools.has(tool) ? "text-success" : "text-muted-foreground"}>
+                              {status.boundTools.has(tool) ? "associada" : "não associada"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {status.agentNames.length > 0 ? (
+                        <p className="mt-3 text-xs text-muted-foreground">Agente(s): {status.agentNames.join(", ")}</p>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" size="sm" asChild>
+                  <Link href="/templates">Abrir templates</Link>
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link href="/tool-definitions">Configurar tools</Link>
                 </Button>
               </div>
             </CardContent>
