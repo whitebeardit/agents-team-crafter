@@ -31,6 +31,9 @@ describe('buildSpecialistSystemInstruction', () => {
     expect(text).toContain('package_list_by_party');
     expect(text).toContain('Guardrail pacotes');
     expect(text).toContain('Não confundir listagem com saldo pontual');
+    expect(text).toContain('Não pedir IDs internos');
+    expect(text).toContain('opções humanas numeradas (1..N)');
+    expect(text).toContain('verification.found=true');
   });
 
   it('appends knowledge appendix when provided', () => {

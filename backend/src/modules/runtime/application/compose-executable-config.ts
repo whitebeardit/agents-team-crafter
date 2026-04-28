@@ -19,6 +19,7 @@ export function composeExecutableAgentConfig(parts: {
   customToolDefinitions?: IWorkspaceCustomToolDefinition[];
   businessToolRuntime?: IBusinessToolRuntime;
   teamContext?: { teamId: string; teamName: string };
+  singleAgentMode?: boolean;
   openaiRuntimeModel: string;
 }): IExecutableAgentConfig {
   return { ...parts };

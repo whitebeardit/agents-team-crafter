@@ -9,6 +9,7 @@ import type { ServiceOrderRepository } from '../../services-sales/infra/service-
 import { registerPackagesEncountersPack } from '../../packages-encounters/application/register-packages-encounters-pack.js';
 import type { PackageSaleRepository } from '../../packages-encounters/infra/package-sale.repository.js';
 import type { EncounterRepository } from '../../packages-encounters/infra/encounter.repository.js';
+import type { PackageConsumptionRepository } from '../../packages-encounters/infra/package-consumption.repository.js';
 import { ClinicalRepository } from '../../clinical/infra/clinical.repository.js';
 import { registerClinicalPack } from '../../clinical/application/register-clinical-pack.js';
 import { registerFinancePack } from '../../finance/application/register-finance-pack.js';
@@ -19,6 +20,9 @@ import { registerGithubOpsPack } from '../../github-ops/application/register-git
 import { registerSchedulingPack } from '../../scheduling/application/register-scheduling-pack.js';
 import type { AppointmentRepository } from '../../scheduling/infra/appointment.repository.js';
 import type { AvailabilitySlotRepository } from '../../scheduling/infra/availability-slot.repository.js';
+import type { WorkspaceRepository } from '../../workspaces/infra/workspace.repository.js';
+import { registerClinicPack } from '../../clinic/application/register-clinic-pack.js';
+import type { ClinicConversationStateRepository } from '../../clinic/infra/clinic-conversation-state.repository.js';
 
 export function registerAllBusinessPacks(deps: {
   registry: BusinessToolRegistry;
@@ -28,10 +32,13 @@ export function registerAllBusinessPacks(deps: {
   serviceOrderRepo: ServiceOrderRepository;
   packageSaleRepo: PackageSaleRepository;
   encounterRepo: EncounterRepository;
+  packageConsumptionRepo: PackageConsumptionRepository;
   financeRepo: FinanceRepository;
   reminderRepo: ReminderRepository;
   appointmentRepo: AppointmentRepository;
   availabilitySlotRepo: AvailabilitySlotRepository;
+  workspaceRepo: WorkspaceRepository;
+  clinicConversationStateRepo: ClinicConversationStateRepository;
 }): void {
   registerCrmPack(deps.registry, deps.partyRepo);
   registerCarePack(deps.registry, deps.careSubjectRepo, deps.partyRepo);
@@ -42,6 +49,7 @@ export function registerAllBusinessPacks(deps: {
     deps.encounterRepo,
     deps.partyRepo,
     deps.careSubjectRepo,
+    deps.packageConsumptionRepo,
   );
   const clinicalRepo = new ClinicalRepository(deps.partyRepo);
   registerClinicalPack(deps.registry, clinicalRepo, deps.partyRepo);
@@ -59,4 +67,13 @@ export function registerAllBusinessPacks(deps: {
     deps.reminderRepo,
     deps.encounterRepo,
   );
+  registerClinicPack({
+    registry: deps.registry,
+    parties: deps.partyRepo,
+    careSubjects: deps.careSubjectRepo,
+    workspaces: deps.workspaceRepo,
+    packageSales: deps.packageSaleRepo,
+    appointments: deps.appointmentRepo,
+    conversationState: deps.clinicConversationStateRepo,
+  });
 }

@@ -82,6 +82,7 @@ const plannerOutputInnerSchema = z.object({
     description: z.string().default(''),
     primaryChannel: productChannelTypeSchema.optional(),
     channelIds: z.array(z.string()).default([]),
+    singleAgentMode: z.boolean().default(false),
   }),
   agents: z.array(plannerAgentSchema).min(1),
   graph: z

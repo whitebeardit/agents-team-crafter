@@ -2207,6 +2207,38 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 }}
               />
             </div>
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-sm">Modo simplificado (`single_agent_mode`)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Permite exceção de arquitetura para execução direta; use apenas em cenário controlado.
+                  </p>
+                </div>
+                <Switch
+                  checked={plan.team.singleAgentMode === true}
+                  onCheckedChange={(checked) => {
+                    proposePlanUpdate({
+                      ...plan,
+                      team: {
+                        ...plan.team,
+                        singleAgentMode: checked === true,
+                      },
+                    })
+                  }}
+                />
+              </div>
+              {plan.team.singleAgentMode ? (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Modo simplificado ativo</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Com `single_agent_mode`, a política de bloqueio da coordenadora para workflows operacionais pode ser
+                    flexibilizada no runtime.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
             <div className="space-y-3">
               <Label>Agentes planejados</Label>
               <p className="text-muted-foreground text-xs leading-relaxed">

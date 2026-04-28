@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { composeExternalResponseFromModelText } from './response-composer.service.js';
+import { composeClinicSafeUserText, composeExternalResponseFromModelText } from './response-composer.service.js';
 
 describe('composeExternalResponseFromModelText', () => {
   it('returns plain text without attachments for simple strings', () => {
@@ -22,5 +22,25 @@ describe('composeExternalResponseFromModelText', () => {
     const r = composeExternalResponseFromModelText('**note**');
     expect(r.format).toBe('markdown');
     expect(r.attachments).toBeUndefined();
+  });
+});
+
+describe('composeClinicSafeUserText', () => {
+  it('forces non-confirmation template when verification fails', () => {
+    const text = composeClinicSafeUserText({
+      text: 'agendado',
+      verificationFailed: true,
+    });
+    expect(text).toContain('não consegui confirmar');
+    expect(text).toContain('Não vou marcar como concluída');
+  });
+
+  it('formats ambiguity options in human numbered list', () => {
+    const text = composeClinicSafeUserText({
+      text: 'fallback',
+      ambiguityOptions: ['Hoje 13:00 — Consulta', 'Amanhã 17:00 — Psicologia'],
+    });
+    expect(text).toContain('1. Hoje 13:00 — Consulta');
+    expect(text).toContain('2. Amanhã 17:00 — Psicologia');
   });
 });

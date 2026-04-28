@@ -108,6 +108,12 @@ type TBusinessCatalogItem = {
   title: string
   description: string
   packId?: string
+  toolKind?: "coordination" | "primitive" | "composite_workflow" | "read_model" | "admin_diagnostic"
+  riskLevel?: "low" | "medium" | "high"
+  ownerAgent?: string
+  uiExposureMode?: "primary" | "advanced" | "hidden"
+  domainScope?: string
+  replacesPrimitiveActions?: string[]
 }
 
 function describeWorkspaceToolConfig(
@@ -115,7 +121,17 @@ function describeWorkspaceToolConfig(
     kind: string
     config?: Record<string, unknown>
   },
-  catalogByActionId?: Record<string, { title: string; packId?: string }>,
+  catalogByActionId?: Record<
+    string,
+    {
+      title: string
+      packId?: string
+      toolKind?: TBusinessCatalogItem["toolKind"]
+      riskLevel?: TBusinessCatalogItem["riskLevel"]
+      ownerAgent?: string
+      uiExposureMode?: TBusinessCatalogItem["uiExposureMode"]
+    }
+  >,
 ): string | null {
   if (tool.kind === "internal_action") {
     const aid = typeof tool.config?.actionId === "string" ? tool.config.actionId : ""
@@ -184,6 +200,11 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [openaiRuntimeModelPick, setOpenaiRuntimeModelPick] = useState<string>("__unset__")
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
   const [businessActionCatalog, setBusinessActionCatalog] = useState<TBusinessCatalogItem[]>([])
+  const [workspaceToolFilterKind, setWorkspaceToolFilterKind] = useState<string>("all")
+  const [workspaceToolFilterDomain, setWorkspaceToolFilterDomain] = useState<string>("all")
+  const [workspaceToolFilterRisk, setWorkspaceToolFilterRisk] = useState<string>("all")
+  const [workspaceToolFilterExposure, setWorkspaceToolFilterExposure] = useState<string>("all")
+  const [workspaceToolFilterOwner, setWorkspaceToolFilterOwner] = useState<string>("all")
   const [exportJsonBusy, setExportJsonBusy] = useState(false)
 
   const applyAgentPayload = useCallback(
@@ -336,11 +357,40 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   }, [api, agent])
 
   const businessActionCatalogById = useMemo(() => {
-    const m: Record<string, { title: string; packId?: string }> = {}
+    const m: Record<
+      string,
+      {
+        title: string
+        packId?: string
+        toolKind?: TBusinessCatalogItem["toolKind"]
+        riskLevel?: TBusinessCatalogItem["riskLevel"]
+        ownerAgent?: string
+        uiExposureMode?: TBusinessCatalogItem["uiExposureMode"]
+      }
+    > = {}
     for (const c of businessActionCatalog) {
-      m[c.actionId] = { title: c.title, packId: c.packId }
+      m[c.actionId] = {
+        title: c.title,
+        packId: c.packId,
+        toolKind: c.toolKind,
+        riskLevel: c.riskLevel,
+        ownerAgent: c.ownerAgent,
+        uiExposureMode: c.uiExposureMode,
+        domainScope: c.domainScope,
+        replacesPrimitiveActions: c.replacesPrimitiveActions,
+      }
     }
     return m
+  }, [businessActionCatalog])
+  const primitiveReplacementByActionId = useMemo(() => {
+    const out: Record<string, string[]> = {}
+    for (const c of businessActionCatalog) {
+      for (const primitiveId of c.replacesPrimitiveActions ?? []) {
+        if (!out[primitiveId]) out[primitiveId] = []
+        out[primitiveId].push(c.title)
+      }
+    }
+    return out
   }, [businessActionCatalog])
 
   if (!agent) {
@@ -361,6 +411,45 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const activeWorkspaceToolDefs = workspaceToolDefs.filter((toolDef) => toolDef.enabled)
   const inactiveWorkspaceToolDefs = workspaceToolDefs.filter((toolDef) => !toolDef.enabled)
   const selectedWorkspaceToolCount = customToolDefinitionIds.length
+  const workspaceToolDomainOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        businessActionCatalog
+          .map((c) => c.domainScope?.trim())
+          .filter((v): v is string => Boolean(v)),
+      ),
+    ).sort()
+  }, [businessActionCatalog])
+  const workspaceToolOwnerOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        businessActionCatalog
+          .map((c) => c.ownerAgent?.trim())
+          .filter((v): v is string => Boolean(v)),
+      ),
+    ).sort()
+  }, [businessActionCatalog])
+  const filteredWorkspaceToolDefs = useMemo(() => {
+    return activeWorkspaceToolDefs.filter((def) => {
+      if (def.kind !== "internal_action" || typeof def.config?.actionId !== "string") return true
+      const meta = businessActionCatalogById[def.config.actionId]
+      if (!meta) return true
+      if (workspaceToolFilterKind !== "all" && meta.toolKind !== workspaceToolFilterKind) return false
+      if (workspaceToolFilterDomain !== "all" && meta.domainScope !== workspaceToolFilterDomain) return false
+      if (workspaceToolFilterRisk !== "all" && meta.riskLevel !== workspaceToolFilterRisk) return false
+      if (workspaceToolFilterExposure !== "all" && meta.uiExposureMode !== workspaceToolFilterExposure) return false
+      if (workspaceToolFilterOwner !== "all" && meta.ownerAgent !== workspaceToolFilterOwner) return false
+      return true
+    })
+  }, [
+    activeWorkspaceToolDefs,
+    businessActionCatalogById,
+    workspaceToolFilterKind,
+    workspaceToolFilterDomain,
+    workspaceToolFilterRisk,
+    workspaceToolFilterExposure,
+    workspaceToolFilterOwner,
+  ])
 
   const agentTeams = teams.filter((t) => t.coordinatorId === agent.id || t.agentIds.includes(agent.id))
 
@@ -1174,6 +1263,55 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                <Select value={workspaceToolFilterKind} onValueChange={setWorkspaceToolFilterKind}>
+                  <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tipo: todos</SelectItem>
+                    <SelectItem value="coordination">coordination</SelectItem>
+                    <SelectItem value="composite_workflow">composite_workflow</SelectItem>
+                    <SelectItem value="primitive">primitive</SelectItem>
+                    <SelectItem value="read_model">read_model</SelectItem>
+                    <SelectItem value="admin_diagnostic">admin_diagnostic</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={workspaceToolFilterDomain} onValueChange={setWorkspaceToolFilterDomain}>
+                  <SelectTrigger><SelectValue placeholder="Domínio" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Domínio: todos</SelectItem>
+                    {workspaceToolDomainOptions.map((domain) => (
+                      <SelectItem key={domain} value={domain}>{domain}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={workspaceToolFilterRisk} onValueChange={setWorkspaceToolFilterRisk}>
+                  <SelectTrigger><SelectValue placeholder="Risco" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Risco: todos</SelectItem>
+                    <SelectItem value="low">low</SelectItem>
+                    <SelectItem value="medium">medium</SelectItem>
+                    <SelectItem value="high">high</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={workspaceToolFilterExposure} onValueChange={setWorkspaceToolFilterExposure}>
+                  <SelectTrigger><SelectValue placeholder="Exposição" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Exposição: todas</SelectItem>
+                    <SelectItem value="primary">primary</SelectItem>
+                    <SelectItem value="advanced">advanced</SelectItem>
+                    <SelectItem value="hidden">hidden</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={workspaceToolFilterOwner} onValueChange={setWorkspaceToolFilterOwner}>
+                  <SelectTrigger><SelectValue placeholder="Dono recomendado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Dono: todos</SelectItem>
+                    {workspaceToolOwnerOptions.map((owner) => (
+                      <SelectItem key={owner} value={owner}>{owner}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {inactiveWorkspaceToolDefs.length > 0 ? (
                 <Alert>
                   <Info className="h-4 w-4" />
@@ -1188,13 +1326,12 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                   </AlertDescription>
                 </Alert>
               ) : null}
-              {activeWorkspaceToolDefs.length === 0 ? (
+              {filteredWorkspaceToolDefs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhuma tool de workspace ativa. Crie em Tools ou ative uma existente para poder habilitar neste
-                  agente.
+                  Nenhuma tool ativa encontrada com os filtros atuais.
                 </p>
               ) : (
-                activeWorkspaceToolDefs.map((def) => {
+                filteredWorkspaceToolDefs.map((def) => {
                   const checked = customToolDefinitionIds.includes(def.id)
                   const extraConfig = describeWorkspaceToolConfig(def, businessActionCatalogById)
                   const internalMeta =
@@ -1221,10 +1358,42 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                               {internalMeta.packId}
                             </Badge>
                           ) : null}
+                          {internalMeta?.toolKind ? (
+                            <Badge variant="outline" className="text-xs">
+                              {internalMeta.toolKind}
+                            </Badge>
+                          ) : null}
+                          {internalMeta?.riskLevel ? (
+                            <Badge
+                              variant={internalMeta.riskLevel === "high" ? "destructive" : "outline"}
+                              className="text-xs"
+                            >
+                              risco:{internalMeta.riskLevel}
+                            </Badge>
+                          ) : null}
+                          {internalMeta?.uiExposureMode ? (
+                            <Badge variant="outline" className="text-xs">
+                              {internalMeta.uiExposureMode}
+                            </Badge>
+                          ) : null}
                           {checked ? <Badge variant="secondary">Habilitada neste agente</Badge> : null}
                         </div>
                         <p className="text-sm text-muted-foreground font-mono">{def.slug}</p>
                         {extraConfig ? <p className="text-xs text-muted-foreground mt-1 break-all">{extraConfig}</p> : null}
+                        {internalMeta?.riskLevel === "high" && agent.role !== "coordinator" ? (
+                          <p className="text-xs text-amber-600 mt-1">
+                            Atenção: tool de alto risco para este papel; prefira workflow composto no modo padrão.
+                          </p>
+                        ) : null}
+                        {internalMeta?.toolKind === "primitive" && internalMeta?.riskLevel === "high" ? (
+                          <p className="text-xs text-amber-700 mt-1">
+                            Substituição recomendada:{" "}
+                            {(typeof def.config?.actionId === "string"
+                              ? primitiveReplacementByActionId[def.config.actionId]
+                              : []
+                            )?.join(", ") || "use um workflow composto equivalente."}
+                          </p>
+                        ) : null}
                       </div>
                       <Switch
                         checked={checked}

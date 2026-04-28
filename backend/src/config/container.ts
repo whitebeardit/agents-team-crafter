@@ -36,6 +36,7 @@ import { ServiceCatalogRepository } from '../modules/services-sales/infra/servic
 import { ServiceOrderRepository } from '../modules/services-sales/infra/service-order.repository.js';
 import { PackageSaleRepository } from '../modules/packages-encounters/infra/package-sale.repository.js';
 import { EncounterRepository } from '../modules/packages-encounters/infra/encounter.repository.js';
+import { PackageConsumptionRepository } from '../modules/packages-encounters/infra/package-consumption.repository.js';
 import { FinanceRepository } from '../modules/finance/infra/finance.repository.js';
 import { ReminderRepository } from '../modules/reminders/infra/reminder.repository.js';
 import { ChannelSecretsService } from '../modules/channels/application/channel-secrets.service.js';
@@ -47,6 +48,7 @@ import { RunRecorderService } from '../modules/runs/application/run-recorder.ser
 import { GovernanceAuditEventRepository } from '../modules/governance/infra/governance-audit-event.repository.js';
 import { AppointmentRepository } from '../modules/scheduling/infra/appointment.repository.js';
 import { AvailabilitySlotRepository } from '../modules/scheduling/infra/availability-slot.repository.js';
+import { ClinicConversationStateRepository } from '../modules/clinic/infra/clinic-conversation-state.repository.js';
 import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
 import type { FastifyRequest } from 'fastify';
 import type { preHandlerHookHandler } from 'fastify';
@@ -95,6 +97,7 @@ export interface IAppDeps {
    */
   redis: Redis | null;
   partyRepo: PartyRepository;
+  clinicConversationStateRepo: ClinicConversationStateRepository;
   teamDebugSessionRepo: TeamDebugSessionRepository;
 }
 
@@ -128,6 +131,8 @@ export function createDeps(env: IEnv): IAppDeps {
   const serviceOrderRepo = new ServiceOrderRepository();
   const packageSaleRepo = new PackageSaleRepository();
   const encounterRepo = new EncounterRepository();
+  const packageConsumptionRepo = new PackageConsumptionRepository();
+  const clinicConversationStateRepo = new ClinicConversationStateRepository();
   const financeRepo = new FinanceRepository();
   const reminderRepo = new ReminderRepository();
   const appointmentRepo = new AppointmentRepository();
@@ -140,10 +145,13 @@ export function createDeps(env: IEnv): IAppDeps {
     serviceOrderRepo,
     packageSaleRepo,
     encounterRepo,
+    packageConsumptionRepo,
     financeRepo,
     reminderRepo,
     appointmentRepo,
     availabilitySlotRepo,
+    workspaceRepo,
+    clinicConversationStateRepo,
   });
   const businessToolAuditRepo = new BusinessToolAuditRepository();
   const businessToolRuntime = new BusinessToolRuntime(businessToolRegistry, businessToolAuditRepo);
@@ -165,6 +173,7 @@ export function createDeps(env: IEnv): IAppDeps {
     knowledgeSourceRepo,
     workspaceToolDefinitionRepo,
     businessToolRuntime,
+    clinicConversationStateRepo,
   );
   const redis = createRedisAppClient(env.REDIS_URL);
   const teamLiveBroadcaster = createTeamLiveBroadcaster(redis);
@@ -210,6 +219,7 @@ export function createDeps(env: IEnv): IAppDeps {
     teamLiveBroadcaster,
     redis,
     partyRepo,
+    clinicConversationStateRepo,
     teamDebugSessionRepo,
   };
 }

@@ -68,7 +68,15 @@ function buildLenientInternalActionJsonSchema(
  */
 export function buildWorkspaceCustomTools(
   defs: IWorkspaceCustomToolDefinition[],
-  meta: { workspaceId: string; correlationId?: string },
+  meta: {
+    workspaceId: string;
+    correlationId?: string;
+    teamContext?: { teamId: string; teamName: string };
+    conversationId?: string;
+    actorAgentId?: string;
+    actorRole?: 'coordinator' | 'specialist';
+    singleAgentMode?: boolean;
+  },
   opts?: { businessToolRuntime?: IBusinessToolRuntime },
 ): unknown[] {
   const runtime = opts?.businessToolRuntime;
@@ -113,12 +121,31 @@ export function buildWorkspaceCustomTools(
           parameters: parameters as never,
           strict: false,
           execute: async (input) => {
+            const disallowDirectCoordinatorExecution =
+              meta.actorRole === 'coordinator' &&
+              meta.singleAgentMode !== true &&
+              (preset?.toolKind === 'composite_workflow' || actionId.startsWith('clinic_'));
+            if (disallowDirectCoordinatorExecution) {
+              return JSON.stringify({
+                ok: false,
+                errorCode: 'COORDINATOR_DIRECT_EXECUTION_BLOCKED',
+                error:
+                  'Coordenador não pode executar workflow operacional diretamente no modo padrão; delegue para especialista.',
+                result: {
+                  actionId,
+                  ownerAgent: preset?.ownerAgent,
+                  allowedDirectAgents: preset?.allowedDirectAgents ?? [],
+                },
+              });
+            }
             const r = await runtime.execute({
               workspaceId: meta.workspaceId,
               toolDefinitionId: def.id,
               actionId,
               input,
               correlationId: meta.correlationId,
+              teamContext: meta.teamContext,
+              conversationId: meta.conversationId,
             });
             logToolInvocation({
               workspaceId: meta.workspaceId,

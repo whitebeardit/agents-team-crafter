@@ -4,6 +4,10 @@ import type { PackageSaleRepository } from '../infra/package-sale.repository.js'
 import type { EncounterRepository } from '../infra/encounter.repository.js';
 import type { PartyRepository } from '../../crm/infra/party.repository.js';
 import type { CareSubjectRepository } from '../../care/infra/care-subject.repository.js';
+import type { PackageConsumptionRepository } from '../infra/package-consumption.repository.js';
+import pino from 'pino';
+
+const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
 export function registerPackagesEncountersPack(
   registry: BusinessToolRegistry,
@@ -11,6 +15,7 @@ export function registerPackagesEncountersPack(
   encounters: EncounterRepository,
   parties: PartyRepository,
   careSubjects: CareSubjectRepository,
+  consumptions: PackageConsumptionRepository,
 ): void {
   registry.register('package_sell_to_party', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
@@ -78,6 +83,58 @@ export function registerPackagesEncountersPack(
       notes: typeof data.notes === 'string' ? data.notes : '',
       durationMinutes: typeof data.durationMinutes === 'number' ? data.durationMinutes : Number(data.durationMinutes) || 0,
     });
+  });
+
+  /**
+   * Consome exatamente uma unidade de pacote de forma idempotente por encounter.
+   * Se a combinação {workspaceId, packageSaleId, encounterId} já foi consumida, não consome de novo.
+   */
+  registry.register('package_consume_unit_once', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const packageSaleId = typeof data.packageSaleId === 'string' ? data.packageSaleId : '';
+    const encounterId = typeof data.encounterId === 'string' ? data.encounterId : '';
+    const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : undefined;
+    if (!packageSaleId) throw new Error('packageSaleId obrigatorio');
+    if (!encounterId) throw new Error('encounterId obrigatorio');
+
+    const sale = await packages.findById(workspaceId, packageSaleId);
+    if (!sale) throw new Error('packageSale nao encontrado');
+
+    const created = await consumptions.createOnce(workspaceId, {
+      packageSaleId,
+      partyId: sale.partyId,
+      encounterId,
+      appointmentId,
+      units: 1,
+    });
+    let consumed: { id: string; remaining: number; unitsTotal: number; unitsUsed: number } | null = null;
+    if (created.created) {
+      consumed = await packages.consumeUnit(workspaceId, packageSaleId);
+      if (!consumed) throw new Error('Nao foi possivel consumir unidade do pacote');
+    } else {
+      consumed = await packages.getBalance(workspaceId, packageSaleId);
+    }
+    const payload = {
+      ok: true,
+      packageSaleId,
+      encounterId,
+      consumptionId: created.id,
+      alreadyConsumed: !created.created,
+      balance: consumed,
+    };
+    logger.info(
+      {
+        kind: 'clinic_action_runtime',
+        event: 'clinic.package.unit_consumed',
+        workspaceId,
+        action: 'package_consume_unit_once',
+        verificationStatus: 'success',
+        packageSaleId,
+        encounterId,
+      },
+      'clinic_action_runtime',
+    );
+    return payload;
   });
 
   registry.register('attendance_list_by_party', async ({ workspaceId, input }) => {

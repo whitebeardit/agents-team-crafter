@@ -27,7 +27,7 @@ import {
   listSpecialistIds,
 } from '../domain/team-runtime-invariants.js';
 import { assertInvocationMatchesTeam } from './team-runtime-guards.service.js';
-import { composeExternalResponseFromModelText } from './response-composer.service.js';
+import { composeClinicSafeUserText, composeExternalResponseFromModelText } from './response-composer.service.js';
 import { formatCoordinatorUserMessage } from './format-coordinator-user-message.js';
 import { buildSpecialistRuntimeMessage } from './build-specialist-runtime-message.js';
 import {
@@ -39,6 +39,7 @@ import {
   SpecialistRegistry,
 } from '../infra/registries/specialist-registry.js';
 import type { WorkspaceIntegrationsService } from '../../settings/application/workspace-integrations.service.js';
+import type { ClinicConversationStateRepository } from '../../clinic/infra/clinic-conversation-state.repository.js';
 import {
   buildExecutionInterruptionDescriptor,
   type TInterruptionReasonCode,
@@ -101,6 +102,8 @@ Para cadastro CRM com \`crm_create_party\`: tendo \`name\` e \`phone\`, aciona a
 Ao delegar para especialista de CRM, inclui na \`instruction\` os campos já coletados em formato chave/valor (\`name\`, \`phone\`, \`email\`, \`notes\`) para evitar nova coleta do que já foi informado.
 No fluxo clínico com pacotes, após uma operação de criação/escrita de pacote, executa validação imediata de leitura para o mesmo paciente (\`partyId\` ou \`phone\` / celular no CRM) (\`read-after-write\`) antes de liberar agendamento.
 O utilizador identifica pacientes pelo **telefone/celular** na conversa sempre que possível; nas ações internas que pedem \`partyId\`, também pode enviar \`phone\` quando o número corresponder a um único cadastro CRM — preserva e reenvia esses dados nas instruções aos especialistas para não voltar a pedir IDs internos.
+Regra de UX: evite pedir IDs internos (\`appointmentId\`, \`packageSaleId\`, \`careSubjectId\`, \`partyId\`) no fluxo normal; prefira telefone + contexto operacional da conversa.
+Se houver ambiguidade, apresente opções humanas numeradas (1..N) com data/hora/título/status e peça apenas a escolha do número.
 
 ### Fluxo clínico só com telefone (evitar loop)
 - **Nunca** peças \`partyId\`, \`patientId\`, \`packageSaleId\` ao utilizador se ele já deu um **telefone único** nesta conversa para esse paciente — copia esse número explicitamente na \`instruction\` ao especialista seguinte (\`phone: ...\`).
@@ -593,6 +596,7 @@ export class CoordinatorOrchestratorService {
     private readonly knowledgeSourceRepo: KnowledgeSourceRepository,
     private readonly workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository,
     private readonly businessToolRuntime: IBusinessToolRuntime,
+    private readonly clinicConversationStateRepo: ClinicConversationStateRepository,
   ) {}
 
   async execute(
@@ -829,6 +833,13 @@ export class CoordinatorOrchestratorService {
     const executeSpecialist = async (specialistAgentId: string, instruction: string) => {
       const runtimeMessage = buildSpecialistRuntimeMessage(instruction, invocation.message);
       specialistSidecarEvents.push({
+        type: 'coordinatorSpecialistHandoff',
+        agentId: specialistAgentId,
+        phase: 'handoff',
+        detail: truncateActivity(instruction),
+        toolInstruction: instruction,
+      });
+      specialistSidecarEvents.push({
         type: 'specialistStarted',
         agentId: specialistAgentId,
         phase: 'runStep',
@@ -918,6 +929,7 @@ export class CoordinatorOrchestratorService {
         customToolDefinitions,
         businessToolRuntime: this.businessToolRuntime,
         teamContext: { teamId: teamRow.id, teamName: teamRow.name },
+        singleAgentMode: Boolean((teamRow as Record<string, unknown>)['singleAgentMode']),
         openaiRuntimeModel: specialistRuntimeModel,
       });
       await this.agentRuntime.compile(config);
@@ -936,12 +948,15 @@ export class CoordinatorOrchestratorService {
         typeof invocation.metadata?.correlationId === 'string'
           ? invocation.metadata.correlationId
           : undefined;
+      const conversationId =
+        typeof invocation.metadata?.conversationId === 'string' ? invocation.metadata.conversationId : undefined;
 
       const r = await this.agentRuntime.runStep(config, {
         message: runtimeMessage,
         ...(openaiApiKey ? { openaiApiKey } : {}),
         ...(requestedAccessLevel ? { requestedAccessLevel } : {}),
         ...(correlationId ? { correlationId } : {}),
+        ...(conversationId ? { conversationId } : {}),
       });
       specialistResults.push({ specialistAgentId, summary: r.finalOutput });
       specialistSidecarEvents.push({
@@ -971,7 +986,17 @@ export class CoordinatorOrchestratorService {
     const coordinatorCore = baseCoordinatorSystem?.length
       ? baseCoordinatorSystem
       : 'Voce e o coordenador do time de agentes.';
-    const coordinatorSystemInstruction = `${coordinatorCore}${rosterAppendix}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}`;
+    const conversationId =
+      typeof invocation.metadata?.conversationId === 'string' && invocation.metadata.conversationId.trim()
+        ? invocation.metadata.conversationId.trim()
+        : '';
+    const clinicContext = conversationId
+      ? await this.clinicConversationStateRepo.get(ws, teamRow.id, conversationId)
+      : null;
+    const clinicContextAppendix = clinicContext
+      ? `\n\n## Contexto operacional da clínica\nPaciente atual: ${clinicContext.currentPatient?.name ?? '-'}\nTelefone: ${clinicContext.currentPatient?.phone ?? '-'}\npartyId: ${clinicContext.currentPatient?.partyId ?? '-'}\ncareSubjectId: ${clinicContext.currentPatient?.careSubjectId ?? '-'}\nÚltimo agendamento: ${clinicContext.lastAppointmentId ?? '-'}\nÚltimo atendimento: ${clinicContext.lastEncounterId ?? '-'}\nÚltimo pacote: ${clinicContext.currentPackageSaleId ?? '-'}\nTimezone da clínica: ${clinicContext.timezone ?? '-'}\nAtualizado em: ${clinicContext.updatedAt.toISOString()}`
+      : '';
+    const coordinatorSystemInstruction = `${coordinatorCore}${rosterAppendix}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}${clinicContextAppendix}`;
 
     const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
     const timeline: ITeamExecutionEvent[] = [
@@ -1035,6 +1060,19 @@ export class CoordinatorOrchestratorService {
     });
 
     const coordinatorMapped = result.events.map((e) => mapRuntimeEventToTeamEvent(e, specialistIds));
+    const hasClinicVerificationFailure = coordinatorMapped.some(
+      (e) => e.type === 'toolResult' && e.status === 'error' && e.errorCode === 'CLINIC_VERIFICATION_FAILED',
+    );
+    finalOutput = composeClinicSafeUserText({
+      text: finalOutput,
+      verificationFailed: hasClinicVerificationFailure,
+    });
+    if (hasClinicVerificationFailure) {
+      interruptedEvents.push({
+        type: 'clinicVerificationFailedGuard',
+        detail: 'Resposta final bloqueada por verificação clínica negativa.',
+      });
+    }
     if (interruptedEvents.length === 0) {
       const noProgress = detectNoProgressInterruption(coordinatorMapped);
       if (noProgress) {

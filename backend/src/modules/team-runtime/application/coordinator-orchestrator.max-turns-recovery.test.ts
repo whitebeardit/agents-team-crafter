@@ -54,6 +54,7 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
       { listByIds: jest.fn(async () => []) } as never,
       { listByIds: jest.fn(async () => []) } as never,
       businessToolRuntime as never,
+      { get: jest.fn(async () => null), upsert: jest.fn(async () => {}) } as never,
     );
 
     const out = await service.execute({
@@ -116,6 +117,7 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
       { listByIds: jest.fn(async () => []) } as never,
       { listByIds: jest.fn(async () => []) } as never,
       businessToolRuntime as never,
+      { get: jest.fn(async () => null), upsert: jest.fn(async () => {}) } as never,
     );
 
     const out = await service.execute({

@@ -24,7 +24,9 @@ export function registerClinicalPack(
     const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
     const body = typeof data.body === 'string' ? data.body : '';
     if (!careSubjectId || !body.trim()) throw new Error('careSubjectId e body obrigatorios');
-    return clinical.addEvolutionNote(workspaceId, { careSubjectId, body });
+    const encounterId = typeof data.encounterId === 'string' ? data.encounterId : undefined;
+    const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : undefined;
+    return clinical.addEvolutionNote(workspaceId, { careSubjectId, body, encounterId, appointmentId });
   });
 
   registry.register('clinical_list_subject_history', async ({ workspaceId, input }) => {

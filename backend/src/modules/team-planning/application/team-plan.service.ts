@@ -1563,6 +1563,7 @@ export class TeamPlanService {
         agentIds: specialistIds,
         channelIds: parsed.team.channelIds,
         primaryChannel: parsed.team.primaryChannel,
+        singleAgentMode: parsed.team.singleAgentMode === true,
         status: 'draft',
       });
 

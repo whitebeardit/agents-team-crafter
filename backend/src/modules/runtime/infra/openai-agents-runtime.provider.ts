@@ -130,6 +130,10 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       workspaceId: config.workspaceId,
       correlationId: input.correlationId,
       teamContext: config.teamContext,
+      conversationId: input.conversationId,
+      actorAgentId: config.agentId,
+      actorRole: 'specialist' as const,
+      singleAgentMode: config.singleAgentMode === true,
     };
     const catalogTools = buildCapabilityCatalogTools(
       config.tools,

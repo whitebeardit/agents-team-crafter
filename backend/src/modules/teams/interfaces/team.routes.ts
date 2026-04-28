@@ -62,6 +62,7 @@ const createTeamSchema = z.object({
   agentIds: z.array(z.string()).default([]),
   channelIds: z.array(z.string()).default([]),
   primaryChannel: productChannelTypeSchema.optional(),
+  singleAgentMode: z.boolean().optional(),
 });
 
 const updateTeamSchema = z.object({
@@ -73,6 +74,7 @@ const updateTeamSchema = z.object({
   agentIds: z.array(z.string()).optional(),
   channelIds: z.array(z.string()).optional(),
   primaryChannel: productChannelTypeSchema.optional(),
+  singleAgentMode: z.boolean().optional(),
 });
 
 const duplicateSchema = z.object({
@@ -146,6 +148,7 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
       agentIds: body.agentIds,
       channelIds: body.channelIds,
       primaryChannel: body.primaryChannel,
+      singleAgentMode: body.singleAgentMode === true,
       status: 'draft',
     });
     return reply.code(201).send(successEnvelope(created));

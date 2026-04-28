@@ -1,4 +1,5 @@
 import { Types } from 'mongoose';
+import { DateTime } from 'luxon';
 import { AppointmentModel } from './appointment.model.js';
 
 function utcDayRange(dayIso: string) {
@@ -8,6 +9,14 @@ function utcDayRange(dayIso: string) {
   const start = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 0, 0, 0, 0));
   const end = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 23, 59, 59, 999));
   return { start, end };
+}
+
+function localDayRangeUtc(dayIso: string, timezone: string) {
+  const day = DateTime.fromISO(`${dayIso.trim()}T00:00:00`, { zone: timezone });
+  if (!day.isValid) throw new Error('date (ISO dia) invalido');
+  const startUtc = day.startOf('day').toUTC().toJSDate();
+  const endUtc = day.endOf('day').toUTC().toJSDate();
+  return { startUtc, endUtc };
 }
 
 export class AppointmentRepository {
@@ -121,6 +130,21 @@ export class AppointmentRepository {
     const docs = await AppointmentModel.find({
       workspaceId: new Types.ObjectId(workspaceId),
       startsAt: { $gte: start, $lte: end },
+    })
+      .sort({ startsAt: 1 })
+      .exec();
+    return docs.map((d) => this.toPublic(d));
+  }
+
+  /**
+   * Lista compromissos por dia na perspectiva de um fuso horário (dia local da clínica),
+   * mantendo persistência em UTC.
+   */
+  async listByLocalDate(workspaceId: string, dayIso: string, timezone: string) {
+    const { startUtc, endUtc } = localDayRangeUtc(dayIso, timezone);
+    const docs = await AppointmentModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      startsAt: { $gte: startUtc, $lte: endUtc },
     })
       .sort({ startsAt: 1 })
       .exec();

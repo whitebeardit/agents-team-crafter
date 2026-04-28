@@ -20,10 +20,15 @@ export class ClinicalRepository {
     return { id: doc._id.toString(), careSubjectId: input.careSubjectId };
   }
 
-  async addEvolutionNote(workspaceId: string, input: { careSubjectId: string; body: string }) {
+  async addEvolutionNote(
+    workspaceId: string,
+    input: { careSubjectId: string; body: string; encounterId?: string; appointmentId?: string },
+  ) {
     const doc = await EvolutionNoteModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       careSubjectId: new Types.ObjectId(input.careSubjectId),
+      encounterId: input.encounterId ? new Types.ObjectId(input.encounterId) : undefined,
+      appointmentId: input.appointmentId ? new Types.ObjectId(input.appointmentId) : undefined,
       body: input.body.trim(),
     });
     return { id: doc._id.toString() };

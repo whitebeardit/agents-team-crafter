@@ -5,6 +5,7 @@ import type { PackageSaleRepository } from '../infra/package-sale.repository.js'
 import type { EncounterRepository } from '../infra/encounter.repository.js';
 import type { PartyRepository } from '../../crm/infra/party.repository.js';
 import type { CareSubjectRepository } from '../../care/infra/care-subject.repository.js';
+import type { PackageConsumptionRepository } from '../infra/package-consumption.repository.js';
 
 describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () => {
   it('exposes packages_encounters_gold_gate with deterministic contract', async () => {
@@ -33,8 +34,9 @@ describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () 
       ),
     } as unknown as PartyRepository;
     const careSubjects = {} as CareSubjectRepository;
+    const consumptions = { createOnce: jest.fn() } as unknown as PackageConsumptionRepository;
 
-    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects);
+    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects, consumptions);
     const gate = registry.get('packages_encounters_gold_gate');
     expect(gate).toBeDefined();
     const out = await gate!({
@@ -81,8 +83,9 @@ describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () 
       ),
     } as unknown as PartyRepository;
     const careSubjects = {} as CareSubjectRepository;
+    const consumptions = { createOnce: jest.fn() } as unknown as PackageConsumptionRepository;
 
-    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects);
+    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects, consumptions);
     const list = registry.get('package_list_by_party');
     expect(list).toBeDefined();
 
@@ -129,8 +132,9 @@ describe('registerPackagesEncountersPack — packages_encounters_gold_gate', () 
       findById: jest.fn(async () => ({ id: 'party-from-phone', displayName: 'X' })),
     } as unknown as PartyRepository;
     const careSubjects = {} as CareSubjectRepository;
+    const consumptions = { createOnce: jest.fn() } as unknown as PackageConsumptionRepository;
 
-    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects);
+    registerPackagesEncountersPack(registry, packages, encounters, parties, careSubjects, consumptions);
     const list = registry.get('package_list_by_party');
     await list!({
       workspaceId: '507f1f77bcf86cd799439011',

@@ -48,6 +48,7 @@ describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () =>
       { listByIds: jest.fn(async () => []) } as never,
       { listByIds: jest.fn(async () => []) } as never,
       businessToolRuntime as never,
+      { get: jest.fn(async () => null), upsert: jest.fn(async () => {}) } as never,
     );
   }
 

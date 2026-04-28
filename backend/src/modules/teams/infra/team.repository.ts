@@ -15,6 +15,7 @@ function toPublic(doc: TeamDoc, extras: Record<string, unknown> = {}) {
     agentIds: (doc.agentIds ?? []).map((x) => x.toString()),
     channelIds: (doc.channelIds ?? []).map((x) => x.toString()),
     primaryChannel: doc.primaryChannel,
+    singleAgentMode: doc.singleAgentMode === true,
     createdAt: doc.createdAt?.toISOString(),
     updatedAt: doc.updatedAt?.toISOString(),
     ...extras,
@@ -71,6 +72,7 @@ export class TeamRepository implements ITeamRepository {
       agentIds: (data.agentIds as string[]).map((id) => new Types.ObjectId(id)),
       channelIds: ((data.channelIds as string[]) ?? []).map((id) => new Types.ObjectId(id)),
       primaryChannel: data.primaryChannel,
+      singleAgentMode: data.singleAgentMode === true,
     };
     const doc = await TeamModel.create(payload);
     return toPublic(doc as TeamDoc);
@@ -198,6 +200,7 @@ export class TeamRepository implements ITeamRepository {
       agentIds: src.agentIds ?? [],
       channelIds: src.channelIds ?? [],
       primaryChannel: src.primaryChannel,
+      singleAgentMode: src.singleAgentMode === true,
     });
     const g = (await TeamGraphModel.findOne({
       teamId: src._id,

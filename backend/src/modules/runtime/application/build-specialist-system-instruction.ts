@@ -28,7 +28,11 @@ const TOOL_CONTRACT_PROMPT_POLICY = `## Tool contract policy (Loop 98.5)
   - Para **resumo / dashboard do paciente** (pacotes com saldo ou esgotados, compromissos, atendimentos, sujeito de cuidado), preferir a action \`patient_operational_overview\` com \`phone\` ou \`partyId\` em vez de várias leituras soltas. Para **só listar** compromissos agendados daquele cliente, \`schedule_list_appointments_by_party\`.
 - Se receber \`MISSING_REQUIRED_FIELDS\`, usa \`missingFields\` e \`submittedInput\` para corrigir a próxima tentativa; não repitas payload inválido.
 - Se receber \`EXECUTION_ERROR\`, não faças retry cego. Só repete quando houver sinal explícito de erro transitório/seguro no diagnóstico devolvido pelo runtime.
-- Se receber \`UNKNOWN_ACTION\`, não tentes novamente a mesma action; explica limitação e pede alternativa válida.`;
+- Se receber \`UNKNOWN_ACTION\`, não tentes novamente a mesma action; explica limitação e pede alternativa válida.
+- UX clínica obrigatória:
+  - Não pedir IDs internos (\`appointmentId\`, \`packageSaleId\`, \`careSubjectId\`, \`partyId\`) no fluxo normal quando telefone + contexto forem suficientes.
+  - Em ambiguidade, responder com opções humanas numeradas (1..N) contendo data/hora/título/status, e pedir apenas a escolha.
+  - Só confirmar sucesso de ação clínica quando \`verification.found=true\` e \`verification.matches=true\`.`;
 
 export function buildSpecialistSystemInstruction(
   row: Record<string, unknown>,

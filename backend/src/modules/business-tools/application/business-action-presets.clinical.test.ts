@@ -33,4 +33,21 @@ describe('business-action-presets clinical (Loop 102)', () => {
     expect((closeEncounter?.inputSchema as { required?: string[] }).required).toEqual(['encounterId']);
     expect((goldGate?.inputSchema as { required?: string[] }).required).toEqual([]);
   });
+
+  it('publishes clinic admin diagnostics actions with restricted exposure', () => {
+    const auditPatient = getBusinessActionPreset('clinic_audit_patient_integrity');
+    const auditAppointments = getBusinessActionPreset('clinic_audit_appointments_integrity');
+    const repairPatient = getBusinessActionPreset('clinic_repair_patient_links');
+
+    expect(auditPatient?.toolKind).toBe('admin_diagnostic');
+    expect(auditPatient?.uiExposureMode).toBe('advanced');
+    expect((auditPatient?.inputSchema as { required?: string[] }).required).toEqual(['phone']);
+
+    expect(auditAppointments?.toolKind).toBe('admin_diagnostic');
+    expect(auditAppointments?.uiExposureMode).toBe('advanced');
+
+    expect(repairPatient?.toolKind).toBe('admin_diagnostic');
+    expect(repairPatient?.uiExposureMode).toBe('hidden');
+    expect(repairPatient?.requiresConfirmation).toBe(true);
+  });
 });

@@ -11,6 +11,7 @@ const TeamSchema = new Schema(
     agentIds: [{ type: Schema.Types.ObjectId }],
     channelIds: [{ type: Schema.Types.ObjectId }],
     primaryChannel: { type: String },
+    singleAgentMode: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

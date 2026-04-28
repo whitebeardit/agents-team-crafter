@@ -523,4 +523,25 @@ describe('registerSchedulingPack', () => {
     expect(overview.packageSales[0]?.remaining).toBe(2);
     expect(overview.appointments.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('lists appointments by local date (timezone-aware) without shifting day for clinic users', async () => {
+    const appointments = new AppointmentRepository();
+    const parties = new PartyRepository();
+    const party = await parties.create(workspaceId, { displayName: 'Cliente Fuso' });
+
+    // 2026-04-27 23:30 in America/Sao_Paulo == 2026-04-28T02:30:00.000Z
+    const created = await appointments.create(workspaceId, {
+      partyId: party.id,
+      title: 'Sessao noite',
+      startsAt: '2026-04-28T02:30:00.000Z',
+      endsAt: '2026-04-28T03:20:00.000Z',
+    });
+    expect(created.startsAt).toBe('2026-04-28T02:30:00.000Z');
+
+    const utcList = await appointments.listByDate(workspaceId, '2026-04-27');
+    expect(utcList.some((a) => a.id === created.id)).toBe(false);
+
+    const localList = await appointments.listByLocalDate(workspaceId, '2026-04-27', 'America/Sao_Paulo');
+    expect(localList.some((a) => a.id === created.id)).toBe(true);
+  });
 });

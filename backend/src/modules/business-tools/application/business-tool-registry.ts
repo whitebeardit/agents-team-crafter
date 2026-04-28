@@ -12,6 +12,8 @@ export type TBusinessActionContext = {
   workspaceId: string;
   input: unknown;
   correlationId?: string;
+  teamContext?: { teamId: string; teamName: string };
+  conversationId?: string;
 };
 
 export type TBusinessActionHandler = (ctx: TBusinessActionContext) => Promise<unknown>;
@@ -38,6 +40,16 @@ export interface IBusinessActionCatalogItem {
     description: string;
     rulesSummary: string[];
   };
+  toolKind?: 'coordination' | 'primitive' | 'composite_workflow' | 'read_model' | 'admin_diagnostic';
+  riskLevel?: 'low' | 'medium' | 'high';
+  requiresConfirmation?: boolean;
+  readAfterWriteRequired?: boolean;
+  updatesConversationState?: boolean;
+  ownerAgent?: string;
+  allowedDirectAgents?: string[];
+  allowedIndirectAgents?: string[];
+  replacesPrimitiveActions?: string[];
+  internallyUses?: string[];
 }
 
 export class BusinessToolRegistry {
@@ -91,6 +103,16 @@ export class BusinessToolRegistry {
               };
             })()
           : undefined,
+        toolKind: preset?.toolKind,
+        riskLevel: preset?.riskLevel,
+        requiresConfirmation: preset?.requiresConfirmation,
+        readAfterWriteRequired: preset?.readAfterWriteRequired,
+        updatesConversationState: preset?.updatesConversationState,
+        ownerAgent: preset?.ownerAgent,
+        allowedDirectAgents: preset?.allowedDirectAgents,
+        allowedIndirectAgents: preset?.allowedIndirectAgents,
+        replacesPrimitiveActions: preset?.replacesPrimitiveActions,
+        internallyUses: preset?.internallyUses,
       });
     }
     items.sort((a, b) => a.title.localeCompare(b.title, 'pt'));

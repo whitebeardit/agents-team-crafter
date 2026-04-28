@@ -103,4 +103,28 @@ describe('buildWorkspaceCustomTools', () => {
     expect(t.parameters.type).toBe('object');
     expect(t.parameters.properties).toEqual({});
   });
+
+  it('blocks coordinator direct execution for clinic composite workflow in default mode', async () => {
+    const execute = jest.fn(async () => ({ ok: true, result: { id: 'appt-1' } }));
+    const [clinicTool] = buildWorkspaceCustomTools(
+      [
+        {
+          id: 'tool-clinic-schedule',
+          name: 'Clinic schedule',
+          slug: 'ba-clinic-schedule-session-by-phone',
+          kind: 'internal_action',
+          jsonSchema: {},
+          config: { actionId: 'clinic_schedule_session_by_phone' },
+        },
+      ],
+      { workspaceId: 'workspace-1', actorRole: 'coordinator', singleAgentMode: false },
+      { businessToolRuntime: { execute } },
+    ) as Array<{ invoke: (ctx: unknown, input: unknown) => Promise<string> }>;
+
+    const raw = await clinicTool.invoke(undefined, JSON.stringify({ phone: '+5511999999999' }));
+    const parsed = JSON.parse(raw) as { ok: boolean; errorCode?: string };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errorCode).toBe('COORDINATOR_DIRECT_EXECUTION_BLOCKED');
+    expect(execute).not.toHaveBeenCalled();
+  });
 });

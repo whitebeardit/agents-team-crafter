@@ -272,6 +272,7 @@ export interface Team {
   coordinatorId: string
   agentIds: string[]
   channelIds: string[]
+  singleAgentMode?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -722,6 +723,7 @@ export interface TeamPlanDraft {
     description: string
     primaryChannel?: ChannelType
     channelIds: string[]
+    singleAgentMode?: boolean
   }
   agents: TeamPlanAgentDraft[]
   graph: { nodes: GraphNode[]; edges: GraphEdge[] }
