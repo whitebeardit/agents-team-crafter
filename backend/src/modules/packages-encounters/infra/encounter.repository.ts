@@ -23,13 +23,14 @@ export class EncounterRepository {
     return this.pub(doc);
   }
 
-  async listByParty(workspaceId: string, partyId: string) {
+  async listByParty(workspaceId: string, partyId: string, limit = 100) {
+    const cap = Math.min(Math.max(1, limit), 200);
     const docs = await EncounterModel.find({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(partyId),
     })
       .sort({ createdAt: -1 })
-      .limit(100)
+      .limit(cap)
       .exec();
     return docs.map((d) => this.pub(d));
   }

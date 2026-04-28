@@ -18,6 +18,14 @@ describe('business-action-presets scheduling/reminders (Loop 99)', () => {
     );
 
     expect((getAvailability?.inputSchema as { required?: string[] }).required).toEqual(['date']);
+
+    const byParty = getBusinessActionPreset('schedule_list_appointments_by_party');
+    expect((byParty?.inputSchema as { required?: string[] }).required).toEqual(['partyId']);
+    expect(byParty?.requiredFieldLabels).toContain('Party (partyId) ou phone');
+
+    const overview = getBusinessActionPreset('patient_operational_overview');
+    expect((overview?.inputSchema as { required?: string[] }).required).toEqual(['partyId']);
+    expect(overview?.title).toContain('Resumo operacional');
   });
 
   it('defines explicit schema for reminder actions', () => {

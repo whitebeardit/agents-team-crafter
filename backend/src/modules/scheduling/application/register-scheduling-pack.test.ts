@@ -466,4 +466,61 @@ describe('registerSchedulingPack', () => {
       }),
     ).rejects.toThrow('packageSale sem saldo elegivel para agendamento');
   });
+
+  it('lists appointments by party and returns patient_operational_overview', async () => {
+    const registry = new BusinessToolRegistry();
+    const appointments = new AppointmentRepository();
+    const availability = new AvailabilitySlotRepository();
+    const parties = new PartyRepository();
+    const careSubjects = new CareSubjectRepository();
+    const serviceOrders = new ServiceOrderRepository();
+    const packageSales = new PackageSaleRepository();
+    const reminders = new ReminderRepository();
+    const encounters = new EncounterRepository();
+
+    registerSchedulingPack(
+      registry,
+      appointments,
+      availability,
+      parties,
+      careSubjects,
+      serviceOrders,
+      packageSales,
+      reminders,
+      encounters,
+    );
+
+    const party = await parties.create(workspaceId, { displayName: 'Dash Paciente' });
+    await packageSales.create(workspaceId, { partyId: party.id, packageName: 'padrão', unitsTotal: 2 });
+    const appt = await registry.get('schedule_create_appointment')!({
+      workspaceId,
+      input: {
+        partyId: party.id,
+        title: 'Consulta',
+        startsAt: '2026-05-20T10:00:00.000Z',
+        endsAt: '2026-05-20T10:50:00.000Z',
+      },
+    });
+    const byParty = (await registry.get('schedule_list_appointments_by_party')!({
+      workspaceId,
+      input: { partyId: party.id, limit: 5 },
+    })) as { partyId: string; appointments: { id: string }[] };
+    expect(byParty.partyId).toBe(party.id);
+    expect(byParty.appointments.some((a) => a.id === (appt as { id: string }).id)).toBe(true);
+
+    const overview = (await registry.get('patient_operational_overview')!({
+      workspaceId,
+      input: { partyId: party.id },
+    })) as {
+      partyId: string;
+      packageSummary: { totalSales: number; withBalance: number };
+      appointments: { id: string }[];
+      packageSales: { remaining: number }[];
+    };
+    expect(overview.partyId).toBe(party.id);
+    expect(overview.packageSummary.totalSales).toBe(1);
+    expect(overview.packageSummary.withBalance).toBe(1);
+    expect(overview.packageSales[0]?.remaining).toBe(2);
+    expect(overview.appointments.length).toBeGreaterThanOrEqual(1);
+  });
 });

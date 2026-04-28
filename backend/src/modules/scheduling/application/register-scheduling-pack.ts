@@ -248,6 +248,61 @@ export function registerSchedulingPack(
     return { appointments: await appointments.listByDate(workspaceId, date) };
   });
 
+  registry.register('schedule_list_appointments_by_party', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
+    const limit = typeof data.limit === 'number' && Number.isFinite(data.limit) ? data.limit : 100;
+    const rows = await appointments.listByParty(workspaceId, partyId, limit);
+    return { partyId, appointments: rows };
+  });
+
+  /**
+   * Painel operacional: pacotes (saldos), agenda do paciente, atendimentos (encounters) e sujeitos de cuidado.
+   * Uma chamada em alternativa a juntar package_list_by_party + attendance + schedule_list.
+   */
+  registry.register('patient_operational_overview', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const partyId = await resolvePartyIdFromPartyOrPhone({
+      workspaceId,
+      parties,
+      data,
+      requireIdentity: true,
+    });
+    if (!partyId) throw new Error('partyId ou phone obrigatorio');
+    const limitAppt = typeof data.appointmentLimit === 'number' && Number.isFinite(data.appointmentLimit) ? data.appointmentLimit : 100;
+    const limitEnc = typeof data.encounterLimit === 'number' && Number.isFinite(data.encounterLimit) ? data.encounterLimit : 100;
+    const [party, packageSaleRows, appointmentRows, encounterRows, careSubjectRows] = await Promise.all([
+      parties.findById(workspaceId, partyId),
+      packageSales.listByParty(workspaceId, partyId),
+      appointments.listByParty(workspaceId, partyId, limitAppt),
+      encounters.listByParty(workspaceId, partyId, limitEnc),
+      careSubjects.listByParty(workspaceId, partyId, 50),
+    ]);
+    if (!party) throw new Error('Party nao encontrada');
+    const eligiblePackageSales = packageSaleRows.filter((s) => s.remaining > 0);
+    const exhaustedPackageSales = packageSaleRows.filter((s) => s.remaining <= 0);
+    return {
+      partyId,
+      party,
+      packageSales: packageSaleRows,
+      packageSummary: {
+        totalSales: packageSaleRows.length,
+        withBalance: eligiblePackageSales.length,
+        exhausted: exhaustedPackageSales.length,
+        eligiblePackageSaleIds: eligiblePackageSales.map((s) => s.id),
+      },
+      appointments: appointmentRows,
+      encounters: encounterRows,
+      careSubjects: careSubjectRows,
+    };
+  });
+
   registry.register('schedule_get_availability', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
     const date = typeof data.date === 'string' ? data.date : '';

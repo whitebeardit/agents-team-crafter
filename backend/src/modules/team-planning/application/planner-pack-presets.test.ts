@@ -45,6 +45,8 @@ describe('collectPlannerActionIds', () => {
     expect(ids).toContain('schedule_create_appointment');
     expect(ids).toContain('schedule_complete_appointment');
     expect(ids).toContain('schedule_get_availability');
+    expect(ids).toContain('patient_operational_overview');
+    expect(ids).toContain('schedule_list_appointments_by_party');
     expect(ids.length).toBeGreaterThanOrEqual(4);
   });
 });

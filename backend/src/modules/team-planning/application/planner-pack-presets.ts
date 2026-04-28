@@ -25,8 +25,10 @@ export const PLANNER_PACK_TO_ACTION_IDS: Readonly<Record<string, readonly string
   packages_encounters: [
     'package_sell_to_party',
     'package_get_balance',
+    'package_list_by_party',
     'attendance_register_session',
     'attendance_list_by_party',
+    'attendance_get_party_care_summary',
   ],
   clinical: [
     'clinical_create_anamnesis',
@@ -51,6 +53,8 @@ export const PLANNER_PACK_TO_ACTION_IDS: Readonly<Record<string, readonly string
     'schedule_reschedule_appointment',
     'schedule_list_agenda_by_date',
     'schedule_get_availability',
+    'schedule_list_appointments_by_party',
+    'patient_operational_overview',
   ],
   github_ops: [
     'github_read_pr',

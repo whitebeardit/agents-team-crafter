@@ -330,6 +330,20 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
     safetyClass: 'A',
     rules: [{ targetKey: 'date', aliases: ['date', 'day', 'dia'] }],
   },
+  schedule_list_appointments_by_party: {
+    safetyClass: 'A',
+    rules: [
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
+  },
+  patient_operational_overview: {
+    safetyClass: 'A',
+    rules: [
+      { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
+      { targetKey: 'phone', aliases: PHONE_ALIASES },
+    ],
+  },
 };
 
 function firstNonEmptyString(record: Record<string, unknown>, keys: readonly string[]): string | undefined {

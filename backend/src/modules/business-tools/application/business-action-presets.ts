@@ -445,7 +445,7 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   'package_list_by_party': {
     title: 'Pacotes — Listar por parte',
     description:
-      'Lista pacotes/saldos. Use `partyId` ou `phone` (celular) do CRM para identificar o paciente.',
+      'Lista vendas de pacote e saldos. Aceita `phone` ou `partyId` (o **runtime** resolve o telefone para a party; não exige procura prévia com crm_find_party). Cada venda traz `unitsTotal`, `unitsUsed`, `remaining` (0 = esgotado).',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
@@ -457,7 +457,7 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     },
     requiredFieldLabels: ['Party (partyId) ou phone'],
     slotFillingPromptHint:
-      'Lista pacotes da party com phone OU partyId; devolve packageSaleId para saldo ou agendamento. Não confundir com package_get_balance.',
+      'Com telefone na frase, execute imediato com `phone` (sem pergunta “posso localizar no CRM”). Lista com phone OU partyId; devolve packageSales. Não use package_get_balance para isso; não confundir com package_get_balance (só packageSaleId).',
   },
   'attendance_register_session': {
     title: 'Atendimentos — Registar sessão',
@@ -1080,6 +1080,43 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
     },
     requiredFieldLabels: ['Dia (date)'],
   },
+  'schedule_list_appointments_by_party': {
+    title: 'Agenda — Listar compromissos do paciente',
+    description:
+      'Lista compromissos (agendamentos) de um paciente, identificado por `partyId` ou `phone`. Ordenação: mais recentes por data de início.',
+    packId: 'scheduling',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        partyId: { type: 'string', description: 'ID da party no CRM.' },
+        phone: { type: 'string', description: 'Celular do paciente; alternativa a partyId.' },
+        limit: { type: 'number', description: 'Máximo de linhas (default 100, cap 200).' },
+      },
+      required: ['partyId'],
+    },
+    requiredFieldLabels: ['Party (partyId) ou phone'],
+    slotFillingPromptHint:
+      'Use phone ou partyId. Devolve compromissos com status (scheduled, confirmed, completed, etc.).',
+  },
+  'patient_operational_overview': {
+    title: 'Painel — Resumo operacional do paciente (dashboard)',
+    description:
+      'Uma leitura agregada: ficha CRM (`party`), todas as vendas de pacote com unidades e saldo (`packageSales` + resumo com/sem saldo), compromissos de agenda do paciente (`appointments`, mais recentes primeiro), atendimentos/sessões (`encounters`), sujeitos de cuidado (`careSubjects`). Identificação por `phone` ou `partyId`.',
+    packId: 'scheduling',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        partyId: { type: 'string' },
+        phone: { type: 'string', description: 'Celular; alternativa a partyId.' },
+        appointmentLimit: { type: 'number', description: 'Máx. compromissos (default 100).' },
+        encounterLimit: { type: 'number', description: 'Máx. atendimentos (default 100).' },
+      },
+      required: ['partyId'],
+    },
+    requiredFieldLabels: ['Party (partyId) ou phone'],
+    slotFillingPromptHint:
+      'Preferir para “resumo do paciente / dashboard / o que ela tem agendado e de pacote”. Não exige packageSaleId individual.',
+  },
   'clinic_schedule_session': {
     title: 'Clínica — Agendar sessão (composite)',
     description:
@@ -1155,13 +1192,14 @@ function inferUiExposureMode(
   if (kind === 'gold_gate') return 'advanced';
   if (actionId === 'business.ping') return 'hidden';
   if (kind === 'primitive_like') return 'advanced';
-  if (
+    if (
     actionId === 'crm_create_party' ||
     actionId === 'crm_update_party' ||
     actionId === 'crm_find_party' ||
     actionId === 'crm_list_parties' ||
     actionId === 'crm_get_party_summary' ||
-    actionId === 'clinic_schedule_session'
+    actionId === 'clinic_schedule_session' ||
+    actionId === 'patient_operational_overview'
   ) {
     return 'primary';
   }

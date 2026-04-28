@@ -127,6 +127,19 @@ export class AppointmentRepository {
     return docs.map((d) => this.toPublic(d));
   }
 
+  /** Compromissos de um paciente (party), mais recentes primeiro. */
+  async listByParty(workspaceId: string, partyId: string, limit = 100) {
+    const cap = Math.min(Math.max(1, limit), 200);
+    const docs = await AppointmentModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      partyId: new Types.ObjectId(partyId),
+    })
+      .sort({ startsAt: -1 })
+      .limit(cap)
+      .exec();
+    return docs.map((d) => this.toPublic(d));
+  }
+
   private toPublic(doc: {
     _id: Types.ObjectId;
     partyId: Types.ObjectId;

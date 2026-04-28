@@ -10,6 +10,8 @@ const ALTERNATIVE_REQUIRED_FIELDS: Readonly<Record<string, Readonly<Record<strin
   attendance_list_by_party: { partyId: ['phone'] },
   attendance_get_party_care_summary: { partyId: ['phone'] },
   schedule_create_appointment: { partyId: ['phone'] },
+  schedule_list_appointments_by_party: { partyId: ['phone'] },
+  patient_operational_overview: { partyId: ['phone'] },
   finance_create_receivable: { partyId: ['phone'] },
   finance_customer_financial_summary: { partyId: ['phone'] },
   crm_get_party_summary: { partyId: ['phone'] },

@@ -27,6 +27,9 @@ describe('buildSpecialistSystemInstruction', () => {
     expect(text).toContain('phone');
     expect(text).toContain('schedule_create_appointment');
     expect(text).toContain('Guardrail agendamento');
+    expect(text).toContain('patient_operational_overview');
+    expect(text).toContain('package_list_by_party');
+    expect(text).toContain('Guardrail pacotes');
   });
 
   it('appends knowledge appendix when provided', () => {
