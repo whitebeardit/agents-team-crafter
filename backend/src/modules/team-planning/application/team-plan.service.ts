@@ -254,6 +254,7 @@ export class TeamPlanService {
         description: `Plano gerado para: ${problemPreview}`,
         primaryChannel: 'api',
         channelIds: [],
+        singleAgentMode: false,
       },
       agents: [
         {

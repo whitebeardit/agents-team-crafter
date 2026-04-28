@@ -5,7 +5,14 @@ describe('team-plan-adequacy-gate (Loop 130.5)', () => {
   it('retorna adequate para plano coerente com briefing', () => {
     const result = evaluateTeamPlanAdequacy({
       plan: {
-        team: { name: 'Time Clinica', objective: 'Operar jornada', description: 'x', channelIds: [], primaryChannel: 'whatsapp' },
+        team: {
+          name: 'Time Clinica',
+          objective: 'Operar jornada',
+          description: 'x',
+          channelIds: [],
+          primaryChannel: 'whatsapp',
+          singleAgentMode: false,
+        },
         agents: [
           {
             name: 'Coord',
@@ -54,7 +61,14 @@ describe('team-plan-adequacy-gate (Loop 130.5)', () => {
   it('retorna inadequate quando faltam coordenação/capabilidades mínimas', () => {
     const result = evaluateTeamPlanAdequacy({
       plan: {
-        team: { name: 'Time', objective: 'x', description: 'x', channelIds: [], primaryChannel: 'api' },
+        team: {
+          name: 'Time',
+          objective: 'x',
+          description: 'x',
+          channelIds: [],
+          primaryChannel: 'api',
+          singleAgentMode: false,
+        },
         agents: [],
         requiredPacks: [],
         requiredTools: [],
@@ -78,6 +92,7 @@ describe('team-plan-adequacy-gate (Loop 130.5)', () => {
           description: 'x',
           channelIds: [],
           primaryChannel: 'api',
+          singleAgentMode: false,
         },
         agents: [
           {

@@ -19,6 +19,7 @@ function basePlan(agents: TPlannerOutput['agents'], requiredPacks: string[] = []
       objective: 'Objetivo de teste com mais de dez caracteres.',
       description: '',
       channelIds: [],
+      singleAgentMode: false,
     },
     agents,
     graph: { nodes: [], edges: [] },
