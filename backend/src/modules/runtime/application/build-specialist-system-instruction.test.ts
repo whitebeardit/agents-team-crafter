@@ -30,6 +30,7 @@ describe('buildSpecialistSystemInstruction', () => {
     expect(text).toContain('patient_operational_overview');
     expect(text).toContain('package_list_by_party');
     expect(text).toContain('Guardrail pacotes');
+    expect(text).toContain('Não confundir listagem com saldo pontual');
   });
 
   it('appends knowledge appendix when provided', () => {
