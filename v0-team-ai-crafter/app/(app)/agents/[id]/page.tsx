@@ -393,17 +393,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     return out
   }, [businessActionCatalog])
 
-  if (!agent) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-muted-foreground">Agente nao encontrado</p>
-      </div>
-    )
-  }
-
-  const readOnly = agent.origin === "whitebeard"
-  const channelsLockedForRole = agent.role === "specialist"
-
   const boundMCPIds = bindings.map((b) => b.mcpConnectionId)
   const availableMCPsForBinding = mcps.filter(
     (m) => !boundMCPIds.includes(m.id) && m.status === "connected",
@@ -450,6 +439,17 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     workspaceToolFilterExposure,
     workspaceToolFilterOwner,
   ])
+
+  if (!agent) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-muted-foreground">Agente nao encontrado</p>
+      </div>
+    )
+  }
+
+  const readOnly = agent.origin === "whitebeard"
+  const channelsLockedForRole = agent.role === "specialist"
 
   const agentTeams = teams.filter((t) => t.coordinatorId === agent.id || t.agentIds.includes(agent.id))
 
