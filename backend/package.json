@@ -20,6 +20,7 @@
     "migrate:agent-categories": "tsx scripts/migrate-agent-categories.ts",
     "migrate:agent-categories:dry": "tsx scripts/migrate-agent-categories.ts --dry-run",
     "verify:team-channels": "tsx scripts/verify-team-channels.ts",
+    "refactor:so-clinica-team-tools": "tsx scripts/refactor-so-clinica-team-custom-tool-ids.ts",
     "telegram:set-webhook": "tsx scripts/telegram-set-webhook.ts"
   },
   "dependencies": {
