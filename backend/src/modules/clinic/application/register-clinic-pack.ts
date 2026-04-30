@@ -531,6 +531,7 @@ export function registerClinicPack(deps: {
       } satisfies ClinicActionResult;
     }
 
+    const beforePackage = await deps.packageSales.findById(workspaceId, packageSaleId);
     const consume = deps.registry.get('package_consume_unit_once');
     if (!consume) throw new Error('package_consume_unit_once indisponivel');
     const consumeResult = (await consume({
@@ -538,16 +539,44 @@ export function registerClinicPack(deps: {
       input: { packageSaleId, encounterId, appointmentId: chosen.id },
       correlationId,
     })) as { alreadyConsumed?: boolean; balance?: unknown };
+    const afterPackage = await deps.packageSales.findById(workspaceId, packageSaleId);
 
     const verifiedAppointment = await deps.appointments.findById(workspaceId, chosen.id);
-    const matches = Boolean(
+    const appointmentMatches = Boolean(
       verifiedAppointment &&
         verifiedAppointment.status === 'completed' &&
         verifiedAppointment.encounterId === encounterId,
     );
+    const packageDeltaMatches = Boolean(
+      beforePackage &&
+        afterPackage &&
+        afterPackage.unitsUsed === beforePackage.unitsUsed + 1 &&
+        afterPackage.remaining === Math.max(0, beforePackage.remaining - 1),
+    );
+    const idempotentMatches = Boolean(
+      consumeResult.alreadyConsumed &&
+        beforePackage &&
+        afterPackage &&
+        beforePackage.unitsUsed === afterPackage.unitsUsed &&
+        beforePackage.remaining === afterPackage.remaining &&
+        afterPackage.unitsUsed > 0,
+    );
+    const packageMatches = consumeResult.alreadyConsumed ? idempotentMatches : packageDeltaMatches;
+    const matches = appointmentMatches && packageMatches;
+    const warnings = consumeResult.alreadyConsumed
+      ? ['Pacote já estava consumido para este encounter (idempotência).']
+      : [];
+    if (!packageMatches) {
+      warnings.push('Baixa não confirmada por ausência de delta persistido no saldo do pacote.');
+    }
     const out: ClinicActionResult<
       { appointmentId: string; encounterId: string; packageSaleId: string },
-      { appointment?: typeof verifiedAppointment; consume?: typeof consumeResult }
+      {
+        appointment?: typeof verifiedAppointment;
+        consume?: typeof consumeResult;
+        packageBefore?: typeof beforePackage;
+        packageAfter?: typeof afterPackage;
+      }
     > = {
       ok: Boolean(verifiedAppointment) && matches,
       action: 'clinic_register_attendance_by_phone_and_time',
@@ -555,9 +584,20 @@ export function registerClinicPack(deps: {
       verification: {
         found: Boolean(verifiedAppointment),
         matches,
-        snapshot: { appointment: verifiedAppointment ?? undefined, consume: consumeResult },
-        warnings: consumeResult.alreadyConsumed ? ['Pacote já estava consumido para este encounter (idempotência).'] : [],
+        snapshot: {
+          appointment: verifiedAppointment ?? undefined,
+          consume: consumeResult,
+          packageBefore: beforePackage ?? undefined,
+          packageAfter: afterPackage ?? undefined,
+        },
+        warnings,
       },
+      ...(matches
+        ? {}
+        : {
+            userMessage:
+              'Atendimento concluído, mas não consegui confirmar a baixa do pacote no saldo persistido. Posso seguir com auditoria/reprocessamento da baixa.',
+          }),
     };
     if (out.ok && out.verification.matches && teamContext?.teamId && conversationId?.trim()) {
       await deps.conversationState.upsert(workspaceId, teamContext.teamId, conversationId, {

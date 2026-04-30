@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { readFileSync } from 'node:fs';
 import { WorkspaceModel } from '../modules/workspaces/infra/workspace.model.js';
 import type { IEnv } from '../config/env.js';
 import { createDeps } from '../config/container.js';
@@ -127,6 +128,48 @@ describe('clinic conversational flow (integration)', () => {
           verification: expect.objectContaining({ found: true, matches: true }),
         }),
       );
+      const attendedSnapshot = attended.verification as
+        | {
+            snapshot?: {
+              packageBefore?: { unitsUsed?: number; remaining?: number };
+              packageAfter?: { unitsUsed?: number; remaining?: number };
+            };
+          }
+        | undefined;
+      expect(attendedSnapshot?.snapshot?.packageBefore?.unitsUsed).toBe(0);
+      expect(attendedSnapshot?.snapshot?.packageAfter?.unitsUsed).toBe(1);
+      expect(attendedSnapshot?.snapshot?.packageBefore?.remaining).toBe(1);
+      expect(attendedSnapshot?.snapshot?.packageAfter?.remaining).toBe(0);
+
+      const soldWrite = sold.write as { packageSaleId?: string } | undefined;
+      const attendedWrite = attended.write as { encounterId?: string; packageSaleId?: string } | undefined;
+      const encounterId =
+        String(attendedWrite?.encounterId ?? '') ||
+        String(
+          (
+            attended.verification as { snapshot?: { appointment?: { encounterId?: string } } } | undefined
+          )?.snapshot?.appointment?.encounterId ?? '',
+        );
+      const packageSaleId = String(attendedWrite?.packageSaleId ?? soldWrite?.packageSaleId ?? '');
+      expect(encounterId).toBeTruthy();
+      expect(packageSaleId).toBeTruthy();
+      const consumeOnce = deps.businessToolRegistry.get('package_consume_unit_once');
+      expect(consumeOnce).toBeDefined();
+      await expect(
+        consumeOnce!({
+          workspaceId,
+          input: { packageSaleId, encounterId, appointmentId },
+        }),
+      ).rejects.toThrow('Nao foi possivel consumir unidade do pacote');
+      const packagesAfterSecondAttempt = await run('clinic_list_patient_packages', { phone });
+      const packageRows = (packagesAfterSecondAttempt.write as { items?: Array<{ unitsUsed?: number; remaining?: number }> })
+        ?.items;
+      expect(packageRows?.[0]).toEqual(
+        expect.objectContaining({
+          unitsUsed: 1,
+          remaining: 0,
+        }),
+      );
 
       const evolved = await run('clinic_add_evolution_to_existing_attendance', {
         phone,
@@ -201,6 +244,16 @@ describe('clinic conversational flow (integration)', () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+
+  it('keeps guided menu policy in coordinator instructions', async () => {
+    const raw = readFileSync(
+      new URL('../../../docs/teams/team-69f25e827342cb4bd0dc7ba3-export.json', import.meta.url),
+      'utf8',
+    );
+    expect(raw).toContain('[COORDINATOR_GUIDED_MENU_POLICY_V1]');
+    expect(raw).toContain('Posso seguir com:');
+    expect(raw).toContain('menu numerado (1..N)');
   });
 });
 

@@ -24,6 +24,12 @@ import {
   resolveChannelNodeId,
   type GraphNodeLike,
 } from "@/lib/graph-derived-edges"
+import {
+  applyRosterStackLayout,
+  canvasEntityKey,
+  hasValidPosition,
+  mergePersistedWithTeamRoster,
+} from "./graph-layout-utils"
 
 interface GraphCanvasProps {
   team: Team
@@ -78,78 +84,11 @@ function toGraphNodeLike(nodes: Node[]): GraphNodeLike[] {
   }))
 }
 
-/** Chave estável para casar nó do grafo com agente/canal do time. */
-function canvasEntityKey(n: Node): string | null {
-  const t = n.type
-  if (t === "coordinator" || t === "specialist") {
-    const d = n.data as { agentId?: string }
-    return `agent:${String(d.agentId ?? n.id)}`
-  }
-  if (t === "channel") {
-    const d = n.data as { channelId?: string }
-    return `channel:${String(d.channelId ?? n.id)}`
-  }
-  return null
-}
-
-const ROSTER_HORIZONTAL_SPACING = 280
-
-/**
- * Injeta nós do layout do time; funde dados do persistido com o template (API) e
- * usa posição do template para evitar sobreposição antiga no banco.
- * Nós sem chave (ex.: knowledge) persistem no fim.
- */
-function mergePersistedWithTeamRoster(persisted: Node[], teamLayout: Node[]): Node[] {
-  const byKey = new Map<string, Node>()
-  for (const n of persisted) {
-    const k = canvasEntityKey(n)
-    if (k) byKey.set(k, n)
-  }
-  const out: Node[] = []
-  const usedIds = new Set<string>()
-  for (const tmpl of teamLayout) {
-    const k = canvasEntityKey(tmpl)
-    if (!k) continue
-    const existing = byKey.get(k)
-    const mergedData = {
-      ...((existing?.data ?? {}) as Record<string, unknown>),
-      ...((tmpl.data ?? {}) as Record<string, unknown>),
-    }
-    const base = existing ?? tmpl
-    const chosen: Node = {
-      ...base,
-      id: base.id,
-      type: tmpl.type,
-      position: tmpl.position,
-      data: mergedData,
-    }
-    out.push(chosen)
-    usedIds.add(chosen.id)
-  }
-  for (const n of persisted) {
-    if (canvasEntityKey(n) !== null) continue
-    if (usedIds.has(n.id)) continue
-    usedIds.add(n.id)
-    out.push(n)
-  }
-  return out
-}
-
-/** Alinha posição (x e y) ao template do roster: canais (topo) → coordenador → especialistas. */
-function applyRosterStackLayout(nodes: Node[], template: Node[]): Node[] {
-  const templatePosByKey = new Map<string, { x: number; y: number }>()
-  for (const t of template) {
-    const k = canvasEntityKey(t)
-    if (k) templatePosByKey.set(k, { ...t.position })
-  }
-  return nodes.map((n) => {
-    const k = canvasEntityKey(n)
-    if (!k) return n
-    const pos = templatePosByKey.get(k)
-    if (!pos) return n
-    return { ...n, position: { x: pos.x, y: pos.y } }
-  })
-}
+const GRAPH_CENTER_X = 320
+const COORDINATOR_Y = 220
+const SPECIALISTS_Y = 520
+const CHANNELS_Y = 40
+const ROSTER_HORIZONTAL_SPACING = 340
 
 function edgePairKey(source: string, target: string): string {
   return `${source}|${target}`
@@ -333,7 +272,7 @@ export function GraphCanvas({
       nodes.push({
         id: coordinator.id,
         type: "coordinator",
-        position: { x: 320, y: 200 },
+        position: { x: GRAPH_CENTER_X, y: COORDINATOR_Y },
         data: {
           label: coordinator.name,
           role: "coordinator",
@@ -352,7 +291,7 @@ export function GraphCanvas({
       nodes.push({
         id: agent.id,
         type: "specialist",
-        position: { x: 320 + xOffset, y: 360 },
+        position: { x: GRAPH_CENTER_X + xOffset, y: SPECIALISTS_Y },
         data: {
           label: agent.name,
           role: "specialist",
@@ -371,7 +310,7 @@ export function GraphCanvas({
       nodes.push({
         id: channel.id,
         type: "channel",
-        position: { x: 320 + xOffset, y: 40 },
+        position: { x: GRAPH_CENTER_X + xOffset, y: CHANNELS_Y },
         data: {
           label: channel.name,
           channelType: channel.type,
@@ -410,8 +349,23 @@ export function GraphCanvas({
     [team.coordinatorId, team.agentIds, team.channelIds]
   )
 
+  const persistedLayoutKey = useMemo(() => {
+    const nodeSignature = persistedNodes
+      .map((n) => {
+        const position = hasValidPosition(n.position) ? `${n.position.x},${n.position.y}` : "na"
+        return `${n.id}:${position}`
+      })
+      .sort()
+      .join("|")
+    const edgeSignature = persistedEdges
+      .map((e) => `${e.id}:${e.source}->${e.target}`)
+      .sort()
+      .join("|")
+    return `${nodeSignature}::${edgeSignature}`
+  }, [persistedNodes, persistedEdges])
+
   useEffect(() => {
-    const nextKey = `${team.id}:${teamRosterKey}:${persistedNodes.length}:${persistedEdges.length}`
+    const nextKey = `${team.id}:${teamRosterKey}:${persistedLayoutKey}`
     if (hydratedGraphKey.current === nextKey) return
     hydratedGraphKey.current = nextKey
 
@@ -440,6 +394,7 @@ export function GraphCanvas({
     teamRosterKey,
     persistedNodes,
     persistedEdges,
+    persistedLayoutKey,
     initialNodes,
     coordinator,
     specialists,

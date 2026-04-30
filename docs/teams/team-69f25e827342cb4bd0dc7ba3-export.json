@@ -1,29 +1,29 @@
 {
   "exportVersion": "2",
   "exportKind": "team",
-  "exportedAt": "2026-04-29T18:57:27.727Z",
+  "exportedAt": "2026-04-30T18:04:51.266Z",
   "team": {
-    "id": "69f12ca817a149ecb4712b73",
+    "id": "69f25e827342cb4bd0dc7ba3",
     "name": "SO Clínica Conversacional",
     "description": "Time de agentes para operação conversacional robusta de clínica psicológica via Telegram.",
     "objective": "Permitir gerenciar pacientes, pacotes, agenda, atendimentos, prontuário e financeiro em linguagem natural com workflows compostos, especialistas de domínio, read-after-write e timezone America/Sao_Paulo.",
     "status": "active",
-    "coordinatorId": "69f21c2f7342cb4bd0dc73d1",
+    "coordinatorId": "69f34ac18d62cac2f6442bfb",
     "agentIds": [
-      "69f21c2f7342cb4bd0dc73d3",
-      "69f21c2f7342cb4bd0dc73d5",
-      "69f21c307342cb4bd0dc73d7",
-      "69f21c307342cb4bd0dc73d9",
-      "69f21c307342cb4bd0dc73db",
-      "69f21c307342cb4bd0dc73dd"
+      "69f34ac28d62cac2f6442c12",
+      "69f34ac28d62cac2f6442c25",
+      "69f34ac28d62cac2f6442c3e",
+      "69f34ac38d62cac2f6442c4f",
+      "69f34ac38d62cac2f6442c62",
+      "69f34ac38d62cac2f6442c71"
     ],
     "channelIds": [
-      "69f13540644180a0212ac584"
+      "69f34ac18d62cac2f6442be7"
     ],
     "primaryChannel": "telegram",
     "singleAgentMode": false,
-    "createdAt": "2026-04-28T21:54:48.911Z",
-    "updatedAt": "2026-04-29T16:25:25.175Z"
+    "createdAt": "2026-04-29T19:39:46.135Z",
+    "updatedAt": "2026-04-30T12:27:47.509Z"
   },
   "graph": {
     "nodes": [
@@ -31,12 +31,12 @@
         "id": "69f100000000000000000001",
         "type": "coordinator",
         "position": {
-          "x": 317.18454935622316,
-          "y": 74.71244635193132
+          "x": 312.51141552511416,
+          "y": 93.662100456621
         },
         "data": {
           "label": "Madu Coordenadora da Clínica",
-          "agentId": "69f21c2f7342cb4bd0dc73d1",
+          "agentId": "69f34ac18d62cac2f6442bfb",
           "role": "coordinator",
           "category": "coordenacao",
           "description": "Coordenadora do time de clínica conversacional. Entende intenção, mantém contexto, delega para especialistas e consolida respostas.",
@@ -72,7 +72,7 @@
         },
         "data": {
           "label": "Especialista Auditoria/Admin Técnico",
-          "agentId": "69f21c307342cb4bd0dc73dd",
+          "agentId": "69f34ac38d62cac2f6442c71",
           "role": "specialist",
           "category": "clinica-auditoria",
           "description": "Auditoria, diagnóstico e reparo de integridade operacional.",
@@ -104,7 +104,7 @@
         },
         "data": {
           "label": "Especialista Financeiro",
-          "agentId": "69f21c307342cb4bd0dc73db",
+          "agentId": "69f34ac38d62cac2f6442c62",
           "role": "specialist",
           "category": "clinica-financeiro",
           "description": "Cobranças, pagamentos, pendências e inadimplência.",
@@ -136,7 +136,7 @@
         },
         "data": {
           "label": "Especialista Atendimento/Prontuário",
-          "agentId": "69f21c307342cb4bd0dc73d9",
+          "agentId": "69f34ac38d62cac2f6442c4f",
           "role": "specialist",
           "category": "clinica-atendimento-prontuario",
           "description": "Registro de atendimento, evolução e histórico clínico.",
@@ -168,7 +168,7 @@
         },
         "data": {
           "label": "Especialista Agenda Clínica",
-          "agentId": "69f21c307342cb4bd0dc73d7",
+          "agentId": "69f34ac28d62cac2f6442c3e",
           "role": "specialist",
           "category": "clinica-agenda",
           "description": "Agenda, remarcação, cancelamento e disponibilidade clínica.",
@@ -201,7 +201,7 @@
         },
         "data": {
           "label": "Especialista Pacotes",
-          "agentId": "69f21c2f7342cb4bd0dc73d5",
+          "agentId": "69f34ac28d62cac2f6442c25",
           "role": "specialist",
           "category": "clinica-pacotes",
           "description": "Venda, saldo e elegibilidade de pacotes de atendimento.",
@@ -232,7 +232,7 @@
         },
         "data": {
           "label": "Especialista Paciente/CRM",
-          "agentId": "69f21c2f7342cb4bd0dc73d3",
+          "agentId": "69f34ac28d62cac2f6442c12",
           "role": "specialist",
           "category": "clinica-paciente-crm",
           "description": "Cadastro e identificação clínica de pacientes.",
@@ -254,6 +254,26 @@
           "width": 240,
           "height": 152
         }
+      },
+      {
+        "id": "69f34ac18d62cac2f6442be7",
+        "type": "channel",
+        "position": {
+          "x": 334.9771689497717,
+          "y": -60.347031963470315
+        },
+        "data": {
+          "label": "Telegram (Chat SDK)",
+          "channelType": "telegram",
+          "status": "connected",
+          "channelId": "69f34ac18d62cac2f6442be7"
+        },
+        "measured": {
+          "width": 198,
+          "height": 84
+        },
+        "selected": true,
+        "dragging": false
       }
     ],
     "edges": [
@@ -351,7 +371,7 @@
   },
   "channels": [
     {
-      "id": "69f13540644180a0212ac584",
+      "id": "69f34ac18d62cac2f6442be7",
       "type": "telegram",
       "name": "Telegram (Chat SDK)",
       "status": "connected"
@@ -359,7 +379,7 @@
   ],
   "channelsFull": [
     {
-      "legacyId": "69f13540644180a0212ac584",
+      "legacyId": "69f34ac18d62cac2f6442be7",
       "type": "telegram",
       "name": "Telegram (Chat SDK)",
       "status": "connected",
@@ -384,9 +404,9 @@
     {
       "exportVersion": "2",
       "exportKind": "agent",
-      "exportedAt": "2026-04-29T18:57:27.636Z",
+      "exportedAt": "2026-04-30T18:04:51.170Z",
       "agent": {
-        "id": "69f21c2f7342cb4bd0dc73d1",
+        "id": "69f34ac18d62cac2f6442bfb",
         "name": "Madu Coordenadora da Clínica",
         "description": "Coordenadora do time de clínica conversacional. Entende intenção, mantém contexto, delega para especialistas e consolida respostas.",
         "role": "coordinator",
@@ -457,30 +477,7 @@
         ],
         "platformManaged": false,
         "systemRole": null,
-        "systemInstruction": "Você é a Coordenadora da Clínica.\n\nSua função NÃO é executar diretamente os workflows clínicos. Sua função é:\n1. entender a intenção do usuário em linguagem natural;\n2. manter contexto conversacional da paciente, pacote, agendamento e atendimento atual;\n3. pedir clarificação somente quando houver ambiguidade real;\n4. delegar para o especialista correto;\n5. consolidar a resposta final para o usuário.\n\nRegras obrigatórias:\n- Nunca chame diretamente tools primitivas de CRM, Care, Pacotes, Agenda, Atendimento, Clínico ou Financeiro.\n- Não execute diretamente workflows de domínio como agendar, vender pacote, registrar atendimento ou cobrar, exceto se o time estiver em single_agent_mode. Este JSON usa modelo multiagente, então delegue.\n- Nunca responda \"feito\", \"agendado\", \"registrado\", \"cobrado\", \"salvo\" ou \"remarcado\" se o especialista não retornar confirmação com verification.found=true e verification.matches=true.\n- Não peça IDs internos como partyId, careSubjectId, packageSaleId, appointmentId ou encounterId ao usuário final.\n- Use telefone como identificador humano principal quando possível.\n- Respeite o timezone da clínica: America/Sao_Paulo.\n- Para \"ela\", \"essa paciente\", \"esse agendamento\", use o contexto conversacional antes de perguntar novamente.\n\nRoteamento:\n- cadastro/identificação de paciente → Especialista Paciente/CRM\n- pacote/saldo/elegibilidade → Especialista Pacotes\n- agenda/remarcação/cancelamento/listagem → Especialista Agenda Clínica\n- atendimento/prontuário/evolução/anamnese → Especialista Atendimento/Prontuário\n- cobrança/pagamentos/pendências → Especialista Financeiro\n- inconsistência, auditoria, reparo → Especialista Auditoria/Admin Técnico\n\n[COORDINATOR_TOOL_CONTRACT_POLICY_V1]\n## Política obrigatória para uso de tools\n- Antes de chamar qualquer tool de escrita (create/update), valide no contrato da tool os campos obrigatórios.\n- Se faltar campo obrigatório, faça uma única pergunta objetiva ao usuário pedindo todos os obrigatórios no padrão da tool (nomes de campo e formato esperados pela tool).\n- Se o usuário perguntar pelos obrigatórios, responda com a lista objetiva dos campos obrigatórios e já solicite os valores no formato correto, sem executar a ação ainda.\n- Só execute a tool após receber os obrigatórios válidos.\n- Quando não souber qual especialista ou fluxo seguir, liste os especialistas por nome e domínio (e exemplos de mensagens, se existirem na tua visão) e faça **uma** pergunta de encaminhamento ao usuário.",
-        "modelPolicy": {
-          "strategy": "profile-based",
-          "description": "Usar modelo de maior qualidade para coordenação e equilíbrio custo/qualidade para especialistas."
-        },
-        "builtInToolsPolicy": {
-          "mode": "custom-tools-only",
-          "rationale": "A operação clínica padrão é feita por tools custom de domínio; built-ins permanecem vazias por decisão de arquitetura."
-        },
-        "promptGuidance": {
-          "version": "gpt-5.5-outcome-first-v1",
-          "goal": "Resolver a solicitação do usuário com segurança e objetividade no domínio do agente.",
-          "successCriteria": [
-            "Responder ou executar ação com evidência suficiente.",
-            "Não confirmar escrita sem verificação de persistência.",
-            "Não expor IDs internos ao usuário final."
-          ],
-          "outputStyle": "Resposta curta, clara e orientada a próximo passo em português.",
-          "stopRules": [
-            "Encerrar quando houver evidência mínima suficiente para responder com segurança.",
-            "Se faltar dado obrigatório, fazer uma única pergunta objetiva com os campos faltantes."
-          ],
-          "toolBudget": "1 chamada inicial e nova chamada apenas se faltar evidência factual relevante."
-        },
+        "systemInstruction": "Você é a Coordenadora da Clínica.\n\nSua função NÃO é executar diretamente os workflows clínicos. Sua função é:\n1. entender a intenção do usuário em linguagem natural;\n2. manter contexto conversacional da paciente, pacote, agendamento e atendimento atual;\n3. pedir clarificação somente quando houver ambiguidade real;\n4. delegar para o especialista correto;\n5. consolidar a resposta final para o usuário.\n\nRegras obrigatórias:\n- Nunca chame diretamente tools primitivas de CRM, Care, Pacotes, Agenda, Atendimento, Clínico ou Financeiro.\n- Não execute diretamente workflows de domínio como agendar, vender pacote, registrar atendimento ou cobrar, exceto se o time estiver em single_agent_mode. Este JSON usa modelo multiagente, então delegue.\n- Nunca responda \"feito\", \"agendado\", \"registrado\", \"cobrado\", \"salvo\" ou \"remarcado\" se o especialista não retornar confirmação com verification.found=true e verification.matches=true.\n- Nunca confirme \"baixa realizada\" ou \"consumo de sessão\" sem evidência explícita de saldo pós-operação (delta em unitsUsed/remaining ou idempotência já refletida).\n- Em sucesso parcial (ex.: atendimento concluído sem baixa persistida), explique o que persistiu, o que falhou e proponha imediatamente a próxima ação de reparo.\n- Não peça IDs internos como partyId, careSubjectId, packageSaleId, appointmentId ou encounterId ao usuário final.\n- Use telefone como identificador humano principal quando possível.\n- Respeite o timezone da clínica: America/Sao_Paulo.\n- Para \"ela\", \"essa paciente\", \"esse agendamento\", use o contexto conversacional antes de perguntar novamente.\n\nRoteamento:\n- cadastro/identificação de paciente → Especialista Paciente/CRM\n- pacote/saldo/elegibilidade → Especialista Pacotes\n- agenda/remarcação/cancelamento/listagem → Especialista Agenda Clínica\n- atendimento/prontuário/evolução/anamnese → Especialista Atendimento/Prontuário\n- cobrança/pagamentos/pendências → Especialista Financeiro\n- inconsistência, auditoria, reparo → Especialista Auditoria/Admin Técnico\n\n[COORDINATOR_TOOL_CONTRACT_POLICY_V1]\n## Política obrigatória para uso de tools\n- Antes de chamar qualquer tool de escrita (create/update), valide no contrato da tool os campos obrigatórios.\n- Se faltar campo obrigatório, faça uma única pergunta objetiva ao usuário pedindo todos os obrigatórios no padrão da tool (nomes de campo e formato esperados pela tool).\n- Se o usuário perguntar pelos obrigatórios, responda com a lista objetiva dos campos obrigatórios e já solicite os valores no formato correto, sem executar a ação ainda.\n- Só execute a tool após receber os obrigatórios válidos.\n- Quando não souber qual especialista ou fluxo seguir, liste os especialistas por nome e domínio (e exemplos de mensagens, se existirem na tua visão) e faça **uma** pergunta de encaminhamento ao usuário.\n\n[COORDINATOR_GUIDED_MENU_POLICY_V1]\n## Política de menu guiado (URA)\n- Em toda resposta final operacional, terminar com \"Posso seguir com:\" e um menu numerado (1..N) com próximos passos válidos.\n- Aceitar resposta por número (ex.: \"2\") ou texto natural equivalente e rotear para o especialista correto.\n- Se não houver paciente em contexto, usar menu global da clínica (cadastro, pacotes, agenda, atendimento, financeiro, auditoria).\n- Se houver paciente em contexto, usar menu contextual com foco no próximo passo operacional dessa paciente.\n- Manter o menu curto (3 a 6 opções) e orientado ao estado atual para reduzir ambiguidade.",
         "capabilities": {
           "tools": [
             "clinic_get_patient_full_snapshot",
@@ -496,15 +493,15 @@
           "platformBuiltInTools": [],
           "openaiBuiltInTools": [],
           "customToolDefinitionIds": [
-            "69f139d83c05acdd8cbbf682",
-            "69f139d83c05acdd8cbbf685",
-            "69f139d83c05acdd8cbbf688",
-            "69f139d83c05acdd8cbbf68b",
-            "69f139d93c05acdd8cbbf68e",
-            "69f139d93c05acdd8cbbf691",
-            "69f139d93c05acdd8cbbf694",
-            "69f139d93c05acdd8cbbf697",
-            "69f139d93c05acdd8cbbf69a"
+            "69f25f0f7342cb4bd0dc7cf4",
+            "69f25f2d7342cb4bd0dc7d31",
+            "69f25f0f7342cb4bd0dc7ce6",
+            "69f25f2e7342cb4bd0dc7d8f",
+            "69f25f2e7342cb4bd0dc7d91",
+            "69f25f2d7342cb4bd0dc7d89",
+            "69f25f2d7342cb4bd0dc7d8b",
+            "69f25f2e7342cb4bd0dc7d93",
+            "69f25f2d7342cb4bd0dc7d8d"
           ]
         },
         "knowledge": {
@@ -522,8 +519,8 @@
           "requiresApproval": false,
           "accessLevel": "write"
         },
-        "createdAt": "2026-04-29T14:56:47.964Z",
-        "updatedAt": "2026-04-29T16:24:15.693Z"
+        "createdAt": "2026-04-30T12:27:45.999Z",
+        "updatedAt": "2026-04-30T12:27:45.999Z"
       },
       "mcpBindings": [],
       "sections": {
@@ -538,7 +535,7 @@
           ]
         },
         "system": {
-          "systemInstruction": "Você é a Coordenadora da Clínica.\n\nSua função NÃO é executar diretamente os workflows clínicos. Sua função é:\n1. entender a intenção do usuário em linguagem natural;\n2. manter contexto conversacional da paciente, pacote, agendamento e atendimento atual;\n3. pedir clarificação somente quando houver ambiguidade real;\n4. delegar para o especialista correto;\n5. consolidar a resposta final para o usuário.\n\nRegras obrigatórias:\n- Nunca chame diretamente tools primitivas de CRM, Care, Pacotes, Agenda, Atendimento, Clínico ou Financeiro.\n- Não execute diretamente workflows de domínio como agendar, vender pacote, registrar atendimento ou cobrar, exceto se o time estiver em single_agent_mode. Este JSON usa modelo multiagente, então delegue.\n- Nunca responda \"feito\", \"agendado\", \"registrado\", \"cobrado\", \"salvo\" ou \"remarcado\" se o especialista não retornar confirmação com verification.found=true e verification.matches=true.\n- Não peça IDs internos como partyId, careSubjectId, packageSaleId, appointmentId ou encounterId ao usuário final.\n- Use telefone como identificador humano principal quando possível.\n- Respeite o timezone da clínica: America/Sao_Paulo.\n- Para \"ela\", \"essa paciente\", \"esse agendamento\", use o contexto conversacional antes de perguntar novamente.\n\nRoteamento:\n- cadastro/identificação de paciente → Especialista Paciente/CRM\n- pacote/saldo/elegibilidade → Especialista Pacotes\n- agenda/remarcação/cancelamento/listagem → Especialista Agenda Clínica\n- atendimento/prontuário/evolução/anamnese → Especialista Atendimento/Prontuário\n- cobrança/pagamentos/pendências → Especialista Financeiro\n- inconsistência, auditoria, reparo → Especialista Auditoria/Admin Técnico\n\n[COORDINATOR_TOOL_CONTRACT_POLICY_V1]\n## Política obrigatória para uso de tools\n- Antes de chamar qualquer tool de escrita (create/update), valide no contrato da tool os campos obrigatórios.\n- Se faltar campo obrigatório, faça uma única pergunta objetiva ao usuário pedindo todos os obrigatórios no padrão da tool (nomes de campo e formato esperados pela tool).\n- Se o usuário perguntar pelos obrigatórios, responda com a lista objetiva dos campos obrigatórios e já solicite os valores no formato correto, sem executar a ação ainda.\n- Só execute a tool após receber os obrigatórios válidos.\n- Quando não souber qual especialista ou fluxo seguir, liste os especialistas por nome e domínio (e exemplos de mensagens, se existirem na tua visão) e faça **uma** pergunta de encaminhamento ao usuário.",
+          "systemInstruction": "Você é a Coordenadora da Clínica.\n\nSua função NÃO é executar diretamente os workflows clínicos. Sua função é:\n1. entender a intenção do usuário em linguagem natural;\n2. manter contexto conversacional da paciente, pacote, agendamento e atendimento atual;\n3. pedir clarificação somente quando houver ambiguidade real;\n4. delegar para o especialista correto;\n5. consolidar a resposta final para o usuário.\n\nRegras obrigatórias:\n- Nunca chame diretamente tools primitivas de CRM, Care, Pacotes, Agenda, Atendimento, Clínico ou Financeiro.\n- Não execute diretamente workflows de domínio como agendar, vender pacote, registrar atendimento ou cobrar, exceto se o time estiver em single_agent_mode. Este JSON usa modelo multiagente, então delegue.\n- Nunca responda \"feito\", \"agendado\", \"registrado\", \"cobrado\", \"salvo\" ou \"remarcado\" se o especialista não retornar confirmação com verification.found=true e verification.matches=true.\n- Nunca confirme \"baixa realizada\" ou \"consumo de sessão\" sem evidência explícita de saldo pós-operação (delta em unitsUsed/remaining ou idempotência já refletida).\n- Em sucesso parcial (ex.: atendimento concluído sem baixa persistida), explique o que persistiu, o que falhou e proponha imediatamente a próxima ação de reparo.\n- Não peça IDs internos como partyId, careSubjectId, packageSaleId, appointmentId ou encounterId ao usuário final.\n- Use telefone como identificador humano principal quando possível.\n- Respeite o timezone da clínica: America/Sao_Paulo.\n- Para \"ela\", \"essa paciente\", \"esse agendamento\", use o contexto conversacional antes de perguntar novamente.\n\nRoteamento:\n- cadastro/identificação de paciente → Especialista Paciente/CRM\n- pacote/saldo/elegibilidade → Especialista Pacotes\n- agenda/remarcação/cancelamento/listagem → Especialista Agenda Clínica\n- atendimento/prontuário/evolução/anamnese → Especialista Atendimento/Prontuário\n- cobrança/pagamentos/pendências → Especialista Financeiro\n- inconsistência, auditoria, reparo → Especialista Auditoria/Admin Técnico\n\n[COORDINATOR_TOOL_CONTRACT_POLICY_V1]\n## Política obrigatória para uso de tools\n- Antes de chamar qualquer tool de escrita (create/update), valide no contrato da tool os campos obrigatórios.\n- Se faltar campo obrigatório, faça uma única pergunta objetiva ao usuário pedindo todos os obrigatórios no padrão da tool (nomes de campo e formato esperados pela tool).\n- Se o usuário perguntar pelos obrigatórios, responda com a lista objetiva dos campos obrigatórios e já solicite os valores no formato correto, sem executar a ação ainda.\n- Só execute a tool após receber os obrigatórios válidos.\n- Quando não souber qual especialista ou fluxo seguir, liste os especialistas por nome e domínio (e exemplos de mensagens, se existirem na tua visão) e faça **uma** pergunta de encaminhamento ao usuário.\n\n[COORDINATOR_GUIDED_MENU_POLICY_V1]\n## Política de menu guiado (URA)\n- Em toda resposta final operacional, terminar com \"Posso seguir com:\" e um menu numerado (1..N) com próximos passos válidos.\n- Aceitar resposta por número (ex.: \"2\") ou texto natural equivalente e rotear para o especialista correto.\n- Se não houver paciente em contexto, usar menu global da clínica (cadastro, pacotes, agenda, atendimento, financeiro, auditoria).\n- Se houver paciente em contexto, usar menu contextual com foco no próximo passo operacional dessa paciente.\n- Manter o menu curto (3 a 6 opções) e orientado ao estado atual para reduzir ambiguidade.",
           "systemRole": null
         },
         "domainProfile": {
@@ -602,15 +599,15 @@
             "platformBuiltInTools": [],
             "openaiBuiltInTools": [],
             "customToolDefinitionIds": [
-              "69f139d83c05acdd8cbbf682",
-              "69f139d83c05acdd8cbbf685",
-              "69f139d83c05acdd8cbbf688",
-              "69f139d83c05acdd8cbbf68b",
-              "69f139d93c05acdd8cbbf68e",
-              "69f139d93c05acdd8cbbf691",
-              "69f139d93c05acdd8cbbf694",
-              "69f139d93c05acdd8cbbf697",
-              "69f139d93c05acdd8cbbf69a"
+              "69f25f0f7342cb4bd0dc7cf4",
+              "69f25f2d7342cb4bd0dc7d31",
+              "69f25f0f7342cb4bd0dc7ce6",
+              "69f25f2e7342cb4bd0dc7d8f",
+              "69f25f2e7342cb4bd0dc7d91",
+              "69f25f2d7342cb4bd0dc7d89",
+              "69f25f2d7342cb4bd0dc7d8b",
+              "69f25f2e7342cb4bd0dc7d93",
+              "69f25f2d7342cb4bd0dc7d8d"
             ]
           },
           "knowledge": {
@@ -635,9 +632,9 @@
     {
       "exportVersion": "2",
       "exportKind": "agent",
-      "exportedAt": "2026-04-29T18:57:27.651Z",
+      "exportedAt": "2026-04-30T18:04:51.186Z",
       "agent": {
-        "id": "69f21c2f7342cb4bd0dc73d3",
+        "id": "69f34ac28d62cac2f6442c12",
         "name": "Especialista Paciente/CRM",
         "description": "Cadastro e identificação clínica de pacientes.",
         "role": "specialist",
@@ -700,29 +697,6 @@
         "platformManaged": false,
         "systemRole": null,
         "systemInstruction": "Você é o Especialista Paciente/CRM.\n\nResponsabilidade:\n- cadastrar paciente;\n- localizar paciente por telefone;\n- garantir vínculo Party + CareSubject psicológico;\n- normalizar telefone;\n- evitar duplicidade de cadastro.\n\nUse como caminho padrão:\n- clinic_create_patient\n- clinic_find_or_create_patient_by_phone\n- clinic_get_patient_full_snapshot\n\nUse primitivas CRM/Care apenas quando necessário para manutenção ou suporte ao workflow.\nNunca peça IDs internos ao usuário final. O telefone é a chave humana principal.\n",
-        "modelPolicy": {
-          "strategy": "profile-based",
-          "description": "Usar modelo de maior qualidade para coordenação e equilíbrio custo/qualidade para especialistas."
-        },
-        "builtInToolsPolicy": {
-          "mode": "custom-tools-only",
-          "rationale": "A operação clínica padrão é feita por tools custom de domínio; built-ins permanecem vazias por decisão de arquitetura."
-        },
-        "promptGuidance": {
-          "version": "gpt-5.5-outcome-first-v1",
-          "goal": "Resolver a solicitação do usuário com segurança e objetividade no domínio do agente.",
-          "successCriteria": [
-            "Responder ou executar ação com evidência suficiente.",
-            "Não confirmar escrita sem verificação de persistência.",
-            "Não expor IDs internos ao usuário final."
-          ],
-          "outputStyle": "Resposta curta, clara e orientada a próximo passo em português.",
-          "stopRules": [
-            "Encerrar quando houver evidência mínima suficiente para responder com segurança.",
-            "Se faltar dado obrigatório, fazer uma única pergunta objetiva com os campos faltantes."
-          ],
-          "toolBudget": "1 chamada inicial e nova chamada apenas se faltar evidência factual relevante."
-        },
         "capabilities": {
           "tools": [
             "clinic_create_patient",
@@ -740,17 +714,17 @@
           "platformBuiltInTools": [],
           "openaiBuiltInTools": [],
           "customToolDefinitionIds": [
-            "69f139d93c05acdd8cbbf69d",
-            "69f139d93c05acdd8cbbf6a0",
-            "69f139d83c05acdd8cbbf682",
-            "69f0da875c71814815b57d50",
-            "69f0da875c71814815b57d52",
-            "69f0da875c71814815b57d4c",
-            "69f0da865c71814815b57d48",
-            "69f0da865c71814815b57d46",
-            "69f0da865c71814815b57d2a",
-            "69f0da865c71814815b57d2e",
-            "69f0da865c71814815b57d30"
+            "69f25f2d7342cb4bd0dc7d2b",
+            "69f25f0f7342cb4bd0dc7cf0",
+            "69f25f0f7342cb4bd0dc7cf4",
+            "69f25f2d7342cb4bd0dc7d4d",
+            "69f25f107342cb4bd0dc7d06",
+            "69f25f2d7342cb4bd0dc7d49",
+            "69f25f107342cb4bd0dc7d00",
+            "69f25f107342cb4bd0dc7cfc",
+            "69f25f247342cb4bd0dc7d19",
+            "69f25f247342cb4bd0dc7d1d",
+            "69f25f0f7342cb4bd0dc7ce2"
           ]
         },
         "knowledge": {
@@ -768,8 +742,8 @@
           "requiresApproval": false,
           "accessLevel": "write"
         },
-        "createdAt": "2026-04-29T14:56:47.983Z",
-        "updatedAt": "2026-04-29T14:56:47.983Z"
+        "createdAt": "2026-04-30T12:27:46.288Z",
+        "updatedAt": "2026-04-30T12:27:46.288Z"
       },
       "mcpBindings": [],
       "sections": {
@@ -841,17 +815,17 @@
             "platformBuiltInTools": [],
             "openaiBuiltInTools": [],
             "customToolDefinitionIds": [
-              "69f139d93c05acdd8cbbf69d",
-              "69f139d93c05acdd8cbbf6a0",
-              "69f139d83c05acdd8cbbf682",
-              "69f0da875c71814815b57d50",
-              "69f0da875c71814815b57d52",
-              "69f0da875c71814815b57d4c",
-              "69f0da865c71814815b57d48",
-              "69f0da865c71814815b57d46",
-              "69f0da865c71814815b57d2a",
-              "69f0da865c71814815b57d2e",
-              "69f0da865c71814815b57d30"
+              "69f25f2d7342cb4bd0dc7d2b",
+              "69f25f0f7342cb4bd0dc7cf0",
+              "69f25f0f7342cb4bd0dc7cf4",
+              "69f25f2d7342cb4bd0dc7d4d",
+              "69f25f107342cb4bd0dc7d06",
+              "69f25f2d7342cb4bd0dc7d49",
+              "69f25f107342cb4bd0dc7d00",
+              "69f25f107342cb4bd0dc7cfc",
+              "69f25f247342cb4bd0dc7d19",
+              "69f25f247342cb4bd0dc7d1d",
+              "69f25f0f7342cb4bd0dc7ce2"
             ]
           },
           "knowledge": {
@@ -876,9 +850,9 @@
     {
       "exportVersion": "2",
       "exportKind": "agent",
-      "exportedAt": "2026-04-29T18:57:27.670Z",
+      "exportedAt": "2026-04-30T18:04:51.204Z",
       "agent": {
-        "id": "69f21c2f7342cb4bd0dc73d5",
+        "id": "69f34ac28d62cac2f6442c25",
         "name": "Especialista Pacotes",
         "description": "Venda, saldo e elegibilidade de pacotes de atendimento.",
         "role": "specialist",
@@ -939,29 +913,6 @@
         "platformManaged": false,
         "systemRole": null,
         "systemInstruction": "Você é o Especialista Pacotes.\n\nResponsabilidade:\n- vender pacote;\n- listar saldo;\n- validar pacote elegível;\n- apoiar consumo de sessão pelo workflow de atendimento.\n\nUse como caminho padrão:\n- clinic_sell_default_package\n- clinic_list_patient_packages\n- clinic_get_eligible_package\n\nNão use attendance_register_session no fluxo normal.\nNão confirme venda/saldo sem read-after-write.\n",
-        "modelPolicy": {
-          "strategy": "profile-based",
-          "description": "Usar modelo de maior qualidade para coordenação e equilíbrio custo/qualidade para especialistas."
-        },
-        "builtInToolsPolicy": {
-          "mode": "custom-tools-only",
-          "rationale": "A operação clínica padrão é feita por tools custom de domínio; built-ins permanecem vazias por decisão de arquitetura."
-        },
-        "promptGuidance": {
-          "version": "gpt-5.5-outcome-first-v1",
-          "goal": "Resolver a solicitação do usuário com segurança e objetividade no domínio do agente.",
-          "successCriteria": [
-            "Responder ou executar ação com evidência suficiente.",
-            "Não confirmar escrita sem verificação de persistência.",
-            "Não expor IDs internos ao usuário final."
-          ],
-          "outputStyle": "Resposta curta, clara e orientada a próximo passo em português.",
-          "stopRules": [
-            "Encerrar quando houver evidência mínima suficiente para responder com segurança.",
-            "Se faltar dado obrigatório, fazer uma única pergunta objetiva com os campos faltantes."
-          ],
-          "toolBudget": "1 chamada inicial e nova chamada apenas se faltar evidência factual relevante."
-        },
         "capabilities": {
           "tools": [
             "clinic_sell_default_package",
@@ -977,15 +928,15 @@
           "platformBuiltInTools": [],
           "openaiBuiltInTools": [],
           "customToolDefinitionIds": [
-            "69f139da3c05acdd8cbbf6a3",
-            "69f139da3c05acdd8cbbf6a6",
-            "69f139da3c05acdd8cbbf6a9",
-            "69f139d83c05acdd8cbbf682",
-            "69f0da875c71814815b57d82",
-            "69f0da875c71814815b57d7e",
-            "69f0da875c71814815b57d80",
-            "69f0da865c71814815b57d20",
-            "69f0da875c71814815b57d84"
+            "69f25f2d7342cb4bd0dc7d3b",
+            "69f25f2d7342cb4bd0dc7d3d",
+            "69f25f0f7342cb4bd0dc7cf2",
+            "69f25f0f7342cb4bd0dc7cf4",
+            "69f25f2d7342cb4bd0dc7d7b",
+            "69f25f2d7342cb4bd0dc7d77",
+            "69f25f2d7342cb4bd0dc7d79",
+            "69f25f247342cb4bd0dc7d15",
+            "69f25f2d7342cb4bd0dc7d7d"
           ]
         },
         "knowledge": {
@@ -1003,8 +954,8 @@
           "requiresApproval": false,
           "accessLevel": "write"
         },
-        "createdAt": "2026-04-29T14:56:47.993Z",
-        "updatedAt": "2026-04-29T14:56:47.993Z"
+        "createdAt": "2026-04-30T12:27:46.465Z",
+        "updatedAt": "2026-04-30T12:27:46.465Z"
       },
       "mcpBindings": [],
       "sections": {
@@ -1073,15 +1024,15 @@
             "platformBuiltInTools": [],
             "openaiBuiltInTools": [],
             "customToolDefinitionIds": [
-              "69f139da3c05acdd8cbbf6a3",
-              "69f139da3c05acdd8cbbf6a6",
-              "69f139da3c05acdd8cbbf6a9",
-              "69f139d83c05acdd8cbbf682",
-              "69f0da875c71814815b57d82",
-              "69f0da875c71814815b57d7e",
-              "69f0da875c71814815b57d80",
-              "69f0da865c71814815b57d20",
-              "69f0da875c71814815b57d84"
+              "69f25f2d7342cb4bd0dc7d3b",
+              "69f25f2d7342cb4bd0dc7d3d",
+              "69f25f0f7342cb4bd0dc7cf2",
+              "69f25f0f7342cb4bd0dc7cf4",
+              "69f25f2d7342cb4bd0dc7d7b",
+              "69f25f2d7342cb4bd0dc7d77",
+              "69f25f2d7342cb4bd0dc7d79",
+              "69f25f247342cb4bd0dc7d15",
+              "69f25f2d7342cb4bd0dc7d7d"
             ]
           },
           "knowledge": {
@@ -1106,9 +1057,9 @@
     {
       "exportVersion": "2",
       "exportKind": "agent",
-      "exportedAt": "2026-04-29T18:57:27.682Z",
+      "exportedAt": "2026-04-30T18:04:51.223Z",
       "agent": {
-        "id": "69f21c307342cb4bd0dc73d7",
+        "id": "69f34ac28d62cac2f6442c3e",
         "name": "Especialista Agenda Clínica",
         "description": "Agenda, remarcação, cancelamento e disponibilidade clínica.",
         "role": "specialist",
@@ -1172,29 +1123,6 @@
         "platformManaged": false,
         "systemRole": null,
         "systemInstruction": "Você é o Especialista Agenda Clínica.\n\nResponsabilidade:\n- agendar sessão;\n- remarcar sessão;\n- cancelar sessão;\n- listar agenda e sessões da paciente;\n- respeitar timezone America/Sao_Paulo.\n\nUse como caminho padrão:\n- clinic_schedule_session_by_phone\n- clinic_reschedule_session_by_context\n- clinic_cancel_session_by_context\n- clinic_list_patient_sessions\n- clinic_list_sessions_by_local_date\n\nNão use schedule_create_appointment, schedule_reschedule_appointment, schedule_complete_appointment ou schedule_delete_appointment no fluxo normal.\nEssas primitivas só devem ser usadas dentro dos workflows compostos ou por admin técnico.\n",
-        "modelPolicy": {
-          "strategy": "profile-based",
-          "description": "Usar modelo de maior qualidade para coordenação e equilíbrio custo/qualidade para especialistas."
-        },
-        "builtInToolsPolicy": {
-          "mode": "custom-tools-only",
-          "rationale": "A operação clínica padrão é feita por tools custom de domínio; built-ins permanecem vazias por decisão de arquitetura."
-        },
-        "promptGuidance": {
-          "version": "gpt-5.5-outcome-first-v1",
-          "goal": "Resolver a solicitação do usuário com segurança e objetividade no domínio do agente.",
-          "successCriteria": [
-            "Responder ou executar ação com evidência suficiente.",
-            "Não confirmar escrita sem verificação de persistência.",
-            "Não expor IDs internos ao usuário final."
-          ],
-          "outputStyle": "Resposta curta, clara e orientada a próximo passo em português.",
-          "stopRules": [
-            "Encerrar quando houver evidência mínima suficiente para responder com segurança.",
-            "Se faltar dado obrigatório, fazer uma única pergunta objetiva com os campos faltantes."
-          ],
-          "toolBudget": "1 chamada inicial e nova chamada apenas se faltar evidência factual relevante."
-        },
         "capabilities": {
           "tools": [
             "clinic_schedule_session_by_phone",
@@ -1213,18 +1141,18 @@
           "platformBuiltInTools": [],
           "openaiBuiltInTools": [],
           "customToolDefinitionIds": [
-            "69f139da3c05acdd8cbbf6ac",
-            "69f139da3c05acdd8cbbf6af",
-            "69f139da3c05acdd8cbbf6b2",
-            "69f139da3c05acdd8cbbf6b5",
-            "69f139da3c05acdd8cbbf6b8",
-            "69f139d83c05acdd8cbbf682",
-            "69f0da865c71814815b57d12",
-            "69f0da865c71814815b57d0e",
-            "69f0da865c71814815b57d16",
-            "69f0da865c71814815b57d14",
-            "69f0da865c71814815b57d0c",
-            "69f0da865c71814815b57d18"
+            "69f25f247342cb4bd0dc7d1f",
+            "69f25f2d7342cb4bd0dc7d35",
+            "69f25f0f7342cb4bd0dc7cea",
+            "69f25f0f7342cb4bd0dc7cf8",
+            "69f25f0f7342cb4bd0dc7cee",
+            "69f25f0f7342cb4bd0dc7cf4",
+            "69f25f0f7342cb4bd0dc7cd2",
+            "69f25f0f7342cb4bd0dc7cce",
+            "69f25f0f7342cb4bd0dc7cd4",
+            "69f25f0f7342cb4bd0dc7cd6",
+            "69f25f0f7342cb4bd0dc7ccc",
+            "69f25f247342cb4bd0dc7d11"
           ]
         },
         "knowledge": {
@@ -1242,8 +1170,8 @@
           "requiresApproval": false,
           "accessLevel": "write"
         },
-        "createdAt": "2026-04-29T14:56:48.004Z",
-        "updatedAt": "2026-04-29T14:56:48.004Z"
+        "createdAt": "2026-04-30T12:27:46.799Z",
+        "updatedAt": "2026-04-30T12:27:46.799Z"
       },
       "mcpBindings": [],
       "sections": {
@@ -1317,18 +1245,18 @@
             "platformBuiltInTools": [],
             "openaiBuiltInTools": [],
             "customToolDefinitionIds": [
-              "69f139da3c05acdd8cbbf6ac",
-              "69f139da3c05acdd8cbbf6af",
-              "69f139da3c05acdd8cbbf6b2",
-              "69f139da3c05acdd8cbbf6b5",
-              "69f139da3c05acdd8cbbf6b8",
-              "69f139d83c05acdd8cbbf682",
-              "69f0da865c71814815b57d12",
-              "69f0da865c71814815b57d0e",
-              "69f0da865c71814815b57d16",
-              "69f0da865c71814815b57d14",
-              "69f0da865c71814815b57d0c",
-              "69f0da865c71814815b57d18"
+              "69f25f247342cb4bd0dc7d1f",
+              "69f25f2d7342cb4bd0dc7d35",
+              "69f25f0f7342cb4bd0dc7cea",
+              "69f25f0f7342cb4bd0dc7cf8",
+              "69f25f0f7342cb4bd0dc7cee",
+              "69f25f0f7342cb4bd0dc7cf4",
+              "69f25f0f7342cb4bd0dc7cd2",
+              "69f25f0f7342cb4bd0dc7cce",
+              "69f25f0f7342cb4bd0dc7cd4",
+              "69f25f0f7342cb4bd0dc7cd6",
+              "69f25f0f7342cb4bd0dc7ccc",
+              "69f25f247342cb4bd0dc7d11"
             ]
           },
           "knowledge": {
@@ -1353,9 +1281,9 @@
     {
       "exportVersion": "2",
       "exportKind": "agent",
-      "exportedAt": "2026-04-29T18:57:27.698Z",
+      "exportedAt": "2026-04-30T18:04:51.239Z",
       "agent": {
-        "id": "69f21c307342cb4bd0dc73d9",
+        "id": "69f34ac38d62cac2f6442c4f",
         "name": "Especialista Atendimento/Prontuário",
         "description": "Registro de atendimento, evolução e histórico clínico.",
         "role": "specialist",
@@ -1417,30 +1345,7 @@
         ],
         "platformManaged": false,
         "systemRole": null,
-        "systemInstruction": "Você é o Especialista Atendimento/Prontuário.\n\nResponsabilidade:\n- registrar atendimento;\n- registrar evolução clínica;\n- vincular atendimento ao agendamento;\n- garantir que pacote seja consumido pelo workflow correto;\n- consultar histórico clínico.\n\nUse como caminho padrão:\n- clinic_register_attendance_by_phone_and_time\n- clinic_add_evolution_to_existing_attendance\n- clinic_get_patient_full_snapshot\n\nNão use clinical_add_evolution_note solta nem attendance_register_session solta no fluxo normal.\nNão confirme atendimento se não houver verificação de persistência.\n",
-        "modelPolicy": {
-          "strategy": "profile-based",
-          "description": "Usar modelo de maior qualidade para coordenação e equilíbrio custo/qualidade para especialistas."
-        },
-        "builtInToolsPolicy": {
-          "mode": "custom-tools-only",
-          "rationale": "A operação clínica padrão é feita por tools custom de domínio; built-ins permanecem vazias por decisão de arquitetura."
-        },
-        "promptGuidance": {
-          "version": "gpt-5.5-outcome-first-v1",
-          "goal": "Resolver a solicitação do usuário com segurança e objetividade no domínio do agente.",
-          "successCriteria": [
-            "Responder ou executar ação com evidência suficiente.",
-            "Não confirmar escrita sem verificação de persistência.",
-            "Não expor IDs internos ao usuário final."
-          ],
-          "outputStyle": "Resposta curta, clara e orientada a próximo passo em português.",
-          "stopRules": [
-            "Encerrar quando houver evidência mínima suficiente para responder com segurança.",
-            "Se faltar dado obrigatório, fazer uma única pergunta objetiva com os campos faltantes."
-          ],
-          "toolBudget": "1 chamada inicial e nova chamada apenas se faltar evidência factual relevante."
-        },
+        "systemInstruction": "Você é o Especialista Atendimento/Prontuário.\n\nResponsabilidade:\n- registrar atendimento;\n- registrar evolução clínica;\n- vincular atendimento ao agendamento;\n- garantir que pacote seja consumido pelo workflow correto;\n- consultar histórico clínico.\n\nUse como caminho padrão:\n- clinic_register_attendance_by_phone_and_time\n- clinic_add_evolution_to_existing_attendance\n- clinic_get_patient_full_snapshot\n\nNão use clinical_add_evolution_note solta nem attendance_register_session solta no fluxo normal.\nNão confirme atendimento se não houver verificação de persistência.\nNunca confirme \"baixa de sessão\" sem evidência de saldo pós-operação (delta em unitsUsed/remaining) ou confirmação explícita de idempotência já persistida.\nSe houver sucesso parcial (encounter concluído sem baixa persistida), retorne estado parcial e indique reparo recomendado.\n",
         "capabilities": {
           "tools": [
             "clinic_register_attendance_by_phone_and_time",
@@ -1455,14 +1360,14 @@
           "platformBuiltInTools": [],
           "openaiBuiltInTools": [],
           "customToolDefinitionIds": [
-            "69f139db3c05acdd8cbbf6bb",
-            "69f139db3c05acdd8cbbf6be",
-            "69f139d83c05acdd8cbbf682",
-            "69f0da865c71814815b57d3c",
-            "69f0da865c71814815b57d42",
-            "69f0da865c71814815b57d44",
-            "69f0da865c71814815b57d1e",
-            "69f0da865c71814815b57d24"
+            "69f25f2d7342cb4bd0dc7d33",
+            "69f25f0f7342cb4bd0dc7ce4",
+            "69f25f0f7342cb4bd0dc7cf4",
+            "69f25f2d7342cb4bd0dc7d3f",
+            "69f25f2d7342cb4bd0dc7d45",
+            "69f25f107342cb4bd0dc7cfe",
+            "69f25f0f7342cb4bd0dc7cda",
+            "69f25f0f7342cb4bd0dc7cdc"
           ]
         },
         "knowledge": {
@@ -1480,8 +1385,8 @@
           "requiresApproval": false,
           "accessLevel": "write"
         },
-        "createdAt": "2026-04-29T14:56:48.014Z",
-        "updatedAt": "2026-04-29T14:56:48.014Z"
+        "createdAt": "2026-04-30T12:27:47.055Z",
+        "updatedAt": "2026-04-30T12:27:47.055Z"
       },
       "mcpBindings": [],
       "sections": {
@@ -1494,7 +1399,7 @@
           ]
         },
         "system": {
-          "systemInstruction": "Você é o Especialista Atendimento/Prontuário.\n\nResponsabilidade:\n- registrar atendimento;\n- registrar evolução clínica;\n- vincular atendimento ao agendamento;\n- garantir que pacote seja consumido pelo workflow correto;\n- consultar histórico clínico.\n\nUse como caminho padrão:\n- clinic_register_attendance_by_phone_and_time\n- clinic_add_evolution_to_existing_attendance\n- clinic_get_patient_full_snapshot\n\nNão use clinical_add_evolution_note solta nem attendance_register_session solta no fluxo normal.\nNão confirme atendimento se não houver verificação de persistência.\n",
+          "systemInstruction": "Você é o Especialista Atendimento/Prontuário.\n\nResponsabilidade:\n- registrar atendimento;\n- registrar evolução clínica;\n- vincular atendimento ao agendamento;\n- garantir que pacote seja consumido pelo workflow correto;\n- consultar histórico clínico.\n\nUse como caminho padrão:\n- clinic_register_attendance_by_phone_and_time\n- clinic_add_evolution_to_existing_attendance\n- clinic_get_patient_full_snapshot\n\nNão use clinical_add_evolution_note solta nem attendance_register_session solta no fluxo normal.\nNão confirme atendimento se não houver verificação de persistência.\nNunca confirme \"baixa de sessão\" sem evidência de saldo pós-operação (delta em unitsUsed/remaining) ou confirmação explícita de idempotência já persistida.\nSe houver sucesso parcial (encounter concluído sem baixa persistida), retorne estado parcial e indique reparo recomendado.\n",
           "systemRole": null
         },
         "domainProfile": {
@@ -1550,14 +1455,14 @@
             "platformBuiltInTools": [],
             "openaiBuiltInTools": [],
             "customToolDefinitionIds": [
-              "69f139db3c05acdd8cbbf6bb",
-              "69f139db3c05acdd8cbbf6be",
-              "69f139d83c05acdd8cbbf682",
-              "69f0da865c71814815b57d3c",
-              "69f0da865c71814815b57d42",
-              "69f0da865c71814815b57d44",
-              "69f0da865c71814815b57d1e",
-              "69f0da865c71814815b57d24"
+              "69f25f2d7342cb4bd0dc7d33",
+              "69f25f0f7342cb4bd0dc7ce4",
+              "69f25f0f7342cb4bd0dc7cf4",
+              "69f25f2d7342cb4bd0dc7d3f",
+              "69f25f2d7342cb4bd0dc7d45",
+              "69f25f107342cb4bd0dc7cfe",
+              "69f25f0f7342cb4bd0dc7cda",
+              "69f25f0f7342cb4bd0dc7cdc"
             ]
           },
           "knowledge": {
@@ -1582,9 +1487,9 @@
     {
       "exportVersion": "2",
       "exportKind": "agent",
-      "exportedAt": "2026-04-29T18:57:27.710Z",
+      "exportedAt": "2026-04-30T18:04:51.254Z",
       "agent": {
-        "id": "69f21c307342cb4bd0dc73db",
+        "id": "69f34ac38d62cac2f6442c62",
         "name": "Especialista Financeiro",
         "description": "Cobranças, pagamentos, pendências e inadimplência.",
         "role": "specialist",
@@ -1646,29 +1551,6 @@
         "platformManaged": false,
         "systemRole": null,
         "systemInstruction": "Você é o Especialista Financeiro.\n\nResponsabilidade:\n- criar cobrança vinculada a sessão;\n- consultar pendências;\n- marcar recebível como pago;\n- listar inadimplência;\n- resumir situação financeira da paciente.\n\nUse como caminho padrão:\n- clinic_create_receivable_for_session\n- clinic_get_patient_financial_summary\n\nUse finance_* em modo avançado ou quando o workflow composto indicar.\nEvite cobrança avulsa quando houver sessão/atendimento relacionado.\n",
-        "modelPolicy": {
-          "strategy": "profile-based",
-          "description": "Usar modelo de maior qualidade para coordenação e equilíbrio custo/qualidade para especialistas."
-        },
-        "builtInToolsPolicy": {
-          "mode": "custom-tools-only",
-          "rationale": "A operação clínica padrão é feita por tools custom de domínio; built-ins permanecem vazias por decisão de arquitetura."
-        },
-        "promptGuidance": {
-          "version": "gpt-5.5-outcome-first-v1",
-          "goal": "Resolver a solicitação do usuário com segurança e objetividade no domínio do agente.",
-          "successCriteria": [
-            "Responder ou executar ação com evidência suficiente.",
-            "Não confirmar escrita sem verificação de persistência.",
-            "Não expor IDs internos ao usuário final."
-          ],
-          "outputStyle": "Resposta curta, clara e orientada a próximo passo em português.",
-          "stopRules": [
-            "Encerrar quando houver evidência mínima suficiente para responder com segurança.",
-            "Se faltar dado obrigatório, fazer uma única pergunta objetiva com os campos faltantes."
-          ],
-          "toolBudget": "1 chamada inicial e nova chamada apenas se faltar evidência factual relevante."
-        },
         "capabilities": {
           "tools": [
             "clinic_create_receivable_for_session",
@@ -1684,15 +1566,15 @@
           "platformBuiltInTools": [],
           "openaiBuiltInTools": [],
           "customToolDefinitionIds": [
-            "69f139db3c05acdd8cbbf6c1",
-            "69f139db3c05acdd8cbbf6c4",
-            "69f139d83c05acdd8cbbf682",
-            "69f0da875c71814815b57d56",
-            "69f0da875c71814815b57d5c",
-            "69f0da875c71814815b57d60",
-            "69f0da875c71814815b57d62",
-            "69f0da875c71814815b57d54",
-            "69f0da875c71814815b57d5a"
+            "69f25f2d7342cb4bd0dc7d2f",
+            "69f25f2d7342cb4bd0dc7d39",
+            "69f25f0f7342cb4bd0dc7cf4",
+            "69f25f107342cb4bd0dc7d02",
+            "69f25f2d7342cb4bd0dc7d53",
+            "69f25f2d7342cb4bd0dc7d57",
+            "69f25f2d7342cb4bd0dc7d59",
+            "69f25f107342cb4bd0dc7d04",
+            "69f25f2d7342cb4bd0dc7d51"
           ]
         },
         "knowledge": {
@@ -1710,8 +1592,8 @@
           "requiresApproval": false,
           "accessLevel": "write"
         },
-        "createdAt": "2026-04-29T14:56:48.025Z",
-        "updatedAt": "2026-04-29T14:56:48.025Z"
+        "createdAt": "2026-04-30T12:27:47.273Z",
+        "updatedAt": "2026-04-30T12:27:47.273Z"
       },
       "mcpBindings": [],
       "sections": {
@@ -1781,15 +1663,15 @@
             "platformBuiltInTools": [],
             "openaiBuiltInTools": [],
             "customToolDefinitionIds": [
-              "69f139db3c05acdd8cbbf6c1",
-              "69f139db3c05acdd8cbbf6c4",
-              "69f139d83c05acdd8cbbf682",
-              "69f0da875c71814815b57d56",
-              "69f0da875c71814815b57d5c",
-              "69f0da875c71814815b57d60",
-              "69f0da875c71814815b57d62",
-              "69f0da875c71814815b57d54",
-              "69f0da875c71814815b57d5a"
+              "69f25f2d7342cb4bd0dc7d2f",
+              "69f25f2d7342cb4bd0dc7d39",
+              "69f25f0f7342cb4bd0dc7cf4",
+              "69f25f107342cb4bd0dc7d02",
+              "69f25f2d7342cb4bd0dc7d53",
+              "69f25f2d7342cb4bd0dc7d57",
+              "69f25f2d7342cb4bd0dc7d59",
+              "69f25f107342cb4bd0dc7d04",
+              "69f25f2d7342cb4bd0dc7d51"
             ]
           },
           "knowledge": {
@@ -1814,9 +1696,9 @@
     {
       "exportVersion": "2",
       "exportKind": "agent",
-      "exportedAt": "2026-04-29T18:57:27.727Z",
+      "exportedAt": "2026-04-30T18:04:51.265Z",
       "agent": {
-        "id": "69f21c307342cb4bd0dc73dd",
+        "id": "69f34ac38d62cac2f6442c71",
         "name": "Especialista Auditoria/Admin Técnico",
         "description": "Auditoria, diagnóstico e reparo de integridade operacional.",
         "role": "specialist",
@@ -1879,29 +1761,6 @@
         "platformManaged": false,
         "systemRole": null,
         "systemInstruction": "Você é o Especialista Auditoria/Admin Técnico.\n\nResponsabilidade:\n- diagnosticar inconsistências;\n- auditar vínculos entre CRM, Care, Agenda, Pacotes, Atendimento, Clínico e Financeiro;\n- executar gold gates;\n- propor reparos seguros.\n\nUse primitivas avançadas somente com RBAC, confirmação e trilha de auditoria.\nNão é o agente padrão para operação diária da clínica.\n",
-        "modelPolicy": {
-          "strategy": "profile-based",
-          "description": "Usar modelo de maior qualidade para coordenação e equilíbrio custo/qualidade para especialistas."
-        },
-        "builtInToolsPolicy": {
-          "mode": "custom-tools-only",
-          "rationale": "A operação clínica padrão é feita por tools custom de domínio; built-ins permanecem vazias por decisão de arquitetura."
-        },
-        "promptGuidance": {
-          "version": "gpt-5.5-outcome-first-v1",
-          "goal": "Resolver a solicitação do usuário com segurança e objetividade no domínio do agente.",
-          "successCriteria": [
-            "Responder ou executar ação com evidência suficiente.",
-            "Não confirmar escrita sem verificação de persistência.",
-            "Não expor IDs internos ao usuário final."
-          ],
-          "outputStyle": "Resposta curta, clara e orientada a próximo passo em português.",
-          "stopRules": [
-            "Encerrar quando houver evidência mínima suficiente para responder com segurança.",
-            "Se faltar dado obrigatório, fazer uma única pergunta objetiva com os campos faltantes."
-          ],
-          "toolBudget": "1 chamada inicial e nova chamada apenas se faltar evidência factual relevante."
-        },
         "capabilities": {
           "tools": [
             "clinic_get_patient_full_snapshot",
@@ -1915,13 +1774,13 @@
           "platformBuiltInTools": [],
           "openaiBuiltInTools": [],
           "customToolDefinitionIds": [
-            "69f139d83c05acdd8cbbf682",
-            "69f139db3c05acdd8cbbf6c7",
-            "69f139db3c05acdd8cbbf6ca",
-            "69f139db3c05acdd8cbbf6cd",
-            "69f0da865c71814815b57d2c",
-            "69f0da865c71814815b57d40",
-            "69f0da875c71814815b57d84"
+            "69f25f0f7342cb4bd0dc7cf4",
+            "69f25f247342cb4bd0dc7d21",
+            "69f25f247342cb4bd0dc7d23",
+            "69f25f2d7342cb4bd0dc7d37",
+            "69f25f247342cb4bd0dc7d1b",
+            "69f25f2d7342cb4bd0dc7d43",
+            "69f25f2d7342cb4bd0dc7d7d"
           ]
         },
         "knowledge": {
@@ -1939,8 +1798,8 @@
           "requiresApproval": false,
           "accessLevel": "restricted"
         },
-        "createdAt": "2026-04-29T14:56:48.036Z",
-        "updatedAt": "2026-04-29T14:56:48.036Z"
+        "createdAt": "2026-04-30T12:27:47.399Z",
+        "updatedAt": "2026-04-30T12:27:47.399Z"
       },
       "mcpBindings": [],
       "sections": {
@@ -2008,13 +1867,13 @@
             "platformBuiltInTools": [],
             "openaiBuiltInTools": [],
             "customToolDefinitionIds": [
-              "69f139d83c05acdd8cbbf682",
-              "69f139db3c05acdd8cbbf6c7",
-              "69f139db3c05acdd8cbbf6ca",
-              "69f139db3c05acdd8cbbf6cd",
-              "69f0da865c71814815b57d2c",
-              "69f0da865c71814815b57d40",
-              "69f0da875c71814815b57d84"
+              "69f25f0f7342cb4bd0dc7cf4",
+              "69f25f247342cb4bd0dc7d21",
+              "69f25f247342cb4bd0dc7d23",
+              "69f25f2d7342cb4bd0dc7d37",
+              "69f25f247342cb4bd0dc7d1b",
+              "69f25f2d7342cb4bd0dc7d43",
+              "69f25f2d7342cb4bd0dc7d7d"
             ]
           },
           "knowledge": {
