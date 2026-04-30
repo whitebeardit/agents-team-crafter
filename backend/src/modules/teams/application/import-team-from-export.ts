@@ -14,6 +14,7 @@ import {
   orderedUniqueAgentIds,
   type TTeamExportChannelFullSnapshot,
 } from './build-team-export.js';
+import { ensureInternalActionDefinitions } from '../../team-planning/application/ensure-planner-tool-definitions.js';
 import { mergeChannelSecretsIntoImportPayload } from './merge-channel-secrets-into-payload.js';
 import type { IAppDeps } from '../../../config/container.js';
 import type { TeamRepository } from '../infra/team.repository.js';
@@ -402,6 +403,23 @@ export async function importTeamFromExport(
     const runtime = extractAgentRuntimeFromExport(exp);
     const oldId = String(a['id'] ?? '');
     const role = String(a['role'] ?? 'specialist');
+    const canonicalTools = runtime.capabilities.tools;
+    if (canonicalTools.length === 0) {
+      throw new AppError(
+        'IMPORT_AGENT_TOOLS_REQUIRED',
+        `Agente ${a['name'] ?? oldId} sem capabilities.tools canônicas (slug/actionId).`,
+        400,
+      );
+    }
+    const resolvedDefinitionIds = await ensureInternalActionDefinitions(
+      workspaceId,
+      canonicalTools,
+      deps.workspaceToolDefinitionRepo,
+    );
+    runtime.capabilities = {
+      ...runtime.capabilities,
+      customToolDefinitionIds: resolvedDefinitionIds,
+    };
     if (deps.workspaceIntegrationsService && runtime.openaiRuntimeModel) {
       const m = runtime.openaiRuntimeModel as string;
       if (m) {

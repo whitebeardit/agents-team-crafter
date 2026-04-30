@@ -58,14 +58,25 @@ describe('importTeamFromExport — reutilização de canais', () => {
           exportVersion: '2' as const,
           exportKind: 'agent' as const,
           exportedAt: '2020-01-01T00:00:00.000Z',
-          agent: { id: 'a1', name: 'Coord', role: 'coordinator' as const, systemInstruction: 'x' },
+          agent: {
+            id: 'a1',
+            name: 'Coord',
+            role: 'coordinator' as const,
+            systemInstruction: 'x',
+            capabilities: { tools: ['clinic_get_patient_full_snapshot'] },
+          },
           mcpBindings: [],
         },
         {
           exportVersion: '2' as const,
           exportKind: 'agent' as const,
           exportedAt: '2020-01-01T00:00:00.000Z',
-          agent: { id: 'a2', name: 'S', role: 'specialist' as const },
+          agent: {
+            id: 'a2',
+            name: 'S',
+            role: 'specialist' as const,
+            capabilities: { tools: ['clinic_create_patient'] },
+          },
           mcpBindings: [],
         },
       ],
@@ -107,6 +118,13 @@ describe('importTeamFromExport — reutilização de canais', () => {
         teamGraphRepo: { upsert: jest.fn(async () => undefined) },
         mcpRepo: { findById: jest.fn(async () => null) },
         agentMcpBindingRepo: { create: jest.fn(async () => ({})) },
+        workspaceToolDefinitionRepo: {
+          findBySlug: jest.fn(async (_ws: string, slug: string) => ({
+            id: `def-${slug}`,
+            slug,
+            jsonSchema: { type: 'object', properties: { any: { type: 'string' } } },
+          })),
+        },
         workspaceIntegrationsService: undefined,
       } as unknown as IAppDeps,
       createFromImportSnapshot,
@@ -148,6 +166,13 @@ describe('importTeamFromExport — reutilização de canais', () => {
     const teamGraphRepo = { upsert: jest.fn(async () => undefined) };
     const mcpRepo = { findById: jest.fn(async () => null) };
     const agentMcpBindingRepo = { create: jest.fn(async () => ({})) };
+    const workspaceToolDefinitionRepo = {
+      findBySlug: jest.fn(async (_ws: string, slug: string) => ({
+        id: `def-${slug}`,
+        slug,
+        jsonSchema: { type: 'object', properties: { any: { type: 'string' } } },
+      })),
+    };
 
     const deps = {
       agentRepo,
@@ -156,6 +181,7 @@ describe('importTeamFromExport — reutilização de canais', () => {
       teamGraphRepo,
       mcpRepo,
       agentMcpBindingRepo,
+      workspaceToolDefinitionRepo,
       workspaceIntegrationsService: undefined,
     } as unknown as IAppDeps;
 
@@ -180,7 +206,7 @@ describe('importTeamFromExport — reutilização de canais', () => {
 
   it('usa runtime em sections.runtime quando agent nao tiver runtime', async () => {
     const payload = buildMinV2Export();
-    payload.agents[1]!.agent = { id: 'a2', name: 'S', role: 'specialist' };
+    payload.agents[1]!.agent = { id: 'a2', name: 'S', role: 'specialist' } as never;
     (payload.agents[1] as Record<string, unknown>).sections = {
       runtime: {
         capabilities: {
@@ -225,6 +251,9 @@ describe('importTeamFromExport — reutilização de canais', () => {
     expect(specialistBody.security).toEqual({ requiresApproval: true, accessLevel: 'write' });
     expect(specialistBody.channelConfig).toEqual({ enabled: ['api'], canReplyDirectly: true });
     expect(specialistBody.openaiRuntimeModel).toBe('gpt-5.4-mini');
+    expect((specialistBody.capabilities as Record<string, unknown>)['customToolDefinitionIds']).toEqual([
+      'def-ba-legacy-tool',
+    ]);
   });
 
   it('prioriza runtime em agent sobre sections.runtime', async () => {
@@ -276,5 +305,30 @@ describe('importTeamFromExport — reutilização de canais', () => {
       'file_search',
     ]);
     expect(specialistBody.openaiRuntimeModel).toBe('gpt-4o-mini');
+    expect((specialistBody.capabilities as Record<string, unknown>)['customToolDefinitionIds']).toEqual([
+      'def-ba-legacy-agent',
+    ]);
+  });
+
+  it('falha quando agente nao informa tools canônicas', async () => {
+    const payload = buildMinV2Export();
+    payload.agents[1]!.agent = {
+      id: 'a2',
+      name: 'S',
+      role: 'specialist',
+      capabilities: { tools: [], customToolDefinitionIds: ['507f1f77bcf86cd799439012'] },
+    } as never;
+    const createSpy = jest.fn(async (_ws: string, body: Record<string, unknown>) => ({ id: 'na1', ...body }));
+    const { deps } = buildDepsForImport(createSpy);
+
+    await expect(
+      importTeamFromExport(deps, workspaceId, {
+        mode: 'create',
+        importBody: teamImportBodySchemaFn.parse({ payload }),
+        sameWorkspaceMcp: true,
+      }),
+    ).rejects.toMatchObject({
+      code: 'IMPORT_AGENT_TOOLS_REQUIRED',
+    });
   });
 });
