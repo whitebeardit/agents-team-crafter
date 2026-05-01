@@ -1,6 +1,10 @@
 import Phaser from "phaser"
 import type { AgentOfficeController } from "@/lib/office/office-controller"
-import type { OfficeAgentVisualState, OfficeEvent } from "@/lib/office/office-types"
+import {
+  OFFICE_USER_AGENT_ID,
+  type OfficeAgentVisualState,
+  type OfficeEvent,
+} from "@/lib/office/office-types"
 
 export const OFFICE_GAME_WIDTH = 1100
 export const OFFICE_GAME_HEIGHT = 680
@@ -9,8 +13,21 @@ export const AGENT_OFFICE_SCENE_KEY = "AgentOfficeScene"
 
 const COLOR_COORD = 0xf59e0b
 const COLOR_SPEC = 0x38bdf8
+const COLOR_USER = 0x22c55e
 const COLOR_DIM = 0x64748b
 const COLOR_LINE = 0x22d3ee
+const COLOR_ERR = 0xff4444
+
+function roleBaseColor(role: OfficeAgentVisualState["role"]): number {
+  if (role === "coordinator") return COLOR_COORD
+  if (role === "user") return COLOR_USER
+  return COLOR_SPEC
+}
+
+function pickStickStroke(agent: OfficeAgentVisualState): number {
+  if (agent.status === "error") return COLOR_ERR
+  return roleBaseColor(agent.role)
+}
 
 export class AgentOfficeScene extends Phaser.Scene {
   private agentContainers = new Map<string, Phaser.GameObjects.Container>()
@@ -57,49 +74,53 @@ export class AgentOfficeScene extends Phaser.Scene {
     }
   }
 
+  private drawStickFigure(gfx: Phaser.GameObjects.Graphics, agent: OfficeAgentVisualState) {
+    gfx.clear()
+    const stroke = agent.dimmed ? COLOR_DIM : pickStickStroke(agent)
+    const alpha = agent.dimmed ? 0.55 : 1
+    gfx.lineStyle(3, stroke, alpha)
+    gfx.strokeCircle(0, -40, 12)
+    gfx.lineBetween(0, -28, 0, 14)
+    gfx.lineBetween(-26, -14, 26, -14)
+    gfx.lineBetween(0, 14, -18, 46)
+    gfx.lineBetween(0, 14, 18, 46)
+  }
+
   private createOrUpdateAgent(agent: OfficeAgentVisualState) {
     let container = this.agentContainers.get(agent.agentId)
     if (!container) {
       container = this.add.container(agent.x, agent.y)
       this.agentContainers.set(agent.agentId, container)
-      const circle = this.add.circle(0, 0, 38, COLOR_SPEC, 1)
-      circle.setStrokeStyle(3, 0xffffff, 0.35)
+      const stick = this.add.graphics()
       const label = this.add
-        .text(0, 52, agent.name, {
+        .text(0, 58, agent.name, {
           fontSize: "13px",
           color: "#e2e8f0",
           fontFamily: "system-ui, sans-serif",
         })
         .setOrigin(0.5, 0)
       label.setWordWrapWidth(200)
-      container.add([circle, label])
-      container.setData("circle", circle)
+      container.add([stick, label])
+      container.setData("stick", stick)
       container.setData("label", label)
     }
     container.setPosition(agent.x, agent.y)
-    const circle = container.getData("circle") as Phaser.GameObjects.Arc
+    const stick = container.getData("stick") as Phaser.GameObjects.Graphics
     const label = container.getData("label") as Phaser.GameObjects.Text
     label.setText(agent.name.length > 28 ? `${agent.name.slice(0, 26)}…` : agent.name)
-    const baseColor = agent.role === "coordinator" ? COLOR_COORD : COLOR_SPEC
-    circle.setFillStyle(baseColor, 1)
     this.applyVisualState(container, agent)
   }
 
   private applyVisualState(container: Phaser.GameObjects.Container, agent: OfficeAgentVisualState) {
-    const circle = container.getData("circle") as Phaser.GameObjects.Arc
-    const baseColor = agent.role === "coordinator" ? COLOR_COORD : COLOR_SPEC
+    const stick = container.getData("stick") as Phaser.GameObjects.Graphics
     if (agent.status === "error") {
       container.setAlpha(1)
-      circle.setFillStyle(0xff4444, 1)
-      return
-    }
-    if (agent.dimmed) {
+    } else if (agent.dimmed) {
       container.setAlpha(0.38)
-      circle.setFillStyle(COLOR_DIM, 1)
     } else {
       container.setAlpha(1)
-      circle.setFillStyle(baseColor, 1)
     }
+    this.drawStickFigure(stick, agent)
   }
 
   focusAgents(fromAgentId?: string, toAgentId?: string) {
@@ -171,8 +192,11 @@ export class AgentOfficeScene extends Phaser.Scene {
         this.focusAgents(id, id)
         const container = this.agentContainers.get(id)
         if (container) {
-          const circle = container.getData("circle") as Phaser.GameObjects.Arc
-          circle.setFillStyle(0xff4444, 1)
+          const agent = this.visualStates.get(id)
+          if (agent) {
+            const stick = container.getData("stick") as Phaser.GameObjects.Graphics
+            this.drawStickFigure(stick, { ...agent, status: "error", dimmed: false })
+          }
           container.setAlpha(1)
         }
       }
@@ -180,7 +204,8 @@ export class AgentOfficeScene extends Phaser.Scene {
     }
 
     if (event.type === "user_message") {
-      this.resetFocus()
+      this.focusAgents(OFFICE_USER_AGENT_ID, OFFICE_USER_AGENT_ID)
+      this.pulseAgent(OFFICE_USER_AGENT_ID)
     }
   }
 

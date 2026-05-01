@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ChevronDown, Download, Loader2, MessageSquareCode, RefreshCw, Send } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, pickLongestTrimmed } from "@/lib/utils"
 import { ApiError, type createApiClient } from "@/lib/api/client"
 import { LiveConversationTimelineDrawer } from "@/components/teams/live-conversation-timeline-drawer"
 import type {
@@ -357,7 +357,7 @@ export function TeamDebugConsole({
               const i = next.length - 1
               if (i >= 0 && next[i].role === "assistant") {
                 const er = data.externalResponse
-                const text = er?.text?.trim() || assistantBuffer || "(sem texto)"
+                const text = pickLongestTrimmed(er?.text, assistantBuffer) || "(sem texto)"
                 next[i] = {
                   role: "assistant",
                   content: text,

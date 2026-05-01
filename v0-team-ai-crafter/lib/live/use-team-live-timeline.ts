@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { pickLongestTrimmed } from "@/lib/utils"
 import type {
   TeamConversationTimelineItem,
   TeamCoordinatorDeltaPayload,
@@ -11,6 +12,22 @@ import type {
   TeamRunResponse,
 } from "@/lib/types"
 import { createApiClient } from "@/lib/api/client"
+import { OFFICE_USER_AGENT_ID } from "@/lib/office/office-types"
+
+/** Eventos sem actorId agrupados quando não há coordinatorId no hook. */
+const TIMELINE_NO_ACTOR_BUCKET = "__office_timeline_no_actor__"
+
+function resolveTimelineBucket(
+  item: TeamConversationTimelineItem,
+  coordinatorId?: string,
+): string {
+  const raw = item.actorId?.trim()
+  if (raw) return raw
+  if (item.kind === "input") return OFFICE_USER_AGENT_ID
+  const c = coordinatorId?.trim()
+  if (c) return c
+  return TIMELINE_NO_ACTOR_BUCKET
+}
 
 function inboundChannelLabel(channel: string): string {
   const m: Record<string, string> = {
@@ -76,8 +93,10 @@ export function useTeamLiveTimeline(input: {
   api: ReturnType<typeof createApiClient> | null
   enabled: boolean
   replayLimit?: number
+  /** Usado para eventos de timeline sem `actorId` (bucket de fallback). */
+  coordinatorId?: string
 }) {
-  const { teamId, api, enabled, replayLimit = 120 } = input
+  const { teamId, api, enabled, replayLimit = 120, coordinatorId } = input
 
   const [timelineByAgent, setTimelineByAgent] = useState<Record<string, TeamConversationTimelineItem[]>>({})
   const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentConversationState>>({})
@@ -88,6 +107,7 @@ export function useTeamLiveTimeline(input: {
   const [error, setError] = useState<string | null>(null)
   const seenTimelineIdsRef = useRef<Set<string>>(new Set())
   const generationRef = useRef(0)
+  const inboundStreamAccRef = useRef("")
 
   const items = useMemo(() => {
     const uniq = new Map<string, TeamConversationTimelineItem>()
@@ -101,6 +121,7 @@ export function useTeamLiveTimeline(input: {
 
   const clear = useCallback(() => {
     seenTimelineIdsRef.current = new Set()
+    inboundStreamAccRef.current = ""
     setTimelineByAgent({})
     setLiveMirrorLines([])
     setLiveMirrorStreamText("")
@@ -117,6 +138,7 @@ export function useTeamLiveTimeline(input: {
     void (async () => {
       let reconnectDelayMs = 700
       seenTimelineIdsRef.current = new Set()
+      inboundStreamAccRef.current = ""
 
       try {
         const replay = await api.get<{ items: TeamConversationTimelineItem[] }>(
@@ -124,11 +146,10 @@ export function useTeamLiveTimeline(input: {
         )
         const grouped: Record<string, TeamConversationTimelineItem[]> = {}
         for (const item of replay.data.items ?? []) {
-          const actorId = item.actorId?.trim()
-          if (!actorId) continue
+          const bucket = resolveTimelineBucket(item, coordinatorId)
           if (!seenTimelineIdsRef.current.has(item.id)) {
             seenTimelineIdsRef.current.add(item.id)
-            grouped[actorId] = [...(grouped[actorId] ?? []), item].slice(-80)
+            grouped[bucket] = [...(grouped[bucket] ?? []), item].slice(-80)
           }
         }
         setTimelineByAgent(grouped)
@@ -157,6 +178,7 @@ export function useTeamLiveTimeline(input: {
               },
               onCoordinatorDelta: (payload: TeamCoordinatorDeltaPayload) => {
                 if (payload.source !== "inbound") return
+                inboundStreamAccRef.current += payload.text
                 setLiveMirrorStreamText((prev) => prev + payload.text)
               },
               onAgentStatus: (e: TeamRunProgressEvent) => {
@@ -176,11 +198,9 @@ export function useTeamLiveTimeline(input: {
               onTimelineItem: (item: TeamConversationTimelineItem) => {
                 if (seenTimelineIdsRef.current.has(item.id)) return
                 seenTimelineIdsRef.current.add(item.id)
-                const actorId = item.actorId?.trim()
-                const agentId = actorId && actorId.length > 0 ? actorId : null
-                if (!agentId) return
+                const bucket = resolveTimelineBucket(item, coordinatorId)
                 setTimelineByAgent((prev) => {
-                  const merged = mergeTimelineByAgent(prev, agentId, item)
+                  const merged = mergeTimelineByAgent(prev, bucket, item)
                   setLiveAgentState((base) => computeLiveStateFromTimeline(merged, base))
                   return merged
                 })
@@ -188,7 +208,9 @@ export function useTeamLiveTimeline(input: {
               onRunComplete: (data: TeamRunResponse) => {
                 if (data.source === "inbound") {
                   const er = data.externalResponse
-                  const text = er?.text?.trim() || "(sem texto)"
+                  const streamed = inboundStreamAccRef.current.trim()
+                  inboundStreamAccRef.current = ""
+                  const text = pickLongestTrimmed(er?.text, streamed) || "(sem texto)"
                   setLiveMirrorStreamText("")
                   setLiveMirrorLines((prev) => [
                     ...prev,
@@ -229,7 +251,7 @@ export function useTeamLiveTimeline(input: {
       setConnected(false)
       setReconnecting(false)
     }
-  }, [enabled, api, teamId, replayLimit, clear])
+  }, [enabled, api, teamId, replayLimit, clear, coordinatorId])
 
   return {
     items,

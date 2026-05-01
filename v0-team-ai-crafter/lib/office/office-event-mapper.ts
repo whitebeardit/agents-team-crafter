@@ -1,5 +1,5 @@
 import type { TeamConversationTimelineItem } from "@/lib/types"
-import type { OfficeEvent, OfficeEventType } from "./office-types"
+import { OFFICE_USER_AGENT_ID, type OfficeEvent, type OfficeEventType } from "./office-types"
 
 function readString(v: unknown): string | undefined {
   if (typeof v === "string" && v.trim().length > 0) return v.trim()
@@ -112,6 +112,7 @@ export function mapTimelineItemToOfficeEvent(
       seq: item.seq,
       timestamp: item.timestamp,
       type: "user_message",
+      actorId: OFFICE_USER_AGENT_ID,
       message,
       original: item,
     }

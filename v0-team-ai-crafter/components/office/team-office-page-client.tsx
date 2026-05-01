@@ -16,7 +16,7 @@ import { mapTimelineItemsToOfficeEvents } from "@/lib/office/office-event-mapper
 import { applyOfficeFocus, layoutToVisualAgents } from "@/lib/office/office-view-model"
 import { buildDemoOfficeEvents } from "@/lib/office/office-simulation-fixtures"
 import type { AgentOfficeController } from "@/lib/office/office-controller"
-import type { OfficeEvent } from "@/lib/office/office-types"
+import { OFFICE_USER_AGENT_ID, type OfficeEvent } from "@/lib/office/office-types"
 import { AgentOfficeOverlay } from "@/components/office/agent-office-overlay"
 import { AgentOfficeTimelinePanel } from "@/components/office/agent-office-timeline-panel"
 import { AgentOfficeControls, type OfficeMode } from "@/components/office/agent-office-controls"
@@ -27,7 +27,7 @@ const AgentOfficeGame = dynamic(() => import("@/components/office/agent-office-g
 function focusPair(event: OfficeEvent, coordinatorId: string): { from?: string; to?: string } {
   switch (event.type) {
     case "user_message":
-      return {}
+      return { from: OFFICE_USER_AGENT_ID, to: OFFICE_USER_AGENT_ID }
     case "agent_handoff":
       return { from: event.fromAgentId, to: event.toAgentId }
     case "agent_response":
@@ -87,6 +87,7 @@ export function TeamOfficePageClient() {
     api,
     enabled: mode === "live",
     replayLimit: 120,
+    coordinatorId: team?.coordinatorId,
   })
 
   const simulationEvents = useMemo(() => {
@@ -114,16 +115,40 @@ export function TeamOfficePageClient() {
     effectiveIndex >= 0 && effectiveIndex < timelineEvents.length ? timelineEvents[effectiveIndex] : undefined
 
   const rosterAgents = useMemo(() => {
-    if (!team) return []
-    return team.agentIds
-      .map((id) => agents.find((a) => a.id === id))
-      .filter((a): a is Agent => Boolean(a))
-      .map((a) => ({
-        id: a.id,
-        name: a.name,
-        role: (a.id === team.coordinatorId ? "coordinator" : "specialist") as "coordinator" | "specialist",
-        category: typeof a.category === "string" ? a.category : undefined,
-      }))
+    if (!team) return [] as Array<{
+      id: string
+      name: string
+      role: "coordinator" | "specialist"
+      category?: string
+    }>
+    const ids = [...team.agentIds]
+    if (team.coordinatorId && !ids.includes(team.coordinatorId)) {
+      ids.push(team.coordinatorId)
+    }
+    const rows: Array<{
+      id: string
+      name: string
+      role: "coordinator" | "specialist"
+      category?: string
+    }> = []
+    for (const id of ids) {
+      const found = agents.find((a) => a.id === id)
+      if (found) {
+        rows.push({
+          id: found.id,
+          name: found.name,
+          role: found.id === team.coordinatorId ? "coordinator" : "specialist",
+          category: typeof found.category === "string" ? found.category : undefined,
+        })
+      } else if (id === team.coordinatorId) {
+        rows.push({
+          id: team.coordinatorId,
+          name: "Coordenador",
+          role: "coordinator",
+        })
+      }
+    }
+    return rows
   }, [team, agents])
 
   const layoutAgents = useMemo(() => {
@@ -203,7 +228,10 @@ export function TeamOfficePageClient() {
   const activeEventForScene = activeEvent
 
   const agentOptions = useMemo(
-    () => rosterAgents.map((a) => ({ id: a.id, name: a.name })),
+    () => [
+      { id: OFFICE_USER_AGENT_ID, name: "Utilizador" },
+      ...rosterAgents.map((a) => ({ id: a.id, name: a.name })),
+    ],
     [rosterAgents],
   )
 

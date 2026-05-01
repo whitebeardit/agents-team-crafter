@@ -3,7 +3,7 @@
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import type { OfficeEvent, OfficeEventType } from "@/lib/office/office-types"
+import { OFFICE_USER_AGENT_ID, type OfficeEvent, type OfficeEventType } from "@/lib/office/office-types"
 
 function kindLabel(t: OfficeEventType): string {
   const m: Partial<Record<OfficeEventType, string>> = {
@@ -37,6 +37,13 @@ export function AgentOfficeTimelinePanel({
 }) {
   const filtered = events.filter((ev) => {
     if (agentFilter === "all") return true
+    if (agentFilter === OFFICE_USER_AGENT_ID) {
+      return (
+        ev.actorId === OFFICE_USER_AGENT_ID ||
+        ev.type === "user_message" ||
+        ev.fromAgentId === OFFICE_USER_AGENT_ID
+      )
+    }
     return ev.actorId === agentFilter || ev.fromAgentId === agentFilter || ev.toAgentId === agentFilter
   })
 
@@ -79,6 +86,7 @@ export function AgentOfficeTimelinePanel({
               <li key={ev.id}>
                 <button
                   type="button"
+                  title={ev.message || "(sem texto)"}
                   className={cn(
                     "flex w-full flex-col gap-0.5 px-2 py-2 text-left transition-colors hover:bg-muted/60",
                     active && "bg-primary/10",
@@ -90,6 +98,10 @@ export function AgentOfficeTimelinePanel({
                     <span className="font-mono text-[10px] uppercase text-primary">{kindLabel(ev.type)}</span>
                   </span>
                   <span className="line-clamp-2 text-foreground">{ev.message || "(sem texto)"}</span>
+                  <details className="mt-0.5 text-[10px] text-muted-foreground">
+                    <summary className="cursor-pointer select-none hover:text-foreground">Texto completo</summary>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-foreground">{ev.message || "(sem texto)"}</p>
+                  </details>
                 </button>
               </li>
             )

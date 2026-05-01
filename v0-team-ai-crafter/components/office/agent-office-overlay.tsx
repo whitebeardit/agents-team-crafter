@@ -1,6 +1,6 @@
 "use client"
 
-import type { OfficeAgentVisualState, OfficeEvent } from "@/lib/office/office-types"
+import { OFFICE_USER_AGENT_ID, type OfficeAgentVisualState, type OfficeEvent } from "@/lib/office/office-types"
 import { OFFICE_GAME_HEIGHT, OFFICE_GAME_WIDTH } from "@/components/office/agent-office-scene"
 
 const BUBBLE_MAX = 168
@@ -14,7 +14,7 @@ function truncate(text: string, max: number): string {
 function bubbleSpeaker(event: OfficeEvent, agents: OfficeAgentVisualState[], coordinatorId: string): string | null {
   switch (event.type) {
     case "user_message":
-      return null
+      return agents.some((a) => a.agentId === OFFICE_USER_AGENT_ID) ? OFFICE_USER_AGENT_ID : null
     case "agent_handoff":
       return event.toAgentId ?? event.fromAgentId ?? null
     case "agent_response":

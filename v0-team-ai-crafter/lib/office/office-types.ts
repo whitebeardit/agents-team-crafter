@@ -1,6 +1,9 @@
 import type { TeamConversationTimelineItem } from "@/lib/types"
 
-export type OfficeAgentRole = "coordinator" | "specialist"
+/** Id sintético do papel humano no escritório (balão / foco / timeline). */
+export const OFFICE_USER_AGENT_ID = "__office_user__"
+
+export type OfficeAgentRole = "coordinator" | "specialist" | "user"
 
 export type OfficeAgentStatus =
   | "idle"

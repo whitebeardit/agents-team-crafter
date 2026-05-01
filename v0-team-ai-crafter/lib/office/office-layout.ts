@@ -1,7 +1,9 @@
+import { OFFICE_USER_AGENT_ID } from "@/lib/office/office-types"
+
 export type OfficeLayoutAgent = {
   agentId: string
   name: string
-  role: "coordinator" | "specialist"
+  role: "coordinator" | "specialist" | "user"
   x: number
   y: number
   active: boolean
@@ -22,9 +24,22 @@ export function buildOfficeLayout(input: {
   const center = { x: 520, y: 280 }
 
   const coordinator = input.agents.find((a) => a.id === input.coordinatorId)
-  const specialists = input.agents.filter((a) => a.id !== input.coordinatorId)
+  const specialists = input.agents.filter(
+    (a) => a.id !== input.coordinatorId && a.id !== OFFICE_USER_AGENT_ID,
+  )
 
   const result: OfficeLayoutAgent[] = []
+
+  result.push({
+    agentId: OFFICE_USER_AGENT_ID,
+    name: "Utilizador",
+    role: "user",
+    x: center.x,
+    y: 72,
+    active: false,
+    dimmed: false,
+    status: "idle",
+  })
 
   if (coordinator) {
     result.push({

@@ -87,6 +87,7 @@ export default function GraphEditorPage({
     api,
     enabled: liveMode,
     replayLimit: 120,
+    coordinatorId: team?.coordinatorId,
   })
 
   const agentDisplayNamesForDebug = useMemo(() => {
