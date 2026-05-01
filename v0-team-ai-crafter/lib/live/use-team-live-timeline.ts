@@ -95,8 +95,18 @@ export function useTeamLiveTimeline(input: {
   replayLimit?: number
   /** Usado para eventos de timeline sem `actorId` (bucket de fallback). */
   coordinatorId?: string
+  /**
+   * Quando definido, o handshake e os itens SSE limitam-se a esta execução.
+   * Omitir ou `null` mantém o comportamento anterior (timeline global do time).
+   */
+  scopeRunId?: string | null
+  /** Chamado no máximo uma vez por `runId` estranho a `scopeRunId` (timeline ou run completo). */
+  onForeignRunDetected?: (runId: string) => void
 }) {
-  const { teamId, api, enabled, replayLimit = 120, coordinatorId } = input
+  const { teamId, api, enabled, replayLimit = 120, coordinatorId, scopeRunId, onForeignRunDetected } = input
+
+  const onForeignRunDetectedRef = useRef(onForeignRunDetected)
+  onForeignRunDetectedRef.current = onForeignRunDetected
 
   const [timelineByAgent, setTimelineByAgent] = useState<Record<string, TeamConversationTimelineItem[]>>({})
   const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentConversationState>>({})
@@ -106,6 +116,7 @@ export function useTeamLiveTimeline(input: {
   const [reconnecting, setReconnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const seenTimelineIdsRef = useRef<Set<string>>(new Set())
+  const foreignRunNotifiedRef = useRef<Set<string>>(new Set())
   const generationRef = useRef(0)
   const inboundStreamAccRef = useRef("")
 
@@ -138,14 +149,20 @@ export function useTeamLiveTimeline(input: {
     void (async () => {
       let reconnectDelayMs = 700
       seenTimelineIdsRef.current = new Set()
+      foreignRunNotifiedRef.current = new Set()
       inboundStreamAccRef.current = ""
 
+      const trimmedScope = scopeRunId?.trim() ?? ""
+      const scoped = trimmedScope.length > 0
+      const timelinePath = scoped
+        ? `/teams/${teamId}/timeline?runId=${encodeURIComponent(trimmedScope)}&limit=${replayLimit}`
+        : `/teams/${teamId}/timeline?limit=${replayLimit}`
+
       try {
-        const replay = await api.get<{ items: TeamConversationTimelineItem[] }>(
-          `/teams/${teamId}/timeline?limit=${replayLimit}`,
-        )
+        const replay = await api.get<{ items: TeamConversationTimelineItem[] }>(timelinePath)
         const grouped: Record<string, TeamConversationTimelineItem[]> = {}
         for (const item of replay.data.items ?? []) {
+          if (scoped && item.runId !== trimmedScope) continue
           const bucket = resolveTimelineBucket(item, coordinatorId)
           if (!seenTimelineIdsRef.current.has(item.id)) {
             seenTimelineIdsRef.current.add(item.id)
@@ -196,6 +213,14 @@ export function useTeamLiveTimeline(input: {
                 }))
               },
               onTimelineItem: (item: TeamConversationTimelineItem) => {
+                if (scoped && item.runId !== trimmedScope) {
+                  const cb = onForeignRunDetectedRef.current
+                  if (cb && !foreignRunNotifiedRef.current.has(item.runId)) {
+                    foreignRunNotifiedRef.current.add(item.runId)
+                    cb(item.runId)
+                  }
+                  return
+                }
                 if (seenTimelineIdsRef.current.has(item.id)) return
                 seenTimelineIdsRef.current.add(item.id)
                 const bucket = resolveTimelineBucket(item, coordinatorId)
@@ -206,6 +231,17 @@ export function useTeamLiveTimeline(input: {
                 })
               },
               onRunComplete: (data: TeamRunResponse) => {
+                const cb = onForeignRunDetectedRef.current
+                if (
+                  scoped &&
+                  data.runId &&
+                  data.runId !== trimmedScope &&
+                  cb &&
+                  !foreignRunNotifiedRef.current.has(data.runId)
+                ) {
+                  foreignRunNotifiedRef.current.add(data.runId)
+                  cb(data.runId)
+                }
                 if (data.source === "inbound") {
                   const er = data.externalResponse
                   const streamed = inboundStreamAccRef.current.trim()
@@ -251,7 +287,7 @@ export function useTeamLiveTimeline(input: {
       setConnected(false)
       setReconnecting(false)
     }
-  }, [enabled, api, teamId, replayLimit, clear, coordinatorId])
+  }, [enabled, api, teamId, replayLimit, clear, coordinatorId, scopeRunId])
 
   return {
     items,

@@ -4,9 +4,18 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "next/navigation"
-import { ArrowLeft, GitBranch, LayoutGrid } from "lucide-react"
+import { formatDistanceToNow, parseISO } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { ArrowLeft, GitBranch, LayoutGrid, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { Agent, Team, TeamConversationTimelineItem } from "@/lib/types"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import type { Agent, Team, TeamConversationTimelineItem, TeamRunRecord } from "@/lib/types"
 import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { toast } from "sonner"
@@ -21,6 +30,7 @@ import { AgentOfficeOverlay } from "@/components/office/agent-office-overlay"
 import { AgentOfficeTimelinePanel } from "@/components/office/agent-office-timeline-panel"
 import { AgentOfficeControls, type OfficeMode } from "@/components/office/agent-office-controls"
 import { AgentOfficeStatusBar } from "@/components/office/agent-office-status-bar"
+import { teamRunSourceLabel, teamRunStatusLabel } from "@/lib/runs-display"
 
 const AgentOfficeGame = dynamic(() => import("@/components/office/agent-office-game"), { ssr: false })
 
@@ -65,6 +75,9 @@ export function TeamOfficePageClient() {
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<1 | 2 | 4>(1)
   const [agentFilter, setAgentFilter] = useState<string | "all">("all")
+  const [teamRuns, setTeamRuns] = useState<TeamRunRecord[]>([])
+  const [runsLoading, setRunsLoading] = useState(false)
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const controllerRef = useRef<AgentOfficeController | null>(null)
 
   const api = useMemo(() => {
@@ -77,6 +90,42 @@ export function TeamOfficePageClient() {
     })
   }, [token, refreshToken, currentWorkspace])
 
+  const loadRuns = useCallback(async () => {
+    if (!api) return
+    setRunsLoading(true)
+    try {
+      const res = await api.get<TeamRunRecord[]>(`/teams/${teamId}/runs?limit=60`)
+      const list = res.data ?? []
+      setTeamRuns(list)
+      setSelectedRunId((prev) => {
+        if (prev && list.some((r) => r.runId === prev)) return prev
+        const running = list.find((r) => r.status === "running")
+        if (running) return running.runId
+        return list[0]?.runId ?? null
+      })
+    } catch {
+      setTeamRuns([])
+    } finally {
+      setRunsLoading(false)
+    }
+  }, [api, teamId])
+
+  const onForeignRunDetected = useCallback(
+    (foreignRunId: string) => {
+      toast("Nova execução", {
+        description: `Há actividade noutra execução (${foreignRunId.slice(0, 8)}…).`,
+        action: {
+          label: "Seguir esta execução",
+          onClick: () => {
+            setSelectedRunId(foreignRunId)
+            void loadRuns()
+          },
+        },
+      })
+    },
+    [loadRuns],
+  )
+
   const {
     items: liveTimelineItems,
     connected,
@@ -85,9 +134,11 @@ export function TeamOfficePageClient() {
   } = useTeamLiveTimeline({
     teamId,
     api,
-    enabled: mode === "live",
-    replayLimit: 120,
+    enabled: mode === "live" && !!selectedRunId,
+    replayLimit: 200,
     coordinatorId: team?.coordinatorId,
+    scopeRunId: selectedRunId,
+    onForeignRunDetected,
   })
 
   const simulationEvents = useMemo(() => {
@@ -171,10 +222,18 @@ export function TeamOfficePageClient() {
 
   useEffect(() => {
     if (mode !== "replay" || !team || !api) return
+    if (!selectedRunId) {
+      setReplayEvents([])
+      setSelectedIndex(-1)
+      setPlaying(false)
+      return
+    }
     let cancelled = false
     void (async () => {
       try {
-        const res = await api.get<{ items: TeamConversationTimelineItem[] }>(`/teams/${teamId}/timeline?limit=120`)
+        const res = await api.get<{ items: TeamConversationTimelineItem[] }>(
+          `/teams/${teamId}/timeline?runId=${encodeURIComponent(selectedRunId)}&limit=200`,
+        )
         if (cancelled) return
         const mapped = mapTimelineItemsToOfficeEvents(res.data.items ?? [], {
           coordinatorId: team.coordinatorId,
@@ -189,7 +248,7 @@ export function TeamOfficePageClient() {
     return () => {
       cancelled = true
     }
-  }, [mode, team, api, teamId])
+  }, [mode, team, api, teamId, selectedRunId])
 
   useEffect(() => {
     if (!playing || mode === "live" || timelineEvents.length === 0) return
@@ -224,6 +283,11 @@ export function TeamOfficePageClient() {
       cancelled = true
     }
   }, [api, teamId])
+
+  useEffect(() => {
+    if (!api) return
+    void loadRuns()
+  }, [api, teamId, loadRuns])
 
   const activeEventForScene = activeEvent
 
@@ -326,7 +390,64 @@ export function TeamOfficePageClient() {
         </div>
 
         <div className="flex min-h-[280px] flex-col rounded-xl border border-border bg-card p-3 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold">Timeline</h2>
+          <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+            <h2 className="text-sm font-semibold">Timeline</h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <label className="text-xs text-muted-foreground" htmlFor="office-run-select">
+                Execução
+              </label>
+              <Select
+                value={selectedRunId ?? ""}
+                onValueChange={(v) => {
+                  setSelectedRunId(v || null)
+                  setPlaying(false)
+                  setSelectedIndex(-1)
+                }}
+                disabled={runsLoading || teamRuns.length === 0}
+              >
+                <SelectTrigger id="office-run-select" className="h-8 w-[min(100%,220px)] text-xs">
+                  <SelectValue placeholder={runsLoading ? "A carregar…" : "Sem execuções"} />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {teamRuns.map((r) => {
+                    let rel = ""
+                    try {
+                      rel = formatDistanceToNow(parseISO(r.startedAt), { locale: ptBR, addSuffix: true })
+                    } catch {
+                      rel = ""
+                    }
+                    return (
+                      <SelectItem key={r.runId} value={r.runId} className="text-xs">
+                        <span className="font-mono">{r.runId.slice(0, 8)}…</span>
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {teamRunSourceLabel(r.source)} · {teamRunStatusLabel(r.status)}
+                          {rel ? ` · ${rel}` : ""}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                disabled={runsLoading || !api}
+                title="Actualizar lista de execuções"
+                onClick={() => void loadRuns()}
+              >
+                <RefreshCw className={`h-4 w-4 ${runsLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+          </div>
+          {mode !== "simulation" && !selectedRunId && !runsLoading && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              Não há execuções registadas para este time — a timeline do escritório fica vazia até existir pelo menos uma
+              run.
+            </p>
+          )}
           <AgentOfficeTimelinePanel
             events={timelineEvents}
             selectedIndex={effectiveIndex}
