@@ -19,6 +19,13 @@ export interface ITeamInvocationActor {
   displayName?: string;
 }
 
+export interface ITeamInvocationImageInput {
+  kind: 'image';
+  url: string;
+  mimeType?: string;
+  source?: 'user' | 'assistant' | 'system' | 'integration';
+}
+
 export interface ITeamInvocation {
   trigger: TTeamTriggerKind;
   workspaceId: string;
@@ -26,6 +33,8 @@ export interface ITeamInvocation {
   /** Must match team.coordinatorId after load; set from team record for API routes. */
   coordinatorId: string;
   message: string;
+  /** Optional multimodal input preserved from channel/API when available. */
+  inputMedia?: ITeamInvocationImageInput[];
   structuredPayload?: Record<string, unknown>;
   coordinatorExternalContext: ICoordinatorExternalContext;
   actor?: ITeamInvocationActor;

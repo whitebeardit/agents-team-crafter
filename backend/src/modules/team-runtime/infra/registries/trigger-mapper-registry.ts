@@ -3,6 +3,16 @@ import type { ITeamInvocation } from '../../domain/team-invocation.js';
 
 export const teamRunBodySchema = z.object({
   message: z.string().min(1),
+  inputMedia: z
+    .array(
+      z.object({
+        kind: z.literal('image'),
+        url: z.string().url(),
+        mimeType: z.string().optional(),
+      }),
+    )
+    .max(8)
+    .optional(),
   channel: z.string().optional(),
   locale: z.string().optional(),
   requestedAccessLevel: z.enum(['read', 'write', 'restricted']).optional(),
@@ -47,6 +57,7 @@ export function buildManualTeamInvocation(
     teamId,
     coordinatorId,
     message: body.message,
+    ...(body.inputMedia?.length ? { inputMedia: body.inputMedia } : {}),
     coordinatorExternalContext: {
       channelLabel: body.channel,
       locale: body.locale,
@@ -76,6 +87,7 @@ export function buildChatTeamInvocation(
     conversationId?: string;
     /** Turnos anteriores persistidos; mensagem corrente é só `message` (não entra no histórico ainda). */
     conversation?: ITeamInvocation['conversation'];
+    inputMedia?: ITeamInvocation['inputMedia'];
   },
 ): ITeamInvocation {
   const convId = options?.conversationId?.trim();
@@ -85,6 +97,7 @@ export function buildChatTeamInvocation(
     teamId,
     coordinatorId,
     message,
+    ...(options?.inputMedia?.length ? { inputMedia: options.inputMedia } : {}),
     coordinatorExternalContext: { channelLabel },
     ...(convId ? { metadata: { conversationId: convId } } : {}),
     ...(options?.conversation ? { conversation: options.conversation } : {}),

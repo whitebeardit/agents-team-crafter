@@ -28,8 +28,8 @@ import {
 } from '../domain/team-runtime-invariants.js';
 import { assertInvocationMatchesTeam } from './team-runtime-guards.service.js';
 import { composeClinicSafeUserText, composeExternalResponseFromModelText } from './response-composer.service.js';
-import { formatCoordinatorUserMessage } from './format-coordinator-user-message.js';
-import { buildSpecialistRuntimeMessage } from './build-specialist-runtime-message.js';
+import { formatCoordinatorUserContentParts, formatCoordinatorUserMessage } from './format-coordinator-user-message.js';
+import { buildSpecialistRuntimeInput } from './build-specialist-runtime-message.js';
 import {
   buildCoordinatorTeamRosterAppendix,
   extractExampleUserPhrasesFromAgentDomain,
@@ -831,7 +831,12 @@ export class CoordinatorOrchestratorService {
     const specialistSidecarEvents: ITeamExecutionEvent[] = [];
 
     const executeSpecialist = async (specialistAgentId: string, instruction: string) => {
-      const runtimeMessage = buildSpecialistRuntimeMessage(instruction, invocation.message);
+      const runtimeInput = buildSpecialistRuntimeInput({
+        coordinatorInstruction: instruction,
+        invocationMessage: invocation.message,
+        invocationMedia: invocation.inputMedia,
+      });
+      const runtimeMessage = runtimeInput.message;
       specialistSidecarEvents.push({
         type: 'coordinatorSpecialistHandoff',
         agentId: specialistAgentId,
@@ -953,6 +958,7 @@ export class CoordinatorOrchestratorService {
 
       const r = await this.agentRuntime.runStep(config, {
         message: runtimeMessage,
+        ...(runtimeInput.contentParts ? { contentParts: runtimeInput.contentParts } : {}),
         ...(openaiApiKey ? { openaiApiKey } : {}),
         ...(requestedAccessLevel ? { requestedAccessLevel } : {}),
         ...(correlationId ? { correlationId } : {}),
@@ -977,6 +983,7 @@ export class CoordinatorOrchestratorService {
     const sdkTools = this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist });
     const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
     const userMessage = formatCoordinatorUserMessage(invocation);
+    const userContentParts = formatCoordinatorUserContentParts(invocation);
     const crow = coordinator as Record<string, unknown>;
     const coordinatorRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
       ws,
@@ -1015,6 +1022,7 @@ export class CoordinatorOrchestratorService {
       workspaceId: ws,
       systemInstruction: coordinatorSystemInstruction,
       userMessage,
+      ...(userContentParts ? { userContentParts } : {}),
       openaiRuntimeModel: coordinatorRuntimeModel,
       ...(openaiApiKey ? { openaiApiKey } : {}),
       sdkTools,

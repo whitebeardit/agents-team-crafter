@@ -26,6 +26,10 @@ export interface IWorkspaceCustomToolDefinition {
   config: Record<string, unknown>;
 }
 
+export type TRuntimeInputPart =
+  | { type: 'input_text'; text: string }
+  | { type: 'input_image'; imageUrl: string; mimeType?: string };
+
 export interface IExecutableAgentConfig {
   agentId: string;
   workspaceId: string;
@@ -62,6 +66,7 @@ export type TRuntimeEvent =
 
 export interface IAgentRunInput {
   message: string;
+  contentParts?: TRuntimeInputPart[];
   channel?: string;
   locale?: string;
   requestedAccessLevel?: 'read' | 'write' | 'restricted';
@@ -88,6 +93,7 @@ export interface ICoordinatorRunParams {
   workspaceId: string;
   systemInstruction?: string;
   userMessage: string;
+  userContentParts?: TRuntimeInputPart[];
   openaiApiKey?: string;
   openaiRuntimeModel: string;
   sdkTools: readonly TCoordinatorSdkTool[];

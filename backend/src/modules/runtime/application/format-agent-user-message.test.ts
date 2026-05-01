@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { formatAgentUserMessage } from './format-agent-user-message.js';
+import { formatAgentUserContentParts, formatAgentUserMessage } from './format-agent-user-message.js';
 
 describe('formatAgentUserMessage', () => {
   it('prefixes channel locale and taskType', () => {
@@ -23,5 +23,17 @@ describe('formatAgentUserMessage', () => {
         requestedAccessLevel: 'read',
       }),
     ).toBe('[access=read] do it');
+  });
+
+  it('prepends formatted text before existing multimodal parts', () => {
+    const out = formatAgentUserContentParts({
+      message: 'analise',
+      channel: 'debug',
+      contentParts: [{ type: 'input_image', imageUrl: 'https://example.com/i.png' }],
+    });
+    expect(out).toEqual([
+      { type: 'input_text', text: '[channel=debug] analise' },
+      { type: 'input_image', imageUrl: 'https://example.com/i.png' },
+    ]);
   });
 });

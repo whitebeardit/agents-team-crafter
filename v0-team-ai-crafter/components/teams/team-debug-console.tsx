@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ChevronDown, Loader2, MessageSquareCode, RefreshCw, Send } from "lucide-react"
+import { ChevronDown, Download, Loader2, MessageSquareCode, RefreshCw, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ApiError, type createApiClient } from "@/lib/api/client"
 import type {
@@ -31,6 +31,11 @@ import type {
 } from "@/lib/types"
 import { toast } from "sonner"
 import { buildTeamRunNarrativeLines } from "@/components/teams/team-debug-narrative"
+import {
+  ImagePreviewDialog,
+  type ImagePreviewItem,
+  ImagePreviewTriggerButton,
+} from "@/components/shared/image-preview-dialog"
 
 type Api = ReturnType<typeof createApiClient>
 
@@ -74,23 +79,63 @@ function AssistantMessageBody({ line }: { line: ChatLine }) {
   const { content, format, attachments, streaming } = line
   const showGallery = Boolean(attachments && attachments.length > 0 && !streaming)
   const useMd = format === "markdown" && !streaming
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewItems, setPreviewItems] = useState<ImagePreviewItem[]>([])
+  const [previewIndex, setPreviewIndex] = useState(0)
+
+  const galleryItems: ImagePreviewItem[] = useMemo(
+    () => (attachments ?? []).map((a, i) => ({ src: a.url, alt: `Imagem anexada ${i + 1}` })),
+    [attachments],
+  )
+
+  function openPreview(items: ImagePreviewItem[], idx: number) {
+    setPreviewItems(items)
+    setPreviewIndex(idx)
+    setPreviewOpen(true)
+  }
+
+  async function downloadImage(item: ImagePreviewItem) {
+    try {
+      const res = await fetch(item.src)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = item.filename ?? "imagem.png"
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      window.open(item.src, "_blank", "noopener,noreferrer")
+    }
+  }
 
   return (
     <div className="space-y-2">
       {showGallery ? (
         <div className="flex flex-wrap gap-2">
-          {attachments!.map((a, i) => (
-            // Remote coordinator URLs are arbitrary; next/image would require per-domain config.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={`${a.url}-${i}`}
-              src={a.url}
-              alt=""
-              className="max-h-48 max-w-full rounded-md border border-border object-contain bg-background"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          ))}
+          {attachments!.map((a, i) => {
+            const item = galleryItems[i] ?? { src: a.url, alt: `Imagem anexada ${i + 1}` }
+            return (
+              <div key={`${a.url}-${i}`} className="space-y-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={a.url}
+                  alt={item.alt}
+                  className="max-h-48 max-w-full rounded-md border border-border object-contain bg-background"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="flex items-center gap-1 justify-end">
+                  <ImagePreviewTriggerButton onClick={() => openPreview(galleryItems, i)} />
+                  <Button size="icon" variant="secondary" onClick={() => void downloadImage(item)} aria-label="Download da imagem">
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       ) : null}
       {streaming ? (
@@ -103,14 +148,29 @@ function AssistantMessageBody({ line }: { line: ChatLine }) {
           <ReactMarkdown
             components={{
               img: ({ src, alt }) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={src}
-                  alt={alt ?? ""}
-                  className="max-h-48 max-w-full rounded-md border border-border object-contain"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                />
+                <div className="space-y-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={alt ?? ""}
+                    className="max-h-48 max-w-full rounded-md border border-border object-contain"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="flex items-center gap-1 justify-end">
+                    <ImagePreviewTriggerButton
+                      onClick={() => openPreview([{ src: src ?? "", alt: alt ?? "Imagem markdown" }], 0)}
+                    />
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={() => void downloadImage({ src: src ?? "", alt: alt ?? "Imagem markdown" })}
+                      aria-label="Download da imagem"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               ),
               a: ({ href, children }) => (
                 <a href={href} className="text-primary underline" target="_blank" rel="noopener noreferrer">
@@ -125,6 +185,13 @@ function AssistantMessageBody({ line }: { line: ChatLine }) {
       ) : (
         <p className="whitespace-pre-wrap break-words">{content}</p>
       )}
+      <ImagePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        items={previewItems}
+        initialIndex={previewIndex}
+        onDownload={(item) => downloadImage(item)}
+      />
     </div>
   )
 }

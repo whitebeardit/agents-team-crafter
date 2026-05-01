@@ -34,6 +34,7 @@ import {
   resolveTeamImportMode,
   teamImportBodySchema,
 } from '../application/import-team-from-export.js';
+import { deleteTeamWithAgentCascade } from '../application/delete-team-with-agent-cascade.js';
 
 async function loadTeamRunConversation(
   deps: IAppDeps,
@@ -516,8 +517,17 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
   app.delete('/teams/:id', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;
-    await deps.teamRepo.delete(ws, id);
-    return reply.send(successEnvelope({ message: 'Time removido com sucesso' }));
+    const out = await deleteTeamWithAgentCascade(
+      { teamRepo: deps.teamRepo, agentRepo: deps.agentRepo },
+      ws,
+      id,
+    );
+    return reply.send(
+      successEnvelope({
+        message: 'Time removido com sucesso',
+        deletedAgentIds: out.deletedAgentIds,
+      }),
+    );
   });
 
   app.post('/teams/:id/activate', { preHandler: tenant }, async (req, reply) => {

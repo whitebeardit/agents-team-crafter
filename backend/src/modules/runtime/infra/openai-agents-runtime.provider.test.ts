@@ -1,5 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
-import { formatRuntimeErrorWithFallback, mapNewItemsToEvents } from './openai-agents-runtime.provider.js';
+import {
+  buildRunnerInputFromAgentInput,
+  buildRunnerInputFromCoordinatorParams,
+  formatRuntimeErrorWithFallback,
+  mapNewItemsToEvents,
+} from './openai-agents-runtime.provider.js';
 
 describe('mapNewItemsToEvents', () => {
   it('marks toolResult as error when function_call_output returns runtime error payload', () => {
@@ -45,5 +50,33 @@ describe('OpenAIAgentsRuntimeProvider max-turns fallback', () => {
   it('keeps original format for non-max-turns errors', () => {
     const out = formatRuntimeErrorWithFallback('Erro ao executar modelo', 'upstream timeout');
     expect(out).toBe('Erro ao executar modelo: upstream timeout');
+  });
+});
+
+describe('multimodal runner input builders', () => {
+  it('builds multimodal input from agent input', () => {
+    const out = buildRunnerInputFromAgentInput({
+      message: 'Revise isto',
+      contentParts: [{ type: 'input_image', imageUrl: 'https://example.com/image.png' }],
+    });
+    expect(out).toEqual([
+      { type: 'input_text', text: 'Revise isto' },
+      { type: 'input_image', image_url: 'https://example.com/image.png' },
+    ]);
+  });
+
+  it('builds multimodal input from coordinator params', () => {
+    const out = buildRunnerInputFromCoordinatorParams({
+      coordinatorAgentId: 'a1',
+      workspaceId: 'w1',
+      userMessage: 'Pedido',
+      openaiRuntimeModel: 'gpt-4o-mini',
+      sdkTools: [],
+      userContentParts: [{ type: 'input_image', imageUrl: 'https://example.com/review.png' }],
+    });
+    expect(out).toEqual([
+      { type: 'input_text', text: 'Pedido' },
+      { type: 'input_image', image_url: 'https://example.com/review.png' },
+    ]);
   });
 });

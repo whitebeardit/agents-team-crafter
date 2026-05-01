@@ -10,3 +10,10 @@ export function formatAgentUserMessage(input: IAgentRunInput): string {
   const prefix = meta.length > 0 ? `[${meta.join('] [')}] ` : '';
   return `${prefix}${input.message}`;
 }
+
+export function formatAgentUserContentParts(input: IAgentRunInput): IAgentRunInput['contentParts'] | undefined {
+  if (!Array.isArray(input.contentParts) || input.contentParts.length === 0) return undefined;
+  const text = formatAgentUserMessage(input).trim();
+  const prefixed = text ? [{ type: 'input_text' as const, text }, ...input.contentParts] : input.contentParts;
+  return prefixed;
+}

@@ -1,4 +1,4 @@
-import { buildSpecialistRuntimeMessage } from './build-specialist-runtime-message.js';
+import { buildSpecialistRuntimeInput, buildSpecialistRuntimeMessage } from './build-specialist-runtime-message.js';
 
 describe('buildSpecialistRuntimeMessage', () => {
   it('returns instruction only when user message is empty', () => {
@@ -22,5 +22,17 @@ describe('buildSpecialistRuntimeMessage', () => {
   it('trims surrounding whitespace on both parts', () => {
     expect(buildSpecialistRuntimeMessage('  tarefa  ', '  msg  ')).toContain('tarefa');
     expect(buildSpecialistRuntimeMessage('  tarefa  ', '  msg  ')).toContain('msg');
+  });
+
+  it('adds image content parts when invocation media is present', () => {
+    const out = buildSpecialistRuntimeInput({
+      coordinatorInstruction: 'Revise a imagem',
+      invocationMessage: 'Veja anexos',
+      invocationMedia: [{ kind: 'image', url: 'https://example.com/img.png', mimeType: 'image/png' }],
+    });
+    expect(out.message).toContain('Revise a imagem');
+    expect(out.contentParts).toEqual([
+      { type: 'input_image', imageUrl: 'https://example.com/img.png', mimeType: 'image/png' },
+    ]);
   });
 });

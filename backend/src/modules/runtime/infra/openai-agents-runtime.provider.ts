@@ -8,7 +8,7 @@ import type {
   ICoordinatorRunParams,
   IExecutableAgentConfig,
 } from '../ports/agent-runtime.provider.js';
-import { formatAgentUserMessage } from '../application/format-agent-user-message.js';
+import { formatAgentUserContentParts, formatAgentUserMessage } from '../application/format-agent-user-message.js';
 import { buildCapabilityCatalogTools, buildMcpSdkTools } from '../application/build-specialist-sdk-tools.js';
 import { buildWorkspaceCustomTools } from '../application/build-workspace-custom-tools.js';
 import { isGpt5FamilyModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
@@ -105,6 +105,28 @@ export function mapNewItemsToEvents(result: { newItems?: unknown[] }): IAgentRun
   return events;
 }
 
+type TRunnerInputPart = { type: 'input_text'; text: string } | { type: 'input_image'; image_url: string };
+
+export function buildRunnerInputFromAgentInput(input: IAgentRunInput): string | TRunnerInputPart[] {
+  const parts = formatAgentUserContentParts(input);
+  if (!parts || parts.length === 0) return formatAgentUserMessage(input);
+  return parts.map((p) =>
+    p.type === 'input_text'
+      ? { type: 'input_text', text: p.text }
+      : { type: 'input_image', image_url: p.imageUrl },
+  );
+}
+
+export function buildRunnerInputFromCoordinatorParams(params: ICoordinatorRunParams): string | TRunnerInputPart[] {
+  if (!Array.isArray(params.userContentParts) || params.userContentParts.length === 0) return params.userMessage;
+  const base: TRunnerInputPart[] = [{ type: 'input_text', text: params.userMessage }];
+  for (const p of params.userContentParts) {
+    if (p.type === 'input_text') base.push({ type: 'input_text', text: p.text });
+    if (p.type === 'input_image') base.push({ type: 'input_image', image_url: p.imageUrl });
+  }
+  return base;
+}
+
 /** Runtime provider using OpenAI Agents SDK; coordinator uses specialist tools, specialists use plain LLM step. */
 export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   constructor() {}
@@ -154,13 +176,13 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       ...buildAgentModelOptions(config.openaiRuntimeModel),
     });
 
-    const userMessage = formatAgentUserMessage(input);
+    const userInput = buildRunnerInputFromAgentInput(input);
     const runner = new Runner({
       modelProvider: new OpenAIProvider({ apiKey }),
     });
 
     try {
-      const result = await runner.run(agent, userMessage, { stream: false });
+      const result = await runner.run(agent, userInput as unknown as string, { stream: false });
       const finalOutput = String((result as { finalOutput?: unknown }).finalOutput ?? '');
 
       const events: IAgentRunResult['events'] = [...mapNewItemsToEvents(result as { newItems?: unknown[] })];
@@ -203,7 +225,8 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
 
     try {
       if (params.onAssistantTextDelta) {
-        const streamed = await runner.run(agent, params.userMessage, { stream: true });
+        const coordinatorInput = buildRunnerInputFromCoordinatorParams(params);
+        const streamed = await runner.run(agent, coordinatorInput as unknown as string, { stream: true });
         const textStream = streamed.toTextStream({ compatibleWithNodeStreams: true });
         textStream.on('data', (chunk: Buffer | string) => {
           const s = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
@@ -215,7 +238,8 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
         return { finalOutput, events };
       }
 
-      const result = await runner.run(agent, params.userMessage, { stream: false });
+      const coordinatorInput = buildRunnerInputFromCoordinatorParams(params);
+      const result = await runner.run(agent, coordinatorInput as unknown as string, { stream: false });
       const finalOutput = String((result as { finalOutput?: unknown }).finalOutput ?? '');
       const events = mapNewItemsToEvents(result as { newItems?: unknown[] });
       return { finalOutput, events };

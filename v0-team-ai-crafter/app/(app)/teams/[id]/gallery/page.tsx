@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, Images, Trash2 } from "lucide-react"
+import { ArrowLeft, Download, Images, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -23,6 +23,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import { ImagePreviewDialog, type ImagePreviewItem, ImagePreviewTriggerButton } from "@/components/shared/image-preview-dialog"
 
 interface IGalleryAlbum {
   subjectSlug: string
@@ -48,6 +49,8 @@ export default function TeamGalleryPage() {
   const blobUrlsRef = useRef<string[]>([])
   const [deleteTarget, setDeleteTarget] = useState<{ filename: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewIndex, setPreviewIndex] = useState(0)
 
   const api = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -162,6 +165,32 @@ export default function TeamGalleryPage() {
     }
   }
 
+  function downloadFromBlobUrl(blobUrl: string, filename: string) {
+    const a = document.createElement("a")
+    a.href = blobUrl
+    a.download = filename
+    a.rel = "noopener noreferrer"
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  const previewItems: ImagePreviewItem[] = useMemo(
+    () =>
+      files
+        .map((f) => {
+          const src = blobUrls[f.filename]
+          if (!src) return null
+          return {
+            src,
+            alt: f.filename,
+            filename: f.filename,
+          }
+        })
+        .filter((x): x is ImagePreviewItem => Boolean(x)),
+    [files, blobUrls],
+  )
+
   return (
     <div className="space-y-6">
       <Link
@@ -265,6 +294,26 @@ export default function TeamGalleryPage() {
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="w-full gap-1"
+                          onClick={() => downloadFromBlobUrl(src ?? "", f.filename)}
+                          disabled={!src}
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Download
+                        </Button>
+                        <div className="flex justify-end">
+                          <ImagePreviewTriggerButton
+                            onClick={() => {
+                              const idx = previewItems.findIndex((p) => p.filename === f.filename)
+                              setPreviewIndex(idx >= 0 ? idx : 0)
+                              setPreviewOpen(true)
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           className="w-full gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
                           onClick={() => setDeleteTarget({ filename: f.filename })}
                         >
@@ -297,6 +346,15 @@ export default function TeamGalleryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ImagePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        items={previewItems}
+        initialIndex={previewIndex}
+        onDownload={(item) => {
+          downloadFromBlobUrl(item.src, item.filename ?? "imagem.png")
+        }}
+      />
     </div>
   )
 }

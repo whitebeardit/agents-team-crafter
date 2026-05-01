@@ -23,6 +23,33 @@ import { postCoordinatorExternalResponse } from './post-coordinator-external-res
 import { startTelegramTypingLoop } from './telegram-typing-loop.js';
 import { createTelegramInboundStatusDebouncer } from './telegram-inbound-status-debouncer.js';
 import { buildInboundDebugConversationId } from './inbound-conversation-id.js';
+import type { ITeamInvocationImageInput } from '../../team-runtime/domain/team-invocation.js';
+
+function extractInboundInputMedia(message: unknown): ITeamInvocationImageInput[] {
+  const row = message as Record<string, unknown> | null | undefined;
+  if (!row || typeof row !== 'object') return [];
+  const candidates: unknown[] = [];
+  const pushArray = (value: unknown) => {
+    if (Array.isArray(value)) candidates.push(...value);
+  };
+  pushArray(row['attachments']);
+  pushArray(row['media']);
+  pushArray(row['images']);
+  const out: ITeamInvocationImageInput[] = [];
+  for (const item of candidates) {
+    const rec = item as Record<string, unknown> | null;
+    if (!rec || typeof rec !== 'object') continue;
+    const url =
+      (typeof rec['url'] === 'string' && rec['url']) ||
+      (typeof rec['src'] === 'string' && rec['src']) ||
+      (typeof rec['imageUrl'] === 'string' && rec['imageUrl']) ||
+      '';
+    if (!url.trim().startsWith('http')) continue;
+    const mimeType = typeof rec['mimeType'] === 'string' ? rec['mimeType'] : undefined;
+    out.push({ kind: 'image', url: url.trim(), ...(mimeType ? { mimeType } : {}), source: 'user' });
+  }
+  return out.slice(0, 8);
+}
 
 function createStateAdapter(workspaceId: string, env: IEnv) {
   const logger = new ConsoleLogger('info', `[chat-sdk:${workspaceId}]`);
@@ -40,7 +67,7 @@ function bindInbound(
   agentChannelLabel: string,
 ) {
   const channelIdStr = channelDoc._id.toString();
-  const runInbound = async (text: string, thread: Thread) => {
+  const runInbound = async (text: string, thread: Thread, rawMessage?: unknown) => {
     const { coordinatorId, teamId } = await requireCoordinatorForChannelInstance(
       deps.teamRepo,
       workspaceId,
@@ -60,7 +87,7 @@ function bindInbound(
       coordinatorId,
       text,
       agentChannelLabel,
-      { conversationId, conversation },
+      { conversationId, conversation, inputMedia: extractInboundInputMedia(rawMessage) },
     );
     const stopTyping = agentChannelLabel === 'telegram' ? startTelegramTypingLoop(thread) : undefined;
     const telegramStatusDebouncer =
@@ -166,7 +193,7 @@ function bindInbound(
     await thread.subscribe();
     const text = (message.text ?? '').trim();
     if (!text) return;
-    const out = await runInbound(text, thread);
+    const out = await runInbound(text, thread, message);
     try {
       await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
     } catch (err) {
@@ -182,7 +209,7 @@ function bindInbound(
   chat.onSubscribedMessage(async (thread, message) => {
     const text = (message.text ?? '').trim();
     if (!text) return;
-    const out = await runInbound(text, thread);
+    const out = await runInbound(text, thread, message);
     try {
       await postCoordinatorExternalResponse(thread, out, agentChannelLabel);
     } catch (err) {
