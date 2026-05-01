@@ -37,6 +37,7 @@ export function ChannelConfigureDialog({
   onSaved,
 }: ChannelConfigureDialogProps) {
   const [routingJson, setRoutingJson] = useState("{}")
+  const [displayName, setDisplayName] = useState("")
   const [saving, setSaving] = useState(false)
   const [registeringWebhook, setRegisteringWebhook] = useState(false)
 
@@ -46,19 +47,56 @@ export function ChannelConfigureDialog({
   useEffect(() => {
     if (!channel || !open) return
     setRoutingJson(JSON.stringify(channel.config ?? {}, null, 2))
+    setDisplayName(channel.name)
   }, [channel, open])
 
   if (!channel) return null
 
-  const saveRouting = async () => {
+  const formTrim = (form: FormData, key: string) => String(form.get(key) ?? "").trim()
+
+  /** True when the user filled the minimum fields required to PUT /secrets for this platform. */
+  const secretsProvided = (form: FormData, p: ChatSdkPlatform): boolean => {
+    switch (p) {
+      case "slack":
+        return formTrim(form, "signingSecret").length > 0 && formTrim(form, "botToken").length > 0
+      case "discord":
+        return formTrim(form, "botToken").length > 0 && formTrim(form, "publicKey").length > 0
+      case "teams":
+        return formTrim(form, "appId").length > 0 && formTrim(form, "appPassword").length > 0
+      case "telegram":
+        return formTrim(form, "botToken").length > 0
+      case "gchat":
+        return formTrim(form, "credentialsJson").length > 0
+      case "github":
+        return formTrim(form, "webhookSecret").length > 0
+      case "linear":
+        return formTrim(form, "webhookSecret").length > 0
+      case "whatsapp":
+        return (
+          formTrim(form, "accessToken").length > 0 &&
+          formTrim(form, "appSecret").length > 0 &&
+          formTrim(form, "verifyToken").length > 0
+        )
+      default:
+        return false
+    }
+  }
+
+  const saveChannelMeta = async (): Promise<boolean> => {
+    const trimmed = displayName.trim()
+    if (!trimmed) {
+      toast.error("Indique um nome ou etiqueta para o canal")
+      return false
+    }
     let config: Record<string, unknown>
     try {
       config = JSON.parse(routingJson) as Record<string, unknown>
     } catch {
       toast.error("JSON de roteamento inválido")
-      return
+      return false
     }
-    await api.put(`/channels/${channel.id}`, { config })
+    await api.put(`/channels/${channel.id}`, { name: trimmed, config })
+    return true
   }
 
   const saveSecretsSlack = async (form: FormData) => {
@@ -169,36 +207,41 @@ export function ChannelConfigureDialog({
     setSaving(true)
     const form = new FormData(e.currentTarget)
     try {
-      await saveRouting()
-      switch (platform) {
-        case "slack":
-          await saveSecretsSlack(form)
-          break
-        case "discord":
-          await saveSecretsDiscord(form)
-          break
-        case "teams":
-          await saveSecretsTeams(form)
-          break
-        case "telegram":
-          await saveSecretsTelegram(form)
-          break
-        case "gchat":
-          await saveSecretsGchat(form)
-          break
-        case "github":
-          await saveSecretsGithub(form)
-          break
-        case "linear":
-          await saveSecretsLinear(form)
-          break
-        case "whatsapp":
-          await saveSecretsWhatsapp(form)
-          break
-        default:
-          toast.error("Plataforma não suportada")
-          return
+      const metaOk = await saveChannelMeta()
+      if (!metaOk) return
+
+      if (secretsProvided(form, platform)) {
+        switch (platform) {
+          case "slack":
+            await saveSecretsSlack(form)
+            break
+          case "discord":
+            await saveSecretsDiscord(form)
+            break
+          case "teams":
+            await saveSecretsTeams(form)
+            break
+          case "telegram":
+            await saveSecretsTelegram(form)
+            break
+          case "gchat":
+            await saveSecretsGchat(form)
+            break
+          case "github":
+            await saveSecretsGithub(form)
+            break
+          case "linear":
+            await saveSecretsLinear(form)
+            break
+          case "whatsapp":
+            await saveSecretsWhatsapp(form)
+            break
+          default:
+            toast.error("Plataforma não suportada")
+            return
+        }
       }
+
       toast.success("Salvo com sucesso")
       onSaved()
       onOpenChange(false)
@@ -233,6 +276,20 @@ export function ChannelConfigureDialog({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <Label htmlFor="channel-display-name">Nome / etiqueta</Label>
+            <Input
+              id="channel-display-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Ex.: Telegram — atendimento clínica A"
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              Nome para distinguir este canal dos outros no workspace (não altera o bot ou a conta na plataforma).
+            </p>
+          </div>
+
           <div className="space-y-1">
             <Label htmlFor="routing-json">Config de roteamento (JSON)</Label>
             <textarea
@@ -418,6 +475,12 @@ export function ChannelConfigureDialog({
                 {JSON.stringify(channel.secretsMasked, null, 2)}
               </pre>
             </div>
+          )}
+
+          {isChatSdk && (
+            <p className="text-xs text-muted-foreground">
+              Para guardar só o nome ou o JSON, deixe os campos de segredo vazios — os segredos já armazenados mantêm-se.
+            </p>
           )}
 
           <DialogFooter>

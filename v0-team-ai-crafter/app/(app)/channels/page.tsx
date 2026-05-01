@@ -12,6 +12,16 @@ import type { Channel, ChannelType } from "@/lib/types"
 import { toast } from "sonner"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -91,6 +101,9 @@ export default function ChannelsPage() {
   const [configureOpen, setConfigureOpen] = useState(false)
   const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
+  const [chatSdkCreatePlatform, setChatSdkCreatePlatform] = useState<ChatSdkPlatform | null>(null)
+  const [chatSdkCreateName, setChatSdkCreateName] = useState("")
+  const [chatSdkCreateInProgress, setChatSdkCreateInProgress] = useState(false)
 
   const api = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -185,21 +198,29 @@ export default function ChannelsPage() {
     }
   }
 
-  const handleAddChatSdk = async (platform: ChatSdkPlatform) => {
-    if (!api) return
+  const confirmAddChatSdk = async () => {
+    if (!api || !chatSdkCreatePlatform) return
+    const platform = chatSdkCreatePlatform
+    const defaultName = `${chatSdkPlatformLabels[platform]} (Chat SDK)`
+    const name = chatSdkCreateName.trim() || defaultName
+    setChatSdkCreateInProgress(true)
     try {
       const type = platformToChannelType(platform)
       await api.post("/channels", {
         type,
-        name: `${chatSdkPlatformLabels[platform]} (Chat SDK)`,
+        name,
         provider: "chat_sdk",
         platform,
         config: defaultRoutingConfig(platform),
       })
       await refreshChannels()
       toast.success(`Canal ${chatSdkPlatformLabels[platform]} criado`)
+      setChatSdkCreatePlatform(null)
+      setChatSdkCreateName("")
     } catch {
       toast.error("Falha ao criar canal Chat SDK")
+    } finally {
+      setChatSdkCreateInProgress(false)
     }
   }
 
@@ -349,7 +370,10 @@ export default function ChannelsPage() {
               <button
                 key={platform}
                 type="button"
-                onClick={() => handleAddChatSdk(platform)}
+                onClick={() => {
+                  setChatSdkCreatePlatform(platform)
+                  setChatSdkCreateName("")
+                }}
                 className="flex flex-col items-center p-4 rounded-lg border border-dashed border-border bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50 transition-colors text-center"
               >
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
@@ -400,6 +424,63 @@ export default function ChannelsPage() {
           onSaved={() => void refreshChannels()}
         />
       )}
+
+      <Dialog
+        open={chatSdkCreatePlatform !== null}
+        onOpenChange={(open) => {
+          if (!open && !chatSdkCreateInProgress) {
+            setChatSdkCreatePlatform(null)
+            setChatSdkCreateName("")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Novo canal Chat SDK
+              {chatSdkCreatePlatform
+                ? ` — ${chatSdkPlatformLabels[chatSdkCreatePlatform]}`
+                : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Opcional: defina um nome ou etiqueta para distinguir este canal de outros da mesma plataforma. Se deixar em
+              branco, usa-se o nome predefinido.
+            </DialogDescription>
+          </DialogHeader>
+          {chatSdkCreatePlatform && (
+            <div className="space-y-2">
+              <Label htmlFor="chat-sdk-create-name">Nome / etiqueta (opcional)</Label>
+              <Input
+                id="chat-sdk-create-name"
+                value={chatSdkCreateName}
+                onChange={(e) => setChatSdkCreateName(e.target.value)}
+                placeholder={`${chatSdkPlatformLabels[chatSdkCreatePlatform]} (Chat SDK)`}
+                autoComplete="off"
+              />
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={chatSdkCreateInProgress}
+              onClick={() => {
+                setChatSdkCreatePlatform(null)
+                setChatSdkCreateName("")
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={chatSdkCreateInProgress || !chatSdkCreatePlatform}
+              onClick={() => void confirmAddChatSdk()}
+            >
+              {chatSdkCreateInProgress ? "A criar…" : "Criar canal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={!!channelToDelete}
