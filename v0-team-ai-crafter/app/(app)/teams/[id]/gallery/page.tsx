@@ -175,21 +175,15 @@ export default function TeamGalleryPage() {
     a.remove()
   }
 
-  const previewItems: ImagePreviewItem[] = useMemo(
-    () =>
-      files
-        .map((f) => {
-          const src = blobUrls[f.filename]
-          if (!src) return null
-          return {
-            src,
-            alt: f.filename,
-            filename: f.filename,
-          }
-        })
-        .filter((x): x is ImagePreviewItem => Boolean(x)),
-    [files, blobUrls],
-  )
+  const previewItems: ImagePreviewItem[] = useMemo(() => {
+    const out: ImagePreviewItem[] = []
+    for (const f of files) {
+      const src = blobUrls[f.filename]
+      if (!src) continue
+      out.push({ src, alt: f.filename, filename: f.filename })
+    }
+    return out
+  }, [files, blobUrls])
 
   return (
     <div className="space-y-6">

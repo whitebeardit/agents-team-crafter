@@ -13,7 +13,7 @@ const nextConfig = {
   // HMR / dev quando acessado pelo IP da rede local.
   allowedDevOrigins: ["10.0.0.148", "127.0.0.1", "localhost"],
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

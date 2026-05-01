@@ -366,6 +366,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         riskLevel?: TBusinessCatalogItem["riskLevel"]
         ownerAgent?: string
         uiExposureMode?: TBusinessCatalogItem["uiExposureMode"]
+        domainScope?: string
+        replacesPrimitiveActions?: string[]
       }
     > = {}
     for (const c of businessActionCatalog) {

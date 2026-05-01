@@ -153,31 +153,34 @@ function AssistantMessageBody({ line }: { line: ChatLine }) {
         <div className="break-words [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/80 [&_code]:px-1 [&_code]:text-xs">
           <ReactMarkdown
             components={{
-              img: ({ src, alt }) => (
-                <div className="space-y-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src}
-                    alt={alt ?? ""}
-                    className="max-h-48 max-w-full rounded-md border border-border object-contain"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="flex items-center gap-1 justify-end">
-                    <ImagePreviewTriggerButton
-                      onClick={() => openPreview([{ src: src ?? "", alt: alt ?? "Imagem markdown" }], 0)}
+              img: ({ src, alt }) => {
+                const srcUrl = typeof src === "string" ? src : ""
+                return (
+                  <div className="space-y-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={srcUrl}
+                      alt={alt ?? ""}
+                      className="max-h-48 max-w-full rounded-md border border-border object-contain"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
                     />
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      onClick={() => void downloadImage({ src: src ?? "", alt: alt ?? "Imagem markdown" })}
-                      aria-label="Download da imagem"
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 justify-end">
+                      <ImagePreviewTriggerButton
+                        onClick={() => openPreview([{ src: srcUrl, alt: alt ?? "Imagem markdown" }], 0)}
+                      />
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        onClick={() => void downloadImage({ src: srcUrl, alt: alt ?? "Imagem markdown" })}
+                        aria-label="Download da imagem"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ),
+                )
+              },
               a: ({ href, children }) => (
                 <a href={href} className="text-primary underline" target="_blank" rel="noopener noreferrer">
                   {children}
