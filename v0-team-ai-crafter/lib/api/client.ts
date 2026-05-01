@@ -1,4 +1,5 @@
 import type {
+  TeamConversationTimelineItem,
   TeamCoordinatorDeltaPayload,
   TeamLiveInboundUserMessage,
   TeamRunProgressEvent,
@@ -135,6 +136,7 @@ export interface ITeamRunStreamHandlers {
 /** Handlers para `GET /teams/:id/live` (inclui espelho inbound). */
 export interface ITeamLiveStreamHandlers extends ITeamRunStreamHandlers {
   onInboundUserMessage?: (data: TeamLiveInboundUserMessage) => void
+  onTimelineItem?: (item: TeamConversationTimelineItem) => void
 }
 
 export interface ITeamPlanExecuteStreamHandlers<T> {
@@ -356,6 +358,8 @@ export function createApiClient(deps: {
           })
         } else if (eventName === "inboundUserMessage") {
           handlers.onInboundUserMessage?.(data as TeamLiveInboundUserMessage)
+        } else if (eventName === "timelineItem") {
+          handlers.onTimelineItem?.(data as TeamConversationTimelineItem)
         }
       } catch {
         /* chunk invalido */

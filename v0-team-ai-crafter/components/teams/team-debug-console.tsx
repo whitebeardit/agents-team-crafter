@@ -21,7 +21,9 @@ import {
 import { ChevronDown, Download, Loader2, MessageSquareCode, RefreshCw, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ApiError, type createApiClient } from "@/lib/api/client"
+import { LiveConversationTimelineDrawer } from "@/components/teams/live-conversation-timeline-drawer"
 import type {
+  TeamConversationTimelineItem,
   TeamDebugLiveMirrorLine,
   TeamDebugSessionSummary,
   TeamDebugSessionTurn,
@@ -63,6 +65,10 @@ export interface TeamDebugConsoleProps {
   liveMirrorLines?: TeamDebugLiveMirrorLine[]
   /** Texto do coordenador em streaming (só inbound no espelho). */
   liveMirrorStreamText?: string | null
+  /** Timeline canônica para reutilização da segunda visualização. */
+  liveTimelineItems?: TeamConversationTimelineItem[]
+  /** Mostra alternância chat/timeline no console. */
+  enableTimelineView?: boolean
 }
 
 type ChatLine = {
@@ -211,6 +217,8 @@ export function TeamDebugConsole({
   hideHeader = false,
   liveMirrorLines = [],
   liveMirrorStreamText = null,
+  liveTimelineItems = [],
+  enableTimelineView = false,
 }: TeamDebugConsoleProps) {
   const compact = variant === "compact"
   const useHttpRun = useHttpRunProp ?? !useStreamRun
@@ -227,6 +235,7 @@ export function TeamDebugConsole({
   const [narrativeOpen, setNarrativeOpen] = useState(true)
   const [sessions, setSessions] = useState<TeamDebugSessionSummary[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<"chat" | "timeline">("chat")
 
   const agentNameMap = useMemo(() => {
     const m: Record<string, string> = { ...(agentDisplayNames ?? {}) }
@@ -460,6 +469,28 @@ export function TeamDebugConsole({
           compact ? "px-3 py-2" : "px-4 py-2",
         )}
       >
+        {enableTimelineView ? (
+          <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+            <Button
+              type="button"
+              variant={viewMode === "chat" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 text-[11px]"
+              onClick={() => setViewMode("chat")}
+            >
+              Chat
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === "timeline" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 text-[11px]"
+              onClick={() => setViewMode("timeline")}
+            >
+              Timeline
+            </Button>
+          </div>
+        ) : null}
         <span className={cn("text-muted-foreground shrink-0", compact ? "text-[10px]" : "text-xs")}>Sessão</span>
         <Select
           value={conversationId}
@@ -511,6 +542,17 @@ export function TeamDebugConsole({
           hideHeader && compact && "pt-1",
         )}
       >
+        {enableTimelineView && viewMode === "timeline" ? (
+          <LiveConversationTimelineDrawer
+            items={liveTimelineItems}
+            agentDisplayNames={agentNameMap}
+            density={compact ? "compact" : "detailed"}
+            title="Timeline da sessão live"
+            emptyLabel="Sem eventos para esta sessão."
+          />
+        ) : null}
+        {(!enableTimelineView || viewMode === "chat") && (
+          <>
         {liveMirrorLines.length > 0 || (liveMirrorStreamText != null && liveMirrorStreamText.length > 0) ? (
           <div className="space-y-2 mb-3 pb-3 border-b border-border">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Espelho live (inbound)</p>
@@ -579,6 +621,8 @@ export function TeamDebugConsole({
               ) : null}
             </div>
           ))
+        )}
+          </>
         )}
       </div>
 

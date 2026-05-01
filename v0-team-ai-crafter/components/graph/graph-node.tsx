@@ -192,6 +192,13 @@ export const CoordinatorNode = memo(function CoordinatorNode({
           <div className="rounded-md border border-border bg-popover px-2 py-1 text-center text-[10px] leading-snug text-popover-foreground shadow-md">
             <span className="font-medium text-primary">{live.phase}</span>
             <span className="block text-muted-foreground line-clamp-3">{live.lastActivity}</span>
+            {live.latestInput ? <span className="block text-left text-muted-foreground">in: {live.latestInput}</span> : null}
+            {live.latestThinking ? (
+              <span className="block text-left text-muted-foreground">thinking: {live.latestThinking}</span>
+            ) : null}
+            {live.latestOutput ? (
+              <span className="block text-left text-muted-foreground">out: {live.latestOutput}</span>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -279,6 +286,13 @@ export const SpecialistNode = memo(function SpecialistNode({
           <div className="rounded-md border border-border bg-popover px-2 py-1 text-center text-[10px] leading-snug text-popover-foreground shadow-md">
             <span className="font-medium text-accent">{live.phase}</span>
             <span className="block text-muted-foreground line-clamp-3">{live.lastActivity}</span>
+            {live.latestInput ? <span className="block text-left text-muted-foreground">in: {live.latestInput}</span> : null}
+            {live.latestThinking ? (
+              <span className="block text-left text-muted-foreground">thinking: {live.latestThinking}</span>
+            ) : null}
+            {live.latestOutput ? (
+              <span className="block text-left text-muted-foreground">out: {live.latestOutput}</span>
+            ) : null}
           </div>
         </div>
       ) : null}

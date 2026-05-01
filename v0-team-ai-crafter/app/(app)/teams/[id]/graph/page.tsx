@@ -18,7 +18,14 @@ import {
 import { ArrowLeft, Images, Info, MessageSquareCode, Save, RadioReceiver, Settings2 } from "lucide-react"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { TeamDebugConsole } from "@/components/teams/team-debug-console"
-import type { Agent, Channel, Team, TeamDebugLiveMirrorLine, TeamGraphLiveAgentState } from "@/lib/types"
+import type {
+  Agent,
+  Channel,
+  Team,
+  TeamConversationTimelineItem,
+  TeamDebugLiveMirrorLine,
+  TeamGraphLiveAgentConversationState,
+} from "@/lib/types"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { toast } from "sonner"
@@ -51,6 +58,51 @@ function inboundChannelLabel(channel: string): string {
   return m[channel] ?? channel
 }
 
+function trimLiveText(text: string, max = 220): string {
+  const normalized = text.replace(/\s+/g, " ").trim()
+  if (normalized.length <= max) return normalized
+  return `${normalized.slice(0, max - 1)}...`
+}
+
+function computeLiveStateFromTimeline(
+  byAgent: Record<string, TeamConversationTimelineItem[]>,
+  base: Record<string, TeamGraphLiveAgentConversationState>,
+): Record<string, TeamGraphLiveAgentConversationState> {
+  const out: Record<string, TeamGraphLiveAgentConversationState> = {}
+  for (const [agentId, items] of Object.entries(byAgent)) {
+    const existing = base[agentId]
+    const latestInput = [...items].reverse().find((it) => it.kind === "input")?.content
+    const latestThinking = [...items].reverse().find((it) => it.kind === "thinking")?.content
+    const latestOutput = [...items].reverse().find((it) => it.kind === "output")?.content
+    const last = items[items.length - 1]
+    out[agentId] = {
+      status: existing?.status ?? "idle",
+      phase: existing?.phase ?? "timeline",
+      lastActivity: last?.content ? trimLiveText(last.content, 140) : existing?.lastActivity ?? "Sem atividade",
+      recentItems: items.slice(-12),
+      latestInput: latestInput ? trimLiveText(latestInput, 120) : undefined,
+      latestThinking: latestThinking ? trimLiveText(latestThinking, 120) : undefined,
+      latestOutput: latestOutput ? trimLiveText(latestOutput, 120) : undefined,
+    }
+  }
+  for (const [agentId, existing] of Object.entries(base)) {
+    if (!out[agentId]) out[agentId] = existing
+  }
+  return out
+}
+
+function mergeTimelineByAgent(
+  prev: Record<string, TeamConversationTimelineItem[]>,
+  agentId: string,
+  item: TeamConversationTimelineItem,
+  maxItemsPerAgent = 80,
+): Record<string, TeamConversationTimelineItem[]> {
+  const current = prev[agentId] ?? []
+  if (current.some((i) => i.id === item.id)) return prev
+  const next = [...current, item].sort((a, b) => a.seq - b.seq).slice(-maxItemsPerAgent)
+  return { ...prev, [agentId]: next }
+}
+
 export default function GraphEditorPage({
   params: _params,
 }: {
@@ -67,9 +119,11 @@ export default function GraphEditorPage({
   const [saving, setSaving] = useState(false)
   const [liveMode, setLiveMode] = useState(false)
   const [liveSheetOpen, setLiveSheetOpen] = useState(false)
-  const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentState>>({})
+  const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentConversationState>>({})
+  const [timelineByAgent, setTimelineByAgent] = useState<Record<string, TeamConversationTimelineItem[]>>({})
   const [liveMirrorLines, setLiveMirrorLines] = useState<TeamDebugLiveMirrorLine[]>([])
   const [liveMirrorStreamText, setLiveMirrorStreamText] = useState("")
+  const seenTimelineIdsRef = useRef<Set<string>>(new Set())
 
   const removeResolveRef = useRef<((value: boolean) => void) | null>(null)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
@@ -93,6 +147,16 @@ export default function GraphEditorPage({
     return m
   }, [agents])
 
+  const liveTimelineItems = useMemo(() => {
+    const uniq = new Map<string, TeamConversationTimelineItem>()
+    for (const items of Object.values(timelineByAgent)) {
+      for (const item of items) {
+        if (!uniq.has(item.id)) uniq.set(item.id, item)
+      }
+    }
+    return [...uniq.values()].sort((a, b) => (a.seq === b.seq ? a.timestamp.localeCompare(b.timestamp) : a.seq - b.seq))
+  }, [timelineByAgent])
+
   useEffect(() => {
     if (liveMode) setLiveSheetOpen(true)
     else setLiveSheetOpen(false)
@@ -102,6 +166,8 @@ export default function GraphEditorPage({
     if (!liveMode) {
       setLiveMirrorLines([])
       setLiveMirrorStreamText("")
+      setTimelineByAgent({})
+      seenTimelineIdsRef.current = new Set()
     }
   }, [liveMode])
 
@@ -109,56 +175,98 @@ export default function GraphEditorPage({
   useEffect(() => {
     if (!liveMode || !api) return
     const ac = new AbortController()
-    void api
-      .streamTeamLive(
-        id,
-        {
-          onInboundUserMessage: (d) => {
-            setLiveMirrorStreamText("")
-            setLiveMirrorLines((prev) => [
-              ...prev,
-              {
-                role: "user",
-                content: d.text,
-                sourceLabel: inboundChannelLabel(d.channel),
+    void (async () => {
+      let reconnectDelayMs = 700
+      try {
+        const replay = await api.get<{ items: TeamConversationTimelineItem[] }>(`/teams/${id}/timeline?limit=120`)
+        const grouped: Record<string, TeamConversationTimelineItem[]> = {}
+        for (const item of replay.data.items ?? []) {
+          const actorId = item.actorId?.trim()
+          if (!actorId) continue
+          if (!seenTimelineIdsRef.current.has(item.id)) {
+            seenTimelineIdsRef.current.add(item.id)
+            grouped[actorId] = [...(grouped[actorId] ?? []), item].slice(-80)
+          }
+        }
+        setTimelineByAgent(grouped)
+        setLiveAgentState((base) => computeLiveStateFromTimeline(grouped, base))
+      } catch {
+        /* replay opcional */
+      }
+      while (!ac.signal.aborted) {
+        try {
+          await api.streamTeamLive(
+            id,
+            {
+              onInboundUserMessage: (d) => {
+                setLiveMirrorStreamText("")
+                setLiveMirrorLines((prev) => [
+                  ...prev,
+                  {
+                    role: "user",
+                    content: d.text,
+                    sourceLabel: inboundChannelLabel(d.channel),
+                  },
+                ])
               },
-            ])
-          },
-          onCoordinatorDelta: (payload) => {
-            if (payload.source !== "inbound") return
-            setLiveMirrorStreamText((prev) => prev + payload.text)
-          },
-          onAgentStatus: (e) => {
-            setLiveAgentState((prev) => ({
-              ...prev,
-              [e.agentId]: {
-                status: e.status,
-                phase: e.phase,
-                lastActivity: e.detail ?? e.phase,
+              onCoordinatorDelta: (payload) => {
+                if (payload.source !== "inbound") return
+                setLiveMirrorStreamText((prev) => prev + payload.text)
               },
-            }))
-          },
-          onRunComplete: (data) => {
-            if (data.source === "inbound") {
-              const er = data.externalResponse
-              const text = er?.text?.trim() || "(sem texto)"
-              setLiveMirrorStreamText("")
-              setLiveMirrorLines((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: text,
-                  sourceLabel: "Resposta (inbound)",
-                  format: er?.format,
-                },
-              ])
-            }
-            window.setTimeout(() => setLiveAgentState({}), 3200)
-          },
-        },
-        ac.signal,
-      )
-      .catch(() => {
+              onAgentStatus: (e) => {
+                setLiveAgentState((prev) => ({
+                  ...prev,
+                  [e.agentId]: {
+                    status: e.status,
+                    phase: e.phase,
+                    lastActivity: e.detail ?? e.phase,
+                    recentItems: prev[e.agentId]?.recentItems ?? [],
+                    latestInput: prev[e.agentId]?.latestInput,
+                    latestThinking: prev[e.agentId]?.latestThinking,
+                    latestOutput: prev[e.agentId]?.latestOutput,
+                  },
+                }))
+              },
+              onTimelineItem: (item) => {
+                if (seenTimelineIdsRef.current.has(item.id)) return
+                seenTimelineIdsRef.current.add(item.id)
+                const actorId = item.actorId?.trim()
+                const agentId = actorId && actorId.length > 0 ? actorId : null
+                if (!agentId) return
+                setTimelineByAgent((prev) => {
+                  const merged = mergeTimelineByAgent(prev, agentId, item)
+                  setLiveAgentState((base) => computeLiveStateFromTimeline(merged, base))
+                  return merged
+                })
+              },
+              onRunComplete: (data) => {
+                if (data.source === "inbound") {
+                  const er = data.externalResponse
+                  const text = er?.text?.trim() || "(sem texto)"
+                  setLiveMirrorStreamText("")
+                  setLiveMirrorLines((prev) => [
+                    ...prev,
+                    {
+                      role: "assistant",
+                      content: text,
+                      sourceLabel: "Resposta (inbound)",
+                      format: er?.format,
+                    },
+                  ])
+                }
+                window.setTimeout(() => setLiveAgentState({}), 3200)
+              },
+            },
+            ac.signal,
+          )
+          reconnectDelayMs = 700
+        } catch {
+          if (ac.signal.aborted) break
+          await new Promise((resolve) => setTimeout(resolve, reconnectDelayMs))
+          reconnectDelayMs = Math.min(4000, reconnectDelayMs * 2)
+        }
+      }
+    })().catch(() => {
         /* abort ou rede */
       })
     return () => ac.abort()
@@ -387,6 +495,7 @@ export default function GraphEditorPage({
                 setLiveMode(v)
                 if (!v) {
                   setLiveAgentState({})
+                  setTimelineByAgent({})
                   setLiveSheetOpen(false)
                 }
               }}
@@ -540,6 +649,8 @@ export default function GraphEditorPage({
                 useHttpRun={false}
                 liveMirrorLines={liveMirrorLines}
                 liveMirrorStreamText={liveMirrorStreamText}
+                liveTimelineItems={liveTimelineItems}
+                enableTimelineView
                 variant="compact"
                 hideHeader
                 className="flex min-h-0 flex-1"

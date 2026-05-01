@@ -17,7 +17,7 @@ import "@xyflow/react/dist/style.css"
 import { ChannelIoEdge } from "./channel-io-edge"
 import { nodeTypes } from "./graph-node"
 import { NodeConfigPanel } from "./node-config-panel"
-import type { Agent, Channel, Team, TeamGraphLiveAgentState } from "@/lib/types"
+import type { Agent, Channel, Team, TeamGraphLiveAgentConversationState } from "@/lib/types"
 import { GraphLiveAgentsContext } from "@/components/graph/graph-live-context"
 import {
   resolveAgentNodeId,
@@ -43,7 +43,7 @@ interface GraphCanvasProps {
     edges: Edge[]
   }) => Promise<{ ok: boolean; message?: string }>
   /** Estado em tempo real por agentId (modo live no editor de grafo). */
-  liveAgentState?: Record<string, TeamGraphLiveAgentState>
+  liveAgentState?: Record<string, TeamGraphLiveAgentConversationState>
 }
 
 const toNode = (value: unknown): Node | null => {

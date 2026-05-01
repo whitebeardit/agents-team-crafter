@@ -131,6 +131,40 @@ export interface TeamGraphLiveAgentState {
   lastActivity: string
 }
 
+export type TeamConversationActor = "user" | "coordinator" | "specialist" | "system" | "tool"
+export type TeamConversationKind =
+  | "input"
+  | "output"
+  | "thinking"
+  | "activity"
+  | "tool_call"
+  | "tool_result"
+  | "handoff"
+  | "status"
+  | "error"
+
+export interface TeamConversationTimelineItem {
+  id: string
+  workspaceId: string
+  teamId: string
+  runId: string
+  seq: number
+  timestamp: string
+  actor: TeamConversationActor
+  actorId?: string
+  kind: TeamConversationKind
+  content: string
+  meta?: Record<string, unknown>
+  correlation?: { spanId?: string; parentSpanId?: string }
+}
+
+export interface TeamGraphLiveAgentConversationState extends TeamGraphLiveAgentState {
+  recentItems: TeamConversationTimelineItem[]
+  latestInput?: string
+  latestThinking?: string
+  latestOutput?: string
+}
+
 /** Payload SSE `coordinatorDelta` em `POST /teams/:id/run/stream` e `GET /teams/:id/live`. */
 export interface TeamCoordinatorDeltaPayload {
   text: string
