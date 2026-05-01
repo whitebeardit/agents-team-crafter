@@ -11,6 +11,15 @@ import {
   OFFICE_GAME_WIDTH,
 } from "@/components/office/agent-office-scene"
 
+function tryBindController(game: Phaser.Game, agents: OfficeAgentVisualState[]): AgentOfficeController | null {
+  if (!game.scene.isActive(AGENT_OFFICE_SCENE_KEY)) return null
+  const scene = game.scene.getScene(AGENT_OFFICE_SCENE_KEY) as AgentOfficeScene | undefined
+  if (!scene) return null
+  const c = scene.getController()
+  c.syncAgents(agents)
+  return c
+}
+
 export default function AgentOfficeGame({
   agents,
   activeEvent,
@@ -45,21 +54,41 @@ export default function AgentOfficeGame({
     const game = new Phaser.Game(config)
     gameRef.current = game
 
-    let attempts = 0
-    const wire = () => {
-      attempts += 1
-      const scene = game.scene.getScene(AGENT_OFFICE_SCENE_KEY) as AgentOfficeScene | undefined
-      if (!scene || attempts > 240) return
-      if (!scene.sys?.isActive()) {
-        requestAnimationFrame(wire)
-        return
-      }
-      const c = scene.getController()
+    const bindOrRetry = () => {
+      const c = tryBindController(game, agents)
+      if (!c) return false
       controllerRef.current = c
       onControllerReady?.(c)
-      c.syncAgents(agents)
+      return true
     }
-    requestAnimationFrame(wire)
+
+    const onGameReady = () => {
+      if (bindOrRetry()) return
+      let attempts = 0
+      const poll = () => {
+        attempts += 1
+        if (bindOrRetry()) return
+        if (attempts > 120) {
+          const scene = game.scene.getScene(AGENT_OFFICE_SCENE_KEY) as AgentOfficeScene | undefined
+          if (scene) {
+            const c = scene.getController()
+            controllerRef.current = c
+            onControllerReady?.(c)
+            c.syncAgents(agents)
+            if (process.env.NODE_ENV === "development") {
+              console.warn("[AgentOfficeGame] Controller ligado em fallback após poll.")
+            }
+            return
+          }
+          console.error("[AgentOfficeGame] Scene Phaser não ficou activa; canvas pode ficar vazio.")
+          return
+        }
+        requestAnimationFrame(poll)
+      }
+      requestAnimationFrame(poll)
+    }
+
+    game.events.once(Phaser.Core.Events.READY, onGameReady)
 
     return () => {
       controllerRef.current?.destroy()
@@ -84,5 +113,10 @@ export default function AgentOfficeGame({
     c.playEvent(activeEvent)
   }, [activeEvent])
 
-  return <div ref={containerRef} className="min-h-[340px] w-full overflow-hidden rounded-lg border border-border bg-[#0f172a]" />
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 min-h-0 w-full overflow-hidden rounded-lg border border-border bg-[#0f172a]"
+    />
+  )
 }

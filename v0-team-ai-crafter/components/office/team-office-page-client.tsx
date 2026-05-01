@@ -260,6 +260,11 @@ export function TeamOfficePageClient() {
         reconnecting={reconnecting}
         liveError={liveError}
         eventCount={timelineEvents.length}
+        lastLiveSummary={
+          mode === "live" && timelineEvents.length > 0
+            ? `${timelineEvents[timelineEvents.length - 1].type} · seq ${timelineEvents[timelineEvents.length - 1].seq}`
+            : null
+        }
       />
 
       <AgentOfficeControls
@@ -275,7 +280,7 @@ export function TeamOfficePageClient() {
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="relative min-h-[360px]">
           <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="relative aspect-[1100/680] w-full">
+            <div className="relative aspect-[1100/680] w-full overflow-hidden">
               <AgentOfficeGame
                 agents={visualAgents}
                 activeEvent={activeEventForScene}
