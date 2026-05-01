@@ -21,7 +21,8 @@ export function buildOfficeLayout(input: {
     category?: string
   }>
 }): OfficeLayoutAgent[] {
-  const center = { x: 520, y: 280 }
+  /** Tuned for small full-body sprites on the clinica background (arc + vertical spread). */
+  const center = { x: 520, y: 288 }
 
   const coordinator = input.agents.find((a) => a.id === input.coordinatorId)
   const specialists = input.agents.filter(
@@ -35,7 +36,7 @@ export function buildOfficeLayout(input: {
     name: "Utilizador",
     role: "user",
     x: center.x,
-    y: 72,
+    y: 76,
     active: false,
     dimmed: false,
     status: "idle",
@@ -55,7 +56,7 @@ export function buildOfficeLayout(input: {
     })
   }
 
-  const radius = 260
+  const radius = 235
   const startAngle = Math.PI * 0.15
   const endAngle = Math.PI * 0.85
 

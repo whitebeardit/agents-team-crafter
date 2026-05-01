@@ -11,23 +11,18 @@ export const OFFICE_GAME_HEIGHT = 680
 
 export const AGENT_OFFICE_SCENE_KEY = "AgentOfficeScene"
 
-const COLOR_COORD = 0xf59e0b
-const COLOR_SPEC = 0x38bdf8
-const COLOR_USER = 0x22c55e
-const COLOR_DIM = 0x64748b
+/** ~20% of canvas height — keeps many agents visible on the clinic background */
+const AGENT_MAX_DISPLAY_HEIGHT = Math.round(OFFICE_GAME_HEIGHT * 0.2)
+
+const OFFICE_ASSET_BASE = "/office"
+
+const TEX_OFFICE_BG = "office_bg"
+const TEX_AGENT_COORD = "office_agent_coord"
+const TEX_AGENT_SPEC = "office_agent_spec"
+const TEX_AGENT_USER = "office_agent_user"
+
 const COLOR_LINE = 0x22d3ee
-const COLOR_ERR = 0xff4444
-
-function roleBaseColor(role: OfficeAgentVisualState["role"]): number {
-  if (role === "coordinator") return COLOR_COORD
-  if (role === "user") return COLOR_USER
-  return COLOR_SPEC
-}
-
-function pickStickStroke(agent: OfficeAgentVisualState): number {
-  if (agent.status === "error") return COLOR_ERR
-  return roleBaseColor(agent.role)
-}
+const TINT_ERROR = 0xff6666
 
 export class AgentOfficeScene extends Phaser.Scene {
   private agentContainers = new Map<string, Phaser.GameObjects.Container>()
@@ -39,25 +34,38 @@ export class AgentOfficeScene extends Phaser.Scene {
     super({ key: AGENT_OFFICE_SCENE_KEY })
   }
 
+  preload() {
+    this.load.image(TEX_OFFICE_BG, `${OFFICE_ASSET_BASE}/cenario-clinica-psy.png`)
+    this.load.image(TEX_AGENT_COORD, `${OFFICE_ASSET_BASE}/agt-coordinator.png`)
+    this.load.image(TEX_AGENT_SPEC, `${OFFICE_ASSET_BASE}/agt-especialista-default.png`)
+    this.load.image(TEX_AGENT_USER, `${OFFICE_ASSET_BASE}/user-default.png`)
+  }
+
   create() {
     this.cameras.main.setBackgroundColor(0x0f172a)
     this.createOfficeBackground()
   }
 
   private createOfficeBackground() {
-    const g = this.add.graphics()
-    g.fillStyle(0x1e293b, 1)
-    g.fillRect(0, 0, OFFICE_GAME_WIDTH, OFFICE_GAME_HEIGHT)
-    g.fillStyle(0x0f172a, 1)
-    g.fillRect(0, OFFICE_GAME_HEIGHT * 0.55, OFFICE_GAME_WIDTH, OFFICE_GAME_HEIGHT * 0.45)
-    g.lineStyle(2, 0x334155, 0.6)
-    g.strokeRect(40, 60, OFFICE_GAME_WIDTH - 80, OFFICE_GAME_HEIGHT - 120)
-    g.setDepth(-10)
+    this.add
+      .image(0, 0, TEX_OFFICE_BG)
+      .setOrigin(0, 0)
+      .setDisplaySize(OFFICE_GAME_WIDTH, OFFICE_GAME_HEIGHT)
+      .setDepth(-10)
+  }
 
-    const floor = this.add.graphics()
-    floor.fillStyle(0x1e293b, 0.85)
-    floor.fillEllipse(OFFICE_GAME_WIDTH / 2, OFFICE_GAME_HEIGHT - 48, OFFICE_GAME_WIDTH * 0.72, 56)
-    floor.setDepth(-9)
+  private textureKeyForRole(role: OfficeAgentVisualState["role"]): string {
+    if (role === "coordinator") return TEX_AGENT_COORD
+    if (role === "user") return TEX_AGENT_USER
+    return TEX_AGENT_SPEC
+  }
+
+  private sizeAgentSprite(sprite: Phaser.GameObjects.Image) {
+    const frame = sprite.frame
+    const h = frame.height
+    if (!h) return
+    const scale = AGENT_MAX_DISPLAY_HEIGHT / h
+    sprite.setScale(scale)
   }
 
   syncAgents(agents: OfficeAgentVisualState[]) {
@@ -74,53 +82,55 @@ export class AgentOfficeScene extends Phaser.Scene {
     }
   }
 
-  private drawStickFigure(gfx: Phaser.GameObjects.Graphics, agent: OfficeAgentVisualState) {
-    gfx.clear()
-    const stroke = agent.dimmed ? COLOR_DIM : pickStickStroke(agent)
-    const alpha = agent.dimmed ? 0.55 : 1
-    gfx.lineStyle(3, stroke, alpha)
-    gfx.strokeCircle(0, -40, 12)
-    gfx.lineBetween(0, -28, 0, 14)
-    gfx.lineBetween(-26, -14, 26, -14)
-    gfx.lineBetween(0, 14, -18, 46)
-    gfx.lineBetween(0, 14, 18, 46)
-  }
+  /** Label sits just below the sprite feet (container origin = bottom-center of sprite). */
+  private static readonly LABEL_BELOW_FEET_PX = 8
 
   private createOrUpdateAgent(agent: OfficeAgentVisualState) {
     let container = this.agentContainers.get(agent.agentId)
     if (!container) {
       container = this.add.container(agent.x, agent.y)
       this.agentContainers.set(agent.agentId, container)
-      const stick = this.add.graphics()
+      const texKey = this.textureKeyForRole(agent.role)
+      const sprite = this.add.image(0, 0, texKey).setOrigin(0.5, 1)
+      this.sizeAgentSprite(sprite)
       const label = this.add
-        .text(0, 58, agent.name, {
-          fontSize: "13px",
+        .text(0, AgentOfficeScene.LABEL_BELOW_FEET_PX, agent.name, {
+          fontSize: "12px",
           color: "#e2e8f0",
           fontFamily: "system-ui, sans-serif",
         })
         .setOrigin(0.5, 0)
       label.setWordWrapWidth(200)
-      container.add([stick, label])
-      container.setData("stick", stick)
+      container.add([sprite, label])
+      container.setData("sprite", sprite)
       container.setData("label", label)
     }
     container.setPosition(agent.x, agent.y)
-    const stick = container.getData("stick") as Phaser.GameObjects.Graphics
+    const sprite = container.getData("sprite") as Phaser.GameObjects.Image
     const label = container.getData("label") as Phaser.GameObjects.Text
+    const desiredTex = this.textureKeyForRole(agent.role)
+    if (sprite.texture.key !== desiredTex) {
+      sprite.setTexture(desiredTex)
+      this.sizeAgentSprite(sprite)
+    }
     label.setText(agent.name.length > 28 ? `${agent.name.slice(0, 26)}…` : agent.name)
+    label.setY(AgentOfficeScene.LABEL_BELOW_FEET_PX)
     this.applyVisualState(container, agent)
   }
 
   private applyVisualState(container: Phaser.GameObjects.Container, agent: OfficeAgentVisualState) {
-    const stick = container.getData("stick") as Phaser.GameObjects.Graphics
+    const sprite = container.getData("sprite") as Phaser.GameObjects.Image
     if (agent.status === "error") {
       container.setAlpha(1)
-    } else if (agent.dimmed) {
-      container.setAlpha(0.38)
+      sprite.setTint(TINT_ERROR)
     } else {
-      container.setAlpha(1)
+      sprite.clearTint()
+      if (agent.dimmed) {
+        container.setAlpha(0.38)
+      } else {
+        container.setAlpha(1)
+      }
     }
-    this.drawStickFigure(stick, agent)
   }
 
   focusAgents(fromAgentId?: string, toAgentId?: string) {
@@ -194,8 +204,7 @@ export class AgentOfficeScene extends Phaser.Scene {
         if (container) {
           const agent = this.visualStates.get(id)
           if (agent) {
-            const stick = container.getData("stick") as Phaser.GameObjects.Graphics
-            this.drawStickFigure(stick, { ...agent, status: "error", dimmed: false })
+            this.applyVisualState(container, { ...agent, status: "error", dimmed: false })
           }
           container.setAlpha(1)
         }
