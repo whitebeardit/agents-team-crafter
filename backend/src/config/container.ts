@@ -24,6 +24,7 @@ import {
   createTeamLiveBroadcaster,
   type TeamLiveBroadcaster,
 } from '../modules/teams/infrastructure/team-live-broadcaster.js';
+import { ConversationTimelineRepository } from '../modules/teams/infrastructure/conversation-timeline.repository.js';
 import { WorkspaceToolDefinitionRepository } from '../modules/tool-definitions/infra/workspace-tool-definition.repository.js';
 import { BusinessToolRegistry } from '../modules/business-tools/application/business-tool-registry.js';
 import { BusinessToolAuditRepository } from '../modules/business-tools/infra/business-tool-audit.repository.js';
@@ -91,6 +92,7 @@ export interface IAppDeps {
   specialistRegistry: SpecialistRegistry;
   coordinatorOrchestrator: CoordinatorOrchestratorService;
   teamLiveBroadcaster: TeamLiveBroadcaster;
+  conversationTimelineRepo: ConversationTimelineRepository;
   /**
    * Cliente Redis opcional (único por processo): team live pub/sub + rate limit de governança.
    * Criado em `createRedisAppClient` quando `REDIS_URL` está definido.
@@ -177,6 +179,7 @@ export function createDeps(env: IEnv): IAppDeps {
   );
   const redis = createRedisAppClient(env.REDIS_URL);
   const teamLiveBroadcaster = createTeamLiveBroadcaster(redis);
+  const conversationTimelineRepo = new ConversationTimelineRepository();
   const teamDebugSessionRepo = new TeamDebugSessionRepository();
   const authenticate = buildAuthenticate(env.JWT_SECRET, { platformAdminEmails });
   const requirePlatformAdmin = buildRequirePlatformAdmin();
@@ -217,6 +220,7 @@ export function createDeps(env: IEnv): IAppDeps {
     specialistRegistry,
     coordinatorOrchestrator,
     teamLiveBroadcaster,
+    conversationTimelineRepo,
     redis,
     partyRepo,
     clinicConversationStateRepo,

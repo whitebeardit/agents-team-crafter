@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { Redis } from 'ioredis';
 import type { ITeamProgressEvent } from '../../team-runtime/domain/team-progress-event.js';
+import type { IConversationTimelineItem } from '../domain/conversation-timeline.js';
 
 export type TTeamLiveSource = 'inbound' | 'manual';
 
@@ -9,7 +10,8 @@ export type TTeamLiveEnvelopeEvent =
   | 'coordinatorDelta'
   | 'runComplete'
   | 'error'
-  | 'inboundUserMessage';
+  | 'inboundUserMessage'
+  | 'timelineItem';
 
 export interface ITeamLiveEnvelope {
   source: TTeamLiveSource;
@@ -134,6 +136,21 @@ export class TeamLiveBroadcaster {
       source,
       runId: data.runId,
       event: 'agentStatus',
+      data,
+    });
+  }
+
+  publishTimelineItem(
+    workspaceId: string,
+    teamId: string,
+    source: TTeamLiveSource,
+    runId: string,
+    data: IConversationTimelineItem,
+  ): void {
+    this.publish(workspaceId, teamId, {
+      source,
+      runId,
+      event: 'timelineItem',
       data,
     });
   }

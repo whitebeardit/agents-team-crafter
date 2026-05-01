@@ -24,6 +24,12 @@ import { startTelegramTypingLoop } from './telegram-typing-loop.js';
 import { createTelegramInboundStatusDebouncer } from './telegram-inbound-status-debouncer.js';
 import { buildInboundDebugConversationId } from './inbound-conversation-id.js';
 import type { ITeamInvocationImageInput } from '../../team-runtime/domain/team-invocation.js';
+import {
+  buildThinkingSummaryFromProgress,
+  createTimelineItem,
+  inferKindFromExecutionEvent,
+  type IConversationTimelineItem,
+} from '../../teams/domain/conversation-timeline.js';
 
 function extractInboundInputMedia(message: unknown): ITeamInvocationImageInput[] {
   const row = message as Record<string, unknown> | null | undefined;
@@ -66,6 +72,44 @@ function bindInbound(
   channelDoc: ChannelDoc,
   agentChannelLabel: string,
 ) {
+  const appendTimelineItem = async (input: {
+    teamId: string;
+    runId: string;
+    source: 'inbound' | 'manual';
+    actor: IConversationTimelineItem['actor'];
+    actorId?: string;
+    kind: IConversationTimelineItem['kind'];
+    content: string;
+    meta?: Record<string, unknown>;
+  }) => {
+    const nextSeq = await deps.conversationTimelineRepo.nextSeq(workspaceId, input.teamId, input.runId);
+    const item = createTimelineItem({
+      workspaceId,
+      teamId: input.teamId,
+      runId: input.runId,
+      seq: nextSeq,
+      actor: input.actor,
+      ...(input.actorId ? { actorId: input.actorId } : {}),
+      kind: input.kind,
+      content: input.content,
+      ...(input.meta ? { meta: input.meta } : {}),
+    });
+    const saved = await deps.conversationTimelineRepo.append({
+      workspaceId: item.workspaceId,
+      teamId: item.teamId,
+      runId: item.runId,
+      seq: item.seq,
+      timestamp: item.timestamp,
+      actor: item.actor,
+      actorId: item.actorId,
+      kind: item.kind,
+      content: item.content,
+      meta: item.meta,
+      correlation: item.correlation,
+    });
+    deps.teamLiveBroadcaster.publishTimelineItem(workspaceId, input.teamId, input.source, input.runId, saved);
+  };
+
   const channelIdStr = channelDoc._id.toString();
   const runInbound = async (text: string, thread: Thread, rawMessage?: unknown) => {
     const { coordinatorId, teamId } = await requireCoordinatorForChannelInstance(
@@ -93,6 +137,20 @@ function bindInbound(
     const telegramStatusDebouncer =
       agentChannelLabel === 'telegram' ? createTelegramInboundStatusDebouncer(thread) : undefined;
     let streamRunId: string | undefined;
+    let inputTimelineLogged = false;
+    const ensureInputTimeline = async (runId: string) => {
+      if (inputTimelineLogged) return;
+      inputTimelineLogged = true;
+      await appendTimelineItem({
+        teamId,
+        runId,
+        source: 'inbound',
+        actor: 'user',
+        kind: 'input',
+        content: text,
+        meta: { channel: agentChannelLabel },
+      });
+    };
     const startedAt = new Date();
     try {
       deps.teamLiveBroadcaster.publish(workspaceId, teamId, {
@@ -112,6 +170,31 @@ function bindInbound(
           streamRunId = e.runId;
           deps.teamLiveBroadcaster.publishAgentStatus(workspaceId, teamId, 'inbound', e);
           telegramStatusDebouncer?.notifyFromProgress(e);
+          void (async () => {
+            await ensureInputTimeline(e.runId);
+            await appendTimelineItem({
+              teamId,
+              runId: e.runId,
+              source: 'inbound',
+              actor: e.agentId === coordinatorId ? 'coordinator' : 'specialist',
+              actorId: e.agentId,
+              kind: 'status',
+              content: `${e.status}:${e.phase}`,
+              meta: { status: e.status, phase: e.phase, detail: e.detail },
+            });
+            if (e.status === 'busy') {
+              await appendTimelineItem({
+                teamId,
+                runId: e.runId,
+                source: 'inbound',
+                actor: e.agentId === coordinatorId ? 'coordinator' : 'specialist',
+                actorId: e.agentId,
+                kind: 'thinking',
+                content: buildThinkingSummaryFromProgress(e.phase, e.detail),
+                meta: { phase: e.phase },
+              });
+            }
+          })();
         },
         streamCoordinatorText: true,
         onCoordinatorTextDelta: (deltaText) => {
@@ -123,8 +206,19 @@ function bindInbound(
             event: 'coordinatorDelta',
             data: payload,
           });
+          void appendTimelineItem({
+            teamId,
+            runId: streamRunId,
+            source: 'inbound',
+            actor: 'coordinator',
+            actorId: coordinatorId,
+            kind: 'output',
+            content: deltaText,
+            meta: { streaming: true, chunk: true },
+          });
         },
       });
+      await ensureInputTimeline(result.runId);
       deps.teamLiveBroadcaster.publish(workspaceId, teamId, {
         source: 'inbound',
         runId: result.runId,
@@ -138,6 +232,30 @@ function bindInbound(
           events: result.events,
         },
       });
+      await appendTimelineItem({
+        teamId,
+        runId: result.runId,
+        source: 'inbound',
+        actor: 'coordinator',
+        actorId: result.coordinatorAgentId,
+        kind: 'output',
+        content: result.externalResponse?.text ?? '',
+        meta: { final: true, format: result.externalResponse?.format ?? 'plain' },
+      });
+      for (const ev of result.events) {
+        const actor: IConversationTimelineItem['actor'] =
+          ev.agentId === result.coordinatorAgentId ? 'coordinator' : ev.agentId ? 'specialist' : 'system';
+        await appendTimelineItem({
+          teamId,
+          runId: result.runId,
+          source: 'inbound',
+          actor,
+          ...(ev.agentId ? { actorId: ev.agentId } : {}),
+          kind: inferKindFromExecutionEvent(ev),
+          content: ev.detail ?? ev.value ?? ev.type,
+          meta: { eventType: ev.type, phase: ev.phase, status: ev.status, tool: ev.tool, errorCode: ev.errorCode },
+        });
+      }
       const assistantText = result.externalResponse?.text?.trim() ?? '';
       await deps.teamDebugSessionRepo.appendExchange(
         workspaceId,
@@ -182,6 +300,17 @@ function bindInbound(
         event: 'error',
         data: { code, message, status },
       });
+      if (streamRunId) {
+        await appendTimelineItem({
+          teamId,
+          runId: streamRunId,
+          source: 'inbound',
+          actor: 'system',
+          kind: 'error',
+          content: message,
+          meta: { code, status },
+        });
+      }
       throw err;
     } finally {
       telegramStatusDebouncer?.dispose();

@@ -26,6 +26,12 @@ import {
   type ITeamRunBody,
 } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
+import {
+  buildThinkingSummaryFromProgress,
+  createTimelineItem,
+  inferKindFromExecutionEvent,
+  type IConversationTimelineItem,
+} from '../domain/conversation-timeline.js';
 import { computeTeamReadiness } from '../application/team-readiness.service.js';
 import { buildTeamExportPayload } from '../application/build-team-export.js';
 import { sanitizeTeamExportToTemplate } from '../../templates/application/sanitize-template-export.js';
@@ -46,6 +52,59 @@ async function loadTeamRunConversation(
   if (!cid) return undefined;
   const history = await deps.teamDebugSessionRepo.getRecentTurns(workspaceId, teamId, cid);
   return { id: cid, history };
+}
+
+const teamTimelineQuerySchema = z.object({
+  runId: z.string().trim().optional(),
+  cursor: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(80),
+});
+
+async function appendTimelineItem(input: {
+  deps: IAppDeps;
+  workspaceId: string;
+  teamId: string;
+  runId: string;
+  source: 'manual' | 'inbound';
+  actor: IConversationTimelineItem['actor'];
+  actorId?: string;
+  kind: IConversationTimelineItem['kind'];
+  content: string;
+  meta?: Record<string, unknown>;
+}): Promise<IConversationTimelineItem> {
+  const nextSeq = await input.deps.conversationTimelineRepo.nextSeq(input.workspaceId, input.teamId, input.runId);
+  const item = createTimelineItem({
+    workspaceId: input.workspaceId,
+    teamId: input.teamId,
+    runId: input.runId,
+    seq: nextSeq,
+    actor: input.actor,
+    ...(input.actorId ? { actorId: input.actorId } : {}),
+    kind: input.kind,
+    content: input.content,
+    ...(input.meta ? { meta: input.meta } : {}),
+  });
+  const saved = await input.deps.conversationTimelineRepo.append({
+    workspaceId: item.workspaceId,
+    teamId: item.teamId,
+    runId: item.runId,
+    seq: item.seq,
+    timestamp: item.timestamp,
+    actor: item.actor,
+    actorId: item.actorId,
+    kind: item.kind,
+    content: item.content,
+    meta: item.meta,
+    correlation: item.correlation,
+  });
+  input.deps.teamLiveBroadcaster.publishTimelineItem(
+    input.workspaceId,
+    input.teamId,
+    input.source,
+    input.runId,
+    saved,
+  );
+  return saved;
 }
 
 const listTeamsQuery = paginationQuerySchema.merge(
@@ -702,6 +761,32 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
     );
   });
 
+  app.get('/teams/:id/timeline', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const team = await deps.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const q = teamTimelineQuerySchema.parse(req.query);
+    const result = await deps.conversationTimelineRepo.list({
+      workspaceId: ws,
+      teamId,
+      runId: q.runId,
+      cursorSeq: q.cursor,
+      limit: q.limit,
+    });
+    return reply.send(
+      successEnvelope(
+        { items: result.items },
+        {
+          limit: q.limit,
+          cursor: q.cursor,
+          nextCursor: result.nextCursorSeq,
+          ...(q.runId ? { runId: q.runId } : {}),
+        },
+      ),
+    );
+  });
+
   app.post('/teams/:id/run', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const teamId = (req.params as { id: string }).id;
@@ -822,6 +907,7 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
           writeSse('runComplete', data);
         } else if (env.event === 'error') writeSse('error', env.data);
         else if (env.event === 'inboundUserMessage') writeSse('inboundUserMessage', env.data);
+        else if (env.event === 'timelineItem') writeSse('timelineItem', env.data);
       } catch {
         /* never break webhook path */
       }
@@ -881,6 +967,22 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
     };
 
     let streamRunId: string | undefined;
+    let inputTimelineLogged = false;
+    const ensureInputTimeline = async (runId: string) => {
+      if (inputTimelineLogged) return;
+      inputTimelineLogged = true;
+      await appendTimelineItem({
+        deps,
+        workspaceId: ws,
+        teamId,
+        runId,
+        source: 'manual',
+        actor: 'user',
+        kind: 'input',
+        content: body.message,
+        meta: { channel: body.channel ?? 'manual' },
+      });
+    };
 
     void (async () => {
       try {
@@ -889,6 +991,39 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
             streamRunId = e.runId;
             writeSse('agentStatus', e);
             deps.teamLiveBroadcaster.publishAgentStatus(ws, teamId, 'manual', e);
+            void (async () => {
+              await ensureInputTimeline(e.runId);
+              await appendTimelineItem({
+                deps,
+                workspaceId: ws,
+                teamId,
+                runId: e.runId,
+                source: 'manual',
+                actor: e.agentId === String(t['coordinatorId']) ? 'coordinator' : 'specialist',
+                actorId: e.agentId,
+                kind: 'status',
+                content: `${e.status}:${e.phase}`,
+                meta: {
+                  status: e.status,
+                  phase: e.phase,
+                  detail: e.detail,
+                },
+              });
+              if (e.status === 'busy') {
+                await appendTimelineItem({
+                  deps,
+                  workspaceId: ws,
+                  teamId,
+                  runId: e.runId,
+                  source: 'manual',
+                  actor: e.agentId === String(t['coordinatorId']) ? 'coordinator' : 'specialist',
+                  actorId: e.agentId,
+                  kind: 'thinking',
+                  content: buildThinkingSummaryFromProgress(e.phase, e.detail),
+                  meta: { phase: e.phase },
+                });
+              }
+            })();
           },
           streamCoordinatorText: true,
           onCoordinatorTextDelta: (text) => {
@@ -901,9 +1036,22 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
                 event: 'coordinatorDelta',
                 data: payload,
               });
+              void appendTimelineItem({
+                deps,
+                workspaceId: ws,
+                teamId,
+                runId: streamRunId,
+                source: 'manual',
+                actor: 'coordinator',
+                actorId: String(t['coordinatorId']),
+                kind: 'output',
+                content: text,
+                meta: { streaming: true, chunk: true },
+              });
             }
           },
         });
+        await ensureInputTimeline(result.runId);
         if (body.conversationId?.trim()) {
           const assistantText = result.externalResponse?.text?.trim() ?? '';
           await deps.teamDebugSessionRepo.appendExchange(
@@ -924,6 +1072,40 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
           events: result.events,
         };
         writeSse('runComplete', complete);
+        await appendTimelineItem({
+          deps,
+          workspaceId: ws,
+          teamId,
+          runId: result.runId,
+          source: 'manual',
+          actor: 'coordinator',
+          actorId: result.coordinatorAgentId,
+          kind: 'output',
+          content: result.externalResponse?.text ?? '',
+          meta: { final: true, format: result.externalResponse?.format ?? 'plain' },
+        });
+        for (const ev of result.events) {
+          const actor: IConversationTimelineItem['actor'] =
+            ev.agentId === result.coordinatorAgentId ? 'coordinator' : ev.agentId ? 'specialist' : 'system';
+          await appendTimelineItem({
+            deps,
+            workspaceId: ws,
+            teamId,
+            runId: result.runId,
+            source: 'manual',
+            actor,
+            ...(ev.agentId ? { actorId: ev.agentId } : {}),
+            kind: inferKindFromExecutionEvent(ev),
+            content: ev.detail ?? ev.value ?? ev.type,
+            meta: {
+              eventType: ev.type,
+              phase: ev.phase,
+              status: ev.status,
+              tool: ev.tool,
+              errorCode: ev.errorCode,
+            },
+          });
+        }
         await deps.runRecorderService.recordCompleted({
           workspaceId: ws,
           teamId,
@@ -946,6 +1128,19 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         const status = err instanceof AppError ? err.httpStatus : 500;
         const errPayload = { code, message: errMsg, status };
         writeSse('error', errPayload);
+        if (streamRunId) {
+          await appendTimelineItem({
+            deps,
+            workspaceId: ws,
+            teamId,
+            runId: streamRunId,
+            source: 'manual',
+            actor: 'system',
+            kind: 'error',
+            content: errMsg,
+            meta: { code, status },
+          });
+        }
         await deps.runRecorderService.recordFailed({
           workspaceId: ws,
           teamId,
