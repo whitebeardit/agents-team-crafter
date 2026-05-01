@@ -640,6 +640,12 @@ export default function TeamDetailsPage({
               Galeria
             </Button>
           </Link>
+          <Link href={`/teams/${team.id}/office`}>
+            <Button variant="outline" className="gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              Escritório virtual
+            </Button>
+          </Link>
           <Link href={`/teams/${team.id}/graph`}>
             <Button variant="outline" className="gap-2">
               <GitBranch className="w-4 h-4" />
@@ -931,6 +937,9 @@ export default function TeamDetailsPage({
                 </Button>
                 <Button type="button" variant="secondary" size="sm" onClick={() => setMainTab("channels")}>
                   Canais
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link href={`/teams/${team.id}/office`}>Escritório virtual</Link>
                 </Button>
                 <Button type="button" variant="outline" size="sm" asChild>
                   <Link href={`/teams/${team.id}/graph`}>Editor de grafo</Link>
