@@ -69,14 +69,15 @@ export function mapTimelineItemToOfficeEvent(
   }
 
   if (item.kind === "output") {
+    const outputSpeakerId = fromAgentId ?? item.actorId
     return {
       id: item.id,
       seq: item.seq,
       timestamp: item.timestamp,
       type: "agent_response",
-      fromAgentId: fromAgentId ?? item.actorId,
+      fromAgentId: outputSpeakerId,
       toAgentId: toAgentId ?? context.coordinatorId,
-      actorId: item.actorId,
+      actorId: outputSpeakerId,
       message,
       original: item,
     }

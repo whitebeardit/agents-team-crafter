@@ -8,7 +8,12 @@ export const AGENT_MAX_DISPLAY_HEIGHT = Math.round(OFFICE_GAME_HEIGHT * 0.2)
 
 /** Feet Y must be large enough that sprite top (feetY − height) stays inside the canvas. */
 export const USER_FEET_MARGIN_TOP = 12
-export const USER_FEET_Y = AGENT_MAX_DISPLAY_HEIGHT + USER_FEET_MARGIN_TOP
+
+/** Lower band (~floor zone): avoids user + dialogue bubble clipping at top of scene. */
+export const USER_FEET_Y = Math.max(
+  AGENT_MAX_DISPLAY_HEIGHT + USER_FEET_MARGIN_TOP,
+  Math.round(OFFICE_GAME_HEIGHT * 0.32),
+)
 
 /**
  * Overlay bubble anchor: approximate upper body/head from feet position (game coords).

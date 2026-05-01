@@ -10,6 +10,9 @@ import { OFFICE_USER_AGENT_ID, type OfficeAgentVisualState, type OfficeEvent } f
 
 const BUBBLE_MAX = 168
 
+/** Minimum top % when anchoring above the character (prevents clipping under overflow-hidden). */
+const MIN_TOP_PCT_ABOVE = 12
+
 function truncate(text: string, max: number): string {
   const t = text.replace(/\s+/g, " ").trim()
   if (t.length <= max) return t
@@ -27,7 +30,7 @@ function bubbleSpeaker(event: OfficeEvent, agents: OfficeAgentVisualState[], coo
     case "agent_handoff":
       return event.toAgentId ?? event.fromAgentId ?? null
     case "agent_response":
-      return event.actorId ?? null
+      return event.actorId ?? event.fromAgentId ?? null
     case "agent_thinking":
     case "tool_call":
     case "tool_result":
@@ -58,11 +61,25 @@ export function AgentOfficeOverlay({
       : speaker?.name ?? (speakerId ? `Agente ${speakerId.slice(0, 8)}…` : "Evento")
 
   const leftPct = speaker ? clampPct((speaker.x / OFFICE_GAME_WIDTH) * 100, 6, 94) : 50
-  /** Anchor near upper body / head so the bubble sits above the sprite, not over the torso. */
-  const anchorGameY = speaker
-    ? speaker.y - AGENT_MAX_DISPLAY_HEIGHT * BUBBLE_ANCHOR_HEIGHT_RATIO
-    : OFFICE_GAME_HEIGHT * 0.06
-  const topPct = (anchorGameY / OFFICE_GAME_HEIGHT) * 100
+
+  let topPct: number
+  let transform: string
+  if (speaker) {
+    if (speakerId === OFFICE_USER_AGENT_ID) {
+      /** Below feet — avoids bubble extending above the clipped top of the panel. */
+      const belowFeetGameY = speaker.y + 14
+      topPct = (belowFeetGameY / OFFICE_GAME_HEIGHT) * 100
+      transform = "translate(-50%, 6px)"
+    } else {
+      const anchorGameY = speaker.y - AGENT_MAX_DISPLAY_HEIGHT * BUBBLE_ANCHOR_HEIGHT_RATIO
+      const rawTopPct = (anchorGameY / OFFICE_GAME_HEIGHT) * 100
+      topPct = Math.max(MIN_TOP_PCT_ABOVE, rawTopPct)
+      transform = "translate(-50%, calc(-100% - 12px))"
+    }
+  } else {
+    topPct = 6
+    transform = "translate(-50%, calc(-100% - 12px))"
+  }
 
   return (
     <div
@@ -70,7 +87,7 @@ export function AgentOfficeOverlay({
       style={{
         left: `${leftPct}%`,
         top: `${topPct}%`,
-        transform: "translate(-50%, calc(-100% - 12px))",
+        transform,
       }}
     >
       <p className="text-xs font-medium text-muted-foreground">{title}</p>

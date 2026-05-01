@@ -309,7 +309,7 @@ export class AgentOfficeScene extends Phaser.Scene {
     }
 
     if (event.type === "agent_response") {
-      const from = event.actorId
+      const from = event.fromAgentId ?? event.actorId
       const to = event.toAgentId ?? event.fromAgentId ?? coordinatorFallback?.agentId
       this.focusAgents(from, to)
       this.drawDirectedCommunication(from, to)
