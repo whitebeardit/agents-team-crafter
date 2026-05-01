@@ -1,7 +1,12 @@
 "use client"
 
+import {
+  AGENT_MAX_DISPLAY_HEIGHT,
+  BUBBLE_ANCHOR_HEIGHT_RATIO,
+  OFFICE_GAME_HEIGHT,
+  OFFICE_GAME_WIDTH,
+} from "@/lib/office/office-visual-constants"
 import { OFFICE_USER_AGENT_ID, type OfficeAgentVisualState, type OfficeEvent } from "@/lib/office/office-types"
-import { OFFICE_GAME_HEIGHT, OFFICE_GAME_WIDTH } from "@/components/office/agent-office-scene"
 
 const BUBBLE_MAX = 168
 
@@ -9,6 +14,10 @@ function truncate(text: string, max: number): string {
   const t = text.replace(/\s+/g, " ").trim()
   if (t.length <= max) return t
   return `${t.slice(0, max - 1)}…`
+}
+
+function clampPct(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n))
 }
 
 function bubbleSpeaker(event: OfficeEvent, agents: OfficeAgentVisualState[], coordinatorId: string): string | null {
@@ -48,12 +57,12 @@ export function AgentOfficeOverlay({
       ? "Utilizador"
       : speaker?.name ?? (speakerId ? `Agente ${speakerId.slice(0, 8)}…` : "Evento")
 
-  const leftPct = speaker
-    ? (speaker.x / OFFICE_GAME_WIDTH) * 100
-    : 50
-  const topPct = speaker
-    ? (speaker.y / OFFICE_GAME_HEIGHT) * 100
-    : 8
+  const leftPct = speaker ? clampPct((speaker.x / OFFICE_GAME_WIDTH) * 100, 6, 94) : 50
+  /** Anchor near upper body / head so the bubble sits above the sprite, not over the torso. */
+  const anchorGameY = speaker
+    ? speaker.y - AGENT_MAX_DISPLAY_HEIGHT * BUBBLE_ANCHOR_HEIGHT_RATIO
+    : OFFICE_GAME_HEIGHT * 0.06
+  const topPct = (anchorGameY / OFFICE_GAME_HEIGHT) * 100
 
   return (
     <div

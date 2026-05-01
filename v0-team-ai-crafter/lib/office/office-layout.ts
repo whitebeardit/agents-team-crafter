@@ -1,3 +1,4 @@
+import { USER_FEET_Y } from "@/lib/office/office-visual-constants"
 import { OFFICE_USER_AGENT_ID } from "@/lib/office/office-types"
 
 export type OfficeLayoutAgent = {
@@ -36,7 +37,7 @@ export function buildOfficeLayout(input: {
     name: "Utilizador",
     role: "user",
     x: center.x,
-    y: 76,
+    y: USER_FEET_Y,
     active: false,
     dimmed: false,
     status: "idle",

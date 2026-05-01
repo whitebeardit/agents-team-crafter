@@ -1,0 +1,17 @@
+/** Shared layout/visual constants for Phaser office scene and React overlay (single source of truth). */
+
+export const OFFICE_GAME_WIDTH = 1100
+export const OFFICE_GAME_HEIGHT = 680
+
+/** Max on-screen height for agent sprites (~20% of canvas). */
+export const AGENT_MAX_DISPLAY_HEIGHT = Math.round(OFFICE_GAME_HEIGHT * 0.2)
+
+/** Feet Y must be large enough that sprite top (feetY − height) stays inside the canvas. */
+export const USER_FEET_MARGIN_TOP = 12
+export const USER_FEET_Y = AGENT_MAX_DISPLAY_HEIGHT + USER_FEET_MARGIN_TOP
+
+/**
+ * Overlay bubble anchor: approximate upper body/head from feet position (game coords).
+ * bubbleAnchorY = feetY − AGENT_MAX_DISPLAY_HEIGHT * BUBBLE_ANCHOR_HEIGHT_RATIO
+ */
+export const BUBBLE_ANCHOR_HEIGHT_RATIO = 0.92

@@ -27,7 +27,7 @@ const AgentOfficeGame = dynamic(() => import("@/components/office/agent-office-g
 function focusPair(event: OfficeEvent, coordinatorId: string): { from?: string; to?: string } {
   switch (event.type) {
     case "user_message":
-      return { from: OFFICE_USER_AGENT_ID, to: OFFICE_USER_AGENT_ID }
+      return { from: OFFICE_USER_AGENT_ID, to: coordinatorId }
     case "agent_handoff":
       return { from: event.fromAgentId, to: event.toAgentId }
     case "agent_response":

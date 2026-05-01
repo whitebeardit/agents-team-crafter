@@ -1,18 +1,19 @@
 import Phaser from "phaser"
 import type { AgentOfficeController } from "@/lib/office/office-controller"
 import {
+  AGENT_MAX_DISPLAY_HEIGHT,
+  OFFICE_GAME_HEIGHT,
+  OFFICE_GAME_WIDTH,
+} from "@/lib/office/office-visual-constants"
+import {
   OFFICE_USER_AGENT_ID,
   type OfficeAgentVisualState,
   type OfficeEvent,
 } from "@/lib/office/office-types"
 
-export const OFFICE_GAME_WIDTH = 1100
-export const OFFICE_GAME_HEIGHT = 680
+export { OFFICE_GAME_WIDTH, OFFICE_GAME_HEIGHT, AGENT_MAX_DISPLAY_HEIGHT } from "@/lib/office/office-visual-constants"
 
 export const AGENT_OFFICE_SCENE_KEY = "AgentOfficeScene"
-
-/** ~20% of canvas height — keeps many agents visible on the clinic background */
-const AGENT_MAX_DISPLAY_HEIGHT = Math.round(OFFICE_GAME_HEIGHT * 0.2)
 
 const OFFICE_ASSET_BASE = "/office"
 
@@ -96,10 +97,11 @@ export class AgentOfficeScene extends Phaser.Scene {
       const label = this.add
         .text(0, AgentOfficeScene.LABEL_BELOW_FEET_PX, agent.name, {
           fontSize: "12px",
-          color: "#e2e8f0",
+          color: "#f1f5f9",
           fontFamily: "system-ui, sans-serif",
         })
         .setOrigin(0.5, 0)
+      label.setStroke("#0f172a", 4)
       label.setWordWrapWidth(200)
       container.add([sprite, label])
       container.setData("sprite", sprite)
@@ -118,19 +120,65 @@ export class AgentOfficeScene extends Phaser.Scene {
     this.applyVisualState(container, agent)
   }
 
+  private styleLabel(label: Phaser.GameObjects.Text, agent: OfficeAgentVisualState) {
+    const dimmed = agent.dimmed && agent.status !== "error"
+    const prominent = !dimmed && agent.active && agent.status !== "error"
+
+    if (agent.status === "error") {
+      label.setStyle({
+        fontSize: "12px",
+        fontFamily: "system-ui, sans-serif",
+        color: "#fecaca",
+        fontStyle: "bold",
+      })
+      label.setStroke("#450a0a", 4)
+      return
+    }
+    if (prominent) {
+      label.setStyle({
+        fontSize: "13px",
+        fontFamily: "system-ui, sans-serif",
+        color: "#ffffff",
+        fontStyle: "bold",
+      })
+      label.setStroke("#0f172a", 6)
+      return
+    }
+    if (dimmed) {
+      label.setStyle({
+        fontSize: "12px",
+        fontFamily: "system-ui, sans-serif",
+        color: "#94a3b8",
+        fontStyle: "normal",
+      })
+      label.setStroke("#0f172a", 4)
+      return
+    }
+    label.setStyle({
+      fontSize: "12px",
+      fontFamily: "system-ui, sans-serif",
+      color: "#f1f5f9",
+      fontStyle: "normal",
+    })
+    label.setStroke("#0f172a", 4)
+  }
+
   private applyVisualState(container: Phaser.GameObjects.Container, agent: OfficeAgentVisualState) {
     const sprite = container.getData("sprite") as Phaser.GameObjects.Image
+    const label = container.getData("label") as Phaser.GameObjects.Text
+    container.setAlpha(1)
+    label.setAlpha(1)
+
     if (agent.status === "error") {
-      container.setAlpha(1)
+      sprite.setAlpha(1)
       sprite.setTint(TINT_ERROR)
-    } else {
-      sprite.clearTint()
-      if (agent.dimmed) {
-        container.setAlpha(0.38)
-      } else {
-        container.setAlpha(1)
-      }
+      this.styleLabel(label, agent)
+      return
     }
+
+    sprite.clearTint()
+    sprite.setAlpha(agent.dimmed ? 0.38 : 1)
+    this.styleLabel(label, agent)
   }
 
   focusAgents(fromAgentId?: string, toAgentId?: string) {
@@ -146,11 +194,15 @@ export class AgentOfficeScene extends Phaser.Scene {
     }
   }
 
-  resetFocus() {
+  private clearCommunicationLine() {
     this.lineTween?.stop()
     this.lineTween = undefined
     this.lineGraphics?.destroy()
     this.lineGraphics = undefined
+  }
+
+  resetFocus() {
+    this.clearCommunicationLine()
     for (const [agentId, container] of this.agentContainers.entries()) {
       const agent = this.visualStates.get(agentId)
       if (!agent) continue
@@ -166,14 +218,91 @@ export class AgentOfficeScene extends Phaser.Scene {
     }
   }
 
+  private getSpriteCenterWorld(agentId: string): { x: number; y: number } | null {
+    const c = this.agentContainers.get(agentId)
+    if (!c) return null
+    const sprite = c.getData("sprite") as Phaser.GameObjects.Image
+    const h = sprite.frame.height * sprite.scaleY
+    return { x: c.x, y: c.y - h / 2 }
+  }
+
+  /**
+   * Directed edge between sprite centres, arrow toward `toId`. Call after `clearCommunicationLine` if replacing.
+   */
+  private drawDirectedCommunication(fromId?: string, toId?: string) {
+    if (!fromId || !toId || fromId === toId) return
+    const A = this.getSpriteCenterWorld(fromId)
+    const B = this.getSpriteCenterWorld(toId)
+    if (!A || !B) return
+
+    const dx = B.x - A.x
+    const dy = B.y - A.y
+    const len = Math.hypot(dx, dy)
+    if (len < 28) return
+    const ux = dx / len
+    const uy = dy / len
+    const startInset = 22
+    const endInset = 26
+    const x0 = A.x + ux * startInset
+    const y0 = A.y + uy * startInset
+    const x1 = B.x - ux * endInset
+    const y1 = B.y - uy * endInset
+
+    const mx = (x0 + x1) / 2
+    const my = (y0 + y1) / 2 - 32
+    const perpX = -uy
+    const perpY = ux
+
+    const gfx = this.add.graphics()
+    gfx.setDepth(5)
+    this.lineGraphics = gfx
+
+    const updateLine = (alpha: number) => {
+      gfx.clear()
+      gfx.lineStyle(3, COLOR_LINE, alpha)
+      gfx.beginPath()
+      gfx.moveTo(x0, y0)
+      const n = 24
+      for (let i = 1; i <= n; i += 1) {
+        const t = i / n
+        const ox = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * mx + t * t * x1
+        const oy = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * my + t * t * y1
+        gfx.lineTo(ox, oy)
+      }
+      gfx.strokePath()
+
+      const tipX = B.x - ux * 10
+      const tipY = B.y - uy * 10
+      const backX = tipX - ux * 15
+      const backY = tipY - uy * 15
+      gfx.fillStyle(COLOR_LINE, alpha * 0.95)
+      gfx.fillTriangle(tipX, tipY, backX + perpX * 9, backY + perpY * 9, backX - perpX * 9, backY - perpY * 9)
+    }
+
+    updateLine(0.85)
+    this.lineTween = this.tweens.addCounter({
+      from: 0.35,
+      to: 1,
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+      onUpdate: (tw) => {
+        const raw = tw.getValue()
+        const v = typeof raw === "number" && !Number.isNaN(raw) ? raw : 0.85
+        updateLine(v)
+      },
+    })
+  }
+
   playEvent(event: OfficeEvent) {
+    this.clearCommunicationLine()
     const coordinatorFallback = [...this.visualStates.values()].find((a) => a.role === "coordinator")
 
     if (event.type === "agent_handoff") {
       const from = event.fromAgentId
       const to = event.toAgentId
       this.focusAgents(from, to)
-      this.drawInteractionLine(from, to)
+      this.drawDirectedCommunication(from, to)
       if (from) this.pulseAgent(from)
       if (to) this.pulseAgent(to)
       return
@@ -183,6 +312,7 @@ export class AgentOfficeScene extends Phaser.Scene {
       const from = event.actorId
       const to = event.toAgentId ?? event.fromAgentId ?? coordinatorFallback?.agentId
       this.focusAgents(from, to)
+      this.drawDirectedCommunication(from, to)
       if (from) this.pulseAgent(from)
       return
     }
@@ -206,64 +336,18 @@ export class AgentOfficeScene extends Phaser.Scene {
           if (agent) {
             this.applyVisualState(container, { ...agent, status: "error", dimmed: false })
           }
-          container.setAlpha(1)
         }
       }
       return
     }
 
     if (event.type === "user_message") {
-      this.focusAgents(OFFICE_USER_AGENT_ID, OFFICE_USER_AGENT_ID)
+      const coordId = coordinatorFallback?.agentId
+      this.focusAgents(OFFICE_USER_AGENT_ID, coordId)
+      this.drawDirectedCommunication(OFFICE_USER_AGENT_ID, coordId)
       this.pulseAgent(OFFICE_USER_AGENT_ID)
+      if (coordId) this.pulseAgent(coordId)
     }
-  }
-
-  private drawInteractionLine(fromId?: string, toId?: string) {
-    this.lineTween?.stop()
-    this.lineGraphics?.destroy()
-    if (!fromId || !toId || fromId === toId) return
-    const a = this.agentContainers.get(fromId)
-    const b = this.agentContainers.get(toId)
-    if (!a || !b) return
-
-    const gfx = this.add.graphics()
-    gfx.setDepth(5)
-    this.lineGraphics = gfx
-
-    const updateLine = (alpha: number) => {
-      gfx.clear()
-      gfx.lineStyle(3, COLOR_LINE, alpha)
-      const ax = a.x
-      const ay = a.y
-      const bx = b.x
-      const by = b.y
-      const cx = (ax + bx) / 2
-      const cy = (ay + by) / 2 - 40
-      const n = 28
-      gfx.beginPath()
-      gfx.moveTo(ax, ay)
-      for (let i = 1; i <= n; i += 1) {
-        const t = i / n
-        const x = (1 - t) * (1 - t) * ax + 2 * (1 - t) * t * cx + t * t * bx
-        const y = (1 - t) * (1 - t) * ay + 2 * (1 - t) * t * cy + t * t * by
-        gfx.lineTo(x, y)
-      }
-      gfx.strokePath()
-    }
-
-    updateLine(0.85)
-    this.lineTween = this.tweens.addCounter({
-      from: 0.35,
-      to: 1,
-      duration: 700,
-      yoyo: true,
-      repeat: -1,
-      onUpdate: (tw) => {
-        const raw = tw.getValue()
-        const v = typeof raw === "number" && !Number.isNaN(raw) ? raw : 0.85
-        updateLine(v)
-      },
-    })
   }
 
   private pulseAgent(agentId: string) {
