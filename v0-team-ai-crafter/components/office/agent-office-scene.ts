@@ -30,6 +30,10 @@ export class AgentOfficeScene extends Phaser.Scene {
   private lineGraphics?: Phaser.GameObjects.Graphics
   private lineTween?: Phaser.Tweens.Tween
   private visualStates = new Map<string, OfficeAgentVisualState>()
+  private layoutEditMode = false
+  private draggingAgentId?: string
+  private onAgentPositionCommit?: (agentId: string, x: number, y: number) => void
+  private dragHandlersBound = false
 
   constructor() {
     super({ key: AGENT_OFFICE_SCENE_KEY })
@@ -45,6 +49,61 @@ export class AgentOfficeScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(0x0f172a)
     this.createOfficeBackground()
+    this.bindDragHandlers()
+  }
+
+  private bindDragHandlers() {
+    if (this.dragHandlersBound) return
+    this.dragHandlersBound = true
+    this.input.on("dragstart", (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+      if (!this.layoutEditMode) return
+      const c = obj as Phaser.GameObjects.Container
+      const id = c.getData("agentId") as string | undefined
+      if (id) {
+        this.draggingAgentId = id
+        this.tweens.killTweensOf(c)
+        c.setScale(1)
+      }
+    })
+    this.input.on(
+      "drag",
+      (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number) => {
+        if (!this.layoutEditMode) return
+        ;(obj as Phaser.GameObjects.Container).setPosition(dragX, dragY)
+      },
+    )
+    this.input.on("dragend", (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+      if (!this.layoutEditMode) return
+      const c = obj as Phaser.GameObjects.Container
+      const id = c.getData("agentId") as string | undefined
+      if (id && this.onAgentPositionCommit) {
+        this.onAgentPositionCommit(id, c.x, c.y)
+      }
+      this.draggingAgentId = undefined
+    })
+  }
+
+  private setContainerDraggable(container: Phaser.GameObjects.Container, enabled: boolean) {
+    const id = container.getData("agentId") as string | undefined
+    if (!id) return
+    if (enabled) {
+      const w = 112
+      const h = Math.round(AGENT_MAX_DISPLAY_HEIGHT + 40)
+      container.setInteractive(
+        new Phaser.Geom.Rectangle(-w / 2, -h, w, h),
+        Phaser.Geom.Rectangle.Contains,
+      )
+      this.input.setDraggable(container, true)
+    } else {
+      this.input.setDraggable(container, false)
+      container.disableInteractive()
+    }
+  }
+
+  private refreshAllDraggability() {
+    for (const container of this.agentContainers.values()) {
+      this.setContainerDraggable(container, this.layoutEditMode)
+    }
   }
 
   private createOfficeBackground() {
@@ -81,6 +140,7 @@ export class AgentOfficeScene extends Phaser.Scene {
     for (const agent of agents) {
       this.createOrUpdateAgent(agent)
     }
+    this.refreshAllDraggability()
   }
 
   /** Label sits just below the sprite feet (container origin = bottom-center of sprite). */
@@ -107,7 +167,10 @@ export class AgentOfficeScene extends Phaser.Scene {
       container.setData("sprite", sprite)
       container.setData("label", label)
     }
-    container.setPosition(agent.x, agent.y)
+    container.setData("agentId", agent.agentId)
+    if (this.draggingAgentId !== agent.agentId) {
+      container.setPosition(agent.x, agent.y)
+    }
     const sprite = container.getData("sprite") as Phaser.GameObjects.Image
     const label = container.getData("label") as Phaser.GameObjects.Text
     const desiredTex = this.textureKeyForRole(agent.role)
@@ -372,6 +435,14 @@ export class AgentOfficeScene extends Phaser.Scene {
       focusAgents: (from, to) => scene.focusAgents(from, to),
       resetFocus: () => scene.resetFocus(),
       setAgentsDimmed: (d) => scene.setAgentsDimmed(d),
+      setLayoutEditMode: (enabled: boolean) => {
+        scene.layoutEditMode = enabled
+        if (!enabled) scene.draggingAgentId = undefined
+        scene.refreshAllDraggability()
+      },
+      setOnAgentPositionCommit: (handler) => {
+        scene.onAgentPositionCommit = handler ?? undefined
+      },
       destroy: () => {
         scene.resetFocus()
       },

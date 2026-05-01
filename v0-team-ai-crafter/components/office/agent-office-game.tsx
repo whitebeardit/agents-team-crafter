@@ -23,15 +23,23 @@ function tryBindController(game: Phaser.Game, agents: OfficeAgentVisualState[]):
 export default function AgentOfficeGame({
   agents,
   activeEvent,
+  layoutEditMode,
+  onAgentPositionCommit,
   onControllerReady,
 }: {
   agents: OfficeAgentVisualState[]
   activeEvent?: OfficeEvent
+  layoutEditMode?: boolean
+  onAgentPositionCommit?: (agentId: string, x: number, y: number) => void
   onControllerReady?: (controller: AgentOfficeController) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const gameRef = useRef<Phaser.Game | null>(null)
   const controllerRef = useRef<AgentOfficeController | null>(null)
+  const layoutEditModeRef = useRef(!!layoutEditMode)
+  const onCommitRef = useRef(onAgentPositionCommit)
+  layoutEditModeRef.current = !!layoutEditMode
+  onCommitRef.current = onAgentPositionCommit
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return
@@ -58,6 +66,8 @@ export default function AgentOfficeGame({
       const c = tryBindController(game, agents)
       if (!c) return false
       controllerRef.current = c
+      c.setLayoutEditMode(layoutEditModeRef.current)
+      c.setOnAgentPositionCommit(onCommitRef.current ?? null)
       onControllerReady?.(c)
       return true
     }
@@ -73,6 +83,8 @@ export default function AgentOfficeGame({
           if (scene) {
             const c = scene.getController()
             controllerRef.current = c
+            c.setLayoutEditMode(layoutEditModeRef.current)
+            c.setOnAgentPositionCommit(onCommitRef.current ?? null)
             onControllerReady?.(c)
             c.syncAgents(agents)
             if (process.env.NODE_ENV === "development") {
@@ -102,6 +114,18 @@ export default function AgentOfficeGame({
   useEffect(() => {
     controllerRef.current?.syncAgents(agents)
   }, [agents])
+
+  useEffect(() => {
+    const c = controllerRef.current
+    if (!c) return
+    c.setLayoutEditMode(layoutEditMode ?? false)
+  }, [layoutEditMode])
+
+  useEffect(() => {
+    const c = controllerRef.current
+    if (!c) return
+    c.setOnAgentPositionCommit(onAgentPositionCommit ?? null)
+  }, [onAgentPositionCommit])
 
   useEffect(() => {
     const c = controllerRef.current

@@ -6,8 +6,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import { formatDistanceToNow, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { ArrowLeft, GitBranch, LayoutGrid, RefreshCw } from "lucide-react"
+import { ArrowLeft, GitBranch, LayoutGrid, Move, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -20,7 +22,8 @@ import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { toast } from "sonner"
 import { useTeamLiveTimeline } from "@/lib/live/use-team-live-timeline"
-import { buildOfficeLayout } from "@/lib/office/office-layout"
+import { applyOfficePositionOverrides, buildOfficeLayout } from "@/lib/office/office-layout"
+import { clampOfficePosition } from "@/lib/office/office-visual-constants"
 import { mapTimelineItemsToOfficeEvents } from "@/lib/office/office-event-mapper"
 import { applyOfficeFocus, layoutToVisualAgents } from "@/lib/office/office-view-model"
 import { buildDemoOfficeEvents } from "@/lib/office/office-simulation-fixtures"
@@ -78,7 +81,79 @@ export function TeamOfficePageClient() {
   const [teamRuns, setTeamRuns] = useState<TeamRunRecord[]>([])
   const [runsLoading, setRunsLoading] = useState(false)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [layoutOverrides, setLayoutOverrides] = useState<Record<string, { x: number; y: number }>>({})
+  const [layoutEditMode, setLayoutEditMode] = useState(false)
   const controllerRef = useRef<AgentOfficeController | null>(null)
+
+  const officeStorageKey = useMemo(() => {
+    if (!currentWorkspace?.id) return null
+    return `office-agent-positions:${currentWorkspace.id}:${teamId}`
+  }, [currentWorkspace?.id, teamId])
+
+  useEffect(() => {
+    if (!officeStorageKey) return
+    try {
+      const raw = localStorage.getItem(officeStorageKey)
+      if (!raw) {
+        setLayoutOverrides({})
+        return
+      }
+      const parsed = JSON.parse(raw) as unknown
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        setLayoutOverrides(parsed as Record<string, { x: number; y: number }>)
+      } else {
+        setLayoutOverrides({})
+      }
+    } catch {
+      setLayoutOverrides({})
+    }
+  }, [officeStorageKey])
+
+  const handleAgentPositionCommit = useCallback(
+    (agentId: string, x: number, y: number) => {
+      const p = clampOfficePosition(x, y)
+      setLayoutOverrides((prev) => {
+        const next = { ...prev, [agentId]: p }
+        if (officeStorageKey) {
+          try {
+            localStorage.setItem(officeStorageKey, JSON.stringify(next))
+          } catch {
+            /* quota */
+          }
+        }
+        return next
+      })
+    },
+    [officeStorageKey],
+  )
+
+  const handleResetOfficeLayout = useCallback(() => {
+    setLayoutOverrides({})
+    if (officeStorageKey) {
+      try {
+        localStorage.removeItem(officeStorageKey)
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [officeStorageKey])
+
+  const runsForSelect = useMemo((): TeamRunRecord[] => {
+    const list = [...teamRuns]
+    if (team && selectedRunId && !list.some((r) => r.runId === selectedRunId)) {
+      list.unshift({
+        id: selectedRunId,
+        runId: selectedRunId,
+        teamId: team.id,
+        coordinatorAgentId: team.coordinatorId,
+        trigger: "sync",
+        source: "manual",
+        status: "running",
+        startedAt: new Date().toISOString(),
+      })
+    }
+    return list
+  }, [teamRuns, selectedRunId, team])
 
   const api = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -99,6 +174,7 @@ export function TeamOfficePageClient() {
       setTeamRuns(list)
       setSelectedRunId((prev) => {
         if (prev && list.some((r) => r.runId === prev)) return prev
+        if (prev && !list.some((r) => r.runId === prev)) return prev
         const running = list.find((r) => r.status === "running")
         if (running) return running.runId
         return list[0]?.runId ?? null
@@ -204,11 +280,12 @@ export function TeamOfficePageClient() {
 
   const layoutAgents = useMemo(() => {
     if (!team) return []
-    return buildOfficeLayout({
+    const base = buildOfficeLayout({
       coordinatorId: team.coordinatorId,
       agents: rosterAgents,
     })
-  }, [team, rosterAgents])
+    return applyOfficePositionOverrides(base, layoutOverrides)
+  }, [team, rosterAgents, layoutOverrides])
 
   const baseVisualAgents = useMemo(() => layoutToVisualAgents(layoutAgents), [layoutAgents])
 
@@ -371,11 +448,38 @@ export function TeamOfficePageClient() {
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="relative min-h-[360px]">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Move className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              <Switch
+                id="office-layout-edit"
+                checked={layoutEditMode}
+                onCheckedChange={setLayoutEditMode}
+                title="Permite arrastar agentes no cenário"
+              />
+              <Label htmlFor="office-layout-edit" className="cursor-pointer text-xs">
+                Editar posições no mapa
+              </Label>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              disabled={Object.keys(layoutOverrides).length === 0}
+              title="Remove posições guardadas e repõe o layout por defeito"
+              onClick={handleResetOfficeLayout}
+            >
+              Repor layout
+            </Button>
+          </div>
           <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <div className="relative aspect-[1100/680] w-full overflow-hidden">
               <AgentOfficeGame
                 agents={visualAgents}
-                activeEvent={activeEventForScene}
+                activeEvent={layoutEditMode ? undefined : activeEventForScene}
+                layoutEditMode={layoutEditMode}
+                onAgentPositionCommit={handleAgentPositionCommit}
                 onControllerReady={(c) => {
                   controllerRef.current = c
                 }}
@@ -385,7 +489,8 @@ export function TeamOfficePageClient() {
           </div>
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <LayoutGrid className="h-3.5 w-3.5" />
-            Phaser: cenário e agentes; texto no painel e no balão React.
+            Phaser: cenário e agentes; texto no painel e no balão React. As posições ficam guardadas neste
+            dispositivo.
           </p>
         </div>
 
@@ -403,25 +508,27 @@ export function TeamOfficePageClient() {
                   setPlaying(false)
                   setSelectedIndex(-1)
                 }}
-                disabled={runsLoading || teamRuns.length === 0}
+                disabled={runsLoading || (runsForSelect.length === 0 && !selectedRunId)}
               >
                 <SelectTrigger id="office-run-select" className="h-8 w-[min(100%,220px)] text-xs">
                   <SelectValue placeholder={runsLoading ? "A carregar…" : "Sem execuções"} />
                 </SelectTrigger>
                 <SelectContent align="end">
-                  {teamRuns.map((r) => {
+                  {runsForSelect.map((r) => {
                     let rel = ""
                     try {
                       rel = formatDistanceToNow(parseISO(r.startedAt), { locale: ptBR, addSuffix: true })
                     } catch {
                       rel = ""
                     }
+                    const pendingList = !teamRuns.some((t) => t.runId === r.runId)
                     return (
                       <SelectItem key={r.runId} value={r.runId} className="text-xs">
                         <span className="font-mono">{r.runId.slice(0, 8)}…</span>
                         <span className="text-muted-foreground">
                           {" "}
                           · {teamRunSourceLabel(r.source)} · {teamRunStatusLabel(r.status)}
+                          {pendingList ? " · a sincronizar" : null}
                           {rel ? ` · ${rel}` : ""}
                         </span>
                       </SelectItem>

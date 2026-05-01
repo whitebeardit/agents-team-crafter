@@ -80,3 +80,15 @@ export function buildOfficeLayout(input: {
 
   return result
 }
+
+export function applyOfficePositionOverrides(
+  layout: OfficeLayoutAgent[],
+  overrides: Record<string, { x: number; y: number }> | null | undefined,
+): OfficeLayoutAgent[] {
+  if (!overrides || Object.keys(overrides).length === 0) return layout
+  return layout.map((a) => {
+    const o = overrides[a.agentId]
+    if (!o) return a
+    return { ...a, x: o.x, y: o.y }
+  })
+}

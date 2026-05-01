@@ -20,3 +20,13 @@ export const USER_FEET_Y = Math.max(
  * bubbleAnchorY = feetY − AGENT_MAX_DISPLAY_HEIGHT * BUBBLE_ANCHOR_HEIGHT_RATIO
  */
 export const BUBBLE_ANCHOR_HEIGHT_RATIO = 0.92
+
+const POSITION_PAD = 24
+
+/** Keep agent feet / sprite anchor inside the game canvas when dragging. */
+export function clampOfficePosition(x: number, y: number): { x: number; y: number } {
+  return {
+    x: Math.min(OFFICE_GAME_WIDTH - POSITION_PAD, Math.max(POSITION_PAD, x)),
+    y: Math.min(OFFICE_GAME_HEIGHT - POSITION_PAD, Math.max(POSITION_PAD, y)),
+  }
+}
