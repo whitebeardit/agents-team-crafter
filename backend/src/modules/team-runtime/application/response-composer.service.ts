@@ -4,20 +4,7 @@ import {
   createCoordinatorPublishContext,
   type ICoordinatorPublishContext,
 } from '../domain/coordinator-publish-context.js';
-
-function extractMarkdownImageUrls(raw: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  const re = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g;
-  for (const m of raw.matchAll(re)) {
-    const u = m[1]?.trim();
-    if (u && !seen.has(u)) {
-      seen.add(u);
-      out.push(u);
-    }
-  }
-  return out;
-}
+import { extractImageUrlsFromText } from './image-url-extractor.js';
 
 function looksLikeMarkdown(text: string): boolean {
   if (/!\[[^\]]*\]\(https?:\/\//.test(text)) return true;
@@ -31,7 +18,7 @@ function looksLikeMarkdown(text: string): boolean {
 
 /** Builds the single external response for an invocation (coordinator-only). */
 export function composeExternalResponseFromModelText(text: string): IExternalResponse {
-  const urls = extractMarkdownImageUrls(text);
+  const urls = extractImageUrlsFromText(text);
   const attachments: IExternalImageAttachment[] = urls.map((url) => ({ type: 'image', url }));
   const format: IExternalResponse['format'] =
     attachments.length > 0 || looksLikeMarkdown(text) ? 'markdown' : 'plain';

@@ -35,4 +35,37 @@ describe('buildSpecialistRuntimeMessage', () => {
       { type: 'input_image', imageUrl: 'https://example.com/img.png', mimeType: 'image/png' },
     ]);
   });
+
+  it('adds extra image urls from coordinator context', () => {
+    const out = buildSpecialistRuntimeInput({
+      coordinatorInstruction: 'Revise a imagem',
+      invocationMessage: 'Veja anexos',
+      extraImageUrls: ['https://cdn.example.com/generated.png'],
+    });
+    expect(out.contentParts).toEqual([
+      { type: 'input_image', imageUrl: 'https://cdn.example.com/generated.png' },
+    ]);
+  });
+
+  it('dedupes media urls between invocation and extra list', () => {
+    const out = buildSpecialistRuntimeInput({
+      coordinatorInstruction: 'Revise a imagem',
+      invocationMessage: 'Veja anexos',
+      invocationMedia: [{ kind: 'image', url: 'https://example.com/a.png', mimeType: 'image/png' }],
+      extraImageUrls: ['https://example.com/a.png', 'https://example.com/b.png'],
+    });
+    expect(out.contentParts).toEqual([
+      { type: 'input_image', imageUrl: 'https://example.com/a.png', mimeType: 'image/png' },
+      { type: 'input_image', imageUrl: 'https://example.com/b.png' },
+    ]);
+  });
+
+  it('ignores non-https extra image urls', () => {
+    const out = buildSpecialistRuntimeInput({
+      coordinatorInstruction: 'Revise a imagem',
+      invocationMessage: 'Veja anexos',
+      extraImageUrls: ['http://example.com/nope.png', 'ftp://example.com/nope.png'],
+    });
+    expect(out.contentParts).toBeUndefined();
+  });
 });

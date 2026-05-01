@@ -34,6 +34,7 @@ import {
   buildCoordinatorTeamRosterAppendix,
   extractExampleUserPhrasesFromAgentDomain,
 } from './build-coordinator-team-roster-appendix.js';
+import { dedupeHttpsImageUrls, extractImageUrlsFromText } from './image-url-extractor.js';
 import {
   resolveSpecialistAgentIdFromToolName,
   SpecialistRegistry,
@@ -829,12 +830,14 @@ export class CoordinatorOrchestratorService {
 
     const specialistResults: ISpecialistResult[] = [];
     const specialistSidecarEvents: ITeamExecutionEvent[] = [];
+    let generatedImageUrls: string[] = [];
 
     const executeSpecialist = async (specialistAgentId: string, instruction: string) => {
       const runtimeInput = buildSpecialistRuntimeInput({
         coordinatorInstruction: instruction,
         invocationMessage: invocation.message,
         invocationMedia: invocation.inputMedia,
+        extraImageUrls: generatedImageUrls,
       });
       const runtimeMessage = runtimeInput.message;
       specialistSidecarEvents.push({
@@ -964,6 +967,10 @@ export class CoordinatorOrchestratorService {
         ...(correlationId ? { correlationId } : {}),
         ...(conversationId ? { conversationId } : {}),
       });
+      generatedImageUrls = dedupeHttpsImageUrls([
+        ...generatedImageUrls,
+        ...extractImageUrlsFromText(r.finalOutput),
+      ]);
       specialistResults.push({ specialistAgentId, summary: r.finalOutput });
       specialistSidecarEvents.push({
         type: 'specialistFinished',
