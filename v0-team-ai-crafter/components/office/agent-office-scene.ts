@@ -95,8 +95,10 @@ export class AgentOfficeScene extends Phaser.Scene {
       )
       this.input.setDraggable(container, true)
     } else {
-      this.input.setDraggable(container, false)
-      container.disableInteractive()
+      if (container.input) {
+        this.input.setDraggable(container, false)
+        container.disableInteractive()
+      }
     }
   }
 
@@ -357,6 +359,20 @@ export class AgentOfficeScene extends Phaser.Scene {
     })
   }
 
+  private highlightConversation(fromAgentId?: string, toAgentId?: string, pulseIds: string[] = []) {
+    if (fromAgentId && toAgentId && fromAgentId !== toAgentId) {
+      this.focusAgents(fromAgentId, toAgentId)
+      this.drawDirectedCommunication(fromAgentId, toAgentId)
+    } else {
+      const singleId = fromAgentId ?? toAgentId
+      if (singleId) this.focusAgents(singleId, singleId)
+    }
+
+    for (const id of pulseIds) {
+      if (id) this.pulseAgent(id)
+    }
+  }
+
   playEvent(event: OfficeEvent) {
     this.clearCommunicationLine()
     const coordinatorFallback = [...this.visualStates.values()].find((a) => a.role === "coordinator")
@@ -364,35 +380,32 @@ export class AgentOfficeScene extends Phaser.Scene {
     if (event.type === "agent_handoff") {
       const from = event.fromAgentId
       const to = event.toAgentId
-      this.focusAgents(from, to)
-      this.drawDirectedCommunication(from, to)
-      if (from) this.pulseAgent(from)
-      if (to) this.pulseAgent(to)
+      this.highlightConversation(from, to, [from, to].filter((id): id is string => Boolean(id)))
       return
     }
 
     if (event.type === "agent_response") {
       const from = event.fromAgentId ?? event.actorId
       const to = event.toAgentId ?? event.fromAgentId ?? coordinatorFallback?.agentId
-      this.focusAgents(from, to)
-      this.drawDirectedCommunication(from, to)
-      if (from) this.pulseAgent(from)
+      this.highlightConversation(from, to, [from, to].filter((id): id is string => Boolean(id)))
       return
     }
 
-    if (event.type === "agent_thinking" || event.type === "tool_call") {
-      const id = event.actorId
-      if (id) {
-        this.focusAgents(id, id)
-        this.pulseAgent(id)
-      }
+    if (
+      event.type === "agent_thinking" ||
+      event.type === "tool_call" ||
+      event.type === "tool_result" ||
+      event.type === "activity"
+    ) {
+      const id = event.actorId ?? event.fromAgentId ?? event.toAgentId
+      this.highlightConversation(event.fromAgentId ?? id, event.toAgentId ?? id, id ? [id] : [])
       return
     }
 
     if (event.type === "error") {
       const id = event.actorId
+      this.highlightConversation(event.fromAgentId ?? id, event.toAgentId ?? id, id ? [id] : [])
       if (id) {
-        this.focusAgents(id, id)
         const container = this.agentContainers.get(id)
         if (container) {
           const agent = this.visualStates.get(id)
@@ -406,10 +419,11 @@ export class AgentOfficeScene extends Phaser.Scene {
 
     if (event.type === "user_message") {
       const coordId = coordinatorFallback?.agentId
-      this.focusAgents(OFFICE_USER_AGENT_ID, coordId)
-      this.drawDirectedCommunication(OFFICE_USER_AGENT_ID, coordId)
-      this.pulseAgent(OFFICE_USER_AGENT_ID)
-      if (coordId) this.pulseAgent(coordId)
+      this.highlightConversation(
+        OFFICE_USER_AGENT_ID,
+        coordId,
+        [OFFICE_USER_AGENT_ID, coordId].filter((id): id is string => Boolean(id)),
+      )
     }
   }
 

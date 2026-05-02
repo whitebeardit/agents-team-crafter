@@ -38,6 +38,13 @@ import { teamRunSourceLabel, teamRunStatusLabel } from "@/lib/runs-display"
 const AgentOfficeGame = dynamic(() => import("@/components/office/agent-office-game"), { ssr: false })
 
 function focusPair(event: OfficeEvent, coordinatorId: string): { from?: string; to?: string } {
+  if (event.fromAgentId && event.toAgentId && event.fromAgentId !== event.toAgentId) {
+    return {
+      from: event.fromAgentId,
+      to: event.toAgentId,
+    }
+  }
+
   switch (event.type) {
     case "user_message":
       return { from: OFFICE_USER_AGENT_ID, to: coordinatorId }
@@ -241,6 +248,20 @@ export function TeamOfficePageClient() {
   const activeEvent =
     effectiveIndex >= 0 && effectiveIndex < timelineEvents.length ? timelineEvents[effectiveIndex] : undefined
 
+  const timelineAgentIds = useMemo(() => {
+    const ids = new Set<string>()
+    const collect = (event: OfficeEvent) => {
+      for (const id of [event.actorId, event.fromAgentId, event.toAgentId]) {
+        if (!id || id === OFFICE_USER_AGENT_ID) continue
+        ids.add(id)
+      }
+    }
+    for (const event of simulationEvents) collect(event)
+    for (const event of liveOfficeEvents) collect(event)
+    for (const event of replayEvents) collect(event)
+    return [...ids]
+  }, [simulationEvents, liveOfficeEvents, replayEvents])
+
   const rosterAgents = useMemo(() => {
     if (!team) return [] as Array<{
       id: string
@@ -248,10 +269,7 @@ export function TeamOfficePageClient() {
       role: "coordinator" | "specialist"
       category?: string
     }>
-    const ids = [...team.agentIds]
-    if (team.coordinatorId && !ids.includes(team.coordinatorId)) {
-      ids.push(team.coordinatorId)
-    }
+    const ids = [...new Set([...team.agentIds, team.coordinatorId, ...timelineAgentIds])]
     const rows: Array<{
       id: string
       name: string
@@ -273,10 +291,16 @@ export function TeamOfficePageClient() {
           name: "Coordenador",
           role: "coordinator",
         })
+      } else {
+        rows.push({
+          id,
+          name: `Especialista ${id.slice(0, 8)}…`,
+          role: "specialist",
+        })
       }
     }
     return rows
-  }, [team, agents])
+  }, [team, agents, timelineAgentIds])
 
   const layoutAgents = useMemo(() => {
     if (!team) return []

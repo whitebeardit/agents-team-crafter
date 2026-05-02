@@ -34,6 +34,46 @@ function kindToOfficeType(kind: TeamConversationTimelineItem["kind"]): OfficeEve
   }
 }
 
+type CoordinatorSpecialistPair = {
+  fromAgentId: string
+  toAgentId: string
+  specialistId: string
+}
+
+function buildCoordinatorSpecialistPair(
+  fromAgentId: string | undefined,
+  toAgentId: string | undefined,
+  coordinatorId: string,
+): CoordinatorSpecialistPair | undefined {
+  if (!fromAgentId || !toAgentId) return undefined
+  if (fromAgentId === toAgentId) return undefined
+  if (fromAgentId === OFFICE_USER_AGENT_ID || toAgentId === OFFICE_USER_AGENT_ID) return undefined
+  if (fromAgentId !== coordinatorId && toAgentId !== coordinatorId) return undefined
+
+  const specialistId = fromAgentId === coordinatorId ? toAgentId : fromAgentId
+  if (!specialistId || specialistId === coordinatorId) return undefined
+
+  return {
+    fromAgentId,
+    toAgentId,
+    specialistId,
+  }
+}
+
+function inferConversationPairForEvent(
+  event: OfficeEvent,
+  context: { coordinatorId: string },
+  activePair?: CoordinatorSpecialistPair,
+): CoordinatorSpecialistPair | undefined {
+  const explicitPair = buildCoordinatorSpecialistPair(event.fromAgentId, event.toAgentId, context.coordinatorId)
+  if (explicitPair) return explicitPair
+
+  if (!activePair || !event.actorId) return undefined
+  if (event.actorId === context.coordinatorId) return activePair
+  if (event.actorId === activePair.specialistId) return activePair
+  return undefined
+}
+
 export function mapTimelineItemToOfficeEvent(
   item: TeamConversationTimelineItem,
   context: { coordinatorId: string },
@@ -135,11 +175,55 @@ export function mapTimelineItemsToOfficeEvents(
   context: { coordinatorId: string },
 ): OfficeEvent[] {
   const seen = new Set<string>()
-  const out: OfficeEvent[] = []
+  const uniqueItems: TeamConversationTimelineItem[] = []
   for (const item of items) {
     if (seen.has(item.id)) continue
     seen.add(item.id)
-    out.push(mapTimelineItemToOfficeEvent(item, context))
+    uniqueItems.push(item)
   }
-  return out.sort((a, b) => (a.seq === b.seq ? a.timestamp.localeCompare(b.timestamp) : a.seq - b.seq))
+
+  const mapped = uniqueItems
+    .map((item) => mapTimelineItemToOfficeEvent(item, context))
+    .sort((a, b) => (a.seq === b.seq ? a.timestamp.localeCompare(b.timestamp) : a.seq - b.seq))
+
+  const out: OfficeEvent[] = []
+  let activePair: CoordinatorSpecialistPair | undefined
+
+  for (const event of mapped) {
+    if (event.type === "user_message" || event.type === "run_complete") {
+      activePair = undefined
+      out.push(event)
+      continue
+    }
+
+    const explicitPair = buildCoordinatorSpecialistPair(event.fromAgentId, event.toAgentId, context.coordinatorId)
+    if (explicitPair) {
+      activePair = explicitPair
+      out.push(event)
+      continue
+    }
+
+    if (
+      event.type === "agent_thinking" ||
+      event.type === "tool_call" ||
+      event.type === "tool_result" ||
+      event.type === "activity" ||
+      event.type === "error"
+    ) {
+      const inferredPair = inferConversationPairForEvent(event, context, activePair)
+      if (inferredPair) {
+        activePair = inferredPair
+        out.push({
+          ...event,
+          fromAgentId: event.fromAgentId ?? inferredPair.fromAgentId,
+          toAgentId: event.toAgentId ?? inferredPair.toAgentId,
+        })
+        continue
+      }
+    }
+
+    out.push(event)
+  }
+
+  return out
 }
