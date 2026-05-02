@@ -1,7 +1,14 @@
 import { Types } from 'mongoose';
 import { ConversationTimelineModel } from './conversation-timeline.model.js';
 import type { ConversationTimelineDoc } from './conversation-timeline.model.js';
-import type { IConversationTimelineItem } from '../domain/conversation-timeline.js';
+import {
+  createTimelineItem,
+  type IConversationTimelineItem,
+} from '../domain/conversation-timeline.js';
+
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
+}
 
 function toPublic(doc: {
   _id: Types.ObjectId | string;
@@ -71,6 +78,40 @@ export class ConversationTimelineRepository {
       correlation: item.correlation ?? {},
     });
     return toPublic(created.toObject() as ConversationTimelineDoc);
+  }
+
+  /**
+   * Vários fluxos (Telegram, SSE, progress em paralelo) chamam append ao mesmo tempo.
+   * `nextSeq` + `append` não são atómicos — duas leituras devolvem o mesmo seq → E11000.
+   * Retenta com novo seq até inserir ou esgotar tentativas.
+   */
+  async appendWithAutoSeq(
+    input: Omit<IConversationTimelineItem, 'id' | 'seq' | 'timestamp'> & { timestamp?: string },
+  ): Promise<IConversationTimelineItem> {
+    const maxAttempts = 32;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const seq = await this.nextSeq(input.workspaceId, input.teamId, input.runId);
+      const draft = createTimelineItem({ ...input, seq });
+      try {
+        return await this.append({
+          workspaceId: draft.workspaceId,
+          teamId: draft.teamId,
+          runId: draft.runId,
+          seq: draft.seq,
+          timestamp: draft.timestamp,
+          actor: draft.actor,
+          actorId: draft.actorId,
+          kind: draft.kind,
+          content: draft.content,
+          meta: draft.meta,
+          correlation: draft.correlation,
+        });
+      } catch (err) {
+        if (attempt < maxAttempts - 1 && isDuplicateKeyError(err)) continue;
+        throw err;
+      }
+    }
+    throw new Error('conversation timeline: appendWithAutoSeq exhausted retries');
   }
 
   async list(input: {

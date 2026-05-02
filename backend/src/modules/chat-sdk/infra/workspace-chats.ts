@@ -26,7 +26,6 @@ import { buildInboundDebugConversationId } from './inbound-conversation-id.js';
 import type { ITeamInvocationImageInput } from '../../team-runtime/domain/team-invocation.js';
 import {
   buildThinkingSummaryFromProgress,
-  createTimelineItem,
   inferKindFromExecutionEvent,
   type IConversationTimelineItem,
 } from '../../teams/domain/conversation-timeline.js';
@@ -82,30 +81,15 @@ function bindInbound(
     content: string;
     meta?: Record<string, unknown>;
   }) => {
-    const nextSeq = await deps.conversationTimelineRepo.nextSeq(workspaceId, input.teamId, input.runId);
-    const item = createTimelineItem({
+    const saved = await deps.conversationTimelineRepo.appendWithAutoSeq({
       workspaceId,
       teamId: input.teamId,
       runId: input.runId,
-      seq: nextSeq,
       actor: input.actor,
       ...(input.actorId ? { actorId: input.actorId } : {}),
       kind: input.kind,
       content: input.content,
       ...(input.meta ? { meta: input.meta } : {}),
-    });
-    const saved = await deps.conversationTimelineRepo.append({
-      workspaceId: item.workspaceId,
-      teamId: item.teamId,
-      runId: item.runId,
-      seq: item.seq,
-      timestamp: item.timestamp,
-      actor: item.actor,
-      actorId: item.actorId,
-      kind: item.kind,
-      content: item.content,
-      meta: item.meta,
-      correlation: item.correlation,
     });
     deps.teamLiveBroadcaster.publishTimelineItem(workspaceId, input.teamId, input.source, input.runId, saved);
   };

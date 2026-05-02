@@ -28,7 +28,6 @@ import {
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
 import {
   buildThinkingSummaryFromProgress,
-  createTimelineItem,
   inferKindFromExecutionEvent,
   type IConversationTimelineItem,
 } from '../domain/conversation-timeline.js';
@@ -73,30 +72,15 @@ async function appendTimelineItem(input: {
   content: string;
   meta?: Record<string, unknown>;
 }): Promise<IConversationTimelineItem> {
-  const nextSeq = await input.deps.conversationTimelineRepo.nextSeq(input.workspaceId, input.teamId, input.runId);
-  const item = createTimelineItem({
+  const saved = await input.deps.conversationTimelineRepo.appendWithAutoSeq({
     workspaceId: input.workspaceId,
     teamId: input.teamId,
     runId: input.runId,
-    seq: nextSeq,
     actor: input.actor,
     ...(input.actorId ? { actorId: input.actorId } : {}),
     kind: input.kind,
     content: input.content,
     ...(input.meta ? { meta: input.meta } : {}),
-  });
-  const saved = await input.deps.conversationTimelineRepo.append({
-    workspaceId: item.workspaceId,
-    teamId: item.teamId,
-    runId: item.runId,
-    seq: item.seq,
-    timestamp: item.timestamp,
-    actor: item.actor,
-    actorId: item.actorId,
-    kind: item.kind,
-    content: item.content,
-    meta: item.meta,
-    correlation: item.correlation,
   });
   input.deps.teamLiveBroadcaster.publishTimelineItem(
     input.workspaceId,
