@@ -1,13 +1,21 @@
 import { Types } from 'mongoose';
 import { ConversationTimelineModel } from './conversation-timeline.model.js';
 import type { ConversationTimelineDoc } from './conversation-timeline.model.js';
+import { ConversationTimelineSeqModel } from './conversation-timeline-seq.model.js';
 import {
   createTimelineItem,
   type IConversationTimelineItem,
 } from '../domain/conversation-timeline.js';
 
+function mongoErrorCode(err: unknown): number | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const e = err as { code?: number; cause?: unknown };
+  if (typeof e.code === 'number') return e.code;
+  return mongoErrorCode(e.cause);
+}
+
 function isDuplicateKeyError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
+  return mongoErrorCode(err) === 11000;
 }
 
 function toPublic(doc: {
@@ -50,7 +58,11 @@ function toPublic(doc: {
 }
 
 export class ConversationTimelineRepository {
-  async nextSeq(workspaceId: string, teamId: string, runId: string): Promise<number> {
+  private async maxSeqInTimeline(
+    workspaceId: string,
+    teamId: string,
+    runId: string,
+  ): Promise<number> {
     const row = await ConversationTimelineModel.findOne({
       workspaceId: new Types.ObjectId(workspaceId),
       teamId: new Types.ObjectId(teamId),
@@ -60,7 +72,43 @@ export class ConversationTimelineRepository {
       .select({ seq: 1 })
       .lean<{ seq?: number }>()
       .exec();
-    return (row?.seq ?? 0) + 1;
+    return row?.seq ?? 0;
+  }
+
+  /** @deprecated Usar alocação via contador; mantido para diagnóstico / scripts. */
+  async nextSeq(workspaceId: string, teamId: string, runId: string): Promise<number> {
+    return (await this.maxSeqInTimeline(workspaceId, teamId, runId)) + 1;
+  }
+
+  /**
+   * Aloca o próximo seq num único findOneAndUpdate (MongoDB 4.2+ pipeline):
+   * `issued := max(issued, maxTimelineSeq) + 1` — atómico e recupera contador atrasado.
+   */
+  async allocateSeq(workspaceId: string, teamId: string, runId: string): Promise<number> {
+    const id = `${workspaceId}:${teamId}:${runId}`;
+    const seed = await this.maxSeqInTimeline(workspaceId, teamId, runId);
+    const doc = await ConversationTimelineSeqModel.findOneAndUpdate(
+      { _id: id },
+      [
+        {
+          $set: {
+            issued: {
+              $add: [
+                {
+                  $max: [{ $ifNull: ['$issued', seed] }, seed],
+                },
+                1,
+              ],
+            },
+          },
+        },
+      ],
+      { upsert: true, new: true },
+    ).exec();
+    if (!doc) {
+      throw new Error('conversation timeline seq: counter missing after upsert');
+    }
+    return doc.issued;
   }
 
   async append(item: Omit<IConversationTimelineItem, 'id'>): Promise<IConversationTimelineItem> {
@@ -81,16 +129,14 @@ export class ConversationTimelineRepository {
   }
 
   /**
-   * Vários fluxos (Telegram, SSE, progress em paralelo) chamam append ao mesmo tempo.
-   * `nextSeq` + `append` não são atómicos — duas leituras devolvem o mesmo seq → E11000.
-   * Retenta com novo seq até inserir ou esgotar tentativas.
+   * Usa contador atómico por run; retentativa rara se timeline e contador estiverem desalinhados.
    */
   async appendWithAutoSeq(
     input: Omit<IConversationTimelineItem, 'id' | 'seq' | 'timestamp'> & { timestamp?: string },
   ): Promise<IConversationTimelineItem> {
-    const maxAttempts = 32;
+    const maxAttempts = 8;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const seq = await this.nextSeq(input.workspaceId, input.teamId, input.runId);
+      const seq = await this.allocateSeq(input.workspaceId, input.teamId, input.runId);
       const draft = createTimelineItem({ ...input, seq });
       try {
         return await this.append({

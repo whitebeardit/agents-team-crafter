@@ -199,7 +199,7 @@ function bindInbound(
             kind: 'output',
             content: deltaText,
             meta: { streaming: true, chunk: true },
-          });
+          }).catch(() => undefined);
         },
       });
       await ensureInputTimeline(result.runId);

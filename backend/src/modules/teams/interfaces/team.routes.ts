@@ -1100,7 +1100,7 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
                 kind: 'output',
                 content: text,
                 meta: { streaming: true, chunk: true },
-              });
+              }).catch(() => undefined);
             }
           },
         });
