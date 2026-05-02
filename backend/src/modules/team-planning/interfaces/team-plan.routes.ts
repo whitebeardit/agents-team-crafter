@@ -4,6 +4,7 @@ import { PassThrough } from 'node:stream';
 import type { IAppDeps } from '../../../config/container.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
+import { applyCorsHeaders } from '../../../shared/kernel/cors-headers.js';
 import { TeamPlanRepository } from '../infra/team-plan.repository.js';
 import { TeamPlanService } from '../application/team-plan.service.js';
 
@@ -150,6 +151,7 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
       'Cache-Control': 'no-cache, no-transform',
       'X-Accel-Buffering': 'no',
     });
+    applyCorsHeaders(req, reply, deps.env);
     reply.raw.flushHeaders();
 
     const writeSse = (event: string, data: unknown) => {

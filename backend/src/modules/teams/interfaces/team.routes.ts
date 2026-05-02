@@ -41,6 +41,7 @@ import {
   teamImportBodySchema,
 } from '../application/import-team-from-export.js';
 import { deleteTeamWithAgentCascade } from '../application/delete-team-with-agent-cascade.js';
+import { applyCorsHeaders } from '../../../shared/kernel/cors-headers.js';
 
 async function loadTeamRunConversation(
   deps: IAppDeps,
@@ -939,6 +940,7 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
       'Cache-Control': 'no-cache, no-transform',
       'X-Accel-Buffering': 'no',
     });
+    applyCorsHeaders(req, reply, deps.env);
     reply.raw.flushHeaders();
 
     const writeSse = (event: string, data: unknown) => {
@@ -1026,6 +1028,7 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
       'Cache-Control': 'no-cache, no-transform',
       'X-Accel-Buffering': 'no',
     });
+    applyCorsHeaders(req, reply, deps.env);
     reply.raw.flushHeaders();
 
     const writeSse = (event: string, data: unknown) => {
