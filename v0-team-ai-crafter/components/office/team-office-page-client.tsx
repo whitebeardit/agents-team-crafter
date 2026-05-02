@@ -193,22 +193,6 @@ export function TeamOfficePageClient() {
     }
   }, [api, teamId])
 
-  const onForeignRunDetected = useCallback(
-    (foreignRunId: string) => {
-      toast("Nova execução", {
-        description: `Há actividade noutra execução (${foreignRunId.slice(0, 8)}…).`,
-        action: {
-          label: "Seguir esta execução",
-          onClick: () => {
-            setSelectedRunId(foreignRunId)
-            void loadRuns()
-          },
-        },
-      })
-    },
-    [loadRuns],
-  )
-
   const {
     items: liveTimelineItems,
     connected,
@@ -217,11 +201,10 @@ export function TeamOfficePageClient() {
   } = useTeamLiveTimeline({
     teamId,
     api,
-    enabled: mode === "live" && !!selectedRunId,
+    /** Igual ao grafo: timeline global do time; não filtrar por execução (runs novas do console tinham outro runId). */
+    enabled: mode === "live" && !!api && !!team,
     replayLimit: 200,
     coordinatorId: team?.coordinatorId,
-    scopeRunId: selectedRunId,
-    onForeignRunDetected,
   })
 
   const simulationEvents = useMemo(() => {
@@ -573,10 +556,10 @@ export function TeamOfficePageClient() {
               </Button>
             </div>
           </div>
-          {mode !== "simulation" && !selectedRunId && !runsLoading && (
+          {mode === "replay" && !selectedRunId && !runsLoading && (
             <p className="mb-2 text-xs text-muted-foreground">
-              Não há execuções registadas para este time — a timeline do escritório fica vazia até existir pelo menos uma
-              run.
+              Seleccione uma execução para carregar o replay. Em Live, a timeline segue todas as execuções ligadas ao
+              canal/consola.
             </p>
           )}
           <AgentOfficeTimelinePanel

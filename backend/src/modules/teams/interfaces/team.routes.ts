@@ -806,6 +806,65 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
     );
     try {
       const result = await invokeTeam(deps.coordinatorOrchestrator, invocation);
+      /** Paridade com POST /teams/:id/run/stream: timeline + SSE para GET /teams/:id/live e replay. */
+      await appendTimelineItem({
+        deps,
+        workspaceId: ws,
+        teamId,
+        runId: result.runId,
+        source: 'manual',
+        actor: 'user',
+        kind: 'input',
+        content: body.message,
+        meta: { channel: body.channel ?? 'manual' },
+      });
+      await appendTimelineItem({
+        deps,
+        workspaceId: ws,
+        teamId,
+        runId: result.runId,
+        source: 'manual',
+        actor: 'coordinator',
+        actorId: result.coordinatorAgentId,
+        kind: 'output',
+        content: result.externalResponse?.text ?? '',
+        meta: { final: true, format: result.externalResponse?.format ?? 'plain' },
+      });
+      for (const ev of result.events) {
+        const actor: IConversationTimelineItem['actor'] =
+          ev.agentId === result.coordinatorAgentId ? 'coordinator' : ev.agentId ? 'specialist' : 'system';
+        await appendTimelineItem({
+          deps,
+          workspaceId: ws,
+          teamId,
+          runId: result.runId,
+          source: 'manual',
+          actor,
+          ...(ev.agentId ? { actorId: ev.agentId } : {}),
+          kind: inferKindFromExecutionEvent(ev),
+          content: ev.detail ?? ev.value ?? ev.type,
+          meta: {
+            eventType: ev.type,
+            phase: ev.phase,
+            status: ev.status,
+            tool: ev.tool,
+            errorCode: ev.errorCode,
+          },
+        });
+      }
+      deps.teamLiveBroadcaster.publish(ws, teamId, {
+        source: 'manual',
+        runId: result.runId,
+        event: 'runComplete',
+        data: {
+          runId: result.runId,
+          teamId: result.teamId,
+          coordinatorAgentId: result.coordinatorAgentId,
+          externalResponse: result.externalResponse,
+          specialistResults: result.specialistResults,
+          events: result.events,
+        },
+      });
       if (body.conversationId?.trim()) {
         const assistantText = result.externalResponse?.text?.trim() ?? '';
         await deps.teamDebugSessionRepo.appendExchange(
