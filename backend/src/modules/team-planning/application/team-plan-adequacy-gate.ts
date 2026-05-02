@@ -8,8 +8,105 @@ export interface ITeamPlanAdequacyEvaluation {
   suggestions: string[];
 }
 
-function normalize(values: string[] | undefined): string[] {
-  return [...new Set((values ?? []).map((value) => value.trim().toLowerCase()).filter(Boolean))];
+function normalize(values: ReadonlyArray<string | undefined> | undefined): string[] {
+  return [...new Set((values ?? []).map((value) => value?.trim().toLowerCase() ?? '').filter(Boolean))];
+}
+
+function normalizeText(value: string | undefined): string {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+function includesAny(text: string, tokens: readonly string[]): boolean {
+  return tokens.some((token) => text.includes(token));
+}
+
+const CLINICAL_BRIEFING_TOKENS = [
+  'clinic',
+  'clinica',
+  'clínica',
+  'saude',
+  'saúde',
+  'psicolog',
+  'paciente',
+  'sessao',
+  'sessão',
+  'prontuario',
+  'prontuário',
+  'terapia',
+  'atendimento clinico',
+  'atendimento clínico',
+] as const;
+
+const CLINICAL_DOMAIN_IDS = ['clinic_ops', 'clinical', 'care', 'packages_encounters', 'scheduling'] as const;
+
+const CLINICAL_OPERATION_TOKENS = [
+  'atendimento',
+  'agendamento',
+  'agenda',
+  'sessao',
+  'sessão',
+  'pacote',
+  'prontuario',
+  'prontuário',
+  'cobranca',
+  'cobrança',
+  'financeiro',
+  'acompanhamento',
+  'crud',
+] as const;
+
+export function isClinicalOperationalBriefing(briefing?: ITeamPlannerStructuredBriefing): boolean {
+  if (!briefing) return false;
+  const domainValues = normalize([
+    briefing.primaryDomain,
+    ...(briefing.secondaryDomains ?? []),
+    ...(briefing.domainsNeeded ?? []),
+    ...(briefing.mustHaveCapabilities ?? []),
+  ]);
+  const entityValues = normalize([...(briefing.mainEntities ?? []), ...(briefing.sharedEntities ?? [])]);
+  const operationValues = normalize(briefing.operationKinds);
+  const textBlob = [
+    briefing.problemSummary,
+    briefing.businessType,
+    briefing.operationalUnit,
+    briefing.businessGoal,
+    briefing.coreJourney,
+    briefing.primaryDomain,
+    ...(briefing.secondaryDomains ?? []),
+    ...(briefing.domainsNeeded ?? []),
+    ...(briefing.mainEntities ?? []),
+    ...(briefing.sharedEntities ?? []),
+    ...(briefing.mustHaveCapabilities ?? []),
+  ]
+    .map(normalizeText)
+    .join(' ');
+
+  const hasClinicalSignal =
+    includesAny(textBlob, CLINICAL_BRIEFING_TOKENS) ||
+    domainValues.some((domain) => (CLINICAL_DOMAIN_IDS as readonly string[]).includes(domain)) ||
+    entityValues.some((entity) => includesAny(entity, CLINICAL_BRIEFING_TOKENS));
+  if (!hasClinicalSignal) return false;
+
+  const hasOperationalSignal =
+    operationValues.length === 0 ||
+    operationValues.some((operation) => includesAny(operation, CLINICAL_OPERATION_TOKENS)) ||
+    includesAny(textBlob, CLINICAL_OPERATION_TOKENS);
+  return hasOperationalSignal;
+}
+
+export function planHasClinicWorkflow(
+  plan: Pick<TPlannerOutput, 'agents' | 'requiredPacks' | 'requiredTools'>,
+): boolean {
+  const globalPacks = normalize(plan.requiredPacks);
+  if (globalPacks.includes('clinic_ops')) return true;
+  if ((plan.requiredTools ?? []).some((actionId) => actionId.trim().startsWith('clinic_'))) return true;
+  return plan.agents.some((agent) => {
+    const agentPacks = normalize(agent.requiredPackIds);
+    return (
+      agentPacks.includes('clinic_ops') ||
+      (agent.requiredBusinessActionIds ?? []).some((actionId) => actionId.trim().startsWith('clinic_'))
+    );
+  });
 }
 
 export function evaluateTeamPlanAdequacy(params: {
@@ -61,6 +158,10 @@ export function evaluateTeamPlanAdequacy(params: {
   if (needsOperationalTools && !hasOperationalCapability) {
     issues.push('Plano sem packs/tools de negócio para a operação declarada no briefing.');
     suggestions.push('Inclua requiredPacks/requiredTools coerentes com o tipo de operação esperado.');
+  }
+  if (isClinicalOperationalBriefing(params.briefing) && !planHasClinicWorkflow(params.plan)) {
+    issues.push('Plano clínico deveria priorizar clinic_ops/clinic_* em vez de apenas primitivas universais.');
+    suggestions.push('Inclua requiredPacks ["clinic_ops"] ou actionIds clinic_* nos especialistas clínicos.');
   }
 
   return {

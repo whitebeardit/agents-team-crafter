@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "tsx --test lib/live/timeline-view-model.test.ts",
+    "test": "tsx --test lib/live/timeline-view-model.test.ts lib/clinic-bind-taxonomy.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium"
   },

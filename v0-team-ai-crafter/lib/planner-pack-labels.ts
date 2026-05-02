@@ -13,7 +13,7 @@ export const PLANNER_PACK_LABELS_PT: Readonly<Record<string, string>> = {
   reminders: "Lembretes e agenda",
   scheduling: "Agenda e agendamentos",
   github_ops: "GitHub — PRs e issues",
-  clinic_ops: "Clínica — operações conversacionais",
+  clinic_ops: "Clínica GOLD — workflows por telefone e especialistas",
 }
 
 export function plannerPackLabelPt(packId: string): string {

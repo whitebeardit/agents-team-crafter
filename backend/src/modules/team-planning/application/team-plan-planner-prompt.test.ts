@@ -21,6 +21,13 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/requiredTools.*actionIds/i);
   });
 
+  it('prioriza clinic_ops e actions clinic_* para fluxos clinicos GOLD', () => {
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/Clinica GOLD \/ workflows humanos/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/prefira o pack "clinic_ops"/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/actions "clinic_\*"/i);
+    expect(TEAM_PLANNER_SYSTEM_PROMPT).toContain('clinic_schedule_session_by_phone');
+  });
+
   it('Loop 84 — prompt menciona inferência mínima sem rotação por posição', () => {
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/Loop 84.*inferência no servidor/i);
     expect(TEAM_PLANNER_SYSTEM_PROMPT).toMatch(/não.*rotação automática por posição/i);
@@ -64,6 +71,7 @@ describe('team-plan-planner-prompt (Loop 77)', () => {
     expect(msg).toMatch(/Briefing estruturado \(Loop 130\.3\)/i);
     expect(msg).toContain('"businessType": "clinica psicologica"');
     expect(msg).toContain('"domainsNeeded"');
+    expect(msg).toMatch(/priorize requiredPacks \["clinic_ops"\] e actions clinic_\*/i);
   });
 
   it('TEAM_PLANNER_REPAIR_SYSTEM_PROMPT lista IDs exclusivos (Loop 80)', () => {

@@ -14,6 +14,7 @@ import {
   Settings2,
   Download,
   Upload,
+  Info,
 } from "lucide-react"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { ApiError, createApiClient } from "@/lib/api/client"
@@ -26,6 +27,7 @@ import type {
   TeamPlanBindPreviewAgent,
   TeamPlanBindPreviewPack,
   TeamPlanAgentDraft,
+  TeamPlanBindPreviewDefinition,
   TeamPlanDraft,
   TeamPlanExecuteMeta,
   TeamPlanPlannerMeta,
@@ -67,6 +69,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  classifyBusinessActionId,
+  classifyPackIdForClinicLayer,
+  classifyToolDefinitionLayer,
+  countBindPreviewFallbackDefinitions,
+  shouldApplyClinicBindLayers,
+  splitActionIdsByBindLayer,
+  CLINIC_UNIVERSAL_PACKS,
+  isClinicalOperationalBriefing,
+} from "@/lib/clinic-bind-taxonomy"
 
 type TeamPlanningPolicy = {
   autoBindMode: "inherit" | "enabled" | "disabled"
@@ -125,28 +138,28 @@ const DISCOVERY_QUESTIONS: DiscoveryQuestion[] = [
     label: "Qual é o tipo de negócio/operação?",
     helper: "Isto ajuda a calibrar os especialistas e packs recomendados.",
     placeholder: "Ex.: clínica psicológica, consultoria, serviços locais, operação comercial...",
-    quickOptions: ["Clínica/saúde", "Serviços", "Comercial/CRM"],
+    quickOptions: ["Clínica GOLD / operações por telefone", "Clínica/saúde", "Serviços", "Comercial/CRM"],
   },
   {
     id: "coreJourney",
     label: "Qual é a jornada principal que precisa funcionar melhor?",
     helper: "Pense no fluxo ponta a ponta mais crítico.",
     placeholder: "Ex.: lead → agendamento → atendimento → cobrança → follow-up...",
-    quickOptions: ["Captação até fechamento", "Agendamento até conclusão", "Atendimento e acompanhamento"],
+    quickOptions: ["Paciente -> pacote -> agenda -> atendimento -> cobrança", "Captação até fechamento", "Agendamento até conclusão", "Atendimento e acompanhamento"],
   },
   {
     id: "domainsNeeded",
     label: "Quais domínios precisam coexistir no mesmo time?",
     helper: "Pode listar mais de um domínio.",
     placeholder: "Ex.: CRM, Scheduling, Finance, Clinical, Care...",
-    quickOptions: ["CRM + Scheduling", "CRM + Scheduling + Finance", "Clinical + Care + Finance"],
+    quickOptions: ["clinic_ops", "CRM + Scheduling", "CRM + Scheduling + Finance", "Clinical + Care + Finance"],
   },
   {
     id: "mainEntities",
     label: "Quais entidades o time vai operar?",
     helper: "Ex.: cliente, paciente, lead, agenda, cobrança, sessão, prontuário.",
     placeholder: "Liste as entidades principais...",
-    quickOptions: ["Cliente, lead, agenda", "Paciente, sessão, prontuário", "Cliente, pedido, pagamento"],
+    quickOptions: ["Paciente, telefone, pacote, sessão, cobrança", "Cliente, lead, agenda", "Paciente, sessão, prontuário", "Cliente, pedido, pagamento"],
   },
   {
     id: "primaryChannel",
@@ -160,7 +173,7 @@ const DISCOVERY_QUESTIONS: DiscoveryQuestion[] = [
     label: "Existe alguma restrição relevante de dados ou integrações?",
     helper: "Se não souber, pode marcar 'Não sei ainda'.",
     placeholder: "Ex.: sem acesso a ERP, dados sensíveis, janela de atendimento...",
-    quickOptions: ["LGPD/dados sensíveis", "Integrações legadas", "Sem restrição crítica no momento"],
+    quickOptions: ["Telefone como chave operacional", "LGPD/dados sensíveis", "Integrações legadas", "Sem restrição crítica no momento"],
   },
   {
     id: "operationKinds",
@@ -257,6 +270,61 @@ function normalizeBriefingStringList(values: string[] | undefined): string[] {
   return [...new Set((values ?? []).map((value) => value.trim().toLowerCase()).filter(Boolean))]
 }
 
+const CLINIC_OUTCOME_LABELS: Record<string, string> = {
+  clinic_create_patient: "criar paciente",
+  clinic_sell_default_package: "vender pacote",
+  clinic_list_patient_packages: "ver pacotes e saldo",
+  clinic_schedule_session_by_phone: "agendar sessão",
+  clinic_reschedule_session_by_context: "remarcar sessão",
+  clinic_cancel_session_by_context: "cancelar sessão",
+  clinic_list_patient_sessions: "ver sessões",
+  clinic_list_sessions_by_local_date: "listar agenda do dia",
+  clinic_register_attendance_by_phone_and_time: "registrar atendimento",
+  clinic_get_patient_full_snapshot: "resumo completo da paciente",
+  clinic_add_evolution_to_existing_attendance: "adicionar evolução",
+  clinic_create_receivable_for_session: "criar cobrança",
+  clinic_get_patient_financial_summary: "resumo financeiro",
+  clinic_audit_patient_integrity: "auditar paciente",
+  clinic_audit_appointments_integrity: "auditar sessões",
+  clinic_repair_patient_links: "reparar vínculos",
+}
+
+type ClinicWorkflowAlignment = {
+  status: "composite" | "primitive" | "missing"
+  outcomeLabels: string[]
+}
+
+function collectPlanActionIds(plan: TeamPlanDraft): string[] {
+  return [
+    ...(plan.requiredTools ?? []),
+    ...plan.agents.flatMap((agent) => agent.requiredBusinessActionIds ?? []),
+  ].map((actionId) => actionId.trim()).filter(Boolean)
+}
+
+function collectPlanPackIds(plan: TeamPlanDraft): string[] {
+  return [
+    ...(plan.requiredPacks ?? []),
+    ...plan.agents.flatMap((agent) => agent.requiredPackIds ?? []),
+  ].map((packId) => packId.trim().toLowerCase()).filter(Boolean)
+}
+
+function getClinicWorkflowAlignment(plan: TeamPlanDraft | null): ClinicWorkflowAlignment | null {
+  if (!plan || !isClinicalOperationalBriefing(plan.briefing)) return null
+  const actionIds = collectPlanActionIds(plan)
+  const packIds = collectPlanPackIds(plan)
+  const clinicActions = actionIds.filter((actionId) => actionId.startsWith("clinic_"))
+  if (packIds.includes("clinic_ops") || clinicActions.length > 0) {
+    const outcomeLabels = clinicActions
+      .map((actionId) => CLINIC_OUTCOME_LABELS[actionId])
+      .filter((label): label is string => Boolean(label))
+    return { status: "composite", outcomeLabels: [...new Set(outcomeLabels)].slice(0, 6) }
+  }
+  const hasUniversalPrimitive =
+    actionIds.some((actionId) => classifyBusinessActionId(actionId) === "universal_primitive") ||
+    packIds.some((packId) => (CLINIC_UNIVERSAL_PACKS as readonly string[]).includes(packId))
+  return { status: hasUniversalPrimitive ? "primitive" : "missing", outcomeLabels: [] }
+}
+
 /** Espelha `evaluateTeamPlanAdequacy` do backend para mensagens consistentes. */
 function evaluateClientPlanAdequacy(plan: TeamPlanDraft | null): string[] {
   if (!plan) return []
@@ -289,6 +357,10 @@ function evaluateClientPlanAdequacy(plan: TeamPlanDraft | null): string[] {
   const hasOperationalCapability = (plan.requiredTools?.length ?? 0) > 0 || (plan.requiredPacks?.length ?? 0) > 0
   if (needsOperationalTools && !hasOperationalCapability) {
     issues.push("Plano sem packs/tools de negócio para a operação declarada no briefing.")
+  }
+  const clinicAlignment = getClinicWorkflowAlignment(plan)
+  if (clinicAlignment?.status === "primitive" || clinicAlignment?.status === "missing") {
+    issues.push("Plano clínico deveria priorizar clinic_ops/clinic_* antes de executar.")
   }
   return issues
 }
@@ -585,6 +657,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     )
     return g + pa
   }, [plan])
+  const clinicWorkflowAlignment = useMemo(() => getClinicWorkflowAlignment(plan), [plan])
   const bindDiffAgents = useMemo(
     () =>
       bindPreview?.agents.filter(
@@ -597,6 +670,54 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
       bindPreview?.toolDefinitions.filter((d) => d.currentStatus === "existing_disabled").map((d) => d.actionId) ?? [],
     [bindPreview],
   )
+
+  const clinicBindLayersActive = useMemo(
+    () => shouldApplyClinicBindLayers(plan, bindPreview),
+    [plan, bindPreview],
+  )
+  const toolDefinitionsByLayer = useMemo((): {
+    recommended: TeamPlanBindPreviewDefinition[]
+    fallback: TeamPlanBindPreviewDefinition[]
+    other: TeamPlanBindPreviewDefinition[]
+  } => {
+    if (!bindPreview) {
+      return { recommended: [], fallback: [], other: [] }
+    }
+    const recommended: TeamPlanBindPreviewDefinition[] = []
+    const fallback: TeamPlanBindPreviewDefinition[] = []
+    const other: TeamPlanBindPreviewDefinition[] = []
+    for (const d of bindPreview.toolDefinitions) {
+      const layer = classifyToolDefinitionLayer(d)
+      if (layer === "recommended") recommended.push(d)
+      else if (layer === "fallback") fallback.push(d)
+      else other.push(d)
+    }
+    return { recommended, fallback, other }
+  }, [bindPreview])
+  const suggestedPacksByLayer = useMemo(() => {
+    if (!bindPreview) {
+      return { gold: [] as TeamPlanBindPreviewPack[], universal: [] as TeamPlanBindPreviewPack[], other: [] as TeamPlanBindPreviewPack[] }
+    }
+    const gold: TeamPlanBindPreview["suggestedPacks"] = []
+    const universal: TeamPlanBindPreview["suggestedPacks"] = []
+    const other: TeamPlanBindPreview["suggestedPacks"] = []
+    for (const p of bindPreview.suggestedPacks) {
+      const layer = classifyPackIdForClinicLayer(p.packId)
+      if (layer === "clinic_ops_layer") gold.push(p)
+      else if (layer === "universal_layer") universal.push(p)
+      else other.push(p)
+    }
+    return { gold, universal, other }
+  }, [bindPreview])
+  const simpleModeHiddenPrimitiveCount = useMemo(() => {
+    if (!clinicBindLayersActive || !bindPreview) return 0
+    return countBindPreviewFallbackDefinitions(bindPreview)
+  }, [clinicBindLayersActive, bindPreview])
+  const simpleModeVisibleDefinitionCount = useMemo(() => {
+    if (!bindPreview) return 0
+    if (!clinicBindLayersActive) return bindPreview.toolDefinitions.length
+    return bindPreview.toolDefinitions.length - countBindPreviewFallbackDefinitions(bindPreview)
+  }, [bindPreview, clinicBindLayersActive])
 
   /** Loop 85 — só invalida preview/aprovação quando mudam inputs que afectam bind no servidor. */
   const proposePlanUpdate = (nextPlan: TeamPlanDraft) => {
@@ -1201,6 +1322,127 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
+  const primitiveFallbackTooltip =
+    "Primitiva universal — útil para diagnóstico e integrações; em Clínica GOLD prefira actions clinic_*."
+
+  const renderToolDefinitionRow = (definition: TeamPlanBindPreviewDefinition) => (
+    <div key={definition.actionId} className="rounded-lg border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="text-xs">{definition.actionId}</code>
+          {definition.packIds.map((packId) => (
+            <Badge key={`${definition.actionId}-${packId}`} variant="secondary" title={packId}>
+              {plannerPackLabelPt(packId)}
+            </Badge>
+          ))}
+          <Badge variant="outline">{definitionStatusLabel(definition.currentStatus)}</Badge>
+          <Badge
+            variant={
+              definition.plannedOperation === "create" || definition.plannedOperation === "reactivate"
+                ? "default"
+                : "secondary"
+            }
+          >
+            {plannedOperationLabel(definition.plannedOperation)}
+          </Badge>
+        </div>
+        {definition.currentStatus === "existing_disabled" && definition.toolDefinitionId ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => void enableBindDefinitionsInline([definition.actionId])}
+            disabled={isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan}
+          >
+            Ativar no workspace
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  )
+
+  const renderSuggestedPackCard = (pack: TeamPlanBindPreviewPack) => (
+    <div key={pack.packId} className="rounded-lg border p-3 space-y-3">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" title={pack.packId}>
+            {plannerPackLabelPt(pack.packId)}
+          </Badge>
+          <Badge variant="outline">actions {pack.actionIds.length}</Badge>
+          <Badge variant="outline">padrao {pack.defaultSelectedActionIds.length}</Badge>
+          <Badge variant="outline">final {pack.selectedActionIds.length}</Badge>
+        </div>
+        {(pack.actionIdsAddedByOverride.length > 0 || pack.actionIdsRemovedByOverride.length > 0) && (
+          <p className="text-sm text-muted-foreground">
+            Delta: +{pack.actionIdsAddedByOverride.length} / -{pack.actionIdsRemovedByOverride.length}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() => void applyPackBatchAction(pack, "apply")}
+          disabled={isBindPreviewLoading || isBindOverrideSaving}
+        >
+          Aplicar pack
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() => void applyPackBatchAction(pack, "clear")}
+          disabled={isBindPreviewLoading || isBindOverrideSaving}
+        >
+          Limpar pack
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => void applyPackBatchAction(pack, "reset")}
+          disabled={isBindPreviewLoading || isBindOverrideSaving}
+        >
+          Resetar pack
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">{pack.actionIds.map((actionId) => `\`${actionId}\``).join(", ")}</p>
+    </div>
+  )
+
+  const renderAgentActionCheckboxRow = (agent: TeamPlanBindPreviewAgent, actionId: string) => {
+    const checked = agent.actionIdsToLink.includes(actionId)
+    const blockedByInactiveDefinition = agent.actionIdsBlockedByDisabledDefinitions.includes(actionId)
+    return (
+      <label
+        key={`${agent.planAgentKey}-${actionId}`}
+        className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+      >
+        <Checkbox
+          checked={checked}
+          disabled={
+            !agent.effectiveBindEnabled || isBindPreviewLoading || isBindOverrideSaving || blockedByInactiveDefinition
+          }
+          onCheckedChange={(nextChecked) => void updateAgentActionOverride(agent, actionId, Boolean(nextChecked))}
+        />
+        <code className="text-xs">{actionId}</code>
+        {blockedByInactiveDefinition ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-7 text-xs"
+            onClick={() => void enableBindDefinitionsInline([actionId])}
+            disabled={isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan}
+          >
+            Ativar definition
+          </Button>
+        ) : null}
+      </label>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {!embedded ? (
@@ -1435,6 +1677,39 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                 </AlertDescription>
               </Alert>
             ) : null}
+            {clinicWorkflowAlignment ? (
+              <Alert variant={clinicWorkflowAlignment.status === "composite" ? "default" : "destructive"}>
+                {clinicWorkflowAlignment.status === "composite" ? (
+                  <Sparkles className="h-4 w-4" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4" />
+                )}
+                <AlertTitle>
+                  {clinicWorkflowAlignment.status === "composite"
+                    ? "Plano clínico usa workflows compostos"
+                    : "Plano clínico precisa priorizar clinic_ops"}
+                </AlertTitle>
+                <AlertDescription className="space-y-2 text-sm text-muted-foreground">
+                  {clinicWorkflowAlignment.status === "composite" ? (
+                    <p>
+                      O plano está alinhado à camada Clínica GOLD: usa <code className="text-xs">clinic_ops</code> e/ou
+                      actions <code className="text-xs">clinic_*</code> para operar por telefone, contexto e especialistas.
+                    </p>
+                  ) : (
+                    <p>
+                      O briefing parece clínico, mas o plano caiu em primitivas universais ou não sugeriu workflows.
+                      Revise os packs/actions e prefira <code className="text-xs">clinic_ops</code> com actions{" "}
+                      <code className="text-xs">clinic_*</code> antes de executar.
+                    </p>
+                  )}
+                  {clinicWorkflowAlignment.outcomeLabels.length > 0 ? (
+                    <p>
+                      Outcomes cobertos: <strong>{clinicWorkflowAlignment.outcomeLabels.join(", ")}</strong>.
+                    </p>
+                  ) : null}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {plannerIntegrityModel ? (
               <Card>
                 <CardHeader>
@@ -1575,6 +1850,17 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                         </>
                       ) : null}
                     </p>
+                    {clinicWorkflowAlignment?.status === "composite" ? (
+                      <p className="text-sm text-muted-foreground">
+                        Em linguagem de produto: este plano deve operar workflows como{" "}
+                        <strong>
+                          {clinicWorkflowAlignment.outcomeLabels.length > 0
+                            ? clinicWorkflowAlignment.outcomeLabels.join(", ")
+                            : "criar paciente, agendar sessão, registrar atendimento e criar cobrança"}
+                        </strong>
+                        .
+                      </p>
+                    ) : null}
                     <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => persistBuilderAdvancedUi(true)}>
                       Ver política completa, packs e lista de actionIds
                     </Button>
@@ -1626,7 +1912,12 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                             <Badge variant={bindPreview.effectiveBindEnabled ? "default" : "secondary"}>
                               {bindPreview.effectiveBindEnabled ? "Bind efetivo" : "Sem bind efetivo"}
                             </Badge>
-                            <Badge variant="outline">definitions {bindPreview.toolDefinitions.length}</Badge>
+                            <Badge variant="outline">
+                              definitions{" "}
+                              {clinicBindLayersActive
+                                ? `resumo ${simpleModeVisibleDefinitionCount}`
+                                : bindPreview.toolDefinitions.length}
+                            </Badge>
                             <Button
                               type="button"
                               variant="outline"
@@ -1652,6 +1943,24 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                               </Button>
                             ) : null}
                           </div>
+                          {clinicBindLayersActive && simpleModeHiddenPrimitiveCount > 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              <strong>{simpleModeHiddenPrimitiveCount}</strong>{" "}
+                              {simpleModeHiddenPrimitiveCount === 1
+                                ? "primitiva universal está omitida deste resumo"
+                                : "primitivas universais estão omitidas deste resumo"}
+                              .{" "}
+                              <Button
+                                type="button"
+                                variant="link"
+                                className="h-auto p-0 align-baseline text-sm"
+                                onClick={() => persistBuilderAdvancedUi(true)}
+                              >
+                                Abrir modo avançado
+                              </Button>{" "}
+                              para rever ou editar.
+                            </p>
+                          ) : null}
                           {bindPreview && requiresExplicitBindApproval ? (
                             <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3">
                               <Checkbox
@@ -1769,100 +2078,100 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                     <>
                       <div className="space-y-2">
                         <p className="text-sm font-medium">Tool definitions</p>
-                        {bindPreview.toolDefinitions.map((definition) => (
-                          <div key={definition.actionId} className="rounded-lg border p-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <code className="text-xs">{definition.actionId}</code>
-                                {definition.packIds.map((packId) => (
-                                  <Badge key={`${definition.actionId}-${packId}`} variant="secondary" title={packId}>
-                                    {plannerPackLabelPt(packId)}
-                                  </Badge>
-                                ))}
-                                <Badge variant="outline">{definitionStatusLabel(definition.currentStatus)}</Badge>
-                                <Badge
-                                  variant={
-                                    definition.plannedOperation === "create" || definition.plannedOperation === "reactivate"
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                >
-                                  {plannedOperationLabel(definition.plannedOperation)}
-                                </Badge>
+                        {clinicBindLayersActive ? (
+                          <div className="space-y-4">
+                            {toolDefinitionsByLayer.recommended.length > 0 ? (
+                              <div className="space-y-2">
+                                <p className="text-sm font-medium text-foreground">
+                                  Recomendado (Clínica GOLD){" "}
+                                  <Badge variant="secondary">{toolDefinitionsByLayer.recommended.length}</Badge>
+                                </p>
+                                {toolDefinitionsByLayer.recommended.map((definition) => renderToolDefinitionRow(definition))}
                               </div>
-                              {definition.currentStatus === "existing_disabled" && definition.toolDefinitionId ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => void enableBindDefinitionsInline([definition.actionId])}
-                                  disabled={
-                                    isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan
-                                  }
-                                >
-                                  Ativar no workspace
-                                </Button>
-                              ) : null}
-                            </div>
+                            ) : null}
+                            {toolDefinitionsByLayer.fallback.length > 0 ? (
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-medium text-foreground">Fallback (primitivas universais)</p>
+                                  <Badge variant="outline">{toolDefinitionsByLayer.fallback.length}</Badge>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="text-muted-foreground inline-flex"
+                                        aria-label="Sobre primitivas universais"
+                                      >
+                                        <Info className="h-4 w-4" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">{primitiveFallbackTooltip}</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                                {toolDefinitionsByLayer.fallback.map((definition) => renderToolDefinitionRow(definition))}
+                              </div>
+                            ) : null}
+                            {toolDefinitionsByLayer.other.length > 0 ? (
+                              <div className="space-y-2">
+                                <p className="text-sm font-medium text-muted-foreground">
+                                  Outras definitions <Badge variant="outline">{toolDefinitionsByLayer.other.length}</Badge>
+                                </p>
+                                {toolDefinitionsByLayer.other.map((definition) => renderToolDefinitionRow(definition))}
+                              </div>
+                            ) : null}
                           </div>
-                        ))}
+                        ) : (
+                          bindPreview.toolDefinitions.map((definition) => renderToolDefinitionRow(definition))
+                        )}
                       </div>
                       {bindPreview.suggestedPacks.length > 0 ? (
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Acoes em lote por pack sugerido</p>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            {bindPreview.suggestedPacks.map((pack) => (
-                              <div key={pack.packId} className="rounded-lg border p-3 space-y-3">
+                          {clinicBindLayersActive ? (
+                            <div className="space-y-4">
+                              {suggestedPacksByLayer.gold.length > 0 ? (
+                                <div className="space-y-2">
+                                  <p className="text-sm font-medium">Recomendado (Clínica GOLD)</p>
+                                  <div className="grid gap-3 md:grid-cols-2">
+                                    {suggestedPacksByLayer.gold.map((pack) => renderSuggestedPackCard(pack))}
+                                  </div>
+                                </div>
+                              ) : null}
+                              {suggestedPacksByLayer.universal.length > 0 ? (
                                 <div className="space-y-2">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant="secondary" title={pack.packId}>
-                                      {plannerPackLabelPt(pack.packId)}
-                                    </Badge>
-                                    <Badge variant="outline">actions {pack.actionIds.length}</Badge>
-                                    <Badge variant="outline">padrao {pack.defaultSelectedActionIds.length}</Badge>
-                                    <Badge variant="outline">final {pack.selectedActionIds.length}</Badge>
+                                    <p className="text-sm font-medium">Fallback (domínios universais)</p>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          className="text-muted-foreground inline-flex"
+                                          aria-label="Sobre packs universais"
+                                        >
+                                          <Info className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs">{primitiveFallbackTooltip}</TooltipContent>
+                                    </Tooltip>
                                   </div>
-                                  {(pack.actionIdsAddedByOverride.length > 0 || pack.actionIdsRemovedByOverride.length > 0) && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Delta: +{pack.actionIdsAddedByOverride.length} / -{pack.actionIdsRemovedByOverride.length}
-                                    </p>
-                                  )}
+                                  <div className="grid gap-3 md:grid-cols-2">
+                                    {suggestedPacksByLayer.universal.map((pack) => renderSuggestedPackCard(pack))}
+                                  </div>
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => void applyPackBatchAction(pack, "apply")}
-                                    disabled={isBindPreviewLoading || isBindOverrideSaving}
-                                  >
-                                    Aplicar pack
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => void applyPackBatchAction(pack, "clear")}
-                                    disabled={isBindPreviewLoading || isBindOverrideSaving}
-                                  >
-                                    Limpar pack
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => void applyPackBatchAction(pack, "reset")}
-                                    disabled={isBindPreviewLoading || isBindOverrideSaving}
-                                  >
-                                    Resetar pack
-                                  </Button>
+                              ) : null}
+                              {suggestedPacksByLayer.other.length > 0 ? (
+                                <div className="space-y-2">
+                                  <p className="text-sm text-muted-foreground">Outros packs</p>
+                                  <div className="grid gap-3 md:grid-cols-2">
+                                    {suggestedPacksByLayer.other.map((pack) => renderSuggestedPackCard(pack))}
+                                  </div>
                                 </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {pack.actionIds.map((actionId) => `\`${actionId}\``).join(", ")}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {bindPreview.suggestedPacks.map((pack) => renderSuggestedPackCard(pack))}
+                            </div>
+                          )}
                         </div>
                       ) : null}
                       <div className="space-y-2">
@@ -1983,45 +2292,65 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                               <div className="space-y-2">
                                 <p className="text-sm text-muted-foreground">Selecionar actionIds para este agente:</p>
                                 <div className="space-y-2">
-                                  {agent.actionIdsCandidate.map((actionId) => {
-                                    const checked = agent.actionIdsToLink.includes(actionId)
-                                    const blockedByInactiveDefinition =
-                                      agent.actionIdsBlockedByDisabledDefinitions.includes(actionId)
-                                    return (
-                                      <label
-                                        key={`${agent.planAgentKey}-${actionId}`}
-                                        className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-                                      >
-                                        <Checkbox
-                                          checked={checked}
-                                          disabled={
-                                            !agent.effectiveBindEnabled ||
-                                            isBindPreviewLoading ||
-                                            isBindOverrideSaving ||
-                                            blockedByInactiveDefinition
-                                          }
-                                          onCheckedChange={(nextChecked) =>
-                                            void updateAgentActionOverride(agent, actionId, Boolean(nextChecked))
-                                          }
-                                        />
-                                        <code className="text-xs">{actionId}</code>
-                                        {blockedByInactiveDefinition ? (
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="secondary"
-                                            className="h-7 text-xs"
-                                            onClick={() => void enableBindDefinitionsInline([actionId])}
-                                            disabled={
-                                              isBindPreviewLoading || isBindOverrideSaving || isBindEnableSaving || !plan
-                                            }
-                                          >
-                                            Ativar definition
-                                          </Button>
-                                        ) : null}
-                                      </label>
+                                  {clinicBindLayersActive ? (
+                                    (() => {
+                                      const { recommended, fallback, other } = splitActionIdsByBindLayer(
+                                        agent.actionIdsCandidate,
+                                      )
+                                      return (
+                                        <div className="space-y-3">
+                                          {recommended.length > 0 ? (
+                                            <div className="space-y-2">
+                                              <p className="text-xs font-medium text-foreground">
+                                                Recomendado (Clínica GOLD)
+                                              </p>
+                                              {recommended.map((actionId) =>
+                                                renderAgentActionCheckboxRow(agent, actionId),
+                                              )}
+                                            </div>
+                                          ) : null}
+                                          {fallback.length > 0 ? (
+                                            <div className="space-y-2">
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                <p className="text-xs font-medium text-foreground">
+                                                  Fallback (primitivas)
+                                                </p>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <button
+                                                      type="button"
+                                                      className="text-muted-foreground inline-flex"
+                                                      aria-label="Sobre primitivas"
+                                                    >
+                                                      <Info className="h-3.5 w-3.5" />
+                                                    </button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent className="max-w-xs">
+                                                    {primitiveFallbackTooltip}
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </div>
+                                              {fallback.map((actionId) =>
+                                                renderAgentActionCheckboxRow(agent, actionId),
+                                              )}
+                                            </div>
+                                          ) : null}
+                                          {other.length > 0 ? (
+                                            <div className="space-y-2">
+                                              <p className="text-xs text-muted-foreground">Outras actions</p>
+                                              {other.map((actionId) =>
+                                                renderAgentActionCheckboxRow(agent, actionId),
+                                              )}
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      )
+                                    })()
+                                  ) : (
+                                    agent.actionIdsCandidate.map((actionId) =>
+                                      renderAgentActionCheckboxRow(agent, actionId),
                                     )
-                                  })}
+                                  )}
                                 </div>
                               </div>
                             ) : null}

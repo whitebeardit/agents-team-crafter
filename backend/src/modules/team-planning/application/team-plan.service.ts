@@ -16,7 +16,7 @@ import {
   buildTeamPlannerUserMessage,
 } from './team-plan-planner-prompt.js';
 import { evaluateTeamPlanBriefingSufficiency } from './team-plan-briefing-sufficiency.js';
-import { evaluateTeamPlanAdequacy } from './team-plan-adequacy-gate.js';
+import { evaluateTeamPlanAdequacy, isClinicalOperationalBriefing } from './team-plan-adequacy-gate.js';
 import { ensureCoordinatorSystemInstructionPolicy } from '../../agents/application/coordinator-system-instruction-policy.js';
 import { buildTeamPlanIntegrityModel } from './team-plan-integrity-model.js';
 import type { IAgentGovernanceDraft } from '../../agent-governance/domain/agent-governance.types.js';
@@ -247,6 +247,196 @@ export class TeamPlanService {
     const objective = context?.trim()
       ? `${problem.trim()} Contexto: ${context.trim()}${briefHint ? ` Briefing: ${briefHint}` : ''}`
       : `${problem.trim()} Resolver com fluxo coordenado e previsivel.${briefHint ? ` Briefing: ${briefHint}` : ''}`;
+    if (isClinicalOperationalBriefing(briefing)) {
+      const signalText = [
+        problem,
+        context,
+        briefing?.businessType,
+        briefing?.businessGoal,
+        briefing?.coreJourney,
+        ...(briefing?.domainsNeeded ?? []),
+        ...(briefing?.mainEntities ?? []),
+        ...(briefing?.operationKinds ?? []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      const wantsPackages = /pacote|saldo|sess/.test(signalText);
+      const wantsScheduling = /agenda|agend|remarc|cancel|sess|horario|hor[aá]rio/.test(signalText);
+      const wantsAttendance = /atendimento|prontuario|prontu[aá]rio|evolu|sess/.test(signalText);
+      const wantsFinance = /finance|cobran|receb|pagamento|valor/.test(signalText);
+      const requiredTools = [
+        'clinic_context_get_current_patient',
+        'clinic_context_update_current_patient',
+        'team_delegate_to_patient_specialist',
+        'clinic_create_patient',
+        ...(wantsPackages
+          ? ['team_delegate_to_package_specialist', 'clinic_sell_default_package', 'clinic_list_patient_packages']
+          : []),
+        ...(wantsScheduling
+          ? [
+              'team_delegate_to_scheduling_specialist',
+              'clinic_schedule_session_by_phone',
+              'clinic_reschedule_session_by_context',
+              'clinic_list_patient_sessions',
+            ]
+          : []),
+        ...(wantsAttendance
+          ? [
+              'team_delegate_to_attendance_specialist',
+              'clinic_register_attendance_by_phone_and_time',
+              'clinic_get_patient_full_snapshot',
+            ]
+          : []),
+        ...(wantsFinance
+          ? ['team_delegate_to_finance_specialist', 'clinic_create_receivable_for_session', 'clinic_get_patient_financial_summary']
+          : []),
+      ];
+      const agents: TPlannerOutput['agents'] = [
+        {
+          name: 'Coordenador Clinica',
+          role: 'coordinator',
+          description: 'Orquestra especialistas clinicos, coleta dados faltantes e consolida a resposta operacional.',
+          objective: 'Transformar pedidos humanos de clinica em workflows seguros por telefone e contexto.',
+          responsibilities: [
+            'Identificar paciente, intencao e risco antes de delegar',
+            'Delegar para o especialista dono do workflow',
+            'Consolidar resultado e proximos passos para o operador',
+          ],
+          skills: ['orquestracao', 'triagem', 'comunicacao'],
+          category: 'coordenacao_clinica',
+          channels: ['api'],
+          catalogTools: ['web_search'],
+          workflowKey: 'coordination',
+          requiredBusinessActionIds: [],
+          requiredPackIds: [],
+          exampleUserPhrases: [],
+        },
+        {
+          name: 'Guia de Pacientes',
+          role: 'specialist',
+          description: 'Resolve cadastro e contexto de pacientes por telefone.',
+          objective: 'Garantir que cada paciente tenha Party e CareSubject prontos antes dos demais workflows.',
+          responsibilities: ['Cadastrar paciente por nome e telefone', 'Atualizar contexto conversacional da paciente'],
+          skills: ['crm clinico', 'cadastro', 'resolucao por telefone'],
+          category: 'paciente',
+          channels: [],
+          catalogTools: ['web_search'],
+          workflowKey: 'clinic_patient',
+          requiredBusinessActionIds: [
+            'clinic_context_get_current_patient',
+            'clinic_context_update_current_patient',
+            'clinic_create_patient',
+          ],
+          requiredPackIds: ['clinic_ops'],
+          exampleUserPhrases: ['Cadastre a paciente Ana com este celular', 'Quem e a paciente deste telefone?'],
+        },
+      ];
+      if (wantsPackages) {
+        agents.push({
+          name: 'Guardiao Pacotes',
+          role: 'specialist',
+          description: 'Opera venda, saldo e elegibilidade de pacotes clinicos por telefone.',
+          objective: 'Manter pacote e saldo confiaveis antes de agendar ou registrar atendimento.',
+          responsibilities: ['Vender pacote padrao', 'Listar pacotes e saldos da paciente'],
+          skills: ['pacotes', 'saldo', 'read-after-write'],
+          category: 'pacotes',
+          channels: [],
+          catalogTools: ['web_search'],
+          workflowKey: 'clinic_packages',
+          requiredBusinessActionIds: [
+            'team_delegate_to_package_specialist',
+            'clinic_sell_default_package',
+            'clinic_list_patient_packages',
+          ],
+          requiredPackIds: ['clinic_ops'],
+          exampleUserPhrases: ['Venda um pacote para esta paciente', 'Veja o saldo de pacotes dela'],
+        });
+      }
+      if (wantsScheduling) {
+        agents.push({
+          name: 'Mestre Agenda',
+          role: 'specialist',
+          description: 'Agenda e remarca sessoes por telefone, data e hora em linguagem natural.',
+          objective: 'Criar uma agenda clinica operacional sem pedir IDs internos ao usuario.',
+          responsibilities: ['Agendar sessao por telefone', 'Remarcar por contexto', 'Listar sessoes da paciente'],
+          skills: ['agenda clinica', 'timezone', 'contexto humano'],
+          category: 'agenda_clinica',
+          channels: [],
+          catalogTools: ['web_search', 'calendar_access'],
+          workflowKey: 'clinic_scheduling',
+          requiredBusinessActionIds: [
+            'team_delegate_to_scheduling_specialist',
+            'clinic_schedule_session_by_phone',
+            'clinic_reschedule_session_by_context',
+            'clinic_list_patient_sessions',
+          ],
+          requiredPackIds: ['clinic_ops'],
+          exampleUserPhrases: ['Agende sessao amanha as 17h', 'Remarque a sessao dela para hoje as 22h'],
+        });
+      }
+      if (wantsAttendance) {
+        agents.push({
+          name: 'Relator Atendimento',
+          role: 'specialist',
+          description: 'Registra atendimento, evolucao e consumo de pacote de forma idempotente.',
+          objective: 'Transformar sessoes realizadas em historico clinico e consumo operacional confiavel.',
+          responsibilities: ['Registrar atendimento por telefone e horario', 'Adicionar evolucao clinica', 'Gerar snapshot da paciente'],
+          skills: ['prontuario', 'evolucao', 'pacotes'],
+          category: 'atendimento',
+          channels: [],
+          catalogTools: ['web_search'],
+          workflowKey: 'clinic_attendance',
+          requiredBusinessActionIds: [
+            'team_delegate_to_attendance_specialist',
+            'clinic_register_attendance_by_phone_and_time',
+            'clinic_get_patient_full_snapshot',
+          ],
+          requiredPackIds: ['clinic_ops'],
+          exampleUserPhrases: ['Registre o atendimento de hoje', 'Adicione esta evolucao na ultima sessao'],
+        });
+      }
+      if (wantsFinance) {
+        agents.push({
+          name: 'Caixa Clinico',
+          role: 'specialist',
+          description: 'Cuida de cobrancas e resumo financeiro de pacientes.',
+          objective: 'Registrar cobrancas de sessao e responder pendencias financeiras por telefone.',
+          responsibilities: ['Criar cobranca de sessao com confirmacao', 'Consultar resumo financeiro da paciente'],
+          skills: ['financeiro clinico', 'cobranca', 'risco alto'],
+          category: 'financeiro',
+          channels: [],
+          catalogTools: ['web_search'],
+          workflowKey: 'clinic_finance',
+          requiredBusinessActionIds: [
+            'team_delegate_to_finance_specialist',
+            'clinic_create_receivable_for_session',
+            'clinic_get_patient_financial_summary',
+          ],
+          requiredPackIds: ['clinic_ops'],
+          exampleUserPhrases: ['Crie a cobranca desta sessao', 'Mostre as pendencias financeiras da paciente'],
+        });
+      }
+      return {
+        team: {
+          name: `Time Clinica ${problemPreview}`.slice(0, 60),
+          objective,
+          description: `Fallback clinico GOLD para: ${problemPreview}`,
+          primaryChannel: 'api',
+          channelIds: [],
+          singleAgentMode: false,
+        },
+        agents,
+        graph: { nodes: [], edges: [] },
+        executionChecklist: [
+          'Confirmar telefone como chave operacional da paciente',
+          'Revisar especialistas e workflows clinic_ops sugeridos',
+          'Validar bind das actions clinic_* antes de executar',
+        ],
+        requiredPacks: ['clinic_ops'],
+        requiredTools: [...new Set(requiredTools)],
+      };
+    }
     return {
       team: {
         name: `Time ${problemPreview}`.slice(0, 60),
