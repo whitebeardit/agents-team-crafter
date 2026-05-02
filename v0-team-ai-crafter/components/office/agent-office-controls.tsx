@@ -117,10 +117,10 @@ export function AgentOfficeControls({
                 id="office-hide-stream"
                 checked={hideStreamChunks}
                 onCheckedChange={onHideStreamChunks}
-                title="Remove linhas de output em streaming (delta); mantém o texto final do canal"
+                title="Esconde deltas de streaming no output e eventos de ciclo (CoordinatorStarted/Finished, …); mostra tudo se desligar"
               />
               <Label htmlFor="office-hide-stream" className="cursor-pointer text-muted-foreground">
-                Ocultar deltas de streaming
+                Vista compacta (sem deltas nem Started/Finished)
               </Label>
             </div>
           ) : null}

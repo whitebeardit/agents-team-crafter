@@ -1,8 +1,17 @@
 import type { TeamConversationTimelineItem } from "@/lib/types"
 
+function isLifecycleActivityNoise(it: TeamConversationTimelineItem): boolean {
+  if (it.kind !== "activity") return false
+  const meta = it.meta as Record<string, unknown> | undefined
+  const et = typeof meta?.eventType === "string" ? meta.eventType : ""
+  if (!et) return false
+  return et.endsWith("Started") || et.endsWith("Finished")
+}
+
 /**
- * Inbound/streaming append vários `output` com meta.chunk; no escritório isso esconde o diálogo final.
- * Mantém sempre `meta.final` e eventos não-output.
+ * Modo compacto do escritório: menos ruído operacional.
+ * - Remove chunks de `output` em streaming (mantém `meta.final`).
+ * - Remove `activity` de ciclo de vida (coordinatorStarted/Finished, specialistStarted/Finished, …).
  */
 export function filterTimelineItemsForOfficeDisplay(
   items: TeamConversationTimelineItem[],
@@ -10,6 +19,7 @@ export function filterTimelineItemsForOfficeDisplay(
 ): TeamConversationTimelineItem[] {
   if (!options.hideStreamingChunks) return items
   return items.filter((it) => {
+    if (isLifecycleActivityNoise(it)) return false
     if (it.kind !== "output") return true
     const meta = it.meta as Record<string, unknown> | undefined
     if (!meta) return true
