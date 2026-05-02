@@ -181,7 +181,6 @@ export function TeamOfficePageClient() {
       setTeamRuns(list)
       setSelectedRunId((prev) => {
         if (prev && list.some((r) => r.runId === prev)) return prev
-        if (prev && !list.some((r) => r.runId === prev)) return prev
         const running = list.find((r) => r.status === "running")
         if (running) return running.runId
         return list[0]?.runId ?? null
@@ -373,6 +372,15 @@ export function TeamOfficePageClient() {
     void loadRuns()
   }, [api, teamId, loadRuns])
 
+  /** Nova run na timeline antes do GET /runs reflectir — actualiza o dropdown de execuções. */
+  useEffect(() => {
+    if (mode !== "live" || liveTimelineItems.length === 0 || !api) return
+    const tailRunId = liveTimelineItems[liveTimelineItems.length - 1]?.runId
+    if (!tailRunId) return
+    if (teamRuns.some((r) => r.runId === tailRunId)) return
+    void loadRuns()
+  }, [mode, liveTimelineItems, api, teamRuns, loadRuns])
+
   const activeEventForScene = activeEvent
 
   const agentOptions = useMemo(
@@ -556,6 +564,13 @@ export function TeamOfficePageClient() {
               </Button>
             </div>
           </div>
+          <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+            O selector «Execução» mostra o{" "}
+            <span className="font-medium text-foreground">runId</span> (cada mensagem no console pode criar uma run
+            nova). O selector de <span className="font-medium text-foreground">sessão</span> no console do time é outro
+            identificador (<span className="font-mono text-[10px]">conversationId</span>). Actualize a lista se não vir a
+            execução mais recente.
+          </p>
           {mode === "replay" && !selectedRunId && !runsLoading && (
             <p className="mb-2 text-xs text-muted-foreground">
               Seleccione uma execução para carregar o replay. Em Live, a timeline segue todas as execuções ligadas ao

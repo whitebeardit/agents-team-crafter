@@ -1,4 +1,5 @@
 import type { TeamConversationTimelineItem } from "@/lib/types"
+import { compareTimelineItemsChronologically } from "@/lib/live/timeline-sort"
 import { OFFICE_USER_AGENT_ID, type OfficeEvent, type OfficeEventType } from "./office-types"
 
 function readString(v: unknown): string | undefined {
@@ -182,9 +183,8 @@ export function mapTimelineItemsToOfficeEvents(
     uniqueItems.push(item)
   }
 
-  const mapped = uniqueItems
-    .map((item) => mapTimelineItemToOfficeEvent(item, context))
-    .sort((a, b) => (a.seq === b.seq ? a.timestamp.localeCompare(b.timestamp) : a.seq - b.seq))
+  const sortedUnique = [...uniqueItems].sort(compareTimelineItemsChronologically)
+  const mapped = sortedUnique.map((item) => mapTimelineItemToOfficeEvent(item, context))
 
   const out: OfficeEvent[] = []
   let activePair: CoordinatorSpecialistPair | undefined

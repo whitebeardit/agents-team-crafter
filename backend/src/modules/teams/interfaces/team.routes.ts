@@ -816,7 +816,10 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         actor: 'user',
         kind: 'input',
         content: body.message,
-        meta: { channel: body.channel ?? 'manual' },
+        meta: {
+          channel: body.channel ?? 'manual',
+          ...(body.conversationId?.trim() ? { conversationId: body.conversationId.trim() } : {}),
+        },
       });
       await appendTimelineItem({
         deps,
@@ -828,7 +831,11 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         actorId: result.coordinatorAgentId,
         kind: 'output',
         content: result.externalResponse?.text ?? '',
-        meta: { final: true, format: result.externalResponse?.format ?? 'plain' },
+        meta: {
+          final: true,
+          format: result.externalResponse?.format ?? 'plain',
+          ...(body.conversationId?.trim() ? { conversationId: body.conversationId.trim() } : {}),
+        },
       });
       for (const ev of result.events) {
         const actor: IConversationTimelineItem['actor'] =

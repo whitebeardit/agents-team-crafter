@@ -85,6 +85,24 @@ export class ConversationTimelineRepository {
       teamId: new Types.ObjectId(input.teamId),
     };
     if (input.runId) query.runId = input.runId;
+
+    /**
+     * Sem runId: últimos N eventos do time por tempo real (várias execuções).
+     * Ordenar por seq global estava errado — misturava runs e podia devolver só inputs.
+     */
+    if (!input.runId) {
+      const docs = await ConversationTimelineModel.find(query)
+        .sort({ timestamp: -1 })
+        .limit(input.limit)
+        .exec();
+      const items = docs.map((d) => toPublic(d.toObject() as ConversationTimelineDoc));
+      items.sort(
+        (a, b) =>
+          a.timestamp.localeCompare(b.timestamp) || a.runId.localeCompare(b.runId) || a.seq - b.seq,
+      );
+      return { items, nextCursorSeq: undefined };
+    }
+
     if (typeof input.cursorSeq === 'number') query.seq = { $lt: input.cursorSeq };
     const docs = await ConversationTimelineModel.find(query)
       .sort({ seq: -1, timestamp: -1 })

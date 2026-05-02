@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types"
 import { createApiClient } from "@/lib/api/client"
 import { OFFICE_USER_AGENT_ID } from "@/lib/office/office-types"
+import { compareTimelineItemsChronologically } from "@/lib/live/timeline-sort"
 
 /** Eventos sem actorId agrupados quando não há coordinatorId no hook. */
 const TIMELINE_NO_ACTOR_BUCKET = "__office_timeline_no_actor__"
@@ -127,7 +128,7 @@ export function useTeamLiveTimeline(input: {
         if (!uniq.has(item.id)) uniq.set(item.id, item)
       }
     }
-    return [...uniq.values()].sort((a, b) => (a.seq === b.seq ? a.timestamp.localeCompare(b.timestamp) : a.seq - b.seq))
+    return [...uniq.values()].sort(compareTimelineItemsChronologically)
   }, [timelineByAgent])
 
   const clear = useCallback(() => {

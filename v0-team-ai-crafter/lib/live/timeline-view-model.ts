@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import type { TeamConversationTimelineItem } from "@/lib/types"
+import { compareTimelineItemsChronologically } from "@/lib/live/timeline-sort"
 
 export interface TimelineViewModelItem {
   id: string
@@ -52,7 +53,7 @@ export function buildTimelineViewModel(
   agentDisplayNames: Record<string, string> = {},
 ): TimelineViewModelItem[] {
   return [...items]
-    .sort((a, b) => (a.seq === b.seq ? a.timestamp.localeCompare(b.timestamp) : a.seq - b.seq))
+    .sort(compareTimelineItemsChronologically)
     .map((item) => {
       const kind = kindToUi(item.kind)
       const rawAgentName = item.actorId ? agentDisplayNames[item.actorId] : undefined
