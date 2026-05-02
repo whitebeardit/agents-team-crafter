@@ -25,6 +25,7 @@ import { useTeamLiveTimeline } from "@/lib/live/use-team-live-timeline"
 import { applyOfficePositionOverrides, buildOfficeLayout } from "@/lib/office/office-layout"
 import { clampOfficePosition } from "@/lib/office/office-visual-constants"
 import { mapTimelineItemsToOfficeEvents } from "@/lib/office/office-event-mapper"
+import { filterTimelineItemsForOfficeDisplay } from "@/lib/office/filter-timeline-for-office-display"
 import { applyOfficeFocus, layoutToVisualAgents } from "@/lib/office/office-view-model"
 import { buildDemoOfficeEvents } from "@/lib/office/office-simulation-fixtures"
 import type { AgentOfficeController } from "@/lib/office/office-controller"
@@ -90,6 +91,11 @@ export function TeamOfficePageClient() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [layoutOverrides, setLayoutOverrides] = useState<Record<string, { x: number; y: number }>>({})
   const [layoutEditMode, setLayoutEditMode] = useState(false)
+  const [livePaceEnabled, setLivePaceEnabled] = useState(false)
+  const [liveDwellMs, setLiveDwellMs] = useState(1200)
+  const [hideStreamChunks, setHideStreamChunks] = useState(true)
+  /** Live + passo a passo: índice mostrado no mapa; -1 = usar índice normal (último evento). */
+  const [liveDisplayIndex, setLiveDisplayIndex] = useState(-1)
   const controllerRef = useRef<AgentOfficeController | null>(null)
 
   const officeStorageKey = useMemo(() => {
@@ -202,9 +208,17 @@ export function TeamOfficePageClient() {
     api,
     /** Igual ao grafo: timeline global do time; não filtrar por execução (runs novas do console tinham outro runId). */
     enabled: mode === "live" && !!api && !!team,
-    replayLimit: 200,
+    replayLimit: 400,
     coordinatorId: team?.coordinatorId,
   })
+
+  const filteredLiveTimelineItems = useMemo(
+    () =>
+      filterTimelineItemsForOfficeDisplay(liveTimelineItems, {
+        hideStreamingChunks: hideStreamChunks,
+      }),
+    [liveTimelineItems, hideStreamChunks],
+  )
 
   const simulationEvents = useMemo(() => {
     if (!team) return [] as OfficeEvent[]
@@ -216,8 +230,8 @@ export function TeamOfficePageClient() {
 
   const liveOfficeEvents = useMemo(() => {
     if (!team) return []
-    return mapTimelineItemsToOfficeEvents(liveTimelineItems, { coordinatorId: team.coordinatorId })
-  }, [team, liveTimelineItems])
+    return mapTimelineItemsToOfficeEvents(filteredLiveTimelineItems, { coordinatorId: team.coordinatorId })
+  }, [team, filteredLiveTimelineItems])
 
   const timelineEvents = useMemo((): OfficeEvent[] => {
     if (mode === "live") return liveOfficeEvents
@@ -225,7 +239,22 @@ export function TeamOfficePageClient() {
     return replayEvents
   }, [mode, liveOfficeEvents, simulationEvents, replayEvents])
 
-  const effectiveIndex = resolveSelectedIndex(mode, selectedIndex, timelineEvents.length)
+  const baseEffectiveIndex = useMemo(
+    () => resolveSelectedIndex(mode, selectedIndex, timelineEvents.length),
+    [mode, selectedIndex, timelineEvents.length],
+  )
+
+  const effectiveIndex = useMemo(() => {
+    if (
+      mode === "live" &&
+      livePaceEnabled &&
+      liveDisplayIndex >= 0 &&
+      timelineEvents.length > 0
+    ) {
+      return Math.min(liveDisplayIndex, timelineEvents.length - 1)
+    }
+    return baseEffectiveIndex
+  }, [mode, livePaceEnabled, liveDisplayIndex, timelineEvents.length, baseEffectiveIndex])
 
   const activeEvent =
     effectiveIndex >= 0 && effectiveIndex < timelineEvents.length ? timelineEvents[effectiveIndex] : undefined
@@ -318,7 +347,10 @@ export function TeamOfficePageClient() {
           `/teams/${teamId}/timeline?runId=${encodeURIComponent(selectedRunId)}&limit=200`,
         )
         if (cancelled) return
-        const mapped = mapTimelineItemsToOfficeEvents(res.data.items ?? [], {
+        const raw = filterTimelineItemsForOfficeDisplay(res.data.items ?? [], {
+          hideStreamingChunks: hideStreamChunks,
+        })
+        const mapped = mapTimelineItemsToOfficeEvents(raw, {
           coordinatorId: team.coordinatorId,
         })
         setReplayEvents(mapped)
@@ -331,7 +363,7 @@ export function TeamOfficePageClient() {
     return () => {
       cancelled = true
     }
-  }, [mode, team, api, teamId, selectedRunId])
+  }, [mode, team, api, teamId, selectedRunId, hideStreamChunks])
 
   useEffect(() => {
     if (!playing || mode === "live" || timelineEvents.length === 0) return
@@ -372,6 +404,26 @@ export function TeamOfficePageClient() {
     void loadRuns()
   }, [api, teamId, loadRuns])
 
+  /** Live + passo a passo: sincroniza índice exibido (pausa entre eventos). */
+  useEffect(() => {
+    if (mode !== "live" || !livePaceEnabled || timelineEvents.length === 0) return
+    const target = timelineEvents.length - 1
+    if (liveDisplayIndex < 0) {
+      setLiveDisplayIndex(target)
+      return
+    }
+    if (liveDisplayIndex < target) {
+      const t = window.setTimeout(() => {
+        setLiveDisplayIndex((x) => Math.min(x + 1, target))
+      }, liveDwellMs)
+      return () => window.clearTimeout(t)
+    }
+  }, [mode, livePaceEnabled, timelineEvents.length, liveDisplayIndex, liveDwellMs])
+
+  useEffect(() => {
+    if (!livePaceEnabled) setLiveDisplayIndex(-1)
+  }, [livePaceEnabled])
+
   /** Nova run na timeline antes do GET /runs reflectir — actualiza o dropdown de execuções. */
   useEffect(() => {
     if (mode !== "live" || liveTimelineItems.length === 0 || !api) return
@@ -394,6 +446,7 @@ export function TeamOfficePageClient() {
   const handleMode = useCallback((m: OfficeMode) => {
     setMode(m)
     setPlaying(false)
+    setLiveDisplayIndex(-1)
     if (m === "simulation") {
       setAgentFilter("all")
       setSelectedIndex(0)
@@ -459,6 +512,15 @@ export function TeamOfficePageClient() {
         speed={speed}
         onSpeed={setSpeed}
         onClear={() => controllerRef.current?.resetFocus()}
+        livePaceEnabled={livePaceEnabled}
+        onLivePaceEnabled={(v) => {
+          setLivePaceEnabled(v)
+          setLiveDisplayIndex(-1)
+        }}
+        liveDwellMs={liveDwellMs}
+        onLiveDwellMs={setLiveDwellMs}
+        hideStreamChunks={hideStreamChunks}
+        onHideStreamChunks={setHideStreamChunks}
       />
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_320px]">
@@ -583,6 +645,10 @@ export function TeamOfficePageClient() {
             onSelectIndex={(i) => {
               setSelectedIndex(i)
               setPlaying(false)
+              if (mode === "live") {
+                setLivePaceEnabled(false)
+                setLiveDisplayIndex(-1)
+              }
             }}
             agentFilter={agentFilter}
             onAgentFilter={setAgentFilter}
