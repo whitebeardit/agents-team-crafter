@@ -152,11 +152,11 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
       'X-Accel-Buffering': 'no',
     });
     applyCorsHeaders(req, reply, deps.env);
-    reply.raw.flushHeaders();
 
     const writeSse = (event: string, data: unknown) => {
       stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
+    stream.write(': connected\n\n');
 
     void (async () => {
       try {

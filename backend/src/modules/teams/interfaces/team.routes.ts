@@ -925,7 +925,6 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
       'X-Accel-Buffering': 'no',
     });
     applyCorsHeaders(req, reply, deps.env);
-    reply.raw.flushHeaders();
 
     const writeSse = (event: string, data: unknown) => {
       try {
@@ -964,6 +963,8 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         /* never break webhook path */
       }
     });
+
+    stream.write(': connected\n\n');
 
     const heartbeat = setInterval(() => {
       try {
@@ -1013,11 +1014,11 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
       'X-Accel-Buffering': 'no',
     });
     applyCorsHeaders(req, reply, deps.env);
-    reply.raw.flushHeaders();
 
     const writeSse = (event: string, data: unknown) => {
       stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
+    stream.write(': connected\n\n');
 
     let streamRunId: string | undefined;
     let inputTimelineLogged = false;

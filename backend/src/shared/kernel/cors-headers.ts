@@ -21,8 +21,8 @@ export function normalizeCorsOrigin(raw: string): string {
 }
 
 /**
- * Rotas que fazem `reply.raw.flushHeaders()` antes do ciclo normal do Fastify
- * não recebem cabeçalhos do `@fastify/cors`. Espelha a mesma política de `app.ts`.
+ * Rotas SSE mantêm o corpo aberto por mais tempo e precisam dos mesmos cabeçalhos
+ * CORS do `@fastify/cors` antes do primeiro chunk do stream.
  *
  * Com `CORS_ORIGIN` explícito (lista separada por vírgulas), inclua o origin exato do browser
  * (ex.: `https://myteams.whitebeard.dev` — sem barra final; a comparação normaliza barra final).
