@@ -10,6 +10,7 @@ import observabilityPlugin from './plugins/observability.js';
 import { metricsRegistry } from './metrics.js';
 import { registerRoutes } from './routes.js';
 import { ensurePartyIndexes } from '../modules/crm/infra/ensure-party-indexes.js';
+import { CORS_ALLOWED_REQUEST_HEADERS, normalizeCorsOrigin } from '../shared/kernel/cors-headers.js';
 
 export async function buildApp(env: IEnv) {
   const deps = createDeps(env);
@@ -26,8 +27,14 @@ export async function buildApp(env: IEnv) {
     });
 
   await app.register(cors, {
-    origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((s) => s.trim()),
+    origin:
+      env.CORS_ORIGIN === '*'
+        ? true
+        : env.CORS_ORIGIN.split(',')
+            .map((s) => normalizeCorsOrigin(s))
+            .filter(Boolean),
     credentials: true,
+    allowedHeaders: [...CORS_ALLOWED_REQUEST_HEADERS],
   });
 
   await app.register(loggerPlugin);

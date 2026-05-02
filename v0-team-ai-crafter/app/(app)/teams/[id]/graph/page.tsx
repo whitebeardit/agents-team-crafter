@@ -470,7 +470,11 @@ export default function GraphEditorPage({
               <SheetDescription className="text-xs leading-relaxed">
                 <code className="rounded bg-muted px-1 py-0.5 text-[10px]">GET /teams/:id/live</code> atualiza o grafo
                 com <strong>agentStatus</strong> (Telegram e consola). O chat usa{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">POST /teams/:id/run/stream</code>.
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">POST /teams/:id/run/stream</code>. São pedidos
+                cross-origin para a API; se o console mostrar CORS ou &quot;Failed to fetch&quot;, confira{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">CORS_ORIGIN</code> no backend (incluir a
+                origem desta UI, por exemplo <code className="rounded bg-muted px-1 py-0.5 text-[10px]">https://myteams.whitebeard.dev</code>
+                ).
               </SheetDescription>
             </SheetHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-2">
