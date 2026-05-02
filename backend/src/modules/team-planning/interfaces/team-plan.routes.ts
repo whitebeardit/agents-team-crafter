@@ -148,9 +148,9 @@ export async function registerTeamPlanRoutes(app: FastifyInstance, deps: IAppDep
     reply.headers({
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
+    reply.raw.flushHeaders();
 
     const writeSse = (event: string, data: unknown) => {
       stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
