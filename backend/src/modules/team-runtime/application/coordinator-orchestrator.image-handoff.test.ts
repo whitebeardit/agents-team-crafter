@@ -83,6 +83,7 @@ describe('CoordinatorOrchestratorService image handoff between specialists', () 
     };
     const workspaceIntegrationsService = {
       resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
+      resolveLlmProviderConfig: jest.fn(async () => ({ provider: 'openai', apiKey: 'fake-key', baseUrl: 'https://api.openai.com/v1', useResponses: true })),
       getToolIntegrationContext: jest.fn(async () => ({})),
       resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };

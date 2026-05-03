@@ -5,6 +5,7 @@ import {
   effectiveEnabledChatModels,
 } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { AppError } from '../../../shared/errors/app-error.js';
+import type { TLlmProvider } from '../../../shared/kernel/llm-provider-config.js';
 
 /** Payload interno (plaintext) guardado cifrado em Workspace.integrationSecretsEncrypted */
 /** Modelo padrao para a tool de catalogo `image_generation` (override por chamada na tool com `model`). */
@@ -12,6 +13,13 @@ export type TImageGenerationModel = 'dall-e-2' | 'dall-e-3';
 
 export interface IWorkspaceIntegrationsPayload {
   openaiApiKey?: string;
+  /**
+   * Provider LLM explícito para este workspace.
+   * Quando omitido herda o default global (env LLM_PROVIDER, ou 'openai').
+   */
+  llmProvider?: TLlmProvider;
+  /** Chave BYOK para OpenRouter quando `llmProvider = 'openrouter'`. */
+  openrouterApiKey?: string;
   /** Padrao quando a tool usa `model: default`; se omitido, o runtime usa dall-e-3. */
   imageGenerationModel?: TImageGenerationModel;
   smtp?: {
@@ -41,11 +49,30 @@ export interface IWorkspaceIntegrationsPayload {
   agentsRuntimeModel?: EOpenAiWorkspaceChatModel;
   /** Modelo do team planner (JSON). */
   teamPlannerModel?: EOpenAiWorkspaceChatModel;
+  /**
+   * Modelo runtime OpenRouter livre (e.g. 'anthropic/claude-sonnet-4-5').
+   * Só aplicado quando `llmProvider = 'openrouter'`.
+   * Quando omitido e provider=openrouter, usa agentsRuntimeModel com prefixo `openai/`.
+   */
+  openrouterRuntimeModel?: string;
+  /**
+   * Modelo planner OpenRouter livre.
+   * Só aplicado quando `llmProvider = 'openrouter'`.
+   */
+  openrouterPlannerModel?: string;
 }
 
 export const putWorkspaceIntegrationsBodySchema = z.object({
   /** Omitir = manter; string vazia = remover chave */
   openaiApiKey: z.string().optional(),
+  /** Provider LLM do workspace; string vazia = remover e herdar do env. */
+  llmProvider: z.union([z.enum(['openai', 'openrouter']), z.literal('')]).optional(),
+  /** Chave OpenRouter BYOK; string vazia = remover. */
+  openrouterApiKey: z.string().optional(),
+  /** Modelo runtime OpenRouter livre; string vazia = remover. */
+  openrouterRuntimeModel: z.string().optional(),
+  /** Modelo planner OpenRouter livre; string vazia = remover. */
+  openrouterPlannerModel: z.string().optional(),
   smtp: z
     .object({
       host: z.string().optional(),
@@ -86,6 +113,11 @@ export type IPutWorkspaceIntegrationsBody = z.infer<typeof putWorkspaceIntegrati
 export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | null): {
   openaiApiKeyConfigured: boolean;
   openaiApiKeyMasked?: string;
+  llmProvider?: TLlmProvider;
+  openrouterApiKeyConfigured?: boolean;
+  openrouterApiKeyMasked?: string;
+  openrouterRuntimeModel?: string;
+  openrouterPlannerModel?: string;
   smtp?: {
     host?: string;
     port?: number;
@@ -116,6 +148,13 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
     ...(payload.openaiApiKey?.trim()
       ? { openaiApiKeyMasked: maskSecretValue(payload.openaiApiKey) }
       : {}),
+    ...(payload.llmProvider ? { llmProvider: payload.llmProvider } : {}),
+    ...(payload.openrouterApiKey?.trim()
+      ? {
+          openrouterApiKeyConfigured: true,
+          openrouterApiKeyMasked: maskSecretValue(payload.openrouterApiKey),
+        }
+      : { openrouterApiKeyConfigured: false }),
     ...(smtp
       ? {
           smtp: {
@@ -156,6 +195,8 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
       : {}),
     ...(payload.agentsRuntimeModel ? { agentsRuntimeModel: payload.agentsRuntimeModel } : {}),
     ...(payload.teamPlannerModel ? { teamPlannerModel: payload.teamPlannerModel } : {}),
+    ...(payload.openrouterRuntimeModel ? { openrouterRuntimeModel: payload.openrouterRuntimeModel } : {}),
+    ...(payload.openrouterPlannerModel ? { openrouterPlannerModel: payload.openrouterPlannerModel } : {}),
   };
 }
 
@@ -168,6 +209,26 @@ export function mergeWorkspaceIntegrationsPayload(
   if (patch.openaiApiKey !== undefined) {
     if (patch.openaiApiKey.trim() === '') delete next.openaiApiKey;
     else next.openaiApiKey = patch.openaiApiKey.trim();
+  }
+
+  if (patch.llmProvider !== undefined) {
+    if (patch.llmProvider === '') delete next.llmProvider;
+    else next.llmProvider = patch.llmProvider as TLlmProvider;
+  }
+
+  if (patch.openrouterApiKey !== undefined) {
+    if (patch.openrouterApiKey.trim() === '') delete next.openrouterApiKey;
+    else next.openrouterApiKey = patch.openrouterApiKey.trim();
+  }
+
+  if (patch.openrouterRuntimeModel !== undefined) {
+    if (patch.openrouterRuntimeModel.trim() === '') delete next.openrouterRuntimeModel;
+    else next.openrouterRuntimeModel = patch.openrouterRuntimeModel.trim();
+  }
+
+  if (patch.openrouterPlannerModel !== undefined) {
+    if (patch.openrouterPlannerModel.trim() === '') delete next.openrouterPlannerModel;
+    else next.openrouterPlannerModel = patch.openrouterPlannerModel.trim();
   }
 
   if (patch.smtp !== undefined) {

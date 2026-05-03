@@ -30,6 +30,7 @@ describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () =>
     const specialistRegistry = { buildOpenAiTools: jest.fn(() => []) };
     const workspaceIntegrationsService = {
       resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
+      resolveLlmProviderConfig: jest.fn(async () => ({ provider: 'openai', apiKey: 'fake-key', baseUrl: 'https://api.openai.com/v1', useResponses: true })),
       getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
       resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };

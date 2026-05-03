@@ -11,6 +11,17 @@ const envSchema = z
     CORS_ORIGIN: z.string().default('*'),
     /** Fallback demo/local quando o workspace nao tem chave OpenAI em integracoes. */
     OPENAI_API_KEY: z.string().min(1).optional(),
+    /**
+     * Provider LLM padrão quando o workspace não define um explicitamente.
+     * 'openai' (padrão) ou 'openrouter'.
+     */
+    LLM_PROVIDER: z.enum(['openai', 'openrouter']).optional(),
+    /** Chave de fallback para OpenRouter (usado quando LLM_PROVIDER=openrouter sem BYOK no workspace). */
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
+    /** Header HTTP-Referer enviado ao OpenRouter (melhora ranking na plataforma deles). */
+    OPENROUTER_HTTP_REFERER: z.string().optional(),
+    /** Título da aplicação enviado ao OpenRouter via X-OpenRouter-Title. */
+    OPENROUTER_APP_TITLE: z.string().optional(),
     /** Redis para Chat SDK (state-redis). Sem isto, usa state in-memory por processo. */
     REDIS_URL: z.string().min(1).optional(),
     /** Assinatura Slack Events API (verificação de webhook). */
@@ -71,6 +82,10 @@ export type IEnv = IEnvParsed & {
   /** Normalizado em loadEnv; testes podem omitir (equivalente a `0`). */
   DANGER_ZONE_FACTORY_RESET_ENABLED?: '0' | '1';
   DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION?: '0' | '1';
+  LLM_PROVIDER?: 'openai' | 'openrouter';
+  OPENROUTER_API_KEY?: string;
+  OPENROUTER_HTTP_REFERER?: string;
+  OPENROUTER_APP_TITLE?: string;
 };
 
 export function parsePlatformAdminEmails(raw: string | undefined): ReadonlySet<string> {

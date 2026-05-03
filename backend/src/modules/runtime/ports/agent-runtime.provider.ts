@@ -1,5 +1,6 @@
 import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
 import type { IBusinessToolRuntime } from '../../business-tools/application/business-tool-runtime.js';
+import type { ILlmProviderConfig } from '../../../shared/kernel/llm-provider-config.js';
 
 /**
  * Configuracao executavel agregada para o runtime de agentes (Fase 15).
@@ -71,8 +72,13 @@ export interface IAgentRunInput {
   locale?: string;
   requestedAccessLevel?: 'read' | 'write' | 'restricted';
   taskType?: string;
-  /** BYOK por workspace; se omitido, o provider pode usar OPENAI_API_KEY do ambiente (demo). */
+  /** BYOK por workspace; se omitido, o provider pode usar OPENAI_API_KEY do ambiente (demo). @deprecated Prefira llmConfig. */
   openaiApiKey?: string;
+  /**
+   * Configuração completa do provider LLM para este run.
+   * Quando presente, sobrepõe `openaiApiKey` e determina provider/baseUrl/headers.
+   */
+  llmConfig?: ILlmProviderConfig;
   /** Estado para manter determinismo (PolicyEngine), não para o LLM decidir. */
   depth?: number;
   visitedAgentIds?: string[];
@@ -94,8 +100,14 @@ export interface ICoordinatorRunParams {
   systemInstruction?: string;
   userMessage: string;
   userContentParts?: TRuntimeInputPart[];
+  /** @deprecated Prefira llmConfig. */
   openaiApiKey?: string;
   openaiRuntimeModel: string;
+  /**
+   * Configuração completa do provider LLM.
+   * Quando presente, sobrepõe `openaiApiKey` e determina provider/baseUrl/headers.
+   */
+  llmConfig?: ILlmProviderConfig;
   sdkTools: readonly TCoordinatorSdkTool[];
   /** When set, coordinator run uses streaming mode and forwards text chunks (SSE / live UI). */
   onAssistantTextDelta?: (delta: string) => void;

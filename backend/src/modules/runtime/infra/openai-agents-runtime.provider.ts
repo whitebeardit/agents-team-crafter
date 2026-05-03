@@ -12,13 +12,53 @@ import { formatAgentUserContentParts, formatAgentUserMessage } from '../applicat
 import { buildCapabilityCatalogTools, buildMcpSdkTools } from '../application/build-specialist-sdk-tools.js';
 import { buildWorkspaceCustomTools } from '../application/build-workspace-custom-tools.js';
 import { isGpt5FamilyModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
+import {
+  type ILlmProviderConfig,
+  buildOpenAiProviderConfig,
+  resolveModelIdForProvider,
+} from '../../../shared/kernel/llm-provider-config.js';
 
-function buildAgentModelOptions(modelId: string): { model: string; modelSettings?: object } {
+/**
+ * Resolve a configuração LLM efectiva para um run.
+ * Usa `llmConfig` se fornecido; senão constrói config OpenAI legacy a partir de `openaiApiKey`.
+ * Devolve null quando não há chave disponível.
+ */
+function resolveEffectiveLlmConfig(params: {
+  llmConfig?: ILlmProviderConfig;
+  openaiApiKey?: string;
+}): ILlmProviderConfig | null {
+  if (params.llmConfig) return params.llmConfig;
+  const key = params.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
+  if (!key) return null;
+  return buildOpenAiProviderConfig(key);
+}
+
+/**
+ * Instancia o `OpenAIProvider` a partir da configuração do provider LLM.
+ * Para OpenRouter: passa `baseURL` e `useResponses: false` (Chat Completions).
+ * Para OpenAI: usa o comportamento padrão (Responses API).
+ */
+function buildProviderFromConfig(config: ILlmProviderConfig): OpenAIProvider {
+  if (config.provider === 'openrouter') {
+    return new OpenAIProvider({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      useResponses: false,
+    });
+  }
+  return new OpenAIProvider({ apiKey: config.apiKey });
+}
+
+function buildAgentModelOptions(
+  modelId: string,
+  provider: ILlmProviderConfig['provider'],
+): { model: string; modelSettings?: object } {
+  const resolvedModel = resolveModelIdForProvider(modelId, provider);
   if (!isGpt5FamilyModel(modelId)) {
-    return { model: modelId };
+    return { model: resolvedModel };
   }
   return {
-    model: modelId,
+    model: resolvedModel,
     modelSettings: {
       reasoning: { effort: 'none' },
       text: { verbosity: 'low' },
@@ -139,11 +179,14 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   }
 
   async runStep(config: IExecutableAgentConfig, input: IAgentRunInput): Promise<IAgentRunResult> {
-    const apiKey = input.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
+    const llmConfig = resolveEffectiveLlmConfig({
+      llmConfig: input.llmConfig,
+      openaiApiKey: input.openaiApiKey,
+    });
+    if (!llmConfig) {
       return {
         finalOutput:
-          'Chave OpenAI nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY no ambiente (apenas demo).',
+          'Chave LLM nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY / OPENROUTER_API_KEY no ambiente (apenas demo).',
         events: [],
       };
     }
@@ -173,12 +216,12 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       instructions: config.systemInstruction ?? 'Voce e um agente de IA.',
       tools: sdkTools,
       handoffs: [],
-      ...buildAgentModelOptions(config.openaiRuntimeModel),
+      ...buildAgentModelOptions(config.openaiRuntimeModel, llmConfig.provider),
     });
 
     const userInput = buildRunnerInputFromAgentInput(input);
     const runner = new Runner({
-      modelProvider: new OpenAIProvider({ apiKey }),
+      modelProvider: buildProviderFromConfig(llmConfig),
     });
 
     try {
@@ -201,11 +244,14 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   }
 
   async runCoordinatorTurn(params: ICoordinatorRunParams): Promise<IAgentRunResult> {
-    const apiKey = params.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
+    const llmConfig = resolveEffectiveLlmConfig({
+      llmConfig: params.llmConfig,
+      openaiApiKey: params.openaiApiKey,
+    });
+    if (!llmConfig) {
       return {
         finalOutput:
-          'Chave OpenAI nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY no ambiente (apenas demo).',
+          'Chave LLM nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY / OPENROUTER_API_KEY no ambiente (apenas demo).',
         events: [],
       };
     }
@@ -216,11 +262,11 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       instructions: params.systemInstruction ?? 'Voce e o coordenador do time de agentes.',
       tools,
       handoffs: [],
-      ...buildAgentModelOptions(params.openaiRuntimeModel),
+      ...buildAgentModelOptions(params.openaiRuntimeModel, llmConfig.provider),
     });
 
     const runner = new Runner({
-      modelProvider: new OpenAIProvider({ apiKey }),
+      modelProvider: buildProviderFromConfig(llmConfig),
     });
 
     try {

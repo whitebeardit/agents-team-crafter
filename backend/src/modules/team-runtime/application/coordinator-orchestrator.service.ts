@@ -45,6 +45,7 @@ import {
   buildExecutionInterruptionDescriptor,
   type TInterruptionReasonCode,
 } from '../domain/execution-interruption.js';
+import { resolveModelIdForProvider } from '../../../shared/kernel/llm-provider-config.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -941,7 +942,7 @@ export class CoordinatorOrchestratorService {
         openaiRuntimeModel: specialistRuntimeModel,
       });
       await this.agentRuntime.compile(config);
-      const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
+      const llmConfig = await this.workspaceIntegrationsService.resolveLlmProviderConfig(ws);
 
       const ext = invocation.coordinatorExternalContext;
       const agentSec = srow['security'] as { accessLevel?: string } | undefined;
@@ -962,7 +963,7 @@ export class CoordinatorOrchestratorService {
       const r = await this.agentRuntime.runStep(config, {
         message: runtimeMessage,
         ...(runtimeInput.contentParts ? { contentParts: runtimeInput.contentParts } : {}),
-        ...(openaiApiKey ? { openaiApiKey } : {}),
+        ...(llmConfig ? { llmConfig } : {}),
         ...(requestedAccessLevel ? { requestedAccessLevel } : {}),
         ...(correlationId ? { correlationId } : {}),
         ...(conversationId ? { conversationId } : {}),
@@ -988,11 +989,11 @@ export class CoordinatorOrchestratorService {
     };
 
     const sdkTools = this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist });
-    const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
+    const coordinatorLlmConfig = await this.workspaceIntegrationsService.resolveLlmProviderConfig(ws);
     const userMessage = formatCoordinatorUserMessage(invocation);
     const userContentParts = formatCoordinatorUserContentParts(invocation);
     const crow = coordinator as Record<string, unknown>;
-    const coordinatorRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
+    const coordinatorRuntimeModelBase = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
       ws,
       typeof crow['openaiRuntimeModel'] === 'string' ? crow['openaiRuntimeModel'] : null,
     );
@@ -1024,6 +1025,10 @@ export class CoordinatorOrchestratorService {
       detail: 'A executar coordenador',
     });
 
+    const coordinatorRuntimeModel = resolveModelIdForProvider(
+      coordinatorRuntimeModelBase,
+      coordinatorLlmConfig?.provider ?? 'openai',
+    );
     const result = await this.agentRuntime.runCoordinatorTurn({
       coordinatorAgentId: teamRow.coordinatorId,
       workspaceId: ws,
@@ -1031,7 +1036,7 @@ export class CoordinatorOrchestratorService {
       userMessage,
       ...(userContentParts ? { userContentParts } : {}),
       openaiRuntimeModel: coordinatorRuntimeModel,
-      ...(openaiApiKey ? { openaiApiKey } : {}),
+      ...(coordinatorLlmConfig ? { llmConfig: coordinatorLlmConfig } : {}),
       sdkTools,
       ...(streamText && options?.onCoordinatorTextDelta
         ? { onAssistantTextDelta: options.onCoordinatorTextDelta }

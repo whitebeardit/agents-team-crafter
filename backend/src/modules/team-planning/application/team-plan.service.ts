@@ -9,6 +9,10 @@ import type { IGraphNode } from '../../graphs/domain/graph-types.js';
 import type { TeamPlanRepository } from '../infra/team-plan.repository.js';
 import { fetchTeamPlanJsonCompletion } from './team-plan-json-completion.js';
 import {
+  type ILlmProviderConfig,
+  resolveModelIdForProvider,
+} from '../../../shared/kernel/llm-provider-config.js';
+import {
   type ITeamPlannerStructuredBriefing,
   TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
   TEAM_PLANNER_SYSTEM_PROMPT,
@@ -28,7 +32,7 @@ import {
   PLANNER_PACK_TO_ACTION_IDS,
 } from './planner-pack-presets.js';
 import { ensureInternalActionDefinitions } from './ensure-planner-tool-definitions.js';
-import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../../../app/metrics.js';
+import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics, recordLlmPlannerFallback } from '../../../app/metrics.js';
 import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
 import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
 import { PLANNER_SPECIALIST_EXAMPLE_PHRASES_MIN } from '../../agents/domain/example-user-phrases.js';
@@ -674,16 +678,17 @@ export class TeamPlanService {
 
   private async fetchRepairedPlannerOutput(params: {
     workspaceId: string;
-    apiKey: string;
+    llmConfig: ILlmProviderConfig;
     problem: string;
     context?: string;
     invalidPlanJson: string;
     diagnosis: string;
     repairAttempt: number;
   }): Promise<TPlannerOutput | null> {
-    const model = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(params.workspaceId);
+    const modelBase = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(params.workspaceId);
+    const model = resolveModelIdForProvider(modelBase, params.llmConfig.provider);
     const { content } = await fetchTeamPlanJsonCompletion({
-      apiKey: params.apiKey,
+      apiKey: params.llmConfig.apiKey,
       model,
       systemPrompt: TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
       userMessage: buildTeamPlannerRepairUserMessage({
@@ -693,6 +698,8 @@ export class TeamPlanService {
         diagnosis: params.diagnosis,
         repairAttempt: params.repairAttempt,
       }),
+      baseUrl: params.llmConfig.baseUrl,
+      extraHeaders: params.llmConfig.extraHeaders,
     });
     const extracted = this.extractJsonLoose(content);
     if (extracted === null) return null;
@@ -715,7 +722,7 @@ export class TeamPlanService {
     context?: string;
     briefing?: ITeamPlannerStructuredBriefing;
     initialRaw: TPlannerOutput;
-    apiKey: string;
+    llmConfig: ILlmProviderConfig;
   }): Promise<{
     raw: TPlannerOutput;
     plannerMetaExtras: Partial<ITeamPlannerMeta>;
@@ -760,7 +767,7 @@ export class TeamPlanService {
       const invalidPlanJson = this.formatPlanPayloadForRepair(ev);
       const repaired = await this.fetchRepairedPlannerOutput({
         workspaceId: params.workspaceId,
-        apiKey: params.apiKey,
+        llmConfig: params.llmConfig,
         problem: params.problem,
         context: params.context,
         invalidPlanJson,
@@ -818,15 +825,15 @@ export class TeamPlanService {
       );
     }
 
-    const keyResolution = await this.deps.workspaceIntegrationsService.resolveOpenAiApiKeyWithSource(workspaceId);
-    const apiKey = keyResolution.apiKey;
-    const openaiResolvedFromEnv = keyResolution.source === 'environment';
+    const llmConfig = await this.deps.workspaceIntegrationsService.resolveLlmProviderConfig(workspaceId);
+    const openaiResolvedFromEnv = false; // campo legado; mantido por compatibilidade de resposta API
 
     let raw: TPlannerOutput;
     let plannerMeta: ITeamPlannerMeta;
 
-    if (!apiKey) {
+    if (!llmConfig) {
       raw = this.buildFallback(input.problem, input.context, input.briefing);
+      recordLlmPlannerFallback('none', 'no_openai_key');
       plannerMeta = {
         usedOpenAi: false,
         usedFallback: true,
@@ -835,17 +842,20 @@ export class TeamPlanService {
       };
     } else {
       try {
-        const plannerModelResolved =
+        const plannerModelBase =
           await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
+        const plannerModelResolved = resolveModelIdForProvider(plannerModelBase, llmConfig.provider);
         const { content } = await fetchTeamPlanJsonCompletion({
-          apiKey,
+          apiKey: llmConfig.apiKey,
           model: plannerModelResolved,
           systemPrompt: TEAM_PLANNER_SYSTEM_PROMPT,
           userMessage: buildTeamPlannerUserMessage(input.problem, input.context, input.briefing),
+          baseUrl: llmConfig.baseUrl,
+          extraHeaders: llmConfig.extraHeaders,
         });
         const extracted = this.extractJsonLoose(content);
         if (extracted === null) {
-          log.warn({ workspaceId }, 'team plan: JSON nao extraido da resposta OpenAI');
+          log.warn({ workspaceId, provider: llmConfig.provider }, 'team plan: JSON nao extraido da resposta LLM');
           raw = this.buildFallback(input.problem, input.context, input.briefing);
           plannerMeta = {
             usedOpenAi: false,
@@ -885,9 +895,9 @@ export class TeamPlanService {
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        log.warn({ workspaceId, err: msg }, 'team plan: falha na chamada OpenAI');
+        log.warn({ workspaceId, provider: llmConfig.provider, err: msg }, 'team plan: falha na chamada LLM');
         raw = this.buildFallback(input.problem, input.context, input.briefing);
-        const plannerModelResolved =
+        const plannerModelBase =
           await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
         plannerMeta = {
           usedOpenAi: false,
@@ -895,19 +905,19 @@ export class TeamPlanService {
           fallbackReason: 'openai_request_failed',
           openaiResolvedFromEnv,
           parseErrorSummary: msg.slice(0, 400),
-          plannerModel: plannerModelResolved,
+          plannerModel: resolveModelIdForProvider(plannerModelBase, llmConfig.provider),
         };
       }
     }
 
-    if (apiKey && plannerMeta.usedOpenAi && !plannerMeta.usedFallback) {
+    if (llmConfig && plannerMeta.usedOpenAi && !plannerMeta.usedFallback) {
       const resolved = await this.resolveCatalogUniquenessWithRepair({
         workspaceId,
         problem: input.problem,
         context: input.context,
         briefing: input.briefing,
         initialRaw: raw,
-        apiKey,
+        llmConfig,
       });
       raw = resolved.raw;
       plannerMeta = {
@@ -916,10 +926,11 @@ export class TeamPlanService {
       };
     }
 
-    if (apiKey && !plannerMeta.plannerModel) {
+    if (llmConfig && !plannerMeta.plannerModel) {
+      const plannerModelBase = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
       plannerMeta = {
         ...plannerMeta,
-        plannerModel: await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId),
+        plannerModel: resolveModelIdForProvider(plannerModelBase, llmConfig.provider),
       };
     }
 

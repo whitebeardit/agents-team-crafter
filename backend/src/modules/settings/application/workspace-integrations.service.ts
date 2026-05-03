@@ -22,10 +22,22 @@ import {
   parseTeamPlannerModelFromEnv,
   pickResolvedWorkspaceChatModel,
 } from '../../../shared/kernel/openai-workspace-chat-models.js';
+import {
+  type ILlmProviderConfig,
+  type TLlmProvider,
+  OPENAI_BASE_URL,
+  OPENROUTER_BASE_URL,
+  buildOpenAiProviderConfig,
+  buildOpenRouterProviderConfig,
+} from '../../../shared/kernel/llm-provider-config.js';
 
 function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): boolean {
   return (
     Boolean(next.openaiApiKey?.trim()) ||
+    Boolean(next.openrouterApiKey?.trim()) ||
+    Boolean(next.llmProvider) ||
+    Boolean(next.openrouterRuntimeModel?.trim()) ||
+    Boolean(next.openrouterPlannerModel?.trim()) ||
     Boolean(next.smtp?.host?.trim() && next.smtp?.user?.trim() && next.smtp?.password?.trim()) ||
     Boolean(
       next.slack &&
@@ -158,6 +170,46 @@ export class WorkspaceIntegrationsService {
     return r.apiKey;
   }
 
+  /**
+   * Resolve a configuração completa do provider LLM para o workspace.
+   * Prioridade: provider/chave do workspace (BYOK) → default do ambiente (env).
+   * Retorna null quando não há chave disponível.
+   */
+  async resolveLlmProviderConfig(workspaceId: string): Promise<ILlmProviderConfig | null> {
+    const p = await this.getPlainPayload(workspaceId);
+
+    // Determinação do provider: workspace explícito > env > 'openai'
+    const workspaceProvider = p?.llmProvider;
+    const envProvider = (process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as TLlmProvider | undefined;
+    const effectiveProvider: TLlmProvider = workspaceProvider ?? envProvider ?? 'openai';
+
+    if (effectiveProvider === 'openrouter') {
+      const wsKey = p?.openrouterApiKey?.trim();
+      const envKey =
+        process.env.OPENROUTER_API_KEY?.trim() || this.env.OPENROUTER_API_KEY?.trim();
+      const apiKey = wsKey || envKey;
+      if (!apiKey) return null;
+      const referer =
+        process.env.OPENROUTER_HTTP_REFERER?.trim() || this.env.OPENROUTER_HTTP_REFERER?.trim();
+      const title =
+        process.env.OPENROUTER_APP_TITLE?.trim() || this.env.OPENROUTER_APP_TITLE?.trim();
+      const extraHeaders: Record<string, string> = {};
+      if (referer) extraHeaders['HTTP-Referer'] = referer;
+      if (title) extraHeaders['X-OpenRouter-Title'] = title;
+      return buildOpenRouterProviderConfig(
+        apiKey,
+        Object.keys(extraHeaders).length > 0 ? extraHeaders : undefined,
+      );
+    }
+
+    // OpenAI (default)
+    const wsKey = p?.openaiApiKey?.trim();
+    const envKey = process.env.OPENAI_API_KEY?.trim() || this.env.OPENAI_API_KEY?.trim();
+    const apiKey = wsKey || envKey;
+    if (!apiKey) return null;
+    return buildOpenAiProviderConfig(apiKey);
+  }
+
   async resolveTeamPlannerModel(workspaceId: string): Promise<EOpenAiWorkspaceChatModel> {
     const p = (await this.getPlainPayload(workspaceId)) ?? {};
     return pickResolvedWorkspaceChatModel({
@@ -165,6 +217,21 @@ export class WorkspaceIntegrationsService {
       enabled: p.enabledOpenAiChatModels,
       productDefault: DEFAULT_TEAM_PLANNER_MODEL,
     });
+  }
+
+  /**
+   * Resolve o modelo do planner respeitando overrides específicos de OpenRouter.
+   * Quando o provider é OpenRouter e há `openrouterPlannerModel`, usa-o directamente.
+   */
+  async resolveTeamPlannerModelForProvider(workspaceId: string): Promise<string> {
+    const p = (await this.getPlainPayload(workspaceId)) ?? {};
+    const provider = p.llmProvider ??
+      ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as 'openai' | 'openrouter' | undefined) ??
+      'openai';
+    if (provider === 'openrouter' && p.openrouterPlannerModel?.trim()) {
+      return p.openrouterPlannerModel.trim();
+    }
+    return this.resolveTeamPlannerModel(workspaceId);
   }
 
   /**
@@ -185,6 +252,24 @@ export class WorkspaceIntegrationsService {
       enabled: p.enabledOpenAiChatModels,
       productDefault: DEFAULT_AGENTS_RUNTIME_MODEL,
     });
+  }
+
+  /**
+   * Resolve o modelo runtime respeitando overrides específicos de OpenRouter.
+   * Quando o provider é OpenRouter e há `openrouterRuntimeModel`, usa-o directamente.
+   */
+  async resolveAgentsRuntimeModelForProvider(
+    workspaceId: string,
+    agentOverrideRaw?: string | null,
+  ): Promise<string> {
+    const p = (await this.getPlainPayload(workspaceId)) ?? {};
+    const provider = p.llmProvider ??
+      ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as 'openai' | 'openrouter' | undefined) ??
+      'openai';
+    if (provider === 'openrouter' && !agentOverrideRaw && p.openrouterRuntimeModel?.trim()) {
+      return p.openrouterRuntimeModel.trim();
+    }
+    return this.resolveAgentsRuntimeModel(workspaceId, agentOverrideRaw);
   }
 
   /** Valida override por agente contra o subset habilitado no workspace. */
@@ -223,19 +308,49 @@ export class WorkspaceIntegrationsService {
   }
 
   async testOpenAi(workspaceId: string): Promise<{ ok: boolean; message: string }> {
-    const key = await this.resolveOpenAiApiKey(workspaceId);
-    if (!key) {
-      return { ok: false, message: 'Nenhuma chave OpenAI configurada para este workspace (nem fallback de ambiente).' };
+    const config = await this.resolveLlmProviderConfig(workspaceId);
+    if (!config) {
+      return {
+        ok: false,
+        message: 'Nenhuma chave LLM configurada para este workspace (nem fallback de ambiente).',
+      };
     }
     try {
-      const res = await fetch('https://api.openai.com/v1/models?limit=1', {
-        headers: { Authorization: `Bearer ${key}` },
+      if (config.provider === 'openrouter') {
+        return await this.testOpenRouterConnection(config);
+      }
+      const res = await fetch(`${OPENAI_BASE_URL}/models?limit=1`, {
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          ...(config.extraHeaders ?? {}),
+        },
       });
       if (!res.ok) {
         const t = await res.text();
         return { ok: false, message: `OpenAI HTTP ${res.status}: ${t.slice(0, 200)}` };
       }
       return { ok: true, message: 'Ligacao OpenAI OK.' };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { ok: false, message: msg };
+    }
+  }
+
+  private async testOpenRouterConnection(
+    config: ILlmProviderConfig,
+  ): Promise<{ ok: boolean; message: string }> {
+    try {
+      const res = await fetch(`${OPENROUTER_BASE_URL}/models?limit=1`, {
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          ...(config.extraHeaders ?? {}),
+        },
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        return { ok: false, message: `OpenRouter HTTP ${res.status}: ${t.slice(0, 200)}` };
+      }
+      return { ok: true, message: 'Ligacao OpenRouter OK.' };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return { ok: false, message: msg };
