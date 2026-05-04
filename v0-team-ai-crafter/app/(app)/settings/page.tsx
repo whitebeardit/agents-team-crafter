@@ -274,7 +274,7 @@ export default function SettingsPage() {
   const [enabledChatModelsSelection, setEnabledChatModelsSelection] = useState<string[]>([])
   const [agentsRuntimeModelPick, setAgentsRuntimeModelPick] = useState<string>("__unset__")
   const [teamPlannerModelPick, setTeamPlannerModelPick] = useState<string>("__unset__")
-  const [llmProviderPick, setLlmProviderPick] = useState<"openai" | "openrouter">("openai")
+  const [llmProviderPick, setLlmProviderPick] = useState<"openai" | "openrouter">("openrouter")
   const [openrouterKeyInput, setOpenrouterKeyInput] = useState("")
   const [orCatalogModels, setOrCatalogModels] = useState<TOpenRouterCatalogRow[]>([])
   const [orCatalogLoading, setOrCatalogLoading] = useState(false)
@@ -340,7 +340,7 @@ export default function SettingsPage() {
   const currentPlan = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
 
   const applyIntegrationsChatState = useCallback((data: IntegrationsApiData) => {
-    const prov = data.secretsMasked.llmProvider === "openrouter" ? "openrouter" : "openai"
+    const prov = data.secretsMasked.llmProvider === "openai" ? "openai" : "openrouter"
     setLlmProviderPick(prov)
     const am =
       data.secretsMasked.allowedLlmModelIds?.length && data.secretsMasked.allowedLlmModelIds.length > 0

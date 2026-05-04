@@ -26,6 +26,7 @@ import {
 import {
   type ILlmProviderConfig,
   type TLlmProvider,
+  DEFAULT_LLM_PROVIDER,
   OPENAI_BASE_URL,
   OPENROUTER_BASE_URL,
   buildOpenAiProviderConfig,
@@ -223,10 +224,10 @@ export class WorkspaceIntegrationsService {
   async resolveLlmProviderConfig(workspaceId: string): Promise<ILlmProviderConfig | null> {
     const p = await this.getPlainPayload(workspaceId);
 
-    // Determinação do provider: workspace explícito > env > 'openai'
+    // Determinação do provider: workspace explícito > env > DEFAULT_LLM_PROVIDER (openrouter)
     const workspaceProvider = p?.llmProvider;
     const envProvider = (process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as TLlmProvider | undefined;
-    const effectiveProvider: TLlmProvider = workspaceProvider ?? envProvider ?? 'openai';
+    const effectiveProvider: TLlmProvider = workspaceProvider ?? envProvider ?? DEFAULT_LLM_PROVIDER;
 
     if (effectiveProvider === 'openrouter') {
       const wsKey = p?.openrouterApiKey?.trim();
@@ -271,7 +272,7 @@ export class WorkspaceIntegrationsService {
     const p = (await this.getPlainPayload(workspaceId)) ?? {};
     const provider = p.llmProvider ??
       ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as 'openai' | 'openrouter' | undefined) ??
-      'openai';
+      DEFAULT_LLM_PROVIDER;
     if (provider === 'openrouter' && p.openrouterPlannerModel?.trim()) {
       return p.openrouterPlannerModel.trim();
     }
@@ -310,7 +311,7 @@ export class WorkspaceIntegrationsService {
     const p = (await this.getPlainPayload(workspaceId)) ?? {};
     const provider = p.llmProvider ??
       ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as 'openai' | 'openrouter' | undefined) ??
-      'openai';
+      DEFAULT_LLM_PROVIDER;
     const override = typeof agentOverrideRaw === 'string' ? agentOverrideRaw.trim() : '';
     if (provider === 'openrouter') {
       if (override) return override;
@@ -333,7 +334,7 @@ export class WorkspaceIntegrationsService {
     const p = (await this.getPlainPayload(workspaceId)) ?? {};
     const provider = p.llmProvider ??
       ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as TLlmProvider | undefined) ??
-      'openai';
+      DEFAULT_LLM_PROVIDER;
 
     if (provider === 'openrouter') {
       const isSlug = isOpenRouterStyleModelId(s0);

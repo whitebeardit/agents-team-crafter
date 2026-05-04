@@ -45,7 +45,7 @@ import {
   buildExecutionInterruptionDescriptor,
   type TInterruptionReasonCode,
 } from '../domain/execution-interruption.js';
-import { resolveModelIdForProvider } from '../../../shared/kernel/llm-provider-config.js';
+import { DEFAULT_LLM_PROVIDER, resolveModelIdForProvider } from '../../../shared/kernel/llm-provider-config.js';
 import {
   buildOpenRouterDashboardTitle,
   openRouterOriginLabelFromHttpReferer,
@@ -1047,7 +1047,7 @@ export class CoordinatorOrchestratorService {
 
     const coordinatorRuntimeModel = resolveModelIdForProvider(
       coordinatorRuntimeModelBase,
-      coordinatorLlmConfig?.provider ?? 'openai',
+      coordinatorLlmConfig?.provider ?? DEFAULT_LLM_PROVIDER,
     );
     const coordinatorOpenRouterTitle =
       coordinatorLlmConfig?.provider === 'openrouter'

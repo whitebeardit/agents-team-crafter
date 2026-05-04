@@ -6,7 +6,7 @@ import {
   parseOpenAiWorkspaceChatModel,
 } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { AppError } from '../../../shared/errors/app-error.js';
-import type { TLlmProvider } from '../../../shared/kernel/llm-provider-config.js';
+import { DEFAULT_LLM_PROVIDER, type TLlmProvider } from '../../../shared/kernel/llm-provider-config.js';
 import { OPENROUTER_MODEL_ID_PATTERN } from '../../../shared/kernel/openrouter-model-id-pattern.js';
 
 /** Payload interno (plaintext) guardado cifrado em Workspace.integrationSecretsEncrypted */
@@ -17,7 +17,7 @@ export interface IWorkspaceIntegrationsPayload {
   openaiApiKey?: string;
   /**
    * Provider LLM explícito para este workspace.
-   * Quando omitido herda o default global (env LLM_PROVIDER, ou 'openai').
+   * Quando omitido herda o default global (env LLM_PROVIDER, ou o padrao do produto em codigo — OpenRouter).
    */
   llmProvider?: TLlmProvider;
   /** Chave BYOK para OpenRouter quando `llmProvider = 'openrouter'`. */
@@ -335,7 +335,7 @@ function effectiveLlmProvider(payload: IWorkspaceIntegrationsPayload): TLlmProvi
   if (w === 'openrouter' || w === 'openai') return w;
   const env = typeof process !== 'undefined' ? process.env.LLM_PROVIDER?.trim() : undefined;
   if (env === 'openrouter' || env === 'openai') return env;
-  return 'openai';
+  return DEFAULT_LLM_PROVIDER;
 }
 
 function assertOpenRouterModelId(raw: string | undefined, label: string): void {

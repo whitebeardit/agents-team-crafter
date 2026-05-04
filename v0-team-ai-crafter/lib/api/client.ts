@@ -6,6 +6,7 @@ import type {
   TeamRunRequest,
   TeamRunResponse,
 } from "@/lib/types"
+import { emitSessionLost } from "@/lib/auth/session-lost-event"
 
 export interface ISuccessEnvelope<T> {
   success: true
@@ -99,6 +100,16 @@ type SetAuth = (auth: { token: string; refreshToken?: string }) => void
 type ClearAuth = () => void
 type GetWorkspaceId = () => string | null | undefined
 
+/** Evita `parseEnvelope` em 401 após refresh falhar: o layout redireciona com sessão limpa. */
+function pendingForever<T>(): Promise<T> {
+  return new Promise(() => {})
+}
+
+function clearSessionAfterAuthFailure(d: { clearAuth: ClearAuth }) {
+  d.clearAuth()
+  emitSessionLost()
+}
+
 /** Parse Server-Sent Events body (fetch streaming). */
 async function consumeSseResponse(
   res: Response,
@@ -157,15 +168,20 @@ export function createApiClient(deps: {
   async function refreshTokenIfPossible() {
     const { refreshToken } = deps.getAuth()
     if (!refreshToken) return false
-    const baseUrl = getBaseUrl()
-    const res = await fetch(joinUrl(baseUrl, "/auth/refresh"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    })
-    const env = await parseEnvelope<{ token: string; refreshToken: string; expiresAt: string }>(res)
-    deps.setAuth({ token: env.data.token, refreshToken: env.data.refreshToken })
-    return true
+    try {
+      const baseUrl = getBaseUrl()
+      const res = await fetch(joinUrl(baseUrl, "/auth/refresh"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      })
+      const env = await parseEnvelope<{ token: string; refreshToken: string; expiresAt: string }>(res)
+      deps.setAuth({ token: env.data.token, refreshToken: env.data.refreshToken })
+      return true
+    } catch {
+      clearSessionAfterAuthFailure(deps)
+      return false
+    }
   }
 
   async function request<T>(
@@ -197,8 +213,12 @@ export function createApiClient(deps: {
         if (newToken) headers.set("Authorization", `Bearer ${newToken}`)
         res = await doFetch()
       } else {
-        deps.clearAuth()
+        clearSessionAfterAuthFailure(deps)
       }
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
+      return pendingForever()
     }
 
     return parseEnvelope<T>(res)
@@ -230,8 +250,11 @@ export function createApiClient(deps: {
         if (newToken) headers.set("Authorization", `Bearer ${newToken}`)
         res = await doFetch()
       } else {
-        deps.clearAuth()
+        clearSessionAfterAuthFailure(deps)
       }
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
     }
     return res
   }
@@ -260,7 +283,10 @@ export function createApiClient(deps: {
     if (res.status === 401) {
       const refreshed = await refreshTokenIfPossible()
       if (refreshed) res = await doFetch()
-      else deps.clearAuth()
+      else clearSessionAfterAuthFailure(deps)
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
     }
 
     if (!res.ok) {
@@ -324,7 +350,10 @@ export function createApiClient(deps: {
     if (res.status === 401) {
       const refreshed = await refreshTokenIfPossible()
       if (refreshed) res = await doFetch()
-      else deps.clearAuth()
+      else clearSessionAfterAuthFailure(deps)
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
     }
 
     if (!res.ok) {
@@ -395,7 +424,10 @@ export function createApiClient(deps: {
     if (res.status === 401) {
       const refreshed = await refreshTokenIfPossible()
       if (refreshed) res = await doFetch()
-      else deps.clearAuth()
+      else clearSessionAfterAuthFailure(deps)
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
     }
 
     if (!res.ok) {

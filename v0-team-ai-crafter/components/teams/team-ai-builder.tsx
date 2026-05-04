@@ -876,7 +876,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
           }
         }>("/settings/workspace/integrations")
         .then((r) => {
-          const prov = r.data.secretsMasked.llmProvider === "openrouter" ? "openrouter" : "openai"
+          const prov = r.data.secretsMasked.llmProvider === "openai" ? "openai" : "openrouter"
           const ok =
             prov === "openrouter"
               ? Boolean(r.data.secretsMasked.openrouterApiKeyConfigured)

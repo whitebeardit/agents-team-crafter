@@ -5,6 +5,9 @@
 
 export type TLlmProvider = 'openai' | 'openrouter';
 
+/** Quando workspace e `LLM_PROVIDER` não fixam outro valor. */
+export const DEFAULT_LLM_PROVIDER: TLlmProvider = 'openrouter';
+
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 export const OPENAI_BASE_URL = 'https://api.openai.com/v1';
 

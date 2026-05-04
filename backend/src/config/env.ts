@@ -13,10 +13,10 @@ const envSchema = z
     OPENAI_API_KEY: z.string().min(1).optional(),
     /**
      * Provider LLM padrão quando o workspace não define um explicitamente.
-     * 'openai' (padrão) ou 'openrouter'.
+     * 'openrouter' (padrão em código quando omitido) ou 'openai'.
      */
     LLM_PROVIDER: z.enum(['openai', 'openrouter']).optional(),
-    /** Chave de fallback para OpenRouter (usado quando LLM_PROVIDER=openrouter sem BYOK no workspace). */
+    /** Chave de fallback para OpenRouter (usado com provider OpenRouter sem BYOK no workspace). */
     OPENROUTER_API_KEY: z.string().min(1).optional(),
     /** Header HTTP-Referer enviado ao OpenRouter (melhora ranking na plataforma deles). */
     OPENROUTER_HTTP_REFERER: z.string().optional(),

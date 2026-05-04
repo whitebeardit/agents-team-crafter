@@ -103,6 +103,19 @@ const OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK: readonly string[] = [
   "gpt-4o-mini",
 ]
 
+/** Mesma forma que `secretsMasked` no GET /integrations (fallback do catch precisa do mesmo tipo para não unir com branch estreita). */
+type AgentPageIntegrationsSecretsMasked = {
+  llmProvider?: "openai" | "openrouter"
+  openaiApiKeyConfigured: boolean
+  openrouterApiKeyConfigured?: boolean
+  enabledOpenAiChatModels?: string[]
+  allowedLlmModelIds?: string[]
+}
+
+const integrationsSecretsMaskedFallback: AgentPageIntegrationsSecretsMasked = {
+  openaiApiKeyConfigured: false,
+}
+
 type TBusinessCatalogItem = {
   actionId: string
   title: string
@@ -269,19 +282,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           api
             .get<{
               allowedLlmModelIds?: string[]
-              secretsMasked: {
-                llmProvider?: "openai" | "openrouter"
-                openaiApiKeyConfigured: boolean
-                openrouterApiKeyConfigured?: boolean
-                enabledOpenAiChatModels?: string[]
-                allowedLlmModelIds?: string[]
-              }
+              secretsMasked: AgentPageIntegrationsSecretsMasked
               operationalCatalogTools: OperationalCatalogTool[]
               availableOpenAiChatModels?: string[]
             }>("/settings/workspace/integrations")
             .catch(() => ({
               data: {
-                secretsMasked: { openaiApiKeyConfigured: false },
+                secretsMasked: integrationsSecretsMaskedFallback,
                 operationalCatalogTools: [] as OperationalCatalogTool[],
                 availableOpenAiChatModels: [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK],
                 allowedLlmModelIds: [] as string[],
@@ -296,7 +303,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         applyAgentPayload(agentRes.data, { operationalCatalogToolIds: opIds })
         const intPayload = integrationsRes.data
         const sm = intPayload.secretsMasked
-        const prov = sm.llmProvider === "openrouter" ? "openrouter" : "openai"
+        const prov = sm.llmProvider === "openai" ? "openai" : "openrouter"
         const llmReady =
           prov === "openrouter"
             ? Boolean(sm.openrouterApiKeyConfigured)
@@ -602,13 +609,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         api.get<Agent>(`/agents/${id}`),
         api.get<{
           allowedLlmModelIds?: string[]
-          secretsMasked: {
-            llmProvider?: "openai" | "openrouter"
-            openaiApiKeyConfigured: boolean
-            openrouterApiKeyConfigured?: boolean
-            enabledOpenAiChatModels?: string[]
-            allowedLlmModelIds?: string[]
-          }
+          secretsMasked: AgentPageIntegrationsSecretsMasked
           operationalCatalogTools: OperationalCatalogTool[]
           availableOpenAiChatModels?: string[]
         }>("/settings/workspace/integrations"),
@@ -619,7 +620,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       applyAgentPayload(agentFreshRes.data, { operationalCatalogToolIds: opIds })
       const intData = integrationsFreshRes.data
       const smFresh = intData.secretsMasked
-      const provFresh = smFresh.llmProvider === "openrouter" ? "openrouter" : "openai"
+      const provFresh = smFresh.llmProvider === "openai" ? "openai" : "openrouter"
       setWorkspaceLlmConfigured(
         provFresh === "openrouter"
           ? Boolean(smFresh.openrouterApiKeyConfigured)

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CircleHelp, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { createApiClient } from "@/lib/api/client"
+import type { User } from "@/lib/types"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { CONTEXTUAL_TOUR_CATALOG } from "@/lib/contextual-tours-catalog"
 import type { ContextualTourScreenKey } from "@/lib/contextual-tours"
@@ -79,6 +80,15 @@ export function ContextualTourHost({ screenKey, autoStart = true }: ContextualTo
   const persistSeen = useCallback(async () => {
     if (!token || !user || !wsId) return
     setSaving(true)
+    const nextPrefs = mergeTourSeenVersion(prefs, wsId, screenKey, def.version)
+    /** Patch mínimo: o BFF faz merge profundo em `contextualTours.byWorkspace`. */
+    const preferencesPatch: Record<string, unknown> = {
+      contextualTours: {
+        byWorkspace: {
+          [wsId]: { [screenKey]: def.version },
+        },
+      },
+    }
     try {
       const api = createApiClient({
         getAuth: () => ({ token, refreshToken }),
@@ -90,9 +100,15 @@ export function ContextualTourHost({ screenKey, autoStart = true }: ContextualTo
         clearAuth: () => {},
         getWorkspaceId: () => wsId,
       })
-      const nextPrefs = mergeTourSeenVersion(prefs, wsId, screenKey, def.version)
-      await api.put("/settings/profile", { preferences: nextPrefs }, { tenant: false })
-      await refreshSessionUser()
+      await api.put("/settings/profile", { preferences: preferencesPatch }, { tenant: false })
+      useWorkspaceStore.setState((s) =>
+        s.user ? { user: { ...s.user, preferences: nextPrefs as User["preferences"] } } : {},
+      )
+      try {
+        await refreshSessionUser()
+      } catch {
+        /* preferência já persistida; falha ao re-sincronizar /auth/me */
+      }
     } catch {
       toast.error("Não foi possível gravar a preferência do tour")
     } finally {

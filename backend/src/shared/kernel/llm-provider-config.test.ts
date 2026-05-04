@@ -1,11 +1,18 @@
 import {
   buildOpenAiProviderConfig,
   buildOpenRouterProviderConfig,
+  DEFAULT_LLM_PROVIDER,
   openRouterMaxOutputTokensFromEnv,
   resolveModelIdForProvider,
   OPENAI_BASE_URL,
   OPENROUTER_BASE_URL,
 } from './llm-provider-config.js';
+
+describe('DEFAULT_LLM_PROVIDER', () => {
+  it('deve ser openrouter (padrao do produto)', () => {
+    expect(DEFAULT_LLM_PROVIDER).toBe('openrouter');
+  });
+});
 
 describe('buildOpenAiProviderConfig', () => {
   it('deve retornar configuração OpenAI com baseUrl correcto e useResponses=true', () => {

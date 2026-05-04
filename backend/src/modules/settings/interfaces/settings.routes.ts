@@ -16,6 +16,48 @@ const workspacePut = z.object({
   settings: z.record(z.string(), z.unknown()).optional(),
 });
 
+/** Merge de `preferences` no PUT perfil: shallow nas chaves de topo, merge profundo em `contextualTours.byWorkspace`. */
+function mergeUserPreferences(
+  current: Record<string, unknown> | undefined,
+  incoming: Record<string, unknown>,
+): Record<string, unknown> {
+  const base = { ...(current ?? {}) };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (key !== 'contextualTours') {
+      base[key] = value;
+      continue;
+    }
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      base[key] = value;
+      continue;
+    }
+    const incomingCt = value as Record<string, unknown>;
+    const curCt = (base['contextualTours'] as Record<string, unknown> | undefined) ?? {};
+    const mergedCt: Record<string, unknown> = { ...curCt };
+    const incomingBw = incomingCt['byWorkspace'];
+    if (incomingBw !== null && typeof incomingBw === 'object' && !Array.isArray(incomingBw)) {
+      const curBw = { ...((curCt['byWorkspace'] as Record<string, unknown> | undefined) ?? {}) };
+      for (const [wsId, screens] of Object.entries(incomingBw as Record<string, unknown>)) {
+        if (screens !== null && typeof screens === 'object' && !Array.isArray(screens)) {
+          curBw[wsId] = {
+            ...((curBw[wsId] as Record<string, unknown> | undefined) ?? {}),
+            ...(screens as Record<string, unknown>),
+          };
+        } else {
+          curBw[wsId] = screens;
+        }
+      }
+      mergedCt['byWorkspace'] = curBw;
+    }
+    for (const [ctKey, ctVal] of Object.entries(incomingCt)) {
+      if (ctKey === 'byWorkspace') continue;
+      mergedCt[ctKey] = ctVal;
+    }
+    base['contextualTours'] = mergedCt;
+  }
+  return base;
+}
+
 /** ~1.1MB base64 payload guard (data URLs for avatars) */
 const MAX_AVATAR_CHARS = 1_600_000;
 
@@ -165,7 +207,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
     if (!cur) throw new AppError('NOT_FOUND', 'Usuario nao encontrado', 404);
     const mergedPrefs =
       body.preferences !== undefined
-        ? { ...((cur.preferences as Record<string, unknown>) ?? {}), ...body.preferences }
+        ? mergeUserPreferences(cur.preferences as Record<string, unknown> | undefined, body.preferences)
         : undefined;
     if (body.avatar !== undefined) {
       const a = body.avatar.trim();
