@@ -15,6 +15,8 @@ export const knowledgeSchema = z.object({
   useSessionMemory: z.boolean(),
   usePersistentMemory: z.boolean(),
   fixedContext: z.string().optional(),
+  /** Budget opcional de tokens para injeção de learnings do vault no prompt do especialista. */
+  tokenBudget: z.number().int().min(100).max(8000).optional(),
 });
 
 export const agentDomainSchema = z.object({
@@ -32,7 +34,10 @@ export const agentDomainSchema = z.object({
 
 export const qualityCriteriaSchema = z.array(z.string()).optional();
 
-export const systemRoleSchema = z.enum(['team-crafter', 'agent-crafter', 'domain-guard']).nullable().optional();
+export const systemRoleSchema = z
+  .enum(['team-crafter', 'agent-crafter', 'domain-guard', 'librarian'])
+  .nullable()
+  .optional();
 
 const mongoId = z.string().regex(/^[a-f0-9]{24}$/i, 'ObjectId invalido');
 

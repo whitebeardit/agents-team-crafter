@@ -260,6 +260,15 @@ function bindInbound(
         startedAt,
         result,
       });
+      const runSampleIndex = [...result.runId].reduce((a, c) => a + c.charCodeAt(0), 0);
+      void deps.memorySummarizer
+        .onRunCompleted({
+          workspaceId,
+          coordinatorAgentId: result.coordinatorAgentId,
+          result,
+          runSampleIndex,
+        })
+        .catch(() => {});
       return result.externalResponse;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

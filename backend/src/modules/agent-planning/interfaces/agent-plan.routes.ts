@@ -34,7 +34,7 @@ const updateSchema = z.object({
       qualityCriteria: z.array(z.string()).optional(),
       reuseHints: z.array(z.string()).optional(),
       platformManaged: z.boolean().optional(),
-      systemRole: z.enum(['team-crafter', 'agent-crafter', 'domain-guard']).nullable().optional(),
+      systemRole: z.enum(['team-crafter', 'agent-crafter', 'domain-guard', 'librarian']).nullable().optional(),
     })
     .optional(),
 });

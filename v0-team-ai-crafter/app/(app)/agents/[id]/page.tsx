@@ -67,6 +67,8 @@ import {
   ExternalLink,
   Download,
   ClipboardCopy,
+  Library,
+  Loader2,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { CardTitleWithInfo, FieldInfo, LabelWithInfo } from "@/components/agents/field-info"
@@ -220,6 +222,16 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [workspaceToolFilterOwner, setWorkspaceToolFilterOwner] = useState<string>("all")
   const [exportJsonBusy, setExportJsonBusy] = useState(false)
 
+  type AgentVaultNoteRow = {
+    noteId: string
+    status: string
+    kind: string
+    title: string
+    bodyPreview: string
+  }
+  const [vaultNotes, setVaultNotes] = useState<AgentVaultNoteRow[]>([])
+  const [vaultLoading, setVaultLoading] = useState(false)
+
   const applyAgentPayload = useCallback(
     (a: Agent, options?: { operationalCatalogToolIds?: Set<string> }) => {
     setAgent(a)
@@ -359,6 +371,23 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       getWorkspaceId: () => currentWorkspace.id,
     })
   }, [token, refreshToken, currentWorkspace])
+
+  const refreshVaultNotes = useCallback(async () => {
+    if (!api || !id) return
+    setVaultLoading(true)
+    try {
+      const res = await api.get<AgentVaultNoteRow[]>(`/vault/notes?agentId=${encodeURIComponent(id)}&limit=120`)
+      setVaultNotes(res.data)
+    } catch {
+      setVaultNotes([])
+    } finally {
+      setVaultLoading(false)
+    }
+  }, [api, id])
+
+  useEffect(() => {
+    void refreshVaultNotes()
+  }, [refreshVaultNotes])
 
   const handleExportAgentJsonDownload = useCallback(async () => {
     if (!api || !agent) return
@@ -825,7 +854,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
         <div className="-mx-1 w-full overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] lg:mx-0 lg:overflow-visible lg:pb-0">
-          <TabsList className="inline-flex h-auto min-h-10 w-max flex-nowrap justify-start gap-0.5 p-[3px] lg:grid lg:h-auto lg:w-full lg:grid-cols-7 lg:gap-0">
+          <TabsList className="inline-flex h-auto min-h-10 w-max flex-nowrap justify-start gap-0.5 p-[3px] lg:grid lg:h-auto lg:w-full lg:grid-cols-8 lg:gap-0">
           <TabsTrigger value="overview" className="flex shrink-0 items-center gap-2">
             <AgentWhitebeardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Visao Geral</span>
@@ -837,6 +866,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           <TabsTrigger value="knowledge" className="flex shrink-0 items-center gap-2">
             <Brain className="w-4 h-4" />
             <span className="hidden sm:inline">Conhecimento</span>
+          </TabsTrigger>
+          <TabsTrigger value="vault" className="flex shrink-0 items-center gap-2">
+            <Library className="w-4 h-4" />
+            <span className="hidden sm:inline">Second-brain</span>
           </TabsTrigger>
           <TabsTrigger value="tools" className="flex shrink-0 items-center gap-2">
             <Wrench className="w-4 h-4" />
@@ -1238,6 +1271,96 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     />
                   </div>
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vault" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitleWithInfo title="Second-brain deste agente" infoAriaLabel="Ajuda sobre second-brain">
+                <p>
+                  Notas de aprendizado indexadas para este agente (propostas, ativas ou arquivadas). Aprovacao humana
+                  promove de proposta para ativa.
+                </p>
+              </CardTitleWithInfo>
+              <CardDescription>
+                Filtrado por <code className="text-xs">agentId</code> deste registo. Use{" "}
+                <Link href="/settings?tab=workspace" className="text-primary underline-offset-4 hover:underline">
+                  Configuracoes → Workspace
+                </Link>{" "}
+                para visao global do vault.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void refreshVaultNotes()}
+                  disabled={!api || vaultLoading}
+                >
+                  {vaultLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Atualizar lista
+                </Button>
+              </div>
+              {vaultNotes.length === 0 && !vaultLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Sem notas para este agente ainda (ou sem permissao). Ative memoria persistente e execute o time para
+                  gerar propostas.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {vaultNotes.map((r) => (
+                    <div key={r.noteId} className="rounded-md border border-border p-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium line-clamp-1">{r.title || r.noteId}</span>
+                        <Badge variant="outline">{r.status}</Badge>
+                        <Badge variant="secondary">{r.kind}</Badge>
+                      </div>
+                      {r.bodyPreview ? (
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{r.bodyPreview}</p>
+                      ) : null}
+                      {r.status === "proposed" && api ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await api.put(`/vault/notes/${r.noteId}/approve`)
+                                toast.success("Nota aprovada")
+                                await refreshVaultNotes()
+                              } catch (e) {
+                                toast.error(e instanceof ApiError ? e.message : "Falha ao aprovar")
+                              }
+                            }}
+                          >
+                            Aprovar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                await api.put(`/vault/notes/${r.noteId}/reject`)
+                                toast.success("Nota rejeitada")
+                                await refreshVaultNotes()
+                              } catch (e) {
+                                toast.error(e instanceof ApiError ? e.message : "Falha ao rejeitar")
+                              }
+                            }}
+                          >
+                            Rejeitar
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

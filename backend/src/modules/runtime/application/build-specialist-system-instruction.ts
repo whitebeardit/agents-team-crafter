@@ -37,6 +37,7 @@ const TOOL_CONTRACT_PROMPT_POLICY = `## Tool contract policy (Loop 98.5)
 export function buildSpecialistSystemInstruction(
   row: Record<string, unknown>,
   knowledgeAppendix?: string,
+  vaultLearningsAppendix?: string,
 ): string {
   const chunks: string[] = [];
 
@@ -78,13 +79,15 @@ export function buildSpecialistSystemInstruction(
   if (kn?.fixedContext && typeof kn.fixedContext === 'string' && kn.fixedContext.trim()) {
     chunks.push(`## Fixed context\n${kn.fixedContext.trim()}`);
   }
-  if (kn?.useSessionMemory) {
-    chunks.push(`## Memory\nMaintain relevant context within this conversation turn.`);
-  }
-  if (kn?.usePersistentMemory) {
+  if (kn?.usePersistentMemory && vaultLearningsAppendix?.trim()) {
+    chunks.push(vaultLearningsAppendix.trim());
+  } else if (kn?.usePersistentMemory) {
     chunks.push(
       `## Memory\nPersistent memory is enabled in configuration; treat long-term user preferences as hints when relevant (storage backend not implied).`,
     );
+  }
+  if (kn?.useSessionMemory) {
+    chunks.push(`## Memory\nMaintain relevant context within this conversation turn.`);
   }
 
   if (knowledgeAppendix?.trim()) {

@@ -81,6 +81,7 @@ export function LiveConversationTimelineDrawer({
               <SelectItem value="handoff">Handoff</SelectItem>
               <SelectItem value="tool_call">Tool call</SelectItem>
               <SelectItem value="tool_result">Tool result</SelectItem>
+              <SelectItem value="memory">Memória</SelectItem>
             </SelectContent>
           </Select>
           <Select value={actorFilter} onValueChange={(v) => setActorFilter(v)}>

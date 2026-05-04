@@ -62,6 +62,24 @@ const envSchema = z
     DANGER_ZONE_FACTORY_RESET_ENABLED: z.enum(['0', '1']).optional(),
     /** `1` permite reset total em produção (além do master switch). Default `0`. */
     DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION: z.enum(['0', '1']).optional(),
+    /** Raiz dos vaults Obsidian por workspace (`<VAULT_ROOT>/<workspaceId>/`). Default: `./data/vaults`. */
+    VAULT_ROOT: z.string().min(1).optional(),
+    /** Timeout ms para `second_brain_recall` (default 1500). */
+    SECOND_BRAIN_RECALL_TIMEOUT_MS: z.coerce.number().int().min(200).max(10_000).optional(),
+    /** TTL ms do cache de recall por workspace+agente+tópico (default 60000). */
+    SECOND_BRAIN_RECALL_CACHE_TTL_MS: z.coerce.number().int().min(0).max(600_000).optional(),
+    /** Máximo de propostas por hora por workspace (default 60). */
+    SECOND_BRAIN_PROPOSE_RATE_PER_HOUR: z.coerce.number().int().min(1).max(10_000).optional(),
+    /** Após N falhas seguidas, circuit breaker desativa recall/propose até expirar (default 5). */
+    SECOND_BRAIN_BREAKER_THRESHOLD: z.coerce.number().int().min(1).max(100).optional(),
+    /** Duração ms do circuit breaker aberto (default 300000). */
+    SECOND_BRAIN_BREAKER_OPEN_MS: z.coerce.number().int().min(1_000).max(3_600_000).optional(),
+    /** Budget de tokens para injeção de learnings no prompt do especialista (default 1000). */
+    VAULT_LEARNINGS_TOKEN_BUDGET: z.coerce.number().int().min(100).max(8000).optional(),
+    /** Summarizer offline pós-run: `1` ativa (default `0`). */
+    SECOND_BRAIN_SUMMARIZER_ENABLED: z.enum(['0', '1']).optional(),
+    /** Amostragem 1 em N runs para summarizer (default 5). */
+    SECOND_BRAIN_SUMMARIZER_SAMPLE_N: z.coerce.number().int().min(1).max(100).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== 'production') return;
@@ -87,6 +105,15 @@ const envSchema = z
 type IEnvParsed = z.infer<typeof envSchema>;
 
 export type IEnv = IEnvParsed & {
+  VAULT_ROOT?: string;
+  SECOND_BRAIN_RECALL_TIMEOUT_MS?: number;
+  SECOND_BRAIN_RECALL_CACHE_TTL_MS?: number;
+  SECOND_BRAIN_PROPOSE_RATE_PER_HOUR?: number;
+  SECOND_BRAIN_BREAKER_THRESHOLD?: number;
+  SECOND_BRAIN_BREAKER_OPEN_MS?: number;
+  VAULT_LEARNINGS_TOKEN_BUDGET?: number;
+  SECOND_BRAIN_SUMMARIZER_ENABLED?: '0' | '1';
+  SECOND_BRAIN_SUMMARIZER_SAMPLE_N?: number;
   /** Definido por loadEnv; em testes pode omitir (createDeps usa conjunto vazio). */
   platformAdminEmails?: ReadonlySet<string>;
   /** Normalizado em loadEnv; testes podem omitir (equivalente a `0`). */
@@ -119,6 +146,15 @@ export function loadEnv(): IEnv {
   const data = parsed.data;
   return {
     ...data,
+    VAULT_ROOT: data.VAULT_ROOT?.trim() || undefined,
+    SECOND_BRAIN_RECALL_TIMEOUT_MS: data.SECOND_BRAIN_RECALL_TIMEOUT_MS,
+    SECOND_BRAIN_RECALL_CACHE_TTL_MS: data.SECOND_BRAIN_RECALL_CACHE_TTL_MS,
+    SECOND_BRAIN_PROPOSE_RATE_PER_HOUR: data.SECOND_BRAIN_PROPOSE_RATE_PER_HOUR,
+    SECOND_BRAIN_BREAKER_THRESHOLD: data.SECOND_BRAIN_BREAKER_THRESHOLD,
+    SECOND_BRAIN_BREAKER_OPEN_MS: data.SECOND_BRAIN_BREAKER_OPEN_MS,
+    VAULT_LEARNINGS_TOKEN_BUDGET: data.VAULT_LEARNINGS_TOKEN_BUDGET,
+    SECOND_BRAIN_SUMMARIZER_ENABLED: data.SECOND_BRAIN_SUMMARIZER_ENABLED ?? '0',
+    SECOND_BRAIN_SUMMARIZER_SAMPLE_N: data.SECOND_BRAIN_SUMMARIZER_SAMPLE_N,
     TEAM_PLAN_AUTO_BIND_TOOLS: data.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0',
     DANGER_ZONE_FACTORY_RESET_ENABLED: data.DANGER_ZONE_FACTORY_RESET_ENABLED ?? '0',
     DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION: data.DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION ?? '0',

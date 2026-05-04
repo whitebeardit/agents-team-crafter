@@ -1,5 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { CoordinatorOrchestratorService } from './coordinator-orchestrator.service.js';
+import {
+  testEnvStub,
+  secondBrainDepsStub,
+  commonWorkspaceIntegrationsMock,
+} from './coordinator-orchestrator-test-utils.js';
 
 describe('CoordinatorOrchestratorService image handoff between specialists', () => {
   it('propagates generated image URL to next specialist as input_image content part', async () => {
@@ -66,10 +71,24 @@ describe('CoordinatorOrchestratorService image handoff between specialists', () 
       compile: jest.fn(async () => ({ ok: true })),
       runStep,
       runCoordinatorTurn: jest.fn(async ({ sdkTools }: { sdkTools: unknown[] }) => {
-        const imageTool = sdkTools[0] as { execute: (args: { instruction: string }) => Promise<string> };
-        const reviewTool = sdkTools[1] as { execute: (args: { instruction: string }) => Promise<string> };
-        await imageTool.execute({ instruction: 'gere a ilustracao' });
-        await reviewTool.execute({ instruction: 'revise a ilustracao gerada' });
+        async function runTool(tool: unknown, instruction: string): Promise<void> {
+          const t = tool as {
+            invoke?: (json: string) => Promise<string>;
+            execute?: (args: { instruction: string }) => Promise<string>;
+          };
+          if (typeof t.execute === 'function') {
+            await t.execute({ instruction });
+            return;
+          }
+          if (typeof t.invoke === 'function') {
+            await t.invoke(JSON.stringify({ instruction }));
+            return;
+          }
+          throw new Error('mock tool missing execute/invoke');
+        }
+        // second_brain_* tools prefix specialist tools from SpecialistRegistry
+        await runTool(sdkTools[2], 'gere a ilustracao');
+        await runTool(sdkTools[3], 'revise a ilustracao gerada');
         return { finalOutput: 'Fluxo concluido', events: [] };
       }),
     };
@@ -81,13 +100,13 @@ describe('CoordinatorOrchestratorService image handoff between specialists', () 
         })),
       ),
     };
+    const sb = secondBrainDepsStub();
     const workspaceIntegrationsService = {
-      resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
-      resolveLlmProviderConfig: jest.fn(async () => ({ provider: 'openai', apiKey: 'fake-key', baseUrl: 'https://api.openai.com/v1', useResponses: true })),
+      ...commonWorkspaceIntegrationsMock(),
       getToolIntegrationContext: jest.fn(async () => ({})),
-      resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };
     const service = new CoordinatorOrchestratorService(
+      testEnvStub(),
       agentRepo as never,
       teamRepo as never,
       agentRuntime as never,
@@ -99,6 +118,10 @@ describe('CoordinatorOrchestratorService image handoff between specialists', () 
       { listByIds: jest.fn(async () => []) } as never,
       { execute: jest.fn(async () => ({ ok: false })) } as never,
       { get: jest.fn(async () => null), upsert: jest.fn(async () => {}) } as never,
+      sb.vaultWriter as never,
+      sb.vaultNoteIndexRepo as never,
+      sb.secondBrainRecall as never,
+      sb.secondBrainCurator as never,
     );
 
     await service.execute({

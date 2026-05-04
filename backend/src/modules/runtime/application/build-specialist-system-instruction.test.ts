@@ -44,4 +44,21 @@ describe('buildSpecialistSystemInstruction', () => {
     expect(text).toContain('X');
     expect(text).toContain('## Knowledge sources linked');
   });
+
+  it('appends vault learnings appendix after fixed context when usePersistentMemory', () => {
+    const text = buildSpecialistSystemInstruction(
+      {
+        systemInstruction: 'Base.',
+        knowledge: {
+          usePersistentMemory: true,
+          fixedContext: 'Tenant rules.',
+        },
+      },
+      undefined,
+      '## Team memory (approved learnings)\n- Do X when Y.',
+    );
+    expect(text.indexOf('Tenant rules.')).toBeLessThan(text.indexOf('## Team memory'));
+    expect(text).toContain('## Team memory');
+    expect(text).toContain('Do X when Y');
+  });
 });

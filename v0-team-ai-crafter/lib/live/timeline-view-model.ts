@@ -45,6 +45,7 @@ function kindToUi(kind: TeamConversationTimelineItem["kind"]): {
   if (kind === "tool_result") return { label: "Tool result", badge: "secondary" }
   if (kind === "handoff") return { label: "Handoff", badge: "outline" }
   if (kind === "status") return { label: "Status", badge: "outline" }
+  if (kind === "memory") return { label: "Memória", badge: "outline" }
   return { label: "Atividade", badge: "secondary" }
 }
 

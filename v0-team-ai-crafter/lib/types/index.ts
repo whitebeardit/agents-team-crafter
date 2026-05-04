@@ -142,6 +142,7 @@ export type TeamConversationKind =
   | "handoff"
   | "status"
   | "error"
+  | "memory"
 
 export interface TeamConversationTimelineItem {
   id: string

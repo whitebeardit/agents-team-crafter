@@ -58,6 +58,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { WorkspaceTeamSection } from "@/components/workspace/workspace-team-section"
+import { WorkspaceVaultCard } from "@/components/workspace/workspace-vault-card"
 import type { IPlatformDangerZoneStatus, IUserNotificationPreferences, IUserPreferences } from "@/lib/types"
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
@@ -1352,6 +1353,8 @@ export default function SettingsPage() {
         {/* Workspace Settings */}
         <TabsContent value="workspace" className="space-y-6">
           <WorkspaceTeamSection />
+
+          <WorkspaceVaultCard />
 
           <Card>
             <CardHeader>

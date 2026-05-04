@@ -50,6 +50,13 @@ import {
   buildOpenRouterDashboardTitle,
   openRouterOriginLabelFromHttpReferer,
 } from '../../../shared/kernel/openrouter-attribution.js';
+import type { IEnv } from '../../../config/env.js';
+import type { VaultWriterService } from '../../team-vault/application/vault-writer.service.js';
+import type { VaultNoteIndexRepository } from '../../team-vault/infra/vault-note-index.repository.js';
+import { SecondBrainRecallService } from '../../team-vault/application/second-brain-recall.service.js';
+import { SecondBrainCuratorService } from '../../team-vault/application/second-brain-curator.service.js';
+import { buildSecondBrainCoordinatorTools } from '../../team-vault/application/second-brain-coordinator-tools.js';
+import { renderLearningsAppendixForAgent } from '../../team-vault/application/render-learnings-appendix.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -576,10 +583,17 @@ export interface ICoordinatorExecuteOptions {
   onCoordinatorTextDelta?: (text: string) => void;
 }
 
-function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: string[]): ITeamExecutionEvent {
+function mapRuntimeEventToTeamEvent(
+  e: TRuntimeEvent,
+  rosterSpecialistIds: string[],
+  coordinatorAgentId: string,
+): ITeamExecutionEvent {
   if (e.type === 'taskType') return { type: e.type, value: e.value };
-  const agentId =
+  let agentId =
     e.tool !== undefined ? resolveSpecialistAgentIdFromToolName(e.tool, rosterSpecialistIds) : undefined;
+  if (!agentId && typeof e.tool === 'string' && e.tool.startsWith('second_brain_')) {
+    agentId = coordinatorAgentId;
+  }
   return {
     type: e.type,
     tool: e.tool,
@@ -592,6 +606,7 @@ function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: strin
 
 export class CoordinatorOrchestratorService {
   constructor(
+    private readonly env: IEnv,
     private readonly agentRepo: AgentRepository,
     private readonly teamRepo: TeamRepository,
     private readonly agentRuntime: IAgentRuntimeProvider,
@@ -603,6 +618,10 @@ export class CoordinatorOrchestratorService {
     private readonly workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository,
     private readonly businessToolRuntime: IBusinessToolRuntime,
     private readonly clinicConversationStateRepo: ClinicConversationStateRepository,
+    private readonly vaultWriter: VaultWriterService,
+    private readonly vaultNoteIndexRepo: VaultNoteIndexRepository,
+    private readonly secondBrainRecall: SecondBrainRecallService,
+    private readonly secondBrainCurator: SecondBrainCuratorService,
   ) {}
 
   async execute(
@@ -648,6 +667,12 @@ export class CoordinatorOrchestratorService {
 
     const now = Date.now();
     const preflightEvents: ITeamExecutionEvent[] = [];
+    preflightEvents.push({
+      type: 'secondBrainVaultCommit',
+      agentId: teamRow.coordinatorId,
+      phase: 'vault',
+      detail: this.vaultWriter.getHeadCommit(ws) || 'none',
+    });
     pruneDestructiveConfirmationMemory(now);
     const memoryKey = computeConversationMemoryKey(invocation);
     const pendingDelete = getPendingDestructiveConfirmation(memoryKey, now);
@@ -810,6 +835,7 @@ export class CoordinatorOrchestratorService {
       const a = await this.agentRepo.findById(ws, sid);
       if (!a) continue;
       const row = a as Record<string, unknown>;
+      if (row['systemRole'] === 'librarian') continue;
       assertSpecialistAgentRow(row);
       const name = String(row['name'] ?? 'Specialist');
       const description = String(row['description'] ?? '');
@@ -897,7 +923,19 @@ export class CoordinatorOrchestratorService {
         knowledgeSourceIds,
         this.knowledgeSourceRepo,
       );
-      const systemInstruction = buildSpecialistSystemInstruction(srow, knowledgeAppendix);
+      const knRow = srow['knowledge'] as { usePersistentMemory?: boolean; tokenBudget?: number } | undefined;
+      let vaultLearningsAppendix = '';
+      if (knRow?.usePersistentMemory) {
+        const budget = knRow.tokenBudget ?? this.env.VAULT_LEARNINGS_TOKEN_BUDGET ?? 1000;
+        vaultLearningsAppendix = await renderLearningsAppendixForAgent(
+          this.env,
+          this.vaultNoteIndexRepo,
+          ws,
+          specialistAgentId,
+          budget,
+        );
+      }
+      const systemInstruction = buildSpecialistSystemInstruction(srow, knowledgeAppendix, vaultLearningsAppendix);
 
       const mcpToolSpecs = await loadMcpToolSpecsForAgent(
         ws,
@@ -1009,7 +1047,6 @@ export class CoordinatorOrchestratorService {
       coordinatorLlmConfig?.provider === 'openrouter'
         ? await this.workspaceIntegrationsService.resolveWorkspaceNameForOpenRouterAttribution(ws)
         : '';
-    const sdkTools = this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist });
     const userMessage = formatCoordinatorUserMessage(invocation);
     const userContentParts = formatCoordinatorUserContentParts(invocation);
     const crow = coordinator as Record<string, unknown>;
@@ -1032,6 +1069,23 @@ export class CoordinatorOrchestratorService {
       ? `\n\n## Contexto operacional da clínica\nPaciente atual: ${clinicContext.currentPatient?.name ?? '-'}\nTelefone: ${clinicContext.currentPatient?.phone ?? '-'}\npartyId: ${clinicContext.currentPatient?.partyId ?? '-'}\ncareSubjectId: ${clinicContext.currentPatient?.careSubjectId ?? '-'}\nÚltimo agendamento: ${clinicContext.lastAppointmentId ?? '-'}\nÚltimo atendimento: ${clinicContext.lastEncounterId ?? '-'}\nÚltimo pacote: ${clinicContext.currentPackageSaleId ?? '-'}\nTimezone da clínica: ${clinicContext.timezone ?? '-'}\nAtualizado em: ${clinicContext.updatedAt.toISOString()}`
       : '';
     const coordinatorSystemInstruction = `${coordinatorCore}${rosterAppendix}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}${clinicContextAppendix}`;
+
+    const isLibrarianCoord = crow['systemRole'] === 'librarian';
+    const secondBrainTools = !isLibrarianCoord
+      ? buildSecondBrainCoordinatorTools({
+          env: this.env,
+          recallService: this.secondBrainRecall,
+          curatorService: this.secondBrainCurator,
+          workspaceId: ws,
+          coordinatorAgentId: teamRow.coordinatorId,
+          runId,
+          emitProgress,
+        })
+      : [];
+    const sdkTools = [
+      ...secondBrainTools,
+      ...this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist }),
+    ];
 
     const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
     const timeline: ITeamExecutionEvent[] = [
@@ -1113,7 +1167,9 @@ export class CoordinatorOrchestratorService {
       phase: 'coordinator',
     });
 
-    const coordinatorMapped = result.events.map((e) => mapRuntimeEventToTeamEvent(e, specialistIds));
+    const coordinatorMapped = result.events.map((e) =>
+      mapRuntimeEventToTeamEvent(e, specialistIds, teamRow.coordinatorId),
+    );
     const hasClinicVerificationFailure = coordinatorMapped.some(
       (e) => e.type === 'toolResult' && e.status === 'error' && e.errorCode === 'CLINIC_VERIFICATION_FAILED',
     );

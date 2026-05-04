@@ -19,6 +19,7 @@ import { getWorkspaceOverlapMode } from '../../governance/application/workspace-
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import { ensureCoordinatorSystemInstructionPolicy } from '../application/coordinator-system-instruction-policy.js';
+import { ensureCoordinatorSecondBrainPolicy } from '../application/coordinator-second-brain-policy.js';
 import { EOpenAiWorkspaceChatModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { buildAgentExportPayload } from '../application/build-agent-export.js';
 import { normalizeAgentCapabilities } from '../application/agent-capabilities.js';
@@ -217,7 +218,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       systemRole: body.systemRole ?? null,
       ...(body.openaiRuntimeModel ? { openaiRuntimeModel: body.openaiRuntimeModel } : {}),
       ...(body.role === 'coordinator'
-        ? { systemInstruction: ensureCoordinatorSystemInstructionPolicy() }
+        ? {
+            systemInstruction: ensureCoordinatorSecondBrainPolicy(ensureCoordinatorSystemInstructionPolicy()),
+          }
         : {}),
     });
     const overrideOnCreate =
@@ -305,7 +308,13 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       platformManaged: patch.platformManaged ?? Boolean(current['platformManaged']),
       systemRole:
         patch.systemRole
-        ?? ((current['systemRole'] as 'team-crafter' | 'agent-crafter' | 'domain-guard' | null | undefined) ?? null),
+        ?? ((current['systemRole'] as
+          | 'team-crafter'
+          | 'agent-crafter'
+          | 'domain-guard'
+          | 'librarian'
+          | null
+          | undefined) ?? null),
     };
     const governanceReview = await deps.domainGuardService.review(ws, draftForReview);
     await deps.agentOverlapReviewRepo.create(ws, {
@@ -354,6 +363,15 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     delete patch.allowConflictOverride;
     if (body.openaiRuntimeModel === '') {
       (patch as Record<string, unknown>).openaiRuntimeModel = null;
+    }
+    if (draftForReview.role === 'coordinator') {
+      const patchRec = patch as Record<string, unknown>;
+      const merged = String(
+        patchRec.systemInstruction !== undefined ? patchRec.systemInstruction : (current['systemInstruction'] ?? ''),
+      );
+      patchRec.systemInstruction = ensureCoordinatorSecondBrainPolicy(
+        ensureCoordinatorSystemInstructionPolicy(merged),
+      );
     }
     const updated = await deps.agentRepo.update(ws, id, patch);
     const overrideOnUpdate =

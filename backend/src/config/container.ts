@@ -50,6 +50,14 @@ import { GovernanceAuditEventRepository } from '../modules/governance/infra/gove
 import { AppointmentRepository } from '../modules/scheduling/infra/appointment.repository.js';
 import { AvailabilitySlotRepository } from '../modules/scheduling/infra/availability-slot.repository.js';
 import { ClinicConversationStateRepository } from '../modules/clinic/infra/clinic-conversation-state.repository.js';
+import { VaultLockRepository } from '../modules/team-vault/infra/vault-lock.repository.js';
+import { VaultNoteIndexRepository } from '../modules/team-vault/infra/vault-note-index.repository.js';
+import { VaultWriterService } from '../modules/team-vault/application/vault-writer.service.js';
+import { VaultIndexerService } from '../modules/team-vault/application/vault-indexer.service.js';
+import { SecondBrainRecallService } from '../modules/team-vault/application/second-brain-recall.service.js';
+import { SecondBrainCuratorService } from '../modules/team-vault/application/second-brain-curator.service.js';
+import { MemorySummarizerService } from '../modules/team-vault/application/memory-summarizer.service.js';
+import { LibrarianPlatformAgentService } from '../modules/platform-agents/application/librarian-platform-agent.service.js';
 import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
 import type { FastifyRequest } from 'fastify';
 import type { preHandlerHookHandler } from 'fastify';
@@ -101,6 +109,14 @@ export interface IAppDeps {
   partyRepo: PartyRepository;
   clinicConversationStateRepo: ClinicConversationStateRepository;
   teamDebugSessionRepo: TeamDebugSessionRepository;
+  vaultLockRepo: VaultLockRepository;
+  vaultNoteIndexRepo: VaultNoteIndexRepository;
+  vaultWriter: VaultWriterService;
+  vaultIndexer: VaultIndexerService;
+  secondBrainRecall: SecondBrainRecallService;
+  secondBrainCurator: SecondBrainCuratorService;
+  memorySummarizer: MemorySummarizerService;
+  librarianPlatformAgent: LibrarianPlatformAgentService;
 }
 
 export function createDeps(env: IEnv): IAppDeps {
@@ -162,9 +178,18 @@ export function createDeps(env: IEnv): IAppDeps {
   const runRepo = new RunRepository();
   const runRecorderService = new RunRecorderService(runRepo);
   const governanceAuditRepo = new GovernanceAuditEventRepository();
+  const vaultLockRepo = new VaultLockRepository();
+  const vaultNoteIndexRepo = new VaultNoteIndexRepository();
+  const vaultWriter = new VaultWriterService(env, vaultLockRepo, vaultNoteIndexRepo, governanceAuditRepo);
+  const vaultIndexer = new VaultIndexerService(env, vaultNoteIndexRepo);
+  const secondBrainRecall = new SecondBrainRecallService(vaultNoteIndexRepo);
+  const secondBrainCurator = new SecondBrainCuratorService(env, vaultWriter);
+  const memorySummarizer = new MemorySummarizerService(env, secondBrainCurator);
+  const librarianPlatformAgent = new LibrarianPlatformAgentService(env, agentRepo);
   const agentRuntime = new OpenAIAgentsRuntimeProvider();
   const specialistRegistry = new SpecialistRegistry();
   const coordinatorOrchestrator = new CoordinatorOrchestratorService(
+    env,
     agentRepo,
     teamRepo,
     agentRuntime,
@@ -176,6 +201,10 @@ export function createDeps(env: IEnv): IAppDeps {
     workspaceToolDefinitionRepo,
     businessToolRuntime,
     clinicConversationStateRepo,
+    vaultWriter,
+    vaultNoteIndexRepo,
+    secondBrainRecall,
+    secondBrainCurator,
   );
   const redis = createRedisAppClient(env.REDIS_URL);
   const teamLiveBroadcaster = createTeamLiveBroadcaster(redis);
@@ -225,6 +254,14 @@ export function createDeps(env: IEnv): IAppDeps {
     partyRepo,
     clinicConversationStateRepo,
     teamDebugSessionRepo,
+    vaultLockRepo,
+    vaultNoteIndexRepo,
+    vaultWriter,
+    vaultIndexer,
+    secondBrainRecall,
+    secondBrainCurator,
+    memorySummarizer,
+    librarianPlatformAgent,
   };
 }
 

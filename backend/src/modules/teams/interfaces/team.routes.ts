@@ -878,6 +878,15 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         startedAt,
         result,
       });
+      const runSampleIndex = [...result.runId].reduce((a, c) => a + c.charCodeAt(0), 0);
+      void deps.memorySummarizer
+        .onRunCompleted({
+          workspaceId: ws,
+          coordinatorAgentId: result.coordinatorAgentId,
+          result,
+          runSampleIndex,
+        })
+        .catch(() => {});
       return reply.send(
         successEnvelope({
           runId: result.runId,
@@ -1170,6 +1179,15 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
           startedAt,
           result,
         });
+        const runSampleIndexStream = [...result.runId].reduce((a, c) => a + c.charCodeAt(0), 0);
+        void deps.memorySummarizer
+          .onRunCompleted({
+            workspaceId: ws,
+            coordinatorAgentId: result.coordinatorAgentId,
+            result,
+            runSampleIndex: runSampleIndexStream,
+          })
+          .catch(() => {});
         deps.teamLiveBroadcaster.publish(ws, teamId, {
           source: 'manual',
           runId: result.runId,

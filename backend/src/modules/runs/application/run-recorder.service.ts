@@ -7,6 +7,7 @@ export type TRunCompletionStatus = 'completed' | 'failed' | 'interrupted' | 'can
 function toStepType(event: ITeamExecutionEvent): string {
   if (event.type.startsWith('specialist')) return 'specialist';
   if (event.type.startsWith('coordinator')) return 'coordinator';
+  if (event.type === 'toolResult' && event.tool?.startsWith('second_brain_')) return event.tool;
   if (event.type === 'toolResult') return 'tool';
   return event.type;
 }
