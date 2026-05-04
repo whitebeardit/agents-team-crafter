@@ -14,4 +14,6 @@ export type TGovernanceAuditEventType =
   | 'governance.team_vault_note_proposed'
   | 'governance.team_vault_note_approved'
   | 'governance.team_vault_note_rejected'
-  | 'governance.team_vault_note_archived';
+  | 'governance.team_vault_note_archived'
+  | 'governance.team_vault_note_edited'
+  | 'governance.team_vault_note_deleted';

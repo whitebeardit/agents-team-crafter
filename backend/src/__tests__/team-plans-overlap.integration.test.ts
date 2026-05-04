@@ -68,6 +68,7 @@ describe('team-plans execute overlap governance', () => {
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: 'test-key',
+    LLM_PROVIDER: 'openai',
     SLACK_SIGNING_SECRET: 'test-secret',
   };
 

@@ -60,11 +60,14 @@ export function buildSecondBrainCoordinatorTools(ctx: {
   coordinatorAgentId: string;
   runId: string;
   emitProgress?: TEmit;
+  /** Party CRM actual (ex.: contexto clinico) — usado como fallback se a tool nao enviar partyId. */
+  defaultPartyId?: string;
 }): unknown[] {
   const recallSchema = z.object({
     topic: z.string().min(1).describe('Topico curto para procurar na memoria do time'),
     intent: z.string().min(1).describe('Intencao do utilizador neste turno'),
     agentId: z.string().optional().describe('Filtrar aprendizados de um especialista (ObjectId)'),
+    partyId: z.string().optional().describe('Filtrar aprendizados do cliente/party (ObjectId CRM)'),
     kind: z.enum(['do', 'dont', 'preference', 'correction', 'fact']).optional(),
     limit: z.number().int().min(1).max(20).optional(),
   });
@@ -75,6 +78,7 @@ export function buildSecondBrainCoordinatorTools(ctx: {
     content: z.string().min(1).describe('Regra ou preferencia a persistir como proposta'),
     evidenceQuote: z.string().min(1).describe('Trecho da conversa que sustenta a regra'),
     agentId: z.string().min(1).describe('Especialista alvo (ObjectId)'),
+    partyId: z.string().optional().describe('Cliente/party CRM (ObjectId) — nota em parties/<id>/'),
     confidence: z.number().min(0).max(1).optional(),
   });
 
@@ -94,7 +98,8 @@ export function buildSecondBrainCoordinatorTools(ctx: {
           });
           return JSON.stringify({ notes: [], applied: 0, reason: 'disabled' });
         }
-        const cacheKey = `${ctx.workspaceId}:${input.agentId ?? ''}:${input.topic}:${input.intent}`.toLowerCase();
+        const partyKey = (input.partyId?.trim() || ctx.defaultPartyId?.trim() || '').toLowerCase();
+        const cacheKey = `${ctx.workspaceId}:${input.agentId ?? ''}:${partyKey}:${input.topic}:${input.intent}`.toLowerCase();
         const ttl = ctx.env.SECOND_BRAIN_RECALL_CACHE_TTL_MS ?? 60_000;
         const cached = recallCache.get(cacheKey);
         if (cached && Date.now() < cached.expires) {
@@ -107,12 +112,14 @@ export function buildSecondBrainCoordinatorTools(ctx: {
           detail: 'A consultar memoria do time...',
         });
         const timeoutMs = ctx.env.SECOND_BRAIN_RECALL_TIMEOUT_MS ?? 1500;
+        const partyId = input.partyId?.trim() || ctx.defaultPartyId?.trim();
         const result = await withTimeout(
           ctx.recallService.recall({
             workspaceId: ctx.workspaceId,
             topic: input.topic,
             intent: input.intent,
             agentId: input.agentId,
+            partyId: partyId || undefined,
             kind: input.kind,
             limit: input.limit,
           }),
@@ -176,6 +183,7 @@ export function buildSecondBrainCoordinatorTools(ctx: {
             evidenceQuote: input.evidenceQuote,
             runId: ctx.runId,
             confidence: input.confidence,
+            partyId: input.partyId?.trim() || ctx.defaultPartyId?.trim(),
           });
           const detail = r.stored
             ? 'Proposta enviada para revisao na memoria do time'

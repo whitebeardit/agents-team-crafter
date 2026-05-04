@@ -1,6 +1,8 @@
 import type { IEnv } from '../../../config/env.js';
 import type { VaultWriterService } from './vault-writer.service.js';
+import type { PartyRepository } from '../../crm/infra/party.repository.js';
 import { vaultNoteKindSchema } from '../domain/vault-note-frontmatter.schema.js';
+import { slugifyPartyName } from './party-slug.js';
 import type { z } from 'zod';
 
 type TKind = z.infer<typeof vaultNoteKindSchema>;
@@ -13,6 +15,7 @@ export class SecondBrainCuratorService {
   constructor(
     private readonly env: IEnv,
     private readonly writer: VaultWriterService,
+    private readonly partyRepo?: PartyRepository,
   ) {}
 
   isNoise(content: string, evidenceQuote?: string): boolean {
@@ -47,6 +50,7 @@ export class SecondBrainCuratorService {
     runId?: string;
     conversationId?: string;
     confidence?: number;
+    partyId?: string;
   }): Promise<{ stored: boolean; noteId?: string; reason?: string }> {
     if (!this.rateLimitOk(input.workspaceId)) {
       return { stored: false, reason: 'rate_limited' };
@@ -55,6 +59,22 @@ export class SecondBrainCuratorService {
       return { stored: false, reason: 'noise' };
     }
     const title = input.topic.trim().slice(0, 180) || `Learning (${input.kind})`;
+    let party: { id: string; slug?: string; displayName?: string } | undefined;
+    const pid = input.partyId?.trim();
+    if (pid && this.partyRepo) {
+      const row = await this.partyRepo.findById(input.workspaceId, pid);
+      if (row) {
+        party = {
+          id: row.id,
+          displayName: row.displayName,
+          slug: slugifyPartyName(row.displayName),
+        };
+      } else {
+        party = { id: pid };
+      }
+    } else if (pid) {
+      party = { id: pid };
+    }
     try {
       const res = await this.writer.proposeNote({
         workspaceId: input.workspaceId,
@@ -67,6 +87,7 @@ export class SecondBrainCuratorService {
         runId: input.runId,
         conversationId: input.conversationId,
         confidence: input.confidence ?? 0.55,
+        ...(party ? { party } : {}),
       });
       return { stored: true, noteId: res.noteId };
     } catch (e) {

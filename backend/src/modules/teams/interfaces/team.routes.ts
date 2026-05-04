@@ -968,6 +968,7 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         } else if (env.event === 'error') writeSse('error', env.data);
         else if (env.event === 'inboundUserMessage') writeSse('inboundUserMessage', env.data);
         else if (env.event === 'timelineItem') writeSse('timelineItem', env.data);
+        else if (env.event === 'vaultNoteChanged') writeSse('vaultNoteChanged', env.data);
       } catch {
         /* never break webhook path */
       }

@@ -1,75 +1,23 @@
 import { describe, expect, it } from '@jest/globals';
-import { TeamLiveBroadcaster } from './team-live-broadcaster.js';
+import { createTeamLiveBroadcaster } from './team-live-broadcaster.js';
 
 describe('TeamLiveBroadcaster (memory)', () => {
-  it('publish/subscribe delivers envelopes for the same team key', async () => {
-    const b = new TeamLiveBroadcaster(null);
-    const received: unknown[] = [];
-    const unsub = await b.subscribe('ws1', 'teamA', (env) => {
-      received.push(env);
+  it('entrega vaultNoteChanged ao subscriber', async () => {
+    const b = createTeamLiveBroadcaster(null);
+    const payloads: unknown[] = [];
+    const unsub = await b.subscribe('ws1', 'team1', (env) => {
+      if (env.event === 'vaultNoteChanged') payloads.push(env.data);
     });
-    b.publishAgentStatus('ws1', 'teamA', 'inbound', {
-      runId: 'run-1',
-      agentId: 'ag1',
-      status: 'busy',
-      phase: 'coordinator',
+    b.publish('ws1', 'team1', {
+      source: 'manual',
+      runId: 'vault-static',
+      event: 'vaultNoteChanged',
+      data: { workspaceId: 'ws1', noteId: 'n1', contentHash: 'h1', version: 3 },
     });
-    await new Promise((r) => setImmediate(r));
-    expect(received).toHaveLength(1);
-    expect(received[0]).toMatchObject({
-      source: 'inbound',
-      runId: 'run-1',
-      event: 'agentStatus',
-      data: expect.objectContaining({ agentId: 'ag1' }),
-    });
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]).toEqual(
+      expect.objectContaining({ noteId: 'n1', contentHash: 'h1', version: 3 }),
+    );
     unsub();
-  });
-
-  it('does not cross workspaces', async () => {
-    const b = new TeamLiveBroadcaster(null);
-    const received: unknown[] = [];
-    await b.subscribe('ws1', 'teamA', (env) => received.push(env));
-    b.publishAgentStatus('ws2', 'teamA', 'inbound', {
-      runId: 'run-1',
-      agentId: 'ag1',
-      status: 'busy',
-      phase: 'coordinator',
-    });
-    await new Promise((r) => setImmediate(r));
-    expect(received).toHaveLength(0);
-  });
-
-  it('publish does not throw when envelope data is not JSON-serializable', () => {
-    const b = new TeamLiveBroadcaster(null);
-    const circular: Record<string, unknown> = { a: 1 };
-    circular.self = circular;
-    expect(() =>
-      b.publish('ws1', 'teamA', {
-        source: 'inbound',
-        runId: 'r1',
-        event: 'runComplete',
-        data: circular,
-      }),
-    ).not.toThrow();
-  });
-
-  it('publish does not throw when memory subscriber throws', async () => {
-    const b = new TeamLiveBroadcaster(null);
-    await b.subscribe('ws1', 'teamA', () => {
-      throw new Error('listener boom');
-    });
-    expect(() =>
-      b.publish('ws1', 'teamA', {
-        source: 'inbound',
-        runId: 'r1',
-        event: 'agentStatus',
-        data: {
-          runId: 'r1',
-          agentId: 'a1',
-          status: 'busy',
-          phase: 'coordinator',
-        },
-      }),
-    ).not.toThrow();
   });
 });

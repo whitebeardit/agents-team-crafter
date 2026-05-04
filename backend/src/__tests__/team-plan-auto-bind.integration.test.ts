@@ -80,6 +80,7 @@ describe('team-plan execute with TEAM_PLAN_AUTO_BIND_TOOLS=1', () => {
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: 'test-key',
+    LLM_PROVIDER: 'openai',
     SLACK_SIGNING_SECRET: 'test-secret',
     TEAM_PLAN_AUTO_BIND_TOOLS: '1',
   };
@@ -256,6 +257,7 @@ describe('team-plan execute with workspace auto-bind policy override', () => {
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: 'test-key',
+    LLM_PROVIDER: 'openai',
     SLACK_SIGNING_SECRET: 'test-secret',
     TEAM_PLAN_AUTO_BIND_TOOLS: '0',
   };
@@ -1037,6 +1039,7 @@ describe('team-plan Loop 51: reativar definitions inativas no bind', () => {
     JWT_REFRESH_EXPIRES_IN: '30d',
     CORS_ORIGIN: '*',
     OPENAI_API_KEY: 'test-key',
+    LLM_PROVIDER: 'openai',
     SLACK_SIGNING_SECRET: 'test-secret',
     TEAM_PLAN_AUTO_BIND_TOOLS: '1',
   };

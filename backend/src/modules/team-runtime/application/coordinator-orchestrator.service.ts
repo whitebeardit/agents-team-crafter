@@ -1071,6 +1071,10 @@ export class CoordinatorOrchestratorService {
     const coordinatorSystemInstruction = `${coordinatorCore}${rosterAppendix}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}${clinicContextAppendix}`;
 
     const isLibrarianCoord = crow['systemRole'] === 'librarian';
+    const defaultPartyId =
+      typeof clinicContext?.currentPatient?.partyId === 'string' && clinicContext.currentPatient.partyId.trim()
+        ? clinicContext.currentPatient.partyId.trim()
+        : undefined;
     const secondBrainTools = !isLibrarianCoord
       ? buildSecondBrainCoordinatorTools({
           env: this.env,
@@ -1080,6 +1084,7 @@ export class CoordinatorOrchestratorService {
           coordinatorAgentId: teamRow.coordinatorId,
           runId,
           emitProgress,
+          defaultPartyId,
         })
       : [];
     const sdkTools = [

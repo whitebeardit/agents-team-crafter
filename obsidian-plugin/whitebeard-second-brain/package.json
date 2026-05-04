@@ -1,0 +1,16 @@
+{
+  "name": "whitebeard-obsidian-second-brain",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "test": "node --import tsx --test src/url.test.ts src/path-heuristic.test.ts"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.7.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

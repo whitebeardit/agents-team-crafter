@@ -31,14 +31,18 @@ export function secondBrainDepsStub(): {
     deleteByNoteId: jest.fn(async () => {}),
     findDuplicateContentHash: jest.fn(async () => null),
     countProposedSinceHour: jest.fn(async () => 0),
+    findByNoteId: jest.fn(async () => null),
+    setEmbedding: jest.fn(async () => {}),
+    listEmbeddingCandidates: jest.fn(async () => []),
   } as unknown as VaultNoteIndexRepository;
   const vaultWriter = {
     getHeadCommit: jest.fn(() => null),
     readNoteRaw: jest.fn(async () => ''),
     proposeNote: jest.fn(async () => ({ noteId: 'n1', notePath: 'p', gitCommit: null })),
     setNoteStatus: jest.fn(async () => ({ notePath: 'p', gitCommit: null })),
+    updateNoteContent: jest.fn(async () => ({ notePath: 'p', gitCommit: null })),
   } as unknown as VaultWriterService;
-  const secondBrainRecall = new SecondBrainRecallService(vaultNoteIndexRepo);
+  const secondBrainRecall = new SecondBrainRecallService(vaultNoteIndexRepo, null, testEnvStub());
   const secondBrainCurator = new SecondBrainCuratorService(testEnvStub(), vaultWriter);
   return { vaultNoteIndexRepo, vaultWriter, secondBrainRecall, secondBrainCurator };
 }

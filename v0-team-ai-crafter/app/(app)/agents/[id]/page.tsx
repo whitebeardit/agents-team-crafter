@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import type {
   Agent,
@@ -173,6 +173,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const params = useParams<{ id: string }>()
   const id = params.id
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
   const [isMCPBindingOpen, setIsMCPBindingOpen] = useState(false)
@@ -228,9 +229,24 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     kind: string
     title: string
     bodyPreview: string
+    contentHash?: string
+    version?: number
+    partyId?: string
   }
   const [vaultNotes, setVaultNotes] = useState<AgentVaultNoteRow[]>([])
   const [vaultLoading, setVaultLoading] = useState(false)
+  const [mainTab, setMainTab] = useState("overview")
+  const [vaultPartyFilter, setVaultPartyFilter] = useState<string>("")
+  const [partyOptions, setPartyOptions] = useState<Array<{ id: string; displayName: string }>>([])
+  const [vaultEditOpen, setVaultEditOpen] = useState(false)
+  const [vaultEditBusy, setVaultEditBusy] = useState(false)
+  const [vaultEditDraft, setVaultEditDraft] = useState<{
+    noteId: string
+    title: string
+    body: string
+    contentHash: string
+  } | null>(null)
+  const vaultNoteRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const applyAgentPayload = useCallback(
     (a: Agent, options?: { operationalCatalogToolIds?: Set<string> }) => {
@@ -376,18 +392,69 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     if (!api || !id) return
     setVaultLoading(true)
     try {
-      const res = await api.get<AgentVaultNoteRow[]>(`/vault/notes?agentId=${encodeURIComponent(id)}&limit=120`)
+      const path = vaultPartyFilter.trim()
+        ? `/vault/parties/${encodeURIComponent(vaultPartyFilter.trim())}/notes?limit=120`
+        : `/vault/notes?agentId=${encodeURIComponent(id)}&limit=120`
+      const res = await api.get<AgentVaultNoteRow[]>(path)
       setVaultNotes(res.data)
     } catch {
       setVaultNotes([])
     } finally {
       setVaultLoading(false)
     }
-  }, [api, id])
+  }, [api, id, vaultPartyFilter])
 
   useEffect(() => {
     void refreshVaultNotes()
   }, [refreshVaultNotes])
+
+  useEffect(() => {
+    if (searchParams.get("vaultTab") === "vault") {
+      setMainTab("vault")
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!api) return
+    void (async () => {
+      try {
+        const res = await api.get<Array<{ id: string; displayName: string }>>("/parties?limit=50")
+        setPartyOptions(Array.isArray(res.data) ? res.data : [])
+      } catch {
+        setPartyOptions([])
+      }
+    })()
+  }, [api])
+
+  const vaultLiveTeamId = useMemo(() => {
+    if (!id || teams.length === 0) return null
+    const hit = teams.find((t) => t.agentIds?.includes(id))
+    return hit?.id ?? teams[0]?.id ?? null
+  }, [id, teams])
+
+  useEffect(() => {
+    if (!api || !vaultLiveTeamId || mainTab !== "vault") return
+    const ac = new AbortController()
+    void api.streamTeamLive(
+      vaultLiveTeamId,
+      {
+        onVaultNoteChanged: () => {
+          void refreshVaultNotes()
+        },
+      },
+      ac.signal,
+    )
+    return () => ac.abort()
+  }, [api, vaultLiveTeamId, mainTab, refreshVaultNotes])
+
+  const vaultScrollTarget = searchParams.get("vaultNote")
+  useEffect(() => {
+    if (!vaultScrollTarget || vaultNotes.length === 0) return
+    const el = vaultNoteRefs.current[vaultScrollTarget]
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [vaultScrollTarget, vaultNotes])
 
   const handleExportAgentJsonDownload = useCallback(async () => {
     if (!api || !agent) return
@@ -852,7 +919,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
         <div className="-mx-1 w-full overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] lg:mx-0 lg:overflow-visible lg:pb-0">
           <TabsList className="inline-flex h-auto min-h-10 w-max flex-nowrap justify-start gap-0.5 p-[3px] lg:grid lg:h-auto lg:w-full lg:grid-cols-8 lg:gap-0">
           <TabsTrigger value="overview" className="flex shrink-0 items-center gap-2">
@@ -1286,15 +1353,45 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 </p>
               </CardTitleWithInfo>
               <CardDescription>
-                Filtrado por <code className="text-xs">agentId</code> deste registo. Use{" "}
-                <Link href="/settings?tab=workspace" className="text-primary underline-offset-4 hover:underline">
-                  Configuracoes → Workspace
-                </Link>{" "}
-                para visao global do vault.
+                {vaultPartyFilter.trim() ? (
+                  <>
+                    Filtrado pelo cliente (party) seleccionado.{" "}
+                    <Link href="/settings?tab=workspace" className="text-primary underline-offset-4 hover:underline">
+                      Workspace
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    Filtrado por <code className="text-xs">agentId</code> deste registo. Use{" "}
+                    <Link href="/settings?tab=workspace" className="text-primary underline-offset-4 hover:underline">
+                      Configuracoes → Workspace
+                    </Link>{" "}
+                    para visao global do vault.
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Cliente (party)</Label>
+                  <Select
+                    value={vaultPartyFilter.trim() ? vaultPartyFilter : "__all__"}
+                    onValueChange={(v) => setVaultPartyFilter(v === "__all__" ? "" : v)}
+                  >
+                    <SelectTrigger className="w-[min(100%,280px)]">
+                      <SelectValue placeholder="Todos por agente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos (por agente)</SelectItem>
+                      {partyOptions.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.displayName || p.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -1314,7 +1411,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               ) : (
                 <div className="space-y-3">
                   {vaultNotes.map((r) => (
-                    <div key={r.noteId} className="rounded-md border border-border p-3 text-sm">
+                    <div
+                      key={r.noteId}
+                      ref={(el) => {
+                        vaultNoteRefs.current[r.noteId] = el
+                      }}
+                      className="rounded-md border border-border p-3 text-sm"
+                    >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium line-clamp-1">{r.title || r.noteId}</span>
                         <Badge variant="outline">{r.status}</Badge>
@@ -1323,47 +1426,153 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                       {r.bodyPreview ? (
                         <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{r.bodyPreview}</p>
                       ) : null}
-                      {r.status === "proposed" && api ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {api ? (
                           <Button
                             type="button"
                             size="sm"
+                            variant="secondary"
                             onClick={async () => {
                               try {
-                                await api.put(`/vault/notes/${r.noteId}/approve`)
-                                toast.success("Nota aprovada")
-                                await refreshVaultNotes()
+                                const res = await api.get<{
+                                  body: string
+                                  contentHash: string
+                                }>(`/vault/notes/${r.noteId}`)
+                                const rawBody = res.data.body.trimStart()
+                                const lines = rawBody.split(/\r?\n/)
+                                let title = r.title
+                                let innerBody = rawBody
+                                if (lines[0]?.startsWith("# ")) {
+                                  title = lines[0].slice(2).trim()
+                                  innerBody = lines.slice(1).join("\n").replace(/^\s+/, "")
+                                }
+                                setVaultEditDraft({
+                                  noteId: r.noteId,
+                                  title,
+                                  body: innerBody,
+                                  contentHash: res.data.contentHash,
+                                })
+                                setVaultEditOpen(true)
                               } catch (e) {
-                                toast.error(e instanceof ApiError ? e.message : "Falha ao aprovar")
+                                toast.error(e instanceof ApiError ? e.message : "Falha ao abrir nota")
                               }
                             }}
                           >
-                            Aprovar
+                            Editar
                           </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              try {
-                                await api.put(`/vault/notes/${r.noteId}/reject`)
-                                toast.success("Nota rejeitada")
-                                await refreshVaultNotes()
-                              } catch (e) {
-                                toast.error(e instanceof ApiError ? e.message : "Falha ao rejeitar")
-                              }
-                            }}
-                          >
-                            Rejeitar
-                          </Button>
-                        </div>
-                      ) : null}
+                        ) : null}
+                        {r.status === "proposed" && api ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await api.put(`/vault/notes/${r.noteId}/approve`, undefined, {
+                                    ifMatch: r.contentHash,
+                                  })
+                                  toast.success("Nota aprovada")
+                                  await refreshVaultNotes()
+                                } catch (e) {
+                                  toast.error(e instanceof ApiError ? e.message : "Falha ao aprovar")
+                                }
+                              }}
+                            >
+                              Aprovar
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await api.put(`/vault/notes/${r.noteId}/reject`, undefined, {
+                                    ifMatch: r.contentHash,
+                                  })
+                                  toast.success("Nota rejeitada")
+                                  await refreshVaultNotes()
+                                } catch (e) {
+                                  toast.error(e instanceof ApiError ? e.message : "Falha ao rejeitar")
+                                }
+                              }}
+                            >
+                              Rejeitar
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </CardContent>
           </Card>
+
+          <Dialog open={vaultEditOpen} onOpenChange={setVaultEditOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Editar nota no vault</DialogTitle>
+                <DialogDescription>
+                  Gravar envia If-Match com o hash actual. Se outro utilizador gravou entretanto, recarregue a lista.
+                </DialogDescription>
+              </DialogHeader>
+              {vaultEditDraft ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label>Titulo</Label>
+                    <Input
+                      value={vaultEditDraft.title}
+                      onChange={(e) => setVaultEditDraft((d) => (d ? { ...d, title: e.target.value } : d))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Corpo</Label>
+                    <Textarea
+                      value={vaultEditDraft.body}
+                      onChange={(e) => setVaultEditDraft((d) => (d ? { ...d, body: e.target.value } : d))}
+                      className="mt-1 min-h-[140px] font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setVaultEditOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!vaultEditDraft || !api || vaultEditBusy}
+                  onClick={async () => {
+                    if (!api || !vaultEditDraft) return
+                    setVaultEditBusy(true)
+                    try {
+                      await api.put(
+                        `/vault/notes/${vaultEditDraft.noteId}`,
+                        { title: vaultEditDraft.title.trim(), body: vaultEditDraft.body },
+                        { ifMatch: vaultEditDraft.contentHash },
+                      )
+                      toast.success("Nota gravada")
+                      setVaultEditOpen(false)
+                      setVaultEditDraft(null)
+                      await refreshVaultNotes()
+                    } catch (e) {
+                      if (e instanceof ApiError && e.status === 412) {
+                        toast.error("Conflito: a nota mudou no servidor. Recarregue a lista e tente outra vez.")
+                      } else {
+                        toast.error(e instanceof ApiError ? e.message : "Falha ao gravar")
+                      }
+                    } finally {
+                      setVaultEditBusy(false)
+                    }
+                  }}
+                >
+                  {vaultEditBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Guardar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Tools Tab */}

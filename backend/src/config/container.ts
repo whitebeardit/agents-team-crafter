@@ -56,6 +56,8 @@ import { VaultWriterService } from '../modules/team-vault/application/vault-writ
 import { VaultIndexerService } from '../modules/team-vault/application/vault-indexer.service.js';
 import { SecondBrainRecallService } from '../modules/team-vault/application/second-brain-recall.service.js';
 import { SecondBrainCuratorService } from '../modules/team-vault/application/second-brain-curator.service.js';
+import { OpenAiEmbeddingsClient } from '../modules/team-vault/infra/openai-embeddings.client.js';
+import { VaultEmbeddingService } from '../modules/team-vault/application/vault-embedding.service.js';
 import { MemorySummarizerService } from '../modules/team-vault/application/memory-summarizer.service.js';
 import { LibrarianPlatformAgentService } from '../modules/platform-agents/application/librarian-platform-agent.service.js';
 import { buildAuthenticate, buildRequirePlatformAdmin, buildRequireTenant } from '../app/plugins/hooks.js';
@@ -115,6 +117,7 @@ export interface IAppDeps {
   vaultIndexer: VaultIndexerService;
   secondBrainRecall: SecondBrainRecallService;
   secondBrainCurator: SecondBrainCuratorService;
+  vaultEmbedding: VaultEmbeddingService;
   memorySummarizer: MemorySummarizerService;
   librarianPlatformAgent: LibrarianPlatformAgentService;
 }
@@ -180,10 +183,13 @@ export function createDeps(env: IEnv): IAppDeps {
   const governanceAuditRepo = new GovernanceAuditEventRepository();
   const vaultLockRepo = new VaultLockRepository();
   const vaultNoteIndexRepo = new VaultNoteIndexRepository();
-  const vaultWriter = new VaultWriterService(env, vaultLockRepo, vaultNoteIndexRepo, governanceAuditRepo);
+  const openAiEmbeddingsClient = new OpenAiEmbeddingsClient(env);
+  const vaultEmbedding = new VaultEmbeddingService(env, openAiEmbeddingsClient, vaultNoteIndexRepo);
+  const vaultWriter = new VaultWriterService(env, vaultLockRepo, vaultNoteIndexRepo, governanceAuditRepo, vaultEmbedding);
+  vaultEmbedding.setVaultWriter(vaultWriter);
   const vaultIndexer = new VaultIndexerService(env, vaultNoteIndexRepo);
-  const secondBrainRecall = new SecondBrainRecallService(vaultNoteIndexRepo);
-  const secondBrainCurator = new SecondBrainCuratorService(env, vaultWriter);
+  const secondBrainRecall = new SecondBrainRecallService(vaultNoteIndexRepo, vaultEmbedding, env);
+  const secondBrainCurator = new SecondBrainCuratorService(env, vaultWriter, partyRepo);
   const memorySummarizer = new MemorySummarizerService(env, secondBrainCurator);
   const librarianPlatformAgent = new LibrarianPlatformAgentService(env, agentRepo);
   const agentRuntime = new OpenAIAgentsRuntimeProvider();
@@ -260,6 +266,7 @@ export function createDeps(env: IEnv): IAppDeps {
     vaultIndexer,
     secondBrainRecall,
     secondBrainCurator,
+    vaultEmbedding,
     memorySummarizer,
     librarianPlatformAgent,
   };

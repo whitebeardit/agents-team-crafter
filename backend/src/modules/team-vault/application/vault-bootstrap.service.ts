@@ -5,7 +5,7 @@ import { tryGetHeadCommit, tryGitCommit, tryGitInit } from './vault-git.js';
 
 const README = `# Second-brain do time
 
-Este vault guarda aprendizados aprovados por operadores. Notas em \`agents/<agentId>/learnings/\`.
+Este vault guarda aprendizados aprovados por operadores. Notas em \`agents/<agentId>/learnings/\` ou \`parties/<partyId>/\` (memoria por cliente).
 
 - Propostas: \`status: proposed\` (revisao no painel)
 - Ativas: \`status: active\` (injetadas no prompt quando \`usePersistentMemory\` estiver ligado)
@@ -28,6 +28,7 @@ export class VaultBootstrapService {
     await fs.mkdir(workspaceRoot, { recursive: true });
     const subdirs = [
       'agents',
+      'parties',
       'playbooks',
       'tags',
       'resources/runs',

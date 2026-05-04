@@ -1,4 +1,6 @@
+import type { IEnv } from '../../../config/env.js';
 import type { VaultNoteIndexRepository, TVaultNoteIndexRow } from '../infra/vault-note-index.repository.js';
+import type { VaultEmbeddingService } from './vault-embedding.service.js';
 
 export type TSecondBrainRecallReason = 'ok' | 'no_relevant_memory' | 'budget_exhausted' | 'timeout' | 'disabled';
 
@@ -30,14 +32,38 @@ function scoreRow(topic: string, row: TVaultNoteIndexRow): number {
   return score;
 }
 
+const RRF_K = 60;
+
+function rrfMerge(textOrder: TVaultNoteIndexRow[], semOrder: TVaultNoteIndexRow[]): TVaultNoteIndexRow[] {
+  const scores = new Map<string, number>();
+  const byId = new Map<string, TVaultNoteIndexRow>();
+  textOrder.forEach((r, i) => {
+    byId.set(r.noteId, r);
+    scores.set(r.noteId, (scores.get(r.noteId) ?? 0) + 1 / (RRF_K + i + 1));
+  });
+  semOrder.forEach((r, i) => {
+    byId.set(r.noteId, r);
+    scores.set(r.noteId, (scores.get(r.noteId) ?? 0) + 1 / (RRF_K + i + 1));
+  });
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => byId.get(id))
+    .filter((x): x is TVaultNoteIndexRow => Boolean(x));
+}
+
 export class SecondBrainRecallService {
-  constructor(private readonly indexRepo: VaultNoteIndexRepository) {}
+  constructor(
+    private readonly indexRepo: VaultNoteIndexRepository,
+    private readonly embeddings: VaultEmbeddingService | null,
+    private readonly env: IEnv,
+  ) {}
 
   async recall(input: {
     workspaceId: string;
     topic: string;
     intent: string;
     agentId?: string;
+    partyId?: string;
     kind?: string;
     limit?: number;
     tokenBudget?: number;
@@ -46,11 +72,12 @@ export class SecondBrainRecallService {
     if (!topic) {
       return { notes: [], applied: 0, reason: 'no_relevant_memory' };
     }
-    const rows = await this.indexRepo.listByFilter(
-      input.workspaceId,
-      { status: 'active', ...(input.agentId ? { agentId: input.agentId } : {}), ...(input.kind ? { kind: input.kind } : {}) },
-      80,
-    );
+    const filter: { status: 'active'; agentId?: string; partyId?: string; kind?: string } = { status: 'active' };
+    if (input.agentId) filter.agentId = input.agentId;
+    if (input.partyId) filter.partyId = input.partyId;
+    if (input.kind) filter.kind = input.kind;
+
+    const rows = await this.indexRepo.listByFilter(input.workspaceId, filter, 80);
     if (rows.length === 0) {
       return { notes: [], applied: 0, reason: 'no_relevant_memory' };
     }
@@ -58,7 +85,33 @@ export class SecondBrainRecallService {
       .map((r) => ({ r, s: scoreRow(topic, r) }))
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s);
-    const list = scored.length > 0 ? scored.map((x) => x.r) : rows.sort((a, b) => b.confidence - a.confidence);
+    let list = scored.length > 0 ? scored.map((x) => x.r) : [...rows].sort((a, b) => b.confidence - a.confidence);
+
+    if (this.env.EMBEDDINGS_ENABLED === '1' && this.embeddings?.isEnabled()) {
+      try {
+        const qVec = await this.embeddings.embedQuery(topic);
+        const topK = this.env.EMBEDDINGS_TOPK ?? 20;
+        const cap = this.env.EMBEDDINGS_CANDIDATE_CAP ?? 200;
+        const sem = await this.embeddings.cosineSearch({
+          workspaceId: input.workspaceId,
+          queryVector: qVec,
+          filter: {
+            agentId: input.agentId,
+            partyId: input.partyId,
+            status: 'active',
+          },
+          topK,
+          candidateCap: cap,
+        });
+        const semRows = sem.map((s) => s.row);
+        if (semRows.length > 0) {
+          list = rrfMerge(list, semRows);
+        }
+      } catch {
+        /* fallback textual only */
+      }
+    }
+
     const max = Math.min(input.limit ?? 8, 20);
     const budget = input.tokenBudget ?? 1200;
     const notes: TSecondBrainRecallNote[] = [];

@@ -80,6 +80,14 @@ const envSchema = z
     SECOND_BRAIN_SUMMARIZER_ENABLED: z.enum(['0', '1']).optional(),
     /** Amostragem 1 em N runs para summarizer (default 5). */
     SECOND_BRAIN_SUMMARIZER_SAMPLE_N: z.coerce.number().int().min(1).max(100).optional(),
+    /** `1` activa recall hibrido com embeddings OpenAI + cosine in-app no Mongo. */
+    EMBEDDINGS_ENABLED: z.enum(['0', '1']).optional(),
+    /** Modelo OpenAI para embeddings (default text-embedding-3-small). */
+    EMBEDDINGS_MODEL: z.string().min(1).optional(),
+    /** Top-K candidatos semanticos antes de fusao com heuristica textual (default 20). */
+    EMBEDDINGS_TOPK: z.coerce.number().int().min(5).max(100).optional(),
+    /** Max notas com vector a carregar por recall (default 200). */
+    EMBEDDINGS_CANDIDATE_CAP: z.coerce.number().int().min(50).max(2000).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== 'production') return;
@@ -114,6 +122,10 @@ export type IEnv = IEnvParsed & {
   VAULT_LEARNINGS_TOKEN_BUDGET?: number;
   SECOND_BRAIN_SUMMARIZER_ENABLED?: '0' | '1';
   SECOND_BRAIN_SUMMARIZER_SAMPLE_N?: number;
+  EMBEDDINGS_ENABLED?: '0' | '1';
+  EMBEDDINGS_MODEL?: string;
+  EMBEDDINGS_TOPK?: number;
+  EMBEDDINGS_CANDIDATE_CAP?: number;
   /** Definido por loadEnv; em testes pode omitir (createDeps usa conjunto vazio). */
   platformAdminEmails?: ReadonlySet<string>;
   /** Normalizado em loadEnv; testes podem omitir (equivalente a `0`). */
@@ -155,6 +167,10 @@ export function loadEnv(): IEnv {
     VAULT_LEARNINGS_TOKEN_BUDGET: data.VAULT_LEARNINGS_TOKEN_BUDGET,
     SECOND_BRAIN_SUMMARIZER_ENABLED: data.SECOND_BRAIN_SUMMARIZER_ENABLED ?? '0',
     SECOND_BRAIN_SUMMARIZER_SAMPLE_N: data.SECOND_BRAIN_SUMMARIZER_SAMPLE_N,
+    EMBEDDINGS_ENABLED: data.EMBEDDINGS_ENABLED ?? '0',
+    EMBEDDINGS_MODEL: data.EMBEDDINGS_MODEL,
+    EMBEDDINGS_TOPK: data.EMBEDDINGS_TOPK,
+    EMBEDDINGS_CANDIDATE_CAP: data.EMBEDDINGS_CANDIDATE_CAP,
     TEAM_PLAN_AUTO_BIND_TOOLS: data.TEAM_PLAN_AUTO_BIND_TOOLS ?? '0',
     DANGER_ZONE_FACTORY_RESET_ENABLED: data.DANGER_ZONE_FACTORY_RESET_ENABLED ?? '0',
     DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION: data.DANGER_ZONE_FACTORY_RESET_ALLOW_PRODUCTION ?? '0',

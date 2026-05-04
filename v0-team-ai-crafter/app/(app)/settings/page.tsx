@@ -1354,7 +1354,10 @@ export default function SettingsPage() {
         <TabsContent value="workspace" className="space-y-6">
           <WorkspaceTeamSection />
 
-          <WorkspaceVaultCard />
+          <WorkspaceVaultCard
+            deepLinkNoteId={searchParams.get("vaultNote") ?? undefined}
+            deepLinkPartyId={searchParams.get("vaultParty") ?? undefined}
+          />
 
           <Card>
             <CardHeader>

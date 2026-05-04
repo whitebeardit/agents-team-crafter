@@ -43,23 +43,41 @@ export class VaultIndexerService {
     const vaultRoot = resolveVaultRoot(this.env);
     const { workspaceRoot } = await this.bootstrap.ensureWorkspaceVault(vaultRoot, workspaceId);
     const agentsDir = path.join(workspaceRoot, 'agents');
-    const files = await walkMarkdownFiles(agentsDir);
+    const partiesDir = path.join(workspaceRoot, 'parties');
+    const filesAgents = await walkMarkdownFiles(agentsDir);
+    const filesParties = await walkMarkdownFiles(partiesDir);
+    const files = [...filesAgents, ...filesParties];
     const gitHead = tryGetHeadCommit(workspaceRoot);
     let n = 0;
     for (const abs of files) {
       const rel = path.relative(workspaceRoot, abs).split(path.sep).join('/');
-      if (!rel.startsWith('agents/')) continue;
+      if (rel.endsWith('/MOC.md') || rel.endsWith('MOC.md')) continue;
       const raw = await fs.readFile(abs, 'utf8');
       const parsed = parseNoteDocument(raw);
       if (!parsed) continue;
       const fm = parsed.frontmatter;
       const parts = rel.split('/');
-      const agentId = parts[1] ?? '';
-      if (!agentId) continue;
+      let agentId = '';
+      let partyId: string | undefined;
+      let partySlug: string | undefined;
+      if (rel.startsWith('agents/')) {
+        agentId = parts[1] ?? '';
+        if (!agentId) continue;
+      } else if (rel.startsWith('parties/')) {
+        partyId = parts[1] ?? '';
+        if (!partyId) continue;
+        agentId = fm.agent;
+        if (!agentId) continue;
+        partySlug = fm.party?.slug;
+      } else {
+        continue;
+      }
       const titleMatch = parsed.body.match(/^#\s+(.+)$/m);
       const title = titleMatch?.[1]?.trim() ?? rel;
       await this.indexRepo.upsert(workspaceId, {
         agentId,
+        partyId,
+        partySlug,
         noteId: fm.id,
         notePath: rel,
         status: fm.status,

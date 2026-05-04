@@ -11,7 +11,8 @@ export type TTeamLiveEnvelopeEvent =
   | 'runComplete'
   | 'error'
   | 'inboundUserMessage'
-  | 'timelineItem';
+  | 'timelineItem'
+  | 'vaultNoteChanged';
 
 export interface ITeamLiveEnvelope {
   source: TTeamLiveSource;

@@ -21,6 +21,8 @@
     "migrate:agent-categories:dry": "tsx scripts/migrate-agent-categories.ts --dry-run",
     "backfill:second-brain": "tsx scripts/backfill-second-brain.ts",
     "backfill:second-brain:dry": "tsx scripts/backfill-second-brain.ts --dry-run",
+    "backfill:vault-embeddings": "tsx scripts/backfill-vault-embeddings.ts",
+    "backfill:vault-embeddings:dry": "tsx scripts/backfill-vault-embeddings.ts --dry-run",
     "verify:team-channels": "tsx scripts/verify-team-channels.ts",
     "refactor:so-clinica-team-tools": "tsx scripts/refactor-so-clinica-team-custom-tool-ids.ts",
     "telegram:set-webhook": "tsx scripts/telegram-set-webhook.ts"
