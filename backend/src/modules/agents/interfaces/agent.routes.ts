@@ -19,14 +19,14 @@ import { getWorkspaceOverlapMode } from '../../governance/application/workspace-
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import { ensureCoordinatorSystemInstructionPolicy } from '../application/coordinator-system-instruction-policy.js';
-import {
-  EOpenAiWorkspaceChatModel,
-  parseOpenAiWorkspaceChatModel,
-} from '../../../shared/kernel/openai-workspace-chat-models.js';
+import { EOpenAiWorkspaceChatModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { buildAgentExportPayload } from '../application/build-agent-export.js';
 import { normalizeAgentCapabilities } from '../application/agent-capabilities.js';
 
-const openaiRuntimeModelField = z.nativeEnum(EOpenAiWorkspaceChatModel);
+const agentRuntimeModelInputSchema = z.union([
+  z.nativeEnum(EOpenAiWorkspaceChatModel),
+  z.string().min(3).max(200),
+]);
 
 const listQuerySchema = paginationQuerySchema.merge(
   z.object({
@@ -54,7 +54,7 @@ const createAgentSchema = z.object({
   systemRole: systemRoleSchema,
   allowConflictOverride: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
-  openaiRuntimeModel: openaiRuntimeModelField.optional(),
+  openaiRuntimeModel: agentRuntimeModelInputSchema.optional(),
 });
 
 const updateAgentSchema = z.object({
@@ -71,7 +71,7 @@ const updateAgentSchema = z.object({
   platformManaged: z.boolean().optional(),
   systemRole: systemRoleSchema,
   allowConflictOverride: z.boolean().optional(),
-  openaiRuntimeModel: z.union([openaiRuntimeModelField, z.literal('')]).optional(),
+  openaiRuntimeModel: z.union([agentRuntimeModelInputSchema, z.literal('')]).optional(),
 });
 
 function asRec(a: unknown): Record<string, unknown> {
@@ -131,7 +131,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     const ws = req.workspaceId!;
     const body = createAgentSchema.parse(req.body);
     if (body.openaiRuntimeModel) {
-      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, body.openaiRuntimeModel);
+      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, String(body.openaiRuntimeModel));
     }
     await assertWorkspaceQuota(deps.settingsRepo, ws, 'agents');
     if (body.role === 'specialist' && body.channels.length > 0) {
@@ -270,7 +270,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     assertCompany(cur);
     const body = updateAgentSchema.parse(req.body);
     if (body.openaiRuntimeModel !== undefined && body.openaiRuntimeModel !== '') {
-      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, body.openaiRuntimeModel);
+      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, String(body.openaiRuntimeModel));
     }
     const current = cur as Record<string, unknown>;
     if (body.channels !== undefined && cur['role'] !== 'coordinator') {
@@ -471,12 +471,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       if (rawModel === null || rawModel === '') {
         body['openaiRuntimeModel'] = null;
       } else {
-        const parsed = parseOpenAiWorkspaceChatModel(String(rawModel));
-        if (!parsed) {
-          throw new AppError('VALIDATION_ERROR', 'Modelo OpenAI invalido para o agente.', 400);
-        }
-        await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, parsed);
-        body['openaiRuntimeModel'] = parsed;
+        const rawStr = String(rawModel).trim();
+        await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, rawStr);
+        body['openaiRuntimeModel'] = rawStr;
       }
     }
     await deps.agentRepo.update(ws, id, body);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
@@ -56,6 +56,7 @@ import {
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { WorkspaceTeamSection } from "@/components/workspace/workspace-team-section"
 import type { IPlatformDangerZoneStatus, IUserNotificationPreferences, IUserPreferences } from "@/lib/types"
 
@@ -145,8 +146,15 @@ const OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK: readonly string[] = [
 
 type IntegrationsApiData = {
   availableOpenAiChatModels?: string[]
+  allowedLlmModelIds?: string[]
   operationalCatalogTools?: Array<{ id: string; name: string; description: string }>
   secretsMasked: {
+    llmProvider?: "openai" | "openrouter"
+    openrouterApiKeyConfigured?: boolean
+    openrouterApiKeyMasked?: string
+    openrouterRuntimeModel?: string
+    openrouterPlannerModel?: string
+    allowedLlmModelIds?: string[]
     openaiApiKeyConfigured: boolean
     openaiApiKeyMasked?: string
     smtp?: {
@@ -170,6 +178,30 @@ type IntegrationsApiData = {
     agentsRuntimeModel?: string
     teamPlannerModel?: string
   }
+}
+
+type TOpenRouterCatalogRow = {
+  id: string
+  name: string
+  supportsTools?: boolean
+  supportsStructuredOutputs?: boolean
+  /** Ordem na resposta OpenRouter (`order=most-popular`); menor = mais popular no topo. */
+  listingIndex?: number
+  pricing?: {
+    promptUsdPer1M: number | null
+    completionUsdPer1M: number | null
+    isFree: boolean
+  }
+}
+
+/** Exibe preço em USD / 1M tokens (como no site OpenRouter). */
+function formatOrUsdPer1m(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—"
+  if (value === 0) return "$0"
+  if (value < 1e-6) return `$${value.toExponential(1)}`
+  if (value < 0.01) return `$${value.toFixed(6)}`
+  if (value < 1) return `$${value.toFixed(4)}`
+  return `$${value.toFixed(3)}`
 }
 
 function toastIntegrationRequestError(err: unknown, fallback: string) {
@@ -242,6 +274,17 @@ export default function SettingsPage() {
   const [enabledChatModelsSelection, setEnabledChatModelsSelection] = useState<string[]>([])
   const [agentsRuntimeModelPick, setAgentsRuntimeModelPick] = useState<string>("__unset__")
   const [teamPlannerModelPick, setTeamPlannerModelPick] = useState<string>("__unset__")
+  const [llmProviderPick, setLlmProviderPick] = useState<"openai" | "openrouter">("openai")
+  const [openrouterKeyInput, setOpenrouterKeyInput] = useState("")
+  const [orCatalogModels, setOrCatalogModels] = useState<TOpenRouterCatalogRow[]>([])
+  const [orCatalogLoading, setOrCatalogLoading] = useState(false)
+  const [orCatalogQuery, setOrCatalogQuery] = useState("")
+  const [orCatalogPriceMode, setOrCatalogPriceMode] = useState<"all" | "free" | "max">("all")
+  const [orCatalogMaxUsdPer1mIn, setOrCatalogMaxUsdPer1mIn] = useState("")
+  const [orCatalogSort, setOrCatalogSort] = useState<"popular" | "id" | "price_in_asc" | "price_in_desc">("popular")
+  const [allowedOrModels, setAllowedOrModels] = useState<string[]>([])
+  const [orRuntimePick, setOrRuntimePick] = useState<string>("__unset__")
+  const [orPlannerPick, setOrPlannerPick] = useState<string>("__unset__")
   const [smtpHost, setSmtpHost] = useState("")
   const [smtpPort, setSmtpPort] = useState("587")
   const [smtpSecure, setSmtpSecure] = useState(false)
@@ -297,6 +340,18 @@ export default function SettingsPage() {
   const currentPlan = (workspace?.plan ?? "free") as "free" | "pro" | "enterprise"
 
   const applyIntegrationsChatState = useCallback((data: IntegrationsApiData) => {
+    const prov = data.secretsMasked.llmProvider === "openrouter" ? "openrouter" : "openai"
+    setLlmProviderPick(prov)
+    const am =
+      data.secretsMasked.allowedLlmModelIds?.length && data.secretsMasked.allowedLlmModelIds.length > 0
+        ? [...data.secretsMasked.allowedLlmModelIds]
+        : data.allowedLlmModelIds?.length
+          ? [...data.allowedLlmModelIds]
+          : []
+    setAllowedOrModels(am)
+    setOrRuntimePick(data.secretsMasked.openrouterRuntimeModel?.trim() ? data.secretsMasked.openrouterRuntimeModel : "__unset__")
+    setOrPlannerPick(data.secretsMasked.openrouterPlannerModel?.trim() ? data.secretsMasked.openrouterPlannerModel : "__unset__")
+
     const avail =
       data.availableOpenAiChatModels && data.availableOpenAiChatModels.length > 0
         ? data.availableOpenAiChatModels
@@ -336,6 +391,7 @@ export default function SettingsPage() {
             },
             operationalCatalogTools: [],
             availableOpenAiChatModels: [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK],
+            allowedLlmModelIds: [],
           },
         })),
         api.get<TeamPlanningPolicy>("/settings/workspace/team-planning-policy").catch((): { data: TeamPlanningPolicy } => ({
@@ -684,23 +740,208 @@ export default function SettingsPage() {
     })
   }
 
+  type TIntegrationPutResponse = {
+    message: string
+    secretsMasked: IntegrationsApiData["secretsMasked"]
+    availableOpenAiChatModels?: string[]
+    allowedLlmModelIds?: string[]
+    operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
+  }
+
+  const mergeIntegrationPutResponse = (res: { data: TIntegrationPutResponse }) => {
+    setIntegrations(res.data.secretsMasked)
+    applyIntegrationsChatState({
+      secretsMasked: res.data.secretsMasked,
+      availableOpenAiChatModels: res.data.availableOpenAiChatModels,
+      allowedLlmModelIds: res.data.allowedLlmModelIds,
+      operationalCatalogTools: res.data.operationalCatalogTools,
+    })
+  }
+
+  const saveLlmProviderIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", {
+        llmProvider: llmProviderPick,
+      })
+      mergeIntegrationPutResponse(res)
+      toast.success("Provedor LLM atualizado")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar provedor LLM")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const saveOpenRouterKeyIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", {
+        openrouterApiKey: openrouterKeyInput,
+      })
+      mergeIntegrationPutResponse(res)
+      setOpenrouterKeyInput("")
+      toast.success("Chave OpenRouter guardada")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar chave OpenRouter")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const clearOpenRouterKeyIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", {
+        openrouterApiKey: "",
+      })
+      mergeIntegrationPutResponse(res)
+      toast.success("Chave OpenRouter removida do workspace")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao remover chave OpenRouter")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
+  const loadOpenRouterCatalog = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setOrCatalogLoading(true)
+    try {
+      const res = await api.get<{ models: TOpenRouterCatalogRow[]; fetchedAt: number; stale: boolean }>(
+        "/settings/workspace/integrations/openrouter-models?mode=all",
+      )
+      setOrCatalogModels(res.data.models ?? [])
+      if (res.data.stale) {
+        toast.message("Catálogo servido do cache (OpenRouter indisponível).")
+      }
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao carregar catálogo OpenRouter")
+    } finally {
+      setOrCatalogLoading(false)
+    }
+  }
+
+  const filteredOrCatalog = useMemo(() => {
+    let list = orCatalogModels
+
+    if (orCatalogPriceMode === "free") {
+      list = list.filter((m) => m.pricing?.isFree === true)
+    } else if (orCatalogPriceMode === "max") {
+      const raw = orCatalogMaxUsdPer1mIn.replace(",", ".").trim()
+      const max = parseFloat(raw)
+      if (Number.isFinite(max) && max >= 0) {
+        list = list.filter((m) => {
+          const p = m.pricing?.promptUsdPer1M
+          return typeof p === "number" && Number.isFinite(p) && p <= max
+        })
+      }
+    }
+
+    const q = orCatalogQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter((m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+    }
+
+    const promptIn = (m: TOpenRouterCatalogRow) => m.pricing?.promptUsdPer1M
+    const listingIdx = (m: TOpenRouterCatalogRow) => m.listingIndex ?? 1e12
+    const out = [...list]
+    if (orCatalogSort === "popular") {
+      out.sort((a, b) => {
+        const c = listingIdx(a) - listingIdx(b)
+        return c !== 0 ? c : a.id.localeCompare(b.id)
+      })
+    } else if (orCatalogSort === "id") {
+      out.sort((a, b) => a.id.localeCompare(b.id))
+    } else if (orCatalogSort === "price_in_asc") {
+      out.sort((a, b) => {
+        const ap = promptIn(a)
+        const bp = promptIn(b)
+        const au = ap === null || ap === undefined ? 1 : 0
+        const bu = bp === null || bp === undefined ? 1 : 0
+        if (au !== bu) return au - bu
+        const cmp = (ap ?? 0) - (bp ?? 0)
+        return cmp !== 0 ? cmp : a.id.localeCompare(b.id)
+      })
+    } else {
+      out.sort((a, b) => {
+        const ap = promptIn(a)
+        const bp = promptIn(b)
+        const au = ap === null || ap === undefined ? 1 : 0
+        const bu = bp === null || bp === undefined ? 1 : 0
+        if (au !== bu) return au - bu
+        const cmp = (bp ?? 0) - (ap ?? 0)
+        return cmp !== 0 ? cmp : a.id.localeCompare(b.id)
+      })
+    }
+    return out
+  }, [
+    orCatalogModels,
+    orCatalogQuery,
+    orCatalogPriceMode,
+    orCatalogMaxUsdPer1mIn,
+    orCatalogSort,
+  ])
+
+  const orModelPickOptions = useMemo(() => {
+    if (allowedOrModels.length > 0) {
+      const idx = new Map(orCatalogModels.map((m) => [m.id, m.listingIndex ?? 1e12]))
+      return [...allowedOrModels].sort((a, b) => {
+        const da = idx.get(a) ?? 1e12
+        const db = idx.get(b) ?? 1e12
+        if (da !== db) return da - db
+        return a.localeCompare(b)
+      })
+    }
+    return filteredOrCatalog.map((m) => m.id)
+  }, [allowedOrModels, filteredOrCatalog, orCatalogModels])
+
+  const toggleAllowedOrModel = (id: string, checked: boolean) => {
+    setAllowedOrModels((prev) => {
+      if (checked) {
+        if (prev.includes(id)) return prev
+        const next = [...prev, id]
+        return next.length > 200 ? next.slice(0, 200) : next
+      }
+      return prev.filter((x) => x !== id)
+    })
+  }
+
+  const saveOpenRouterModelsIntegration = async () => {
+    const api = integrationApi()
+    if (!api) return
+    setIntBusy(true)
+    try {
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", {
+        allowedLlmModelIds: allowedOrModels,
+        openrouterRuntimeModel: orRuntimePick === "__unset__" ? "" : orRuntimePick,
+        openrouterPlannerModel: orPlannerPick === "__unset__" ? "" : orPlannerPick,
+      })
+      mergeIntegrationPutResponse(res)
+      toast.success("Modelos OpenRouter guardados")
+    } catch (err) {
+      toastIntegrationRequestError(err, "Falha ao guardar modelos OpenRouter")
+    } finally {
+      setIntBusy(false)
+    }
+  }
+
   const saveOpenAiIntegration = async () => {
     const api = integrationApi()
     if (!api) return
     setIntBusy(true)
     try {
-      const res = await api.put<{
-        message: string
-        secretsMasked: IntegrationsApiData["secretsMasked"]
-        availableOpenAiChatModels?: string[]
-        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
-      }>("/settings/workspace/integrations", { openaiApiKey: openaiKeyInput })
-      setIntegrations(res.data.secretsMasked)
-      applyIntegrationsChatState({
-        secretsMasked: res.data.secretsMasked,
-        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
-        operationalCatalogTools: res.data.operationalCatalogTools,
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", {
+        openaiApiKey: openaiKeyInput,
       })
+      mergeIntegrationPutResponse(res)
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       setOpenaiKeyInput("")
@@ -746,18 +987,8 @@ export default function SettingsPage() {
     if (!api) return
     setIntBusy(true)
     try {
-      const res = await api.put<{
-        message: string
-        secretsMasked: IntegrationsApiData["secretsMasked"]
-        availableOpenAiChatModels?: string[]
-        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
-      }>("/settings/workspace/integrations", { openaiApiKey: "" })
-      setIntegrations(res.data.secretsMasked)
-      applyIntegrationsChatState({
-        secretsMasked: res.data.secretsMasked,
-        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
-        operationalCatalogTools: res.data.operationalCatalogTools,
-      })
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", { openaiApiKey: "" })
+      mergeIntegrationPutResponse(res)
       setOpenaiKeyInput("")
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
@@ -774,20 +1005,10 @@ export default function SettingsPage() {
     if (!api) return
     setIntBusy(true)
     try {
-      const res = await api.put<{
-        message: string
-        secretsMasked: IntegrationsApiData["secretsMasked"]
-        availableOpenAiChatModels?: string[]
-        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
-      }>("/settings/workspace/integrations", {
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", {
         imageGenerationModel: imageGenModelDefault === "__default__" ? "" : imageGenModelDefault,
       })
-      setIntegrations(res.data.secretsMasked)
-      applyIntegrationsChatState({
-        secretsMasked: res.data.secretsMasked,
-        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
-        operationalCatalogTools: res.data.operationalCatalogTools,
-      })
+      mergeIntegrationPutResponse(res)
       const igm = res.data.secretsMasked.imageGenerationModel
       setImageGenModelDefault(igm === "dall-e-2" || igm === "dall-e-3" ? igm : "__default__")
       toast.success("Modelo padrao de imagem guardado")
@@ -816,22 +1037,12 @@ export default function SettingsPage() {
     try {
       const enabledPayload =
         enabledChatModelsSelection.length === availableChatModels.length ? [] : enabledChatModelsSelection
-      const res = await api.put<{
-        message: string
-        secretsMasked: IntegrationsApiData["secretsMasked"]
-        availableOpenAiChatModels?: string[]
-        operationalCatalogTools?: IntegrationsApiData["operationalCatalogTools"]
-      }>("/settings/workspace/integrations", {
+      const res = await api.put<TIntegrationPutResponse>("/settings/workspace/integrations", {
         enabledOpenAiChatModels: enabledPayload,
         agentsRuntimeModel: agentsRuntimeModelPick === "__unset__" ? "" : agentsRuntimeModelPick,
         teamPlannerModel: teamPlannerModelPick === "__unset__" ? "" : teamPlannerModelPick,
       })
-      setIntegrations(res.data.secretsMasked)
-      applyIntegrationsChatState({
-        secretsMasked: res.data.secretsMasked,
-        availableOpenAiChatModels: res.data.availableOpenAiChatModels,
-        operationalCatalogTools: res.data.operationalCatalogTools,
-      })
+      mergeIntegrationPutResponse(res)
       toast.success("Modelos de chat OpenAI guardados")
     } catch (err) {
       toastIntegrationRequestError(
@@ -937,7 +1148,7 @@ export default function SettingsPage() {
       if (r.data.ok) toast.success(r.data.message)
       else toast.error(r.data.message)
     } catch (err) {
-      toastIntegrationRequestError(err, "Falha no teste OpenAI")
+      toastIntegrationRequestError(err, "Falha no teste LLM")
     } finally {
       setIntBusy(false)
     }
@@ -1329,9 +1540,10 @@ export default function SettingsPage() {
             <AlertTitle>Leitura rapida</AlertTitle>
             <AlertDescription className="space-y-2 text-sm">
               <p>
-                <strong className="text-foreground">OpenAI (BYOK)</strong>: alimenta o runtime dos agentes e tools de
-                catalogo (ex. <code className="text-xs">image_generation</code>). Use &quot;Testar ligacao&quot; para
-                validar antes de colocar em producao.
+                <strong className="text-foreground">Provedor LLM</strong>: escolha <strong>OpenRouter</strong> para
+                chat/planner com catálogo oficial de modelos, ou <strong>OpenAI</strong> para o fluxo clássico. A tool{" "}
+                <code className="text-xs">image_generation</code> (DALL-E) continua a usar chave OpenAI quando
+                configurada.
               </p>
               <p>
                 <strong className="text-foreground">SMTP / Slack (workspace)</strong>: base para envio de email e
@@ -1349,6 +1561,304 @@ export default function SettingsPage() {
               </p>
             </AlertDescription>
           </Alert>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Provedor LLM</CardTitle>
+              <CardDescription>
+                OpenRouter usa o catálogo oficial (<code className="text-xs">/v1/models</code>) para autorizar modelos
+                no workspace. OpenAI permanece suportado para compatibilidade e para imagens.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="llm-provider">Provider ativo</Label>
+                <Select
+                  value={llmProviderPick}
+                  onValueChange={(v) => setLlmProviderPick(v as "openai" | "openrouter")}
+                >
+                  <SelectTrigger id="llm-provider" className="w-[min(100%,280px)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI</SelectItem>
+                    <SelectItem value="openrouter">OpenRouter</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={() => void saveLlmProviderIntegration()} disabled={intBusy}>
+                  Guardar provider
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => void runTestOpenAi()} disabled={intBusy}>
+                  Testar ligacao LLM
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {llmProviderPick === "openrouter" ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>OpenRouter (BYOK)</CardTitle>
+                  <CardDescription>
+                    Chave para chat e planner via OpenRouter.{" "}
+                    <a
+                      href="https://openrouter.ai/settings/keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary inline-flex items-center gap-1"
+                    >
+                      Obter chave <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {integrations?.openrouterApiKeyConfigured ? (
+                    <p className="text-sm text-muted-foreground">
+                      Configurado:{" "}
+                      <span className="font-mono">{integrations.openrouterApiKeyMasked ?? "****"}</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-amber-600 dark:text-amber-500">
+                      Sem chave no workspace. O servidor pode usar <code className="text-xs">OPENROUTER_API_KEY</code>{" "}
+                      em demo local.
+                    </p>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="or-key">Nova chave OpenRouter</Label>
+                    <Input
+                      id="or-key"
+                      type="password"
+                      autoComplete="off"
+                      placeholder="sk-or-v1-..."
+                      value={openrouterKeyInput}
+                      onChange={(e) => setOpenrouterKeyInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => void saveOpenRouterKeyIntegration()}
+                      disabled={intBusy || !openrouterKeyInput.trim()}
+                    >
+                      Guardar OpenRouter
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => void clearOpenRouterKeyIntegration()} disabled={intBusy}>
+                      Limpar chave
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Modelos OpenRouter (catálogo oficial)</CardTitle>
+                  <CardDescription>
+                    Carregue o catálogo, marque os modelos permitidos neste workspace e defina os defaults de runtime e
+                    planner. Com lista permitida não vazia, os defaults têm de pertencer à lista. A ordem{" "}
+                    <strong>Popular</strong> segue a lista OpenRouter (
+                    <code className="text-xs">order=most-popular</code>
+                    ). Preços em <strong>USD por 1M tokens</strong> (entrada / saída), do campo{" "}
+                    <code className="text-xs">pricing</code> — o filtro &quot;grátis&quot; corresponde a entrada e saída
+                    a zero (o parâmetro <code className="text-xs">max_price</code> da API de modelos não replica o do
+                    site). Ver também no site (ex.{" "}
+                    <Link
+                      href="https://openrouter.ai/models?order=most-popular&max_price=0"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      modelos gratuitos
+                      <ExternalLink className="h-3 w-3" aria-hidden />
+                    </Link>
+                    ).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2 items-end">
+                    <Button type="button" variant="secondary" onClick={() => void loadOpenRouterCatalog()} disabled={intBusy || orCatalogLoading}>
+                      {orCatalogLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Carregar catálogo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={intBusy || orCatalogModels.length === 0}
+                      onClick={() => {
+                        setOrCatalogSort("popular")
+                        setOrCatalogPriceMode("free")
+                        setOrCatalogMaxUsdPer1mIn("")
+                        setOrCatalogQuery("")
+                      }}
+                      title="Igual à combinação popular + grátis no site OpenRouter"
+                    >
+                      Popular + grátis
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      {orCatalogModels.length > 0 ? `${orCatalogModels.length} modelos em cache` : "Ainda não carregado"}
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="or-cat-q">Pesquisar</Label>
+                      <Input
+                        id="or-cat-q"
+                        value={orCatalogQuery}
+                        onChange={(e) => setOrCatalogQuery(e.target.value)}
+                        placeholder="ex. claude, gpt, google/..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="or-price-mode">Preço (entrada)</Label>
+                      <Select value={orCatalogPriceMode} onValueChange={(v) => setOrCatalogPriceMode(v as "all" | "free" | "max")}>
+                        <SelectTrigger id="or-price-mode" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="free">Apenas grátis (0 / 0)</SelectItem>
+                          <SelectItem value="max">Máximo USD/1M entrada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="or-sort">Ordenar</Label>
+                      <Select
+                        value={orCatalogSort}
+                        onValueChange={(v) =>
+                          setOrCatalogSort(v as "popular" | "id" | "price_in_asc" | "price_in_desc")
+                        }
+                      >
+                        <SelectTrigger id="or-sort" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="popular">Popular (OpenRouter)</SelectItem>
+                          <SelectItem value="id">ID (A–Z)</SelectItem>
+                          <SelectItem value="price_in_asc">Preço entrada ↑</SelectItem>
+                          <SelectItem value="price_in_desc">Preço entrada ↓</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {orCatalogPriceMode === "max" ? (
+                    <div className="space-y-2 max-w-xs">
+                      <Label htmlFor="or-max-in">Teto USD / 1M tokens de entrada</Label>
+                      <Input
+                        id="or-max-in"
+                        inputMode="decimal"
+                        value={orCatalogMaxUsdPer1mIn}
+                        onChange={(e) => setOrCatalogMaxUsdPer1mIn(e.target.value)}
+                        placeholder="ex. 0 para só grátis, 0.5, 2"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Só entram modelos com preço de entrada conhecido e ≤ ao teto. <strong>0</strong> inclui tudo com
+                        entrada gratuita (pode ter saída paga); para exigir entrada e saída a zero use o filtro
+                        &quot;Apenas grátis&quot;.
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="grid grid-cols-[auto_1fr] gap-x-2 border-b pb-1 text-xs font-medium text-muted-foreground px-1 sm:grid-cols-[auto_1fr_auto_auto]">
+                    <span className="w-4 max-sm:hidden" aria-hidden />
+                    <span className="max-sm:col-span-2">Modelo</span>
+                    <span className="hidden text-right tabular-nums sm:inline sm:w-[5.5rem]">USD/M in</span>
+                    <span className="hidden text-right tabular-nums sm:inline sm:w-[5.5rem]">USD/M out</span>
+                  </div>
+                  <ScrollArea className="h-72 rounded-md border p-2">
+                    <div className="space-y-1 pr-3">
+                      {filteredOrCatalog.slice(0, 500).map((m) => {
+                        const pr = m.pricing
+                        const freeBadge = pr?.isFree ? (
+                          <Badge variant="secondary" className="ml-1 align-middle text-[10px] font-normal">
+                            grátis
+                          </Badge>
+                        ) : null
+                        return (
+                          <label
+                            key={m.id}
+                            className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 rounded-sm py-1.5 text-sm sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
+                          >
+                            <Checkbox
+                              className="mt-0.5"
+                              checked={allowedOrModels.includes(m.id)}
+                              onCheckedChange={(c) => toggleAllowedOrModel(m.id, c === true)}
+                            />
+                            <span className="min-w-0">
+                              <span className="font-mono text-xs break-all">{m.id}</span>
+                              {freeBadge}
+                              <span className="text-muted-foreground"> — {m.name}</span>
+                              <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground sm:hidden">
+                                in {formatOrUsdPer1m(pr?.promptUsdPer1M)} · out {formatOrUsdPer1m(pr?.completionUsdPer1M)}
+                              </span>
+                            </span>
+                            <span className="hidden font-mono text-xs text-right tabular-nums sm:block sm:w-[5.5rem] sm:justify-self-end">
+                              {formatOrUsdPer1m(pr?.promptUsdPer1M)}
+                            </span>
+                            <span className="hidden font-mono text-xs text-right tabular-nums sm:block sm:w-[5.5rem] sm:justify-self-end">
+                              {formatOrUsdPer1m(pr?.completionUsdPer1M)}
+                            </span>
+                          </label>
+                        )
+                      })}
+                      {filteredOrCatalog.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          {orCatalogModels.length === 0
+                            ? "Carregue o catálogo para listar modelos."
+                            : "Nenhum modelo corresponde aos filtros — alargue o teto de preço ou limpe a pesquisa."}
+                        </p>
+                      ) : null}
+                      {filteredOrCatalog.length > 500 ? (
+                        <p className="text-xs text-muted-foreground pt-1">
+                          A mostrar os primeiros 500 de {filteredOrCatalog.length} resultados — refine a pesquisa ou o
+                          preço.
+                        </p>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Modelo default runtime</Label>
+                      <Select value={orRuntimePick} onValueChange={setOrRuntimePick}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Escolher..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__unset__">Resolver via modelo GPT do workspace (legado)</SelectItem>
+                          {orModelPickOptions.map((id) => (
+                            <SelectItem key={id} value={id}>
+                              {id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Modelo default planner</Label>
+                      <Select value={orPlannerPick} onValueChange={setOrPlannerPick}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Escolher..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__unset__">Resolver via modelo GPT do workspace (legado)</SelectItem>
+                          {orModelPickOptions.map((id) => (
+                            <SelectItem key={`p-${id}`} value={id}>
+                              {id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button type="button" onClick={() => void saveOpenRouterModelsIntegration()} disabled={intBusy}>
+                    Guardar modelos OpenRouter
+                  </Button>
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
 
           <Card>
             <CardHeader>
@@ -1426,7 +1936,9 @@ export default function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>OpenAI (BYOK)</CardTitle>
+              <CardTitle>
+                {llmProviderPick === "openrouter" ? "OpenAI (opcional — imagens DALL-E)" : "OpenAI (BYOK)"}
+              </CardTitle>
               <CardDescription>
                 Chave para o runtime dos agentes neste workspace e para a ferramenta de catalogo{" "}
                 <code className="text-xs">image_generation</code> (DALL-E 2 / DALL-E 3), quando ativa no agente.{" "}
@@ -1473,9 +1985,6 @@ export default function SettingsPage() {
                 <Button variant="outline" onClick={() => void clearOpenAiIntegration()} disabled={intBusy}>
                   Limpar chave
                 </Button>
-                <Button variant="secondary" onClick={() => void runTestOpenAi()} disabled={intBusy}>
-                  Testar ligacao
-                </Button>
               </div>
               <div className="space-y-2 pt-2 border-t border-border">
                 <Label htmlFor="image-gen-model">Modelo padrao para geracao de imagens (catalog)</Label>
@@ -1513,6 +2022,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {llmProviderPick === "openai" ? (
           <Card>
             <CardHeader>
               <CardTitle>Modelos de chat OpenAI</CardTitle>
@@ -1579,6 +2089,7 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
+          ) : null}
 
           <Card>
             <CardHeader>

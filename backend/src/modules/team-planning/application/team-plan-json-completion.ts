@@ -5,6 +5,7 @@
  */
 
 import { OPENAI_BASE_URL } from '../../../shared/kernel/llm-provider-config.js';
+import { preferOpenRouterTitleOverReferer } from '../../../shared/kernel/openrouter-attribution.js';
 
 const DEFAULT_CHAT_PATH = '/chat/completions';
 
@@ -17,6 +18,8 @@ export async function fetchTeamPlanJsonCompletion(params: {
   baseUrl?: string;
   /** Headers adicionais (e.g. HTTP-Referer para OpenRouter). */
   extraHeaders?: Record<string, string>;
+  /** Limite de completion tokens (recomendado no OpenRouter para evitar 402 por teto alto). */
+  maxTokens?: number;
 }): Promise<{ content: string }> {
   const base = (params.baseUrl ?? OPENAI_BASE_URL).replace(/\/+$/, '');
   const url = `${base}${DEFAULT_CHAT_PATH}`;
@@ -26,7 +29,7 @@ export async function fetchTeamPlanJsonCompletion(params: {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${params.apiKey}`,
-      ...(params.extraHeaders ?? {}),
+      ...(preferOpenRouterTitleOverReferer(params.extraHeaders) ?? {}),
     },
     body: JSON.stringify({
       model: params.model,
@@ -36,6 +39,9 @@ export async function fetchTeamPlanJsonCompletion(params: {
         { role: 'user', content: params.userMessage },
       ],
       temperature: 0.2,
+      ...(typeof params.maxTokens === 'number' && Number.isFinite(params.maxTokens)
+        ? { max_tokens: Math.floor(params.maxTokens) }
+        : {}),
     }),
   });
 

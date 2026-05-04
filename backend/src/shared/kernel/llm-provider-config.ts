@@ -61,3 +61,23 @@ export function resolveModelIdForProvider(modelId: string, provider: TLlmProvide
   if (modelId.includes('/')) return modelId;
   return `openai/${modelId}`;
 }
+
+/** Default conservador para contas OpenRouter com poucos créditos (evita 402 por reserva de max_tokens). */
+const OPENROUTER_MAX_OUTPUT_TOKENS_DEFAULT = 4096;
+const OPENROUTER_MAX_OUTPUT_TOKENS_MIN = 256;
+const OPENROUTER_MAX_OUTPUT_TOKENS_CAP = 32768;
+
+/**
+ * Limite de tokens de saída para Chat Completions no OpenRouter.
+ * O Agents SDK / omitir max_tokens pode fazer o gateway assumir um teto muito alto (ex. 65536),
+ * o que dispara erros de crédito (402) em contas gratuitas.
+ *
+ * Override: `OPENROUTER_MAX_OUTPUT_TOKENS` (256–32768, default 4096).
+ */
+export function openRouterMaxOutputTokensFromEnv(): number {
+  const raw = process.env.OPENROUTER_MAX_OUTPUT_TOKENS?.trim();
+  if (!raw) return OPENROUTER_MAX_OUTPUT_TOKENS_DEFAULT;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return OPENROUTER_MAX_OUTPUT_TOKENS_DEFAULT;
+  return Math.min(OPENROUTER_MAX_OUTPUT_TOKENS_CAP, Math.max(OPENROUTER_MAX_OUTPUT_TOKENS_MIN, n));
+}

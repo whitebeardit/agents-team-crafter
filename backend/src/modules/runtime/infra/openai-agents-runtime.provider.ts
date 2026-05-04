@@ -1,5 +1,6 @@
 import { Agent, Runner } from '@openai/agents';
 import { OpenAIProvider } from '@openai/agents-openai';
+import OpenAI from 'openai';
 import type { Tool } from '@openai/agents';
 import type {
   IAgentRuntimeProvider,
@@ -15,8 +16,10 @@ import { isGpt5FamilyModel } from '../../../shared/kernel/openai-workspace-chat-
 import {
   type ILlmProviderConfig,
   buildOpenAiProviderConfig,
+  openRouterMaxOutputTokensFromEnv,
   resolveModelIdForProvider,
 } from '../../../shared/kernel/llm-provider-config.js';
+import { preferOpenRouterTitleOverReferer } from '../../../shared/kernel/openrouter-attribution.js';
 
 /**
  * Resolve a configuração LLM efectiva para um run.
@@ -33,20 +36,52 @@ function resolveEffectiveLlmConfig(params: {
   return buildOpenAiProviderConfig(key);
 }
 
+/** Alinha tipos quando o TS resolve `openai` por caminhos duplicados (agents-openai vs app). */
+function toAgentsOpenAiClient(client: OpenAI) {
+  return client as never;
+}
+
+function mergeLlmDefaultHeaders(
+  config: ILlmProviderConfig,
+  runExtra?: Record<string, string>,
+): Record<string, string> | undefined {
+  const merged: Record<string, string> = { ...(config.extraHeaders ?? {}), ...(runExtra ?? {}) };
+  return preferOpenRouterTitleOverReferer(merged);
+}
+
 /**
  * Instancia o `OpenAIProvider` a partir da configuração do provider LLM.
- * Para OpenRouter: passa `baseURL` e `useResponses: false` (Chat Completions).
- * Para OpenAI: usa o comportamento padrão (Responses API).
+ * Para OpenRouter: cliente OpenAI com `defaultHeaders` (HTTP-Referer, X-OpenRouter-Title, etc.).
+ * Para OpenAI: Responses API por defeito; usa cliente explícito só quando há headers extra.
  */
-function buildProviderFromConfig(config: ILlmProviderConfig): OpenAIProvider {
+function buildProviderFromConfig(
+  config: ILlmProviderConfig,
+  runExtraHeaders?: Record<string, string>,
+): OpenAIProvider {
+  const defaultHeaders = mergeLlmDefaultHeaders(config, runExtraHeaders);
+
   if (config.provider === 'openrouter') {
-    return new OpenAIProvider({
+    const client = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
-      useResponses: false,
+      ...(defaultHeaders ? { defaultHeaders } : {}),
+    });
+    return new OpenAIProvider({ openAIClient: toAgentsOpenAiClient(client), useResponses: false });
+  }
+
+  if (defaultHeaders && Object.keys(defaultHeaders).length > 0) {
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      defaultHeaders,
+    });
+    return new OpenAIProvider({
+      openAIClient: toAgentsOpenAiClient(client),
+      useResponses: config.useResponses,
     });
   }
-  return new OpenAIProvider({ apiKey: config.apiKey });
+
+  return new OpenAIProvider({ apiKey: config.apiKey, useResponses: config.useResponses });
 }
 
 function buildAgentModelOptions(
@@ -54,12 +89,19 @@ function buildAgentModelOptions(
   provider: ILlmProviderConfig['provider'],
 ): { model: string; modelSettings?: object } {
   const resolvedModel = resolveModelIdForProvider(modelId, provider);
+  const openRouterCap =
+    provider === 'openrouter' ? { maxTokens: openRouterMaxOutputTokensFromEnv() } : {};
+
   if (!isGpt5FamilyModel(modelId)) {
+    if (provider === 'openrouter') {
+      return { model: resolvedModel, modelSettings: openRouterCap };
+    }
     return { model: resolvedModel };
   }
   return {
     model: resolvedModel,
     modelSettings: {
+      ...openRouterCap,
       reasoning: { effort: 'none' },
       text: { verbosity: 'low' },
     },
@@ -221,7 +263,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
 
     const userInput = buildRunnerInputFromAgentInput(input);
     const runner = new Runner({
-      modelProvider: buildProviderFromConfig(llmConfig),
+      modelProvider: buildProviderFromConfig(llmConfig, input.llmExtraHeaders),
     });
 
     try {
@@ -266,7 +308,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
     });
 
     const runner = new Runner({
-      modelProvider: buildProviderFromConfig(llmConfig),
+      modelProvider: buildProviderFromConfig(llmConfig, params.llmExtraHeaders),
     });
 
     try {

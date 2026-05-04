@@ -1,4 +1,5 @@
 import type { IEnv } from '../../../config/env.js';
+import { preferOpenRouterTitleOverReferer } from '../../../shared/kernel/openrouter-attribution.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { decryptJson, encryptJson } from '../../../utils/secrets-crypto.js';
 import type { WorkspaceRepository } from '../../workspaces/infra/workspace.repository.js';
@@ -30,6 +31,7 @@ import {
   buildOpenAiProviderConfig,
   buildOpenRouterProviderConfig,
 } from '../../../shared/kernel/llm-provider-config.js';
+import { isOpenRouterStyleModelId } from '../../../shared/kernel/openrouter-model-id-pattern.js';
 
 function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): boolean {
   return (
@@ -47,7 +49,8 @@ function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): bool
     Boolean(next.imageGenerationModel) ||
     Boolean(next.enabledOpenAiChatModels?.length) ||
     Boolean(next.agentsRuntimeModel) ||
-    Boolean(next.teamPlannerModel)
+    Boolean(next.teamPlannerModel) ||
+    Boolean(next.allowedLlmModelIds?.length)
   );
 }
 
@@ -103,6 +106,8 @@ export class WorkspaceIntegrationsService {
       secretsMasked: maskIntegrationsForApi(plain),
       operationalCatalogTools: resolveOperationalCatalogTools(ctx),
       availableOpenAiChatModels: availableWorkspaceChatModels(plain?.enabledOpenAiChatModels),
+      /** IDs OpenRouter permitidos no workspace (vazio = sem restricao além do formato). */
+      allowedLlmModelIds: plain?.allowedLlmModelIds?.length ? [...plain.allowedLlmModelIds] : [],
     };
   }
 
@@ -117,6 +122,7 @@ export class WorkspaceIntegrationsService {
         secretsMasked: maskIntegrationsForApi(null),
         operationalCatalogTools: resolveOperationalCatalogTools({}),
         availableOpenAiChatModels: availableWorkspaceChatModels(undefined),
+        allowedLlmModelIds: [],
       };
     }
     const enc = encryptJson(this.requireMasterKey(), next);
@@ -126,6 +132,7 @@ export class WorkspaceIntegrationsService {
       secretsMasked: maskIntegrationsForApi(next),
       operationalCatalogTools: resolveOperationalCatalogTools(ctxAfter),
       availableOpenAiChatModels: availableWorkspaceChatModels(next.enabledOpenAiChatModels),
+      allowedLlmModelIds: next.allowedLlmModelIds?.length ? [...next.allowedLlmModelIds] : [],
     };
   }
 
@@ -175,6 +182,44 @@ export class WorkspaceIntegrationsService {
    * Prioridade: provider/chave do workspace (BYOK) → default do ambiente (env).
    * Retorna null quando não há chave disponível.
    */
+  /**
+   * Slug estável do produto para o primeiro segmento do título OpenRouter (dashboard).
+   */
+  getOpenRouterAttributionAppSlug(): string {
+    return (
+      process.env.OPENROUTER_ATTRIBUTION_APP?.trim() ||
+      this.env.OPENROUTER_ATTRIBUTION_APP?.trim() ||
+      'team-agents-bff'
+    );
+  }
+
+  /**
+   * URL enviada em `HTTP-Referer` ao OpenRouter (obrigatória para coluna "App" e rankings).
+   * Ordem: OPENROUTER_HTTP_REFERER → primeira origem em CORS_ORIGIN → localhost em não-produção.
+   */
+  private resolveOpenRouterHttpReferer(): string {
+    const explicit =
+      process.env.OPENROUTER_HTTP_REFERER?.trim() || this.env.OPENROUTER_HTTP_REFERER?.trim();
+    if (explicit) return explicit;
+    const cors = process.env.CORS_ORIGIN?.trim() || this.env.CORS_ORIGIN?.trim();
+    if (cors && cors !== '*') {
+      const first = cors.split(',')[0]?.trim().replace(/\/+$/, '') ?? '';
+      if (first.startsWith('http://') || first.startsWith('https://')) return first;
+    }
+    if (this.env.NODE_ENV !== 'production') return 'http://localhost:3000';
+    return '';
+  }
+
+  /**
+   * Nome do workspace para atribuição OpenRouter (segundo segmento de app/workspace/agent).
+   */
+  async resolveWorkspaceNameForOpenRouterAttribution(workspaceId: string): Promise<string> {
+    const rec = await this.workspaceRepo.findById(workspaceId);
+    const raw = rec?.name?.trim();
+    if (raw) return raw;
+    return `ws-${workspaceId.replace(/[^a-fA-F0-9]/g, '').slice(-8) || 'unknown'}`;
+  }
+
   async resolveLlmProviderConfig(workspaceId: string): Promise<ILlmProviderConfig | null> {
     const p = await this.getPlainPayload(workspaceId);
 
@@ -189,8 +234,7 @@ export class WorkspaceIntegrationsService {
         process.env.OPENROUTER_API_KEY?.trim() || this.env.OPENROUTER_API_KEY?.trim();
       const apiKey = wsKey || envKey;
       if (!apiKey) return null;
-      const referer =
-        process.env.OPENROUTER_HTTP_REFERER?.trim() || this.env.OPENROUTER_HTTP_REFERER?.trim();
+      const referer = this.resolveOpenRouterHttpReferer();
       const title =
         process.env.OPENROUTER_APP_TITLE?.trim() || this.env.OPENROUTER_APP_TITLE?.trim();
       const extraHeaders: Record<string, string> = {};
@@ -231,7 +275,8 @@ export class WorkspaceIntegrationsService {
     if (provider === 'openrouter' && p.openrouterPlannerModel?.trim()) {
       return p.openrouterPlannerModel.trim();
     }
-    return this.resolveTeamPlannerModel(workspaceId);
+    const base = await this.resolveTeamPlannerModel(workspaceId);
+    return base;
   }
 
   /**
@@ -266,21 +311,57 @@ export class WorkspaceIntegrationsService {
     const provider = p.llmProvider ??
       ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as 'openai' | 'openrouter' | undefined) ??
       'openai';
-    if (provider === 'openrouter' && !agentOverrideRaw && p.openrouterRuntimeModel?.trim()) {
-      return p.openrouterRuntimeModel.trim();
+    const override = typeof agentOverrideRaw === 'string' ? agentOverrideRaw.trim() : '';
+    if (provider === 'openrouter') {
+      if (override) return override;
+      if (p.openrouterRuntimeModel?.trim()) return p.openrouterRuntimeModel.trim();
+    } else if (override) {
+      const parsed = parseOpenAiWorkspaceChatModel(override);
+      if (parsed) return parsed;
     }
-    return this.resolveAgentsRuntimeModel(workspaceId, agentOverrideRaw);
+    return this.resolveAgentsRuntimeModel(workspaceId, null);
   }
 
   /** Valida override por agente contra o subset habilitado no workspace. */
   async assertAgentRuntimeModelAllowed(
     workspaceId: string,
-    model: EOpenAiWorkspaceChatModel | undefined | null,
+    model: EOpenAiWorkspaceChatModel | string | undefined | null,
   ): Promise<void> {
     if (model === undefined || model === null) return;
+    const s0 = typeof model === 'string' ? model.trim() : String(model);
+    if (!s0) return;
     const p = (await this.getPlainPayload(workspaceId)) ?? {};
+    const provider = p.llmProvider ??
+      ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as TLlmProvider | undefined) ??
+      'openai';
+
+    if (provider === 'openrouter') {
+      const isSlug = isOpenRouterStyleModelId(s0);
+      const enumOk = parseOpenAiWorkspaceChatModel(s0) !== undefined;
+      if (!isSlug && !enumOk) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'Modelo invalido: use formato provedor/modelo (OpenRouter) ou um modelo GPT suportado.',
+          400,
+        );
+      }
+      const allow = p.allowedLlmModelIds?.map((x) => x.trim()).filter(Boolean) ?? [];
+      if (allow.length > 0 && !allow.includes(s0)) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'O modelo escolhido nao esta na lista de modelos LLM permitidos deste workspace.',
+          400,
+        );
+      }
+      return;
+    }
+
+    const parsed = parseOpenAiWorkspaceChatModel(s0);
+    if (!parsed) {
+      throw new AppError('VALIDATION_ERROR', 'Modelo OpenAI invalido para o agente.', 400);
+    }
     const allowed = availableWorkspaceChatModels(p.enabledOpenAiChatModels);
-    if (!allowed.includes(model)) {
+    if (!allowed.includes(parsed)) {
       throw new AppError(
         'VALIDATION_ERROR',
         'O modelo OpenAI escolhido nao esta habilitado para este workspace (Configuracoes > Integracoes).',
@@ -343,7 +424,7 @@ export class WorkspaceIntegrationsService {
       const res = await fetch(`${OPENROUTER_BASE_URL}/models?limit=1`, {
         headers: {
           Authorization: `Bearer ${config.apiKey}`,
-          ...(config.extraHeaders ?? {}),
+          ...(preferOpenRouterTitleOverReferer(config.extraHeaders) ?? {}),
         },
       });
       if (!res.ok) {

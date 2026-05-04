@@ -46,6 +46,10 @@ import {
   type TInterruptionReasonCode,
 } from '../domain/execution-interruption.js';
 import { resolveModelIdForProvider } from '../../../shared/kernel/llm-provider-config.js';
+import {
+  buildOpenRouterDashboardTitle,
+  openRouterOriginLabelFromHttpReferer,
+} from '../../../shared/kernel/openrouter-attribution.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -921,7 +925,7 @@ export class CoordinatorOrchestratorService {
         config: r.config,
       }));
 
-      const specialistRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
+      const specialistRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModelForProvider(
         ws,
         typeof srow['openaiRuntimeModel'] === 'string' ? srow['openaiRuntimeModel'] : null,
       );
@@ -960,10 +964,21 @@ export class CoordinatorOrchestratorService {
       const conversationId =
         typeof invocation.metadata?.conversationId === 'string' ? invocation.metadata.conversationId : undefined;
 
+      const openRouterTitle =
+        llmConfig?.provider === 'openrouter'
+          ? buildOpenRouterDashboardTitle({
+              appSlug: openRouterAppSlug,
+              workspaceName: workspaceAttributionName,
+              agentName: String(srow['name'] ?? '').trim() || specialistAgentId,
+              publicOrigin: openRouterOriginLabelFromHttpReferer(llmConfig.extraHeaders?.['HTTP-Referer']),
+            })
+          : null;
+
       const r = await this.agentRuntime.runStep(config, {
         message: runtimeMessage,
         ...(runtimeInput.contentParts ? { contentParts: runtimeInput.contentParts } : {}),
         ...(llmConfig ? { llmConfig } : {}),
+        ...(openRouterTitle ? { llmExtraHeaders: { 'X-OpenRouter-Title': openRouterTitle } } : {}),
         ...(requestedAccessLevel ? { requestedAccessLevel } : {}),
         ...(correlationId ? { correlationId } : {}),
         ...(conversationId ? { conversationId } : {}),
@@ -988,12 +1003,17 @@ export class CoordinatorOrchestratorService {
       return r.finalOutput;
     };
 
-    const sdkTools = this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist });
     const coordinatorLlmConfig = await this.workspaceIntegrationsService.resolveLlmProviderConfig(ws);
+    const openRouterAppSlug = this.workspaceIntegrationsService.getOpenRouterAttributionAppSlug();
+    const workspaceAttributionName =
+      coordinatorLlmConfig?.provider === 'openrouter'
+        ? await this.workspaceIntegrationsService.resolveWorkspaceNameForOpenRouterAttribution(ws)
+        : '';
+    const sdkTools = this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist });
     const userMessage = formatCoordinatorUserMessage(invocation);
     const userContentParts = formatCoordinatorUserContentParts(invocation);
     const crow = coordinator as Record<string, unknown>;
-    const coordinatorRuntimeModelBase = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
+    const coordinatorRuntimeModelBase = await this.workspaceIntegrationsService.resolveAgentsRuntimeModelForProvider(
       ws,
       typeof crow['openaiRuntimeModel'] === 'string' ? crow['openaiRuntimeModel'] : null,
     );
@@ -1029,6 +1049,17 @@ export class CoordinatorOrchestratorService {
       coordinatorRuntimeModelBase,
       coordinatorLlmConfig?.provider ?? 'openai',
     );
+    const coordinatorOpenRouterTitle =
+      coordinatorLlmConfig?.provider === 'openrouter'
+        ? buildOpenRouterDashboardTitle({
+            appSlug: openRouterAppSlug,
+            workspaceName: workspaceAttributionName,
+            agentName: String(crow['name'] ?? '').trim() || teamRow.coordinatorId,
+            publicOrigin: openRouterOriginLabelFromHttpReferer(
+              coordinatorLlmConfig.extraHeaders?.['HTTP-Referer'],
+            ),
+          })
+        : null;
     const result = await this.agentRuntime.runCoordinatorTurn({
       coordinatorAgentId: teamRow.coordinatorId,
       workspaceId: ws,
@@ -1037,6 +1068,9 @@ export class CoordinatorOrchestratorService {
       ...(userContentParts ? { userContentParts } : {}),
       openaiRuntimeModel: coordinatorRuntimeModel,
       ...(coordinatorLlmConfig ? { llmConfig: coordinatorLlmConfig } : {}),
+      ...(coordinatorOpenRouterTitle
+        ? { llmExtraHeaders: { 'X-OpenRouter-Title': coordinatorOpenRouterTitle } }
+        : {}),
       sdkTools,
       ...(streamText && options?.onCoordinatorTextDelta
         ? { onAssistantTextDelta: options.onCoordinatorTextDelta }

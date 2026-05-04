@@ -621,7 +621,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const [isBindOverrideSaving, setIsBindOverrideSaving] = useState(false)
   const [isBindEnableSaving, setIsBindEnableSaving] = useState(false)
   const [bindPreviewApproved, setBindPreviewApproved] = useState(false)
-  const [openaiKeyConfiguredInWorkspace, setOpenaiKeyConfiguredInWorkspace] = useState<boolean | null>(null)
+  const [workspaceLlmKeyMissing, setWorkspaceLlmKeyMissing] = useState<boolean | null>(null)
   const [teamPlanningPolicy, setTeamPlanningPolicy] = useState<TeamPlanningPolicy | null>(null)
   const [overlapMode, setOverlapMode] = useState<GovernanceOverlapMode>("blocking")
   /** Loop 89 — modo simples por defeito; avançado mostra preview de bind completo e blocos técnicos. */
@@ -868,9 +868,22 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     if (!api) return
     void Promise.all([
       api
-        .get<{ secretsMasked: { openaiApiKeyConfigured: boolean } }>("/settings/workspace/integrations")
-        .then((r) => setOpenaiKeyConfiguredInWorkspace(r.data.secretsMasked.openaiApiKeyConfigured))
-        .catch(() => setOpenaiKeyConfiguredInWorkspace(false)),
+        .get<{
+          secretsMasked: {
+            llmProvider?: "openai" | "openrouter"
+            openaiApiKeyConfigured: boolean
+            openrouterApiKeyConfigured?: boolean
+          }
+        }>("/settings/workspace/integrations")
+        .then((r) => {
+          const prov = r.data.secretsMasked.llmProvider === "openrouter" ? "openrouter" : "openai"
+          const ok =
+            prov === "openrouter"
+              ? Boolean(r.data.secretsMasked.openrouterApiKeyConfigured)
+              : Boolean(r.data.secretsMasked.openaiApiKeyConfigured)
+          setWorkspaceLlmKeyMissing(!ok)
+        })
+        .catch(() => setWorkspaceLlmKeyMissing(true)),
       api
         .get<TeamPlanningPolicy>("/settings/workspace/team-planning-policy")
         .then((r) => setTeamPlanningPolicy(r.data))
@@ -1457,16 +1470,17 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
         </div>
       ) : null}
 
-      {openaiKeyConfiguredInWorkspace === false && (
+      {workspaceLlmKeyMissing === true && (
         <Alert>
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>OpenAI não configurada no workspace</AlertTitle>
+          <AlertTitle>Chave LLM não configurada no workspace</AlertTitle>
           <AlertDescription className="text-muted-foreground">
-            Para usar o planner com modelo real, adicione uma chave em{" "}
+            Para usar o planner com modelo real, configure o provider em{" "}
             <Link href="/settings" className="font-medium text-primary underline-offset-4 hover:underline">
               Configurações → Integrações
             </Link>{" "}
-            ou defina <code className="text-xs bg-muted px-1 rounded">OPENAI_API_KEY</code> no servidor do backend.
+            (OpenRouter ou OpenAI) ou defina <code className="text-xs bg-muted px-1 rounded">OPENROUTER_API_KEY</code> /{" "}
+            <code className="text-xs bg-muted px-1 rounded">OPENAI_API_KEY</code> no servidor do backend.
           </AlertDescription>
         </Alert>
       )}

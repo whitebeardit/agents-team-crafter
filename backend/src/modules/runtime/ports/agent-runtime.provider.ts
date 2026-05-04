@@ -79,6 +79,11 @@ export interface IAgentRunInput {
    * Quando presente, sobrepõe `openaiApiKey` e determina provider/baseUrl/headers.
    */
   llmConfig?: ILlmProviderConfig;
+  /**
+   * Headers HTTP extra por run (ex.: X-OpenRouter-Title dinâmico).
+   * Sobrepõe chaves em `llmConfig.extraHeaders` quando em conflito.
+   */
+  llmExtraHeaders?: Record<string, string>;
   /** Estado para manter determinismo (PolicyEngine), não para o LLM decidir. */
   depth?: number;
   visitedAgentIds?: string[];
@@ -108,6 +113,8 @@ export interface ICoordinatorRunParams {
    * Quando presente, sobrepõe `openaiApiKey` e determina provider/baseUrl/headers.
    */
   llmConfig?: ILlmProviderConfig;
+  /** Sobrepõe `llmConfig.extraHeaders` por run (ex.: título OpenRouter por agente). */
+  llmExtraHeaders?: Record<string, string>;
   sdkTools: readonly TCoordinatorSdkTool[];
   /** When set, coordinator run uses streaming mode and forwards text chunks (SSE / live UI). */
   onAssistantTextDelta?: (delta: string) => void;

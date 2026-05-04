@@ -10,8 +10,13 @@ import type { TeamPlanRepository } from '../infra/team-plan.repository.js';
 import { fetchTeamPlanJsonCompletion } from './team-plan-json-completion.js';
 import {
   type ILlmProviderConfig,
+  openRouterMaxOutputTokensFromEnv,
   resolveModelIdForProvider,
 } from '../../../shared/kernel/llm-provider-config.js';
+import {
+  buildOpenRouterDashboardTitle,
+  openRouterOriginLabelFromHttpReferer,
+} from '../../../shared/kernel/openrouter-attribution.js';
 import {
   type ITeamPlannerStructuredBriefing,
   TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
@@ -676,6 +681,25 @@ export class TeamPlanService {
     return JSON.stringify(payload, null, 2);
   }
 
+  private async buildOpenRouterPlannerRequestHeaders(
+    workspaceId: string,
+    llmConfig: ILlmProviderConfig,
+  ): Promise<Record<string, string> | undefined> {
+    if (llmConfig.provider !== 'openrouter') return llmConfig.extraHeaders;
+    const ref = llmConfig.extraHeaders?.['HTTP-Referer'];
+    const origin = openRouterOriginLabelFromHttpReferer(ref);
+    const wsName =
+      await this.deps.workspaceIntegrationsService.resolveWorkspaceNameForOpenRouterAttribution(workspaceId);
+    const slug = this.deps.workspaceIntegrationsService.getOpenRouterAttributionAppSlug();
+    const title = buildOpenRouterDashboardTitle({
+      appSlug: slug,
+      workspaceName: wsName,
+      agentName: 'team-planner',
+      publicOrigin: origin,
+    });
+    return { ...(llmConfig.extraHeaders ?? {}), 'X-OpenRouter-Title': title };
+  }
+
   private async fetchRepairedPlannerOutput(params: {
     workspaceId: string;
     llmConfig: ILlmProviderConfig;
@@ -685,7 +709,9 @@ export class TeamPlanService {
     diagnosis: string;
     repairAttempt: number;
   }): Promise<TPlannerOutput | null> {
-    const modelBase = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(params.workspaceId);
+    const modelBase = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(
+      params.workspaceId,
+    );
     const model = resolveModelIdForProvider(modelBase, params.llmConfig.provider);
     const { content } = await fetchTeamPlanJsonCompletion({
       apiKey: params.llmConfig.apiKey,
@@ -699,7 +725,10 @@ export class TeamPlanService {
         repairAttempt: params.repairAttempt,
       }),
       baseUrl: params.llmConfig.baseUrl,
-      extraHeaders: params.llmConfig.extraHeaders,
+      extraHeaders: await this.buildOpenRouterPlannerRequestHeaders(params.workspaceId, params.llmConfig),
+      ...(params.llmConfig.provider === 'openrouter'
+        ? { maxTokens: openRouterMaxOutputTokensFromEnv() }
+        : {}),
     });
     const extracted = this.extractJsonLoose(content);
     if (extracted === null) return null;
@@ -843,7 +872,7 @@ export class TeamPlanService {
     } else {
       try {
         const plannerModelBase =
-          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
+          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(workspaceId);
         const plannerModelResolved = resolveModelIdForProvider(plannerModelBase, llmConfig.provider);
         const { content } = await fetchTeamPlanJsonCompletion({
           apiKey: llmConfig.apiKey,
@@ -851,7 +880,10 @@ export class TeamPlanService {
           systemPrompt: TEAM_PLANNER_SYSTEM_PROMPT,
           userMessage: buildTeamPlannerUserMessage(input.problem, input.context, input.briefing),
           baseUrl: llmConfig.baseUrl,
-          extraHeaders: llmConfig.extraHeaders,
+          extraHeaders: await this.buildOpenRouterPlannerRequestHeaders(workspaceId, llmConfig),
+          ...(llmConfig.provider === 'openrouter'
+            ? { maxTokens: openRouterMaxOutputTokensFromEnv() }
+            : {}),
         });
         const extracted = this.extractJsonLoose(content);
         if (extracted === null) {
@@ -898,7 +930,7 @@ export class TeamPlanService {
         log.warn({ workspaceId, provider: llmConfig.provider, err: msg }, 'team plan: falha na chamada LLM');
         raw = this.buildFallback(input.problem, input.context, input.briefing);
         const plannerModelBase =
-          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
+          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(workspaceId);
         plannerMeta = {
           usedOpenAi: false,
           usedFallback: true,
@@ -927,7 +959,8 @@ export class TeamPlanService {
     }
 
     if (llmConfig && !plannerMeta.plannerModel) {
-      const plannerModelBase = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
+      const plannerModelBase =
+        await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(workspaceId);
       plannerMeta = {
         ...plannerMeta,
         plannerModel: resolveModelIdForProvider(plannerModelBase, llmConfig.provider),

@@ -1,6 +1,7 @@
 import {
   buildOpenAiProviderConfig,
   buildOpenRouterProviderConfig,
+  openRouterMaxOutputTokensFromEnv,
   resolveModelIdForProvider,
   OPENAI_BASE_URL,
   OPENROUTER_BASE_URL,
@@ -59,5 +60,39 @@ describe('resolveModelIdForProvider', () => {
     expect(resolveModelIdForProvider('google/gemini-2.5-pro', 'openrouter')).toBe(
       'google/gemini-2.5-pro',
     );
+  });
+});
+
+describe('openRouterMaxOutputTokensFromEnv', () => {
+  const prev = process.env.OPENROUTER_MAX_OUTPUT_TOKENS;
+
+  afterEach(() => {
+    if (prev === undefined) delete process.env.OPENROUTER_MAX_OUTPUT_TOKENS;
+    else process.env.OPENROUTER_MAX_OUTPUT_TOKENS = prev;
+  });
+
+  it('default 4096 quando unset', () => {
+    delete process.env.OPENROUTER_MAX_OUTPUT_TOKENS;
+    expect(openRouterMaxOutputTokensFromEnv()).toBe(4096);
+  });
+
+  it('respeita valor no intervalo', () => {
+    process.env.OPENROUTER_MAX_OUTPUT_TOKENS = '4096';
+    expect(openRouterMaxOutputTokensFromEnv()).toBe(4096);
+  });
+
+  it('clampa mínimo 256', () => {
+    process.env.OPENROUTER_MAX_OUTPUT_TOKENS = '100';
+    expect(openRouterMaxOutputTokensFromEnv()).toBe(256);
+  });
+
+  it('clampa máximo 32768', () => {
+    process.env.OPENROUTER_MAX_OUTPUT_TOKENS = '100000';
+    expect(openRouterMaxOutputTokensFromEnv()).toBe(32768);
+  });
+
+  it('inválido volta ao default', () => {
+    process.env.OPENROUTER_MAX_OUTPUT_TOKENS = 'nope';
+    expect(openRouterMaxOutputTokensFromEnv()).toBe(4096);
   });
 });

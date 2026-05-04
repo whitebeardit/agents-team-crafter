@@ -1,5 +1,4 @@
 import mongoose, { Schema } from 'mongoose';
-import { OPENAI_WORKSPACE_CHAT_MODEL_VALUES } from '../../../shared/kernel/openai-workspace-chat-models.js';
 
 const AgentDomainSchema = new Schema(
   {
@@ -36,7 +35,8 @@ const AgentSchema = new Schema(
     platformManaged: { type: Boolean, default: false },
     systemRole: { type: String, enum: ['team-crafter', 'agent-crafter', 'domain-guard', null], default: null },
     systemInstruction: { type: String },
-    openaiRuntimeModel: { type: String, enum: [...OPENAI_WORKSPACE_CHAT_MODEL_VALUES], default: undefined },
+    /** Override de modelo de runtime (OpenAI enum legado ou ID OpenRouter `provedor/modelo`). */
+    openaiRuntimeModel: { type: String, default: undefined },
     capabilities: { type: Schema.Types.Mixed },
     knowledge: { type: Schema.Types.Mixed },
     channelConfig: { type: Schema.Types.Mixed },

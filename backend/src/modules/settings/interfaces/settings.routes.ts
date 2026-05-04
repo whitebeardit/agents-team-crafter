@@ -5,6 +5,7 @@ import { requireAdmin } from '../../../config/container.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { putWorkspaceIntegrationsBodySchema } from '../domain/workspace-integrations.schema.js';
+import { listOpenRouterCatalogModels } from '../../../shared/kernel/openrouter-models-catalog.js';
 import {
   putTeamPlanPolicyBodySchema,
   resolveTeamPlanAutoBindPolicy,
@@ -33,6 +34,10 @@ const testSmtpBody = z.object({
   to: z.string().email(),
 });
 
+const openRouterModelsQuerySchema = z.object({
+  mode: z.enum(['runtime', 'planner', 'all']).optional().default('all'),
+});
+
 export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDeps) {
   const tenant = [deps.authenticate, deps.requireTenant];
 
@@ -46,6 +51,12 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
   app.get('/settings/workspace/integrations', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const data = await deps.workspaceIntegrationsService.getMasked(ws);
+    return reply.send(successEnvelope(data));
+  });
+
+  app.get('/settings/workspace/integrations/openrouter-models', { preHandler: tenant }, async (req, reply) => {
+    const q = openRouterModelsQuerySchema.parse(req.query ?? {});
+    const data = await listOpenRouterCatalogModels(q.mode);
     return reply.send(successEnvelope(data));
   });
 
@@ -93,6 +104,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
           secretsMasked: r.secretsMasked,
           operationalCatalogTools: r.operationalCatalogTools,
           availableOpenAiChatModels: r.availableOpenAiChatModels,
+          allowedLlmModelIds: r.allowedLlmModelIds,
         }),
       );
     },

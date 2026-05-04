@@ -22,6 +22,16 @@ const envSchema = z
     OPENROUTER_HTTP_REFERER: z.string().optional(),
     /** Título da aplicação enviado ao OpenRouter via X-OpenRouter-Title. */
     OPENROUTER_APP_TITLE: z.string().optional(),
+    /**
+     * Primeiro segmento do título dinâmico por request (`<app>/<workspace>/<agent>` no X-OpenRouter-Title).
+     * Default: team-agents-bff.
+     */
+    OPENROUTER_ATTRIBUTION_APP: z.string().optional(),
+    /**
+     * Limite de tokens de saída (completion) para OpenRouter — runtime Agents + planner JSON.
+     * Default 4096; intervalo 256–32768. Reduz reservas de crédito (evita 402 com max_tokens alto).
+     */
+    OPENROUTER_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(32768).optional(),
     /** Redis para Chat SDK (state-redis). Sem isto, usa state in-memory por processo. */
     REDIS_URL: z.string().min(1).optional(),
     /** Assinatura Slack Events API (verificação de webhook). */
@@ -86,6 +96,8 @@ export type IEnv = IEnvParsed & {
   OPENROUTER_API_KEY?: string;
   OPENROUTER_HTTP_REFERER?: string;
   OPENROUTER_APP_TITLE?: string;
+  OPENROUTER_ATTRIBUTION_APP?: string;
+  OPENROUTER_MAX_OUTPUT_TOKENS?: number;
 };
 
 export function parsePlatformAdminEmails(raw: string | undefined): ReadonlySet<string> {

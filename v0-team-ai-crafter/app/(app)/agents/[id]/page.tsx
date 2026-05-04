@@ -195,7 +195,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [canReplyDirectly, setCanReplyDirectly] = useState(true)
   const [securityAccessLevel, setSecurityAccessLevel] = useState<"read" | "write" | "restricted">("read")
   const [requiresApproval, setRequiresApproval] = useState(false)
-  const [workspaceOpenAiConfigured, setWorkspaceOpenAiConfigured] = useState<boolean | null>(null)
+  const [workspaceLlmConfigured, setWorkspaceLlmConfigured] = useState<boolean | null>(null)
   const [chatModelsForAgentSelect, setChatModelsForAgentSelect] = useState<string[]>([])
   const [openaiRuntimeModelPick, setOpenaiRuntimeModelPick] = useState<string>("__unset__")
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
@@ -268,9 +268,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             .catch(() => ({ data: [], meta: {} })),
           api
             .get<{
+              allowedLlmModelIds?: string[]
               secretsMasked: {
+                llmProvider?: "openai" | "openrouter"
                 openaiApiKeyConfigured: boolean
+                openrouterApiKeyConfigured?: boolean
                 enabledOpenAiChatModels?: string[]
+                allowedLlmModelIds?: string[]
               }
               operationalCatalogTools: OperationalCatalogTool[]
               availableOpenAiChatModels?: string[]
@@ -280,6 +284,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 secretsMasked: { openaiApiKeyConfigured: false },
                 operationalCatalogTools: [] as OperationalCatalogTool[],
                 availableOpenAiChatModels: [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK],
+                allowedLlmModelIds: [] as string[],
               },
               meta: {},
             })),
@@ -289,20 +294,42 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         setOperationalCatalogTools(opTools)
         const opIds = new Set(opTools.map((tool) => tool.id))
         applyAgentPayload(agentRes.data, { operationalCatalogToolIds: opIds })
-        setWorkspaceOpenAiConfigured(integrationsRes.data.secretsMasked.openaiApiKeyConfigured)
-        const avail =
-          integrationsRes.data.availableOpenAiChatModels &&
-          integrationsRes.data.availableOpenAiChatModels.length > 0
-            ? integrationsRes.data.availableOpenAiChatModels
-            : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
-        const sm = integrationsRes.data.secretsMasked
-        const en =
-          "enabledOpenAiChatModels" in sm && Array.isArray(sm.enabledOpenAiChatModels)
-            ? sm.enabledOpenAiChatModels
-            : undefined
-        const choices =
-          en && en.length > 0 ? avail.filter((m) => en.includes(m)) : [...avail]
-        setChatModelsForAgentSelect(choices.length > 0 ? choices : [...avail])
+        const intPayload = integrationsRes.data
+        const sm = intPayload.secretsMasked
+        const prov = sm.llmProvider === "openrouter" ? "openrouter" : "openai"
+        const llmReady =
+          prov === "openrouter"
+            ? Boolean(sm.openrouterApiKeyConfigured)
+            : Boolean(sm.openaiApiKeyConfigured)
+        setWorkspaceLlmConfigured(llmReady)
+        if (prov === "openrouter") {
+          const allowed = [
+            ...(sm.allowedLlmModelIds?.length ? sm.allowedLlmModelIds : intPayload.allowedLlmModelIds ?? []),
+          ].filter(Boolean)
+          if (allowed.length > 0) {
+            setChatModelsForAgentSelect([...new Set(allowed)].sort((a, b) => a.localeCompare(b)))
+          } else {
+            try {
+              const cat = await api.get<{ models: { id: string }[] }>(
+                "/settings/workspace/integrations/openrouter-models?mode=runtime",
+              )
+              setChatModelsForAgentSelect((cat.data.models ?? []).map((m) => m.id))
+            } catch {
+              setChatModelsForAgentSelect([])
+            }
+          }
+        } else {
+          const avail =
+            intPayload.availableOpenAiChatModels && intPayload.availableOpenAiChatModels.length > 0
+              ? intPayload.availableOpenAiChatModels
+              : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
+          const en =
+            "enabledOpenAiChatModels" in sm && Array.isArray(sm.enabledOpenAiChatModels)
+              ? sm.enabledOpenAiChatModels
+              : undefined
+          const choices = en && en.length > 0 ? avail.filter((m) => en.includes(m)) : [...avail]
+          setChatModelsForAgentSelect(choices.length > 0 ? choices : [...avail])
+        }
         setMcps(mcpsRes.data)
         setBindings(bindingsRes.data)
         setKnowledgeSources(knowledgeRes.data)
@@ -574,9 +601,13 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       const [agentFreshRes, integrationsFreshRes] = await Promise.all([
         api.get<Agent>(`/agents/${id}`),
         api.get<{
+          allowedLlmModelIds?: string[]
           secretsMasked: {
+            llmProvider?: "openai" | "openrouter"
             openaiApiKeyConfigured: boolean
+            openrouterApiKeyConfigured?: boolean
             enabledOpenAiChatModels?: string[]
+            allowedLlmModelIds?: string[]
           }
           operationalCatalogTools: OperationalCatalogTool[]
           availableOpenAiChatModels?: string[]
@@ -586,16 +617,40 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       setOperationalCatalogTools(opTools)
       const opIds = new Set(opTools.map((tool) => tool.id))
       applyAgentPayload(agentFreshRes.data, { operationalCatalogToolIds: opIds })
-      setWorkspaceOpenAiConfigured(integrationsFreshRes.data.secretsMasked.openaiApiKeyConfigured)
       const intData = integrationsFreshRes.data
-      const availFresh =
-        intData.availableOpenAiChatModels && intData.availableOpenAiChatModels.length > 0
-          ? intData.availableOpenAiChatModels
-          : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
-      const enFresh = intData.secretsMasked.enabledOpenAiChatModels
-      const choicesFresh =
-        enFresh && enFresh.length > 0 ? availFresh.filter((m) => enFresh.includes(m)) : [...availFresh]
-      setChatModelsForAgentSelect(choicesFresh.length > 0 ? choicesFresh : [...availFresh])
+      const smFresh = intData.secretsMasked
+      const provFresh = smFresh.llmProvider === "openrouter" ? "openrouter" : "openai"
+      setWorkspaceLlmConfigured(
+        provFresh === "openrouter"
+          ? Boolean(smFresh.openrouterApiKeyConfigured)
+          : Boolean(smFresh.openaiApiKeyConfigured),
+      )
+      if (provFresh === "openrouter") {
+        const allowedFresh = [
+          ...(smFresh.allowedLlmModelIds?.length ? smFresh.allowedLlmModelIds : intData.allowedLlmModelIds ?? []),
+        ].filter(Boolean)
+        if (allowedFresh.length > 0) {
+          setChatModelsForAgentSelect([...new Set(allowedFresh)].sort((a, b) => a.localeCompare(b)))
+        } else {
+          try {
+            const cat = await api.get<{ models: { id: string }[] }>(
+              "/settings/workspace/integrations/openrouter-models?mode=runtime",
+            )
+            setChatModelsForAgentSelect((cat.data.models ?? []).map((m) => m.id))
+          } catch {
+            setChatModelsForAgentSelect([])
+          }
+        }
+      } else {
+        const availFresh =
+          intData.availableOpenAiChatModels && intData.availableOpenAiChatModels.length > 0
+            ? intData.availableOpenAiChatModels
+            : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
+        const enFresh = intData.secretsMasked.enabledOpenAiChatModels
+        const choicesFresh =
+          enFresh && enFresh.length > 0 ? availFresh.filter((m) => enFresh.includes(m)) : [...availFresh]
+        setChatModelsForAgentSelect(choicesFresh.length > 0 ? choicesFresh : [...availFresh])
+      }
     } catch (e) {
       const msg = e instanceof ApiError ? `${e.message} (${e.code})` : "Falha ao salvar"
       toast.error(msg)
@@ -657,15 +712,16 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   return (
     <div className="space-y-6">
       <ContextualTourHost screenKey="agent_detail" />
-      {workspaceOpenAiConfigured === false && agent.origin === "company" ? (
+      {workspaceLlmConfigured === false && agent.origin === "company" ? (
         <Alert className="border-amber-500/50 bg-amber-500/5">
           <AlertCircle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-800 dark:text-amber-200">Chave OpenAI do workspace</AlertTitle>
+          <AlertTitle className="text-amber-800 dark:text-amber-200">Chave LLM do workspace</AlertTitle>
           <AlertDescription className="text-amber-900/90 dark:text-amber-100/90 flex flex-col sm:flex-row sm:items-center gap-3">
             <span>
-              Nao ha chave OpenAI (BYOK) neste workspace. O runtime dos agentes precisa dela em producao
-              multi-tenant, ou de <code className="text-xs bg-background/50 px-1 rounded">OPENAI_API_KEY</code>{" "}
-              no servidor (apenas demo local).
+              Nao ha chave BYOK do provider LLM ativo neste workspace. O runtime precisa dela em producao
+              multi-tenant, ou de <code className="text-xs bg-background/50 px-1 rounded">OPENROUTER_API_KEY</code> /{" "}
+              <code className="text-xs bg-background/50 px-1 rounded">OPENAI_API_KEY</code> no servidor (apenas demo
+              local).
             </span>
             <Button asChild variant="secondary" size="sm" className="w-fit shrink-0">
               <Link href="/settings?tab=integrations">Configurar integracoes</Link>
@@ -1059,7 +1115,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           {isAdvancedMode && (
             <Card>
               <CardHeader>
-                <CardTitleWithInfo title="Modelo OpenAI (override)" infoAriaLabel="Ajuda sobre modelo de runtime">
+                <CardTitleWithInfo title="Modelo LLM (override)" infoAriaLabel="Ajuda sobre modelo de runtime">
                   <p>Opcional: sobrepoe o modelo padrao do workspace para este agente (coordenador ou especialista).</p>
                 </CardTitleWithInfo>
                 <CardDescription>
