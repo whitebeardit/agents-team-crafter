@@ -16,4 +16,11 @@ describe('resolveOperationalCatalogTools', () => {
     const r = resolveOperationalCatalogTools({ openai: { apiKey: 'sk-test' } });
     expect(r.map((x) => x.id)).toEqual(['image_generation']);
   });
+
+  it('inclui tools web e imagem com chave OpenRouter', () => {
+    const r = resolveOperationalCatalogTools({
+      openrouter: { apiKey: 'sk-or-test', baseUrl: 'https://openrouter.ai/api/v1' },
+    });
+    expect(r.map((x) => x.id)).toEqual(['web_search', 'web_fetch', 'image_generation']);
+  });
 });

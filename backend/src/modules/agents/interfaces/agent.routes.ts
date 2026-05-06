@@ -29,13 +29,14 @@ const agentRuntimeModelInputSchema = z.union([
   z.string().min(3).max(200),
 ]);
 
-const listQuerySchema = paginationQuerySchema.merge(
+export const listQuerySchema = paginationQuerySchema.merge(
   z.object({
     origin: z.enum(['whitebeard', 'company']).optional(),
     category: z.string().optional(),
     channel: z.string().optional(),
     role: z.enum(['coordinator', 'specialist']).optional(),
     search: z.string().optional(),
+    teamId: z.string().optional(),
   }),
 );
 
@@ -56,6 +57,7 @@ const createAgentSchema = z.object({
   allowConflictOverride: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   openaiRuntimeModel: agentRuntimeModelInputSchema.optional(),
+  imageGenerationModel: z.string().min(3).max(200).optional(),
 });
 
 const updateAgentSchema = z.object({
@@ -73,6 +75,7 @@ const updateAgentSchema = z.object({
   systemRole: systemRoleSchema,
   allowConflictOverride: z.boolean().optional(),
   openaiRuntimeModel: z.union([agentRuntimeModelInputSchema, z.literal('')]).optional(),
+  imageGenerationModel: z.union([z.string().min(3).max(200), z.literal('')]).optional(),
 });
 
 function asRec(a: unknown): Record<string, unknown> {
@@ -121,6 +124,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
         channel: q.channel,
         role: q.role,
         search: q.search,
+        teamId: q.teamId,
       },
       q.page,
       q.perPage,
@@ -133,6 +137,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     const body = createAgentSchema.parse(req.body);
     if (body.openaiRuntimeModel) {
       await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, String(body.openaiRuntimeModel));
+    }
+    if (body.imageGenerationModel) {
+      await deps.workspaceIntegrationsService.assertImageGenerationModelAllowed(ws, String(body.imageGenerationModel));
     }
     await assertWorkspaceQuota(deps.settingsRepo, ws, 'agents');
     if (body.role === 'specialist' && body.channels.length > 0) {
@@ -217,6 +224,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       platformManaged: body.platformManaged ?? false,
       systemRole: body.systemRole ?? null,
       ...(body.openaiRuntimeModel ? { openaiRuntimeModel: body.openaiRuntimeModel } : {}),
+      ...(body.imageGenerationModel ? { imageGenerationModel: body.imageGenerationModel } : {}),
       ...(body.role === 'coordinator'
         ? {
             systemInstruction: ensureCoordinatorSecondBrainPolicy(ensureCoordinatorSystemInstructionPolicy()),
@@ -274,6 +282,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     const body = updateAgentSchema.parse(req.body);
     if (body.openaiRuntimeModel !== undefined && body.openaiRuntimeModel !== '') {
       await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, String(body.openaiRuntimeModel));
+    }
+    if (body.imageGenerationModel !== undefined && body.imageGenerationModel !== '') {
+      await deps.workspaceIntegrationsService.assertImageGenerationModelAllowed(ws, String(body.imageGenerationModel));
     }
     const current = cur as Record<string, unknown>;
     if (body.channels !== undefined && cur['role'] !== 'coordinator') {
@@ -363,6 +374,9 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     delete patch.allowConflictOverride;
     if (body.openaiRuntimeModel === '') {
       (patch as Record<string, unknown>).openaiRuntimeModel = null;
+    }
+    if (body.imageGenerationModel === '') {
+      (patch as Record<string, unknown>).imageGenerationModel = null;
     }
     if (draftForReview.role === 'coordinator') {
       const patchRec = patch as Record<string, unknown>;
@@ -492,6 +506,16 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
         const rawStr = String(rawModel).trim();
         await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, rawStr);
         body['openaiRuntimeModel'] = rawStr;
+      }
+    }
+    const rawImageModel = body['imageGenerationModel'];
+    if (rawImageModel !== undefined) {
+      if (rawImageModel === null || rawImageModel === '') {
+        body['imageGenerationModel'] = null;
+      } else {
+        const rawStr = String(rawImageModel).trim();
+        await deps.workspaceIntegrationsService.assertImageGenerationModelAllowed(ws, rawStr);
+        body['imageGenerationModel'] = rawStr;
       }
     }
     await deps.agentRepo.update(ws, id, body);

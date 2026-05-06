@@ -1,6 +1,7 @@
 /**
  * Catálogo de modelos OpenRouter (API pública) com cache em memória.
- * Usamos `order=most-popular` (mesmo eixo que o site) e preservamos a ordem da resposta em `listingIndex`.
+ * Usamos `order=most-popular` (mesmo eixo que o site) e `output_modalities=all`, pois a API
+ * OpenRouter filtra modelos de texto por padrão. Preservamos a ordem da resposta em `listingIndex`.
  * @see https://openrouter.ai/docs/api-reference/models/get-models
  */
 
@@ -60,7 +61,7 @@ function parseUsdPerTokenField(v: unknown): number | undefined {
   return undefined;
 }
 
-function normalizePricing(raw: Record<string, unknown>): IOpenRouterCatalogPricing {
+function normalizePricing(raw: Record<string, unknown>, outputModalities: string[]): IOpenRouterCatalogPricing {
   const pr =
     raw['pricing'] && typeof raw['pricing'] === 'object' && raw['pricing'] !== null
       ? (raw['pricing'] as Record<string, unknown>)
@@ -69,7 +70,9 @@ function normalizePricing(raw: Record<string, unknown>): IOpenRouterCatalogPrici
   const completionPerToken = parseUsdPerTokenField(pr['completion']);
   const promptUsdPer1M = promptPerToken !== undefined ? promptPerToken * 1_000_000 : null;
   const completionUsdPer1M = completionPerToken !== undefined ? completionPerToken * 1_000_000 : null;
+  const hasImageOutput = outputModalities.includes('image');
   const isFree =
+    !hasImageOutput &&
     promptPerToken !== undefined &&
     completionPerToken !== undefined &&
     promptPerToken === 0 &&
@@ -109,14 +112,14 @@ function normalizeModel(raw: Record<string, unknown>): TNormalizedCatalogModel |
     supportsStructuredOutputs,
     inputModalities,
     outputModalities,
-    pricing: normalizePricing(raw),
+    pricing: normalizePricing(raw, outputModalities),
   };
 }
 
 function filterByMode(models: IOpenRouterCatalogModel[], mode: TOpenRouterCatalogMode): IOpenRouterCatalogModel[] {
   const textOut = (m: IOpenRouterCatalogModel) =>
     m.outputModalities.length === 0 || m.outputModalities.includes('text');
-  if (mode === 'all') return models.filter(textOut);
+  if (mode === 'all') return models;
   if (mode === 'runtime') return models.filter((m) => textOut(m) && m.supportsTools);
   /* planner */
   return models.filter((m) => textOut(m) && m.supportsStructuredOutputs);
@@ -124,7 +127,7 @@ function filterByMode(models: IOpenRouterCatalogModel[], mode: TOpenRouterCatalo
 
 async function fetchModelsFromApi(): Promise<IOpenRouterCatalogModel[]> {
   const base = OPENROUTER_BASE_URL.replace(/\/+$/, '');
-  const url = `${base}${MODELS_PATH}?output_modalities=text&order=most-popular`;
+  const url = `${base}${MODELS_PATH}?order=most-popular&output_modalities=all`;
   const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
   if (!res.ok) {
     const t = await res.text();

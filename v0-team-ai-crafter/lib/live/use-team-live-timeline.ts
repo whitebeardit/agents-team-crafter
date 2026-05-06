@@ -107,7 +107,9 @@ export function useTeamLiveTimeline(input: {
   const { teamId, api, enabled, replayLimit = 120, coordinatorId, scopeRunId, onForeignRunDetected } = input
 
   const onForeignRunDetectedRef = useRef(onForeignRunDetected)
-  onForeignRunDetectedRef.current = onForeignRunDetected
+  useEffect(() => {
+    onForeignRunDetectedRef.current = onForeignRunDetected
+  }, [onForeignRunDetected])
 
   const [timelineByAgent, setTimelineByAgent] = useState<Record<string, TeamConversationTimelineItem[]>>({})
   const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentConversationState>>({})

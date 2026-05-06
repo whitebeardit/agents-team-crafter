@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Database, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import type { Agent, Team } from "@/lib/types"
+import { buildAgentSecondBrainHref, vaultNotesEmptyCopy } from "@/lib/vault/ui-state"
 
 type VaultNoteRow = {
   noteId: string
@@ -29,12 +31,15 @@ type WorkspaceVaultCardProps = {
   deepLinkNoteId?: string
   /** Deep link a partir de `?vaultParty=` */
   deepLinkPartyId?: string
+  /** Deep link a partir de `?vaultAgent=` (ObjectId do agente) */
+  deepLinkAgentId?: string
 }
 
-export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId }: WorkspaceVaultCardProps) {
+export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId, deepLinkAgentId }: WorkspaceVaultCardProps) {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [rows, setRows] = useState<VaultNoteRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<"forbidden" | "network" | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [partyFilter, setPartyFilter] = useState("")
   const [teamFilter, setTeamFilter] = useState("")
@@ -67,6 +72,10 @@ export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId }: Workspac
   }, [deepLinkPartyId])
 
   useEffect(() => {
+    if (deepLinkAgentId?.trim()) setAgentFilter(deepLinkAgentId.trim())
+  }, [deepLinkAgentId])
+
+  useEffect(() => {
     const client = api()
     if (!client) return
     void (async () => {
@@ -95,6 +104,7 @@ export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId }: Workspac
     const client = api()
     if (!client) return
     setLoading(true)
+    setLoadError(null)
     try {
       let path: string
       if (partyFilter.trim()) {
@@ -113,6 +123,8 @@ export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId }: Workspac
       if (e instanceof ApiError) toast.error(e.message)
       else toast.error("Falha ao carregar memoria do time")
       setRows([])
+      if (e instanceof ApiError && e.status === 403) setLoadError("forbidden")
+      else setLoadError("network")
     } finally {
       setLoading(false)
     }
@@ -209,8 +221,9 @@ export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId }: Workspac
           Memoria do time (second-brain)
         </CardTitle>
         <CardDescription>
-          Aprendizados persistidos no vault deste workspace. Coordenadores com memoria persistente recebem resumos
-          aprovados; propostas aparecem aqui ate revisao humana.
+          Escopo do workspace: aprendizados persistidos no vault (mesma origem que a aba Second-brain do agente).
+          Memória persistente no agente controla a injecção de notas <strong>activas</strong> no prompt do
+          especialista; esta lista não depende desse toggle. Propostas ficam aqui até revisão humana.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -292,14 +305,35 @@ export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId }: Workspac
           Com <strong className="font-medium text-foreground/80">Time</strong> em Todos, o filtro{" "}
           <strong className="font-medium text-foreground/80">Agente</strong> lista todos os agentes do workspace. Ao
           escolher um time especifico, o filtro de Agente lista apenas os membros desse time. O filtro{" "}
-          <strong className="font-medium text-foreground/80">Cliente</strong> e independente.
+          <strong className="font-medium text-foreground/80">Cliente (party)</strong> usa o mesmo endpoint que na ficha
+          do agente; ao seleccionar cliente, a listagem passa a rota por party (ver documentação de API se precisar de
+          cruzar com agente).
         </p>
 
         <ScrollArea className="h-[280px] rounded-md border border-border p-3">
-          {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma nota carregada. Clique em Carregar (e confirme permissoes de admin do workspace se aplicavel).
-            </p>
+          {loading && rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">A carregar notas do vault…</p>
+          ) : rows.length === 0 ? (
+            <div className="space-y-2">
+              {(() => {
+                const empty =
+                  loadError === "forbidden"
+                    ? vaultNotesEmptyCopy("workspace", "forbidden")
+                    : loadError === "network"
+                      ? vaultNotesEmptyCopy("workspace", "network")
+                      : vaultNotesEmptyCopy("workspace", "empty_after_load")
+                return (
+                  <>
+                    <p className="text-sm font-medium text-foreground">{empty.title}</p>
+                    {empty.lines.map((line, idx) => (
+                      <p key={idx} className="text-sm text-muted-foreground">
+                        {line}
+                      </p>
+                    ))}
+                  </>
+                )
+              })()}
+            </div>
           ) : (
             <ul className="space-y-3">
               {rows.map((r) => {
@@ -350,6 +384,16 @@ export function WorkspaceVaultCard({ deepLinkNoteId, deepLinkPartyId }: Workspac
                     <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{r.bodyPreview}</p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap gap-2">
+                    <Button type="button" size="sm" variant="secondary" asChild>
+                      <Link
+                        href={buildAgentSecondBrainHref(r.agentId, {
+                          ...(r.partyId ? { vaultParty: r.partyId } : {}),
+                          vaultNote: r.noteId,
+                        })}
+                      >
+                        Ver no agente
+                      </Link>
+                    </Button>
                     {r.status === "proposed" ? (
                       <>
                         <Button

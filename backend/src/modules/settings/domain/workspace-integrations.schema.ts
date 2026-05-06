@@ -24,6 +24,8 @@ export interface IWorkspaceIntegrationsPayload {
   openrouterApiKey?: string;
   /** Padrao quando a tool usa `model: default`; se omitido, o runtime usa dall-e-3. */
   imageGenerationModel?: TImageGenerationModel;
+  /** Modelo OpenRouter padrao para `image_generation` quando provider/model forem default. */
+  openrouterImageGenerationModel?: string;
   smtp?: {
     host: string;
     port: number;
@@ -80,6 +82,8 @@ export const putWorkspaceIntegrationsBodySchema = z.object({
   openrouterRuntimeModel: z.string().optional(),
   /** Modelo planner OpenRouter livre; string vazia = remover. */
   openrouterPlannerModel: z.string().optional(),
+  /** Modelo de imagem OpenRouter livre; string vazia = remover. */
+  openrouterImageGenerationModel: z.string().optional(),
   smtp: z
     .object({
       host: z.string().optional(),
@@ -126,6 +130,7 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
   openrouterApiKeyMasked?: string;
   openrouterRuntimeModel?: string;
   openrouterPlannerModel?: string;
+  openrouterImageGenerationModel?: string;
   allowedLlmModelIds?: string[];
   smtp?: {
     host?: string;
@@ -206,6 +211,9 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
     ...(payload.teamPlannerModel ? { teamPlannerModel: payload.teamPlannerModel } : {}),
     ...(payload.openrouterRuntimeModel ? { openrouterRuntimeModel: payload.openrouterRuntimeModel } : {}),
     ...(payload.openrouterPlannerModel ? { openrouterPlannerModel: payload.openrouterPlannerModel } : {}),
+    ...(payload.openrouterImageGenerationModel
+      ? { openrouterImageGenerationModel: payload.openrouterImageGenerationModel }
+      : {}),
     ...(payload.allowedLlmModelIds?.length ? { allowedLlmModelIds: [...payload.allowedLlmModelIds] } : {}),
   };
 }
@@ -239,6 +247,11 @@ export function mergeWorkspaceIntegrationsPayload(
   if (patch.openrouterPlannerModel !== undefined) {
     if (patch.openrouterPlannerModel.trim() === '') delete next.openrouterPlannerModel;
     else next.openrouterPlannerModel = patch.openrouterPlannerModel.trim();
+  }
+
+  if (patch.openrouterImageGenerationModel !== undefined) {
+    if (patch.openrouterImageGenerationModel.trim() === '') delete next.openrouterImageGenerationModel;
+    else next.openrouterImageGenerationModel = patch.openrouterImageGenerationModel.trim();
   }
 
   if (patch.smtp !== undefined) {
@@ -360,6 +373,7 @@ export function assertWorkspaceChatModelsCoherent(payload: IWorkspaceIntegration
     for (const id of uniq) assertOpenRouterModelId(id, 'Lista de modelos permitidos');
     assertOpenRouterModelId(payload.openrouterRuntimeModel, 'Modelo runtime OpenRouter');
     assertOpenRouterModelId(payload.openrouterPlannerModel, 'Modelo planner OpenRouter');
+    assertOpenRouterModelId(payload.openrouterImageGenerationModel, 'Modelo de imagem OpenRouter');
     if (uniq.length > 0) {
       if (payload.openrouterRuntimeModel?.trim() && !uniq.includes(payload.openrouterRuntimeModel.trim())) {
         throw new AppError(
@@ -372,6 +386,16 @@ export function assertWorkspaceChatModelsCoherent(payload: IWorkspaceIntegration
         throw new AppError(
           'VALIDATION_ERROR',
           'O modelo planner OpenRouter deve estar entre os modelos permitidos deste workspace.',
+          400,
+        );
+      }
+      if (
+        payload.openrouterImageGenerationModel?.trim() &&
+        !uniq.includes(payload.openrouterImageGenerationModel.trim())
+      ) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'O modelo de imagem OpenRouter deve estar entre os modelos permitidos deste workspace.',
           400,
         );
       }

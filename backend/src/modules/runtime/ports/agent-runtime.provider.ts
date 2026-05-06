@@ -47,11 +47,13 @@ export interface IExecutableAgentConfig {
   /** Execucao de tools `internal_action` (business tools platform). */
   businessToolRuntime?: IBusinessToolRuntime;
   /** Quando a execucao e no contexto de um time (ex.: especialista no orquestrador). */
-  teamContext?: { teamId: string; teamName: string };
+  teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
   /** Exceção explícita para permitir execução direta no modo simplificado. */
   singleAgentMode?: boolean;
   /** ID do modelo OpenAI (valor do enum de workspace) resolvido antes do runStep. */
   openaiRuntimeModel: string;
+  /** Override opcional para a tool `image_generation`; omitido = herdar workspace/provider. */
+  imageGenerationModel?: string;
 }
 
 export type TRuntimeEvent =

@@ -94,6 +94,25 @@ describe('openrouter-models-catalog', () => {
     expect(models[0]!.pricing.completionUsdPer1M).toBe(0);
   });
 
+  it('nao marca modelo de imagem como gratis so porque prompt/completion sao zero', async () => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: 'black-forest-labs/flux.2-klein-4b',
+            pricing: { prompt: '0', completion: '0' },
+            supported_parameters: [],
+            architecture: { output_modalities: ['image'] },
+          },
+        ],
+      }),
+    })) as unknown as typeof fetch;
+
+    const { models } = await listOpenRouterCatalogModels('all');
+    expect(models[0]!.pricing.isFree).toBe(false);
+  });
+
   it('filtra planner por structured_outputs', async () => {
     globalThis.fetch = jest.fn(async () => ({
       ok: true,
@@ -117,5 +136,33 @@ describe('openrouter-models-catalog', () => {
 
     const { models } = await listOpenRouterCatalogModels('planner');
     expect(models.map((m) => m.id)).toEqual(['google/gemini-2.5-flash']);
+  });
+
+  it('modo all inclui modelos de imagem e pede todas as modalidades na API', async () => {
+    const mockFetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: 'bytedance-seed/seedream-4.5',
+            pricing: { prompt: '0', completion: '0' },
+            supported_parameters: [],
+            architecture: { output_modalities: ['image'] },
+          },
+          {
+            id: 'openai/gpt-4o-mini',
+            pricing: { prompt: '0', completion: '0' },
+            supported_parameters: ['tools'],
+            architecture: { output_modalities: ['text'] },
+          },
+        ],
+      }),
+    }));
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const { models } = await listOpenRouterCatalogModels('all');
+    expect(models.map((m) => m.id)).toEqual(['bytedance-seed/seedream-4.5', 'openai/gpt-4o-mini']);
+    const firstCall = mockFetch.mock.calls[0] as unknown[] | undefined;
+    expect(String(firstCall?.[0])).toContain('output_modalities=all');
   });
 });

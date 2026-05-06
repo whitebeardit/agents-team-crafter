@@ -1,5 +1,6 @@
 export const AVAILABLE_TOOL_IDS = [
   'web_search',
+  'web_fetch',
   'file_search',
   'internal_actions',
   'code_execution',

@@ -71,7 +71,7 @@ export function buildWorkspaceCustomTools(
   meta: {
     workspaceId: string;
     correlationId?: string;
-    teamContext?: { teamId: string; teamName: string };
+    teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
     conversationId?: string;
     actorAgentId?: string;
     actorRole?: 'coordinator' | 'specialist';

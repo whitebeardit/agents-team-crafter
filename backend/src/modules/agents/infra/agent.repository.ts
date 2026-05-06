@@ -3,6 +3,7 @@ import type { IAgentListFilters, IAgentRepository } from '../domain/ports/agent-
 import { AgentModel } from './agent.model.js';
 import type { AgentDoc } from './agent.model.js';
 import { normalizeAgentCategory } from '../../../shared/utils/agent-category.js';
+import { TeamModel } from '../../teams/infra/team.model.js';
 
 function toPublic(doc: AgentDoc) {
   return {
@@ -26,6 +27,7 @@ function toPublic(doc: AgentDoc) {
     systemRole: doc.systemRole ?? null,
     systemInstruction: doc.systemInstruction,
     ...(doc.openaiRuntimeModel ? { openaiRuntimeModel: doc.openaiRuntimeModel } : {}),
+    ...(doc.imageGenerationModel ? { imageGenerationModel: doc.imageGenerationModel } : {}),
     capabilities: doc.capabilities,
     knowledge: doc.knowledge,
     channelConfig: doc.channelConfig,
@@ -65,9 +67,32 @@ function buildListFilter(workspaceId: string, filters: IAgentListFilters) {
   return { $and: and };
 }
 
+async function listTeamAgentIds(workspaceId: string, teamId: string): Promise<string[] | null> {
+  if (!Types.ObjectId.isValid(teamId)) return null;
+  const team = await TeamModel.findOne({
+    _id: new Types.ObjectId(teamId),
+    workspaceId: new Types.ObjectId(workspaceId),
+  })
+    .select('coordinatorId agentIds')
+    .lean();
+  if (!team) return null;
+  const row = team as { coordinatorId?: Types.ObjectId; agentIds?: Types.ObjectId[] };
+  const ids = new Set<string>();
+  if (row.coordinatorId) ids.add(String(row.coordinatorId));
+  for (const memberId of row.agentIds ?? []) ids.add(String(memberId));
+  return [...ids];
+}
+
 export class AgentRepository implements IAgentRepository {
   async list(workspaceId: string, filters: IAgentListFilters, page: number, perPage: number) {
     const q = buildListFilter(workspaceId, filters);
+    if (filters.teamId) {
+      const agentIds = await listTeamAgentIds(workspaceId, filters.teamId);
+      if (!agentIds || agentIds.length === 0) {
+        return { items: [], total: 0 };
+      }
+      q.$and.push({ _id: { $in: agentIds.map((id) => new Types.ObjectId(id)) } });
+    }
     const skip = (page - 1) * perPage;
     const [docs, total] = await Promise.all([
       AgentModel.find(q).sort({ updatedAt: -1 }).skip(skip).limit(perPage).exec(),
@@ -106,6 +131,10 @@ export class AgentRepository implements IAgentRepository {
     if (Object.prototype.hasOwnProperty.call(setPayload, 'openaiRuntimeModel') && setPayload.openaiRuntimeModel === null) {
       delete setPayload.openaiRuntimeModel;
       unset.openaiRuntimeModel = 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(setPayload, 'imageGenerationModel') && setPayload.imageGenerationModel === null) {
+      delete setPayload.imageGenerationModel;
+      unset.imageGenerationModel = 1;
     }
     const updateDoc =
       Object.keys(unset).length > 0

@@ -41,6 +41,8 @@ const AgentSchema = new Schema(
     systemInstruction: { type: String },
     /** Override de modelo de runtime (OpenAI enum legado ou ID OpenRouter `provedor/modelo`). */
     openaiRuntimeModel: { type: String, default: undefined },
+    /** Override de modelo da tool de geração de imagem (DALL-E ou ID OpenRouter `provedor/modelo`). */
+    imageGenerationModel: { type: String, default: undefined },
     capabilities: { type: Schema.Types.Mixed },
     knowledge: { type: Schema.Types.Mixed },
     channelConfig: { type: Schema.Types.Mixed },

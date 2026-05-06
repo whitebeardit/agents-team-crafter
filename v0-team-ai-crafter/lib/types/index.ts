@@ -106,6 +106,8 @@ export interface TeamDebugSessionSummary {
   conversationId: string
   updatedAt: string
   turnCount: number
+  shortTitle?: string
+  shortTitleSlug?: string
 }
 
 /** Turno com instante — `GET /teams/:id/debug-sessions/:conversationId`. */
@@ -113,6 +115,8 @@ export interface TeamDebugSessionTurn {
   role: "user" | "assistant"
   content: string
   at: string
+  format?: "plain" | "markdown"
+  attachments?: TeamRunExternalImageAttachment[]
 }
 
 /** SSE `agentStatus` durante `POST /teams/:id/run/stream` e `GET /teams/:id/live`. */
@@ -247,6 +251,8 @@ export interface Agent {
   systemInstruction?: string
   /** Override do modelo OpenAI (runtime); omitido = usar default do workspace / produto. */
   openaiRuntimeModel?: string
+  /** Override do modelo de geração de imagem; omitido = usar default do workspace / produto. */
+  imageGenerationModel?: string
 
   capabilities?: AgentCapabilities
   knowledge?: AgentKnowledge

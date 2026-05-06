@@ -6,6 +6,7 @@ export const AGENT_EXPORT_VERSION = '2';
 export function buildAgentRuntimeSnapshot(agent: Record<string, unknown>, mcpBindings: unknown[]) {
   return {
     openaiRuntimeModel: agent['openaiRuntimeModel'],
+    imageGenerationModel: agent['imageGenerationModel'],
     capabilities: normalizeAgentCapabilities(agent['capabilities']),
     knowledge: agent['knowledge'],
     channelConfig: agent['channelConfig'],
@@ -24,6 +25,7 @@ function buildAgentExportSections(agent: Record<string, unknown>, runtime: Retur
       systemInstruction: agent['systemInstruction'],
       systemRole: agent['systemRole'],
       openaiRuntimeModel: agent['openaiRuntimeModel'],
+      imageGenerationModel: agent['imageGenerationModel'],
     },
     domainProfile: agent['domain'],
     quality: {

@@ -141,6 +141,8 @@ function TeamAgentDigestMeta({
   )
 }
 
+const TEAM_PAGE_TAB_VALUES = ["overview", "agents", "channels", "runs", "debug"] as const
+
 export default function TeamDetailsPage({
   params: _params,
 }: {
@@ -177,8 +179,6 @@ export default function TeamDetailsPage({
   const [exportTemplateBusy, setExportTemplateBusy] = useState(false)
   const [promoteOpen, setPromoteOpen] = useState(false)
   const [promoteBusy, setPromoteBusy] = useState(false)
-
-  const TEAM_PAGE_TAB_VALUES = ["overview", "agents", "channels", "runs", "debug"] as const
 
   useEffect(() => {
     const t = searchParams.get("tab")

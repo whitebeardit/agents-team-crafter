@@ -10,16 +10,26 @@ const validBase = {
   prompt: 'uma imagem',
   size: '1024x1024' as const,
   model: 'default' as const,
+  provider: 'default' as const,
 };
 
 describe('imageGenerationArgs (strict OpenAI function schema)', () => {
   it('rejeita sem os tres campos obrigatorios', () => {
     expect(imageGenerationArgs.safeParse({ prompt: 'x' }).success).toBe(false);
-    expect(imageGenerationArgs.safeParse({ prompt: 'x', size: '1024x1024' }).success).toBe(false);
+    expect(imageGenerationArgs.safeParse({ prompt: 'x', size: '1024x1024', model: 'default' }).success).toBe(false);
   });
 
-  it('aceita prompt, size e model', () => {
+  it('aceita prompt, size, model e provider', () => {
     const r = imageGenerationArgs.safeParse(validBase);
+    expect(r.success).toBe(true);
+  });
+
+  it('aceita modelo OpenRouter livre', () => {
+    const r = imageGenerationArgs.safeParse({
+      ...validBase,
+      provider: 'openrouter',
+      model: 'bytedance-seed/seedream-4.5',
+    });
     expect(r.success).toBe(true);
   });
 
@@ -61,5 +71,19 @@ describe('buildCapabilityCatalogTools image_generation', () => {
       workspaceId: 'ws1',
     });
     expect(tools).toHaveLength(1);
+  });
+
+  it('inclui web_search, web_fetch e image_generation reais quando OpenRouter esta configurado', () => {
+    const ctx: IToolIntegrationContext = {
+      openrouter: {
+        apiKey: 'sk-or-test',
+        baseUrl: 'https://openrouter.ai/api/v1',
+      },
+    };
+    const tools = buildCapabilityCatalogTools(['web_search', 'web_fetch', 'image_generation'], ctx, {
+      workspaceId: 'ws1',
+      runtimeModel: 'openai/gpt-4o-mini',
+    });
+    expect(tools).toHaveLength(3);
   });
 });

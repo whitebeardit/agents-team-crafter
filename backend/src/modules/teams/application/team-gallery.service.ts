@@ -55,8 +55,9 @@ export class TeamGalleryService {
     teamName: string;
     prompt: string;
     imageUrl: string;
+    subjectSlug?: string;
   }): Promise<{ subjectSlug: string; filename: string; bytesWritten: number } | null> {
-    const subjectSlug = subjectSlugFromPrompt(params.prompt);
+    const subjectSlug = sanitizePathSegment(params.subjectSlug || subjectSlugFromPrompt(params.prompt), MAX_SUBJECT_LEN);
     const dir = this.imagensDirAbs(
       params.workspaceId,
       params.teamId,
@@ -79,6 +80,39 @@ export class TeamGalleryService {
     }
     await writeFile(resolvedDest, buf);
     return { subjectSlug, filename, bytesWritten: buf.length };
+  }
+
+  /**
+   * Grava bytes já recebidos de provedores que devolvem data URLs/base64.
+   */
+  async persistBuffer(params: {
+    workspaceId: string;
+    teamId: string;
+    teamName: string;
+    prompt: string;
+    bytes: Buffer;
+    contentType?: string;
+    subjectSlug?: string;
+  }): Promise<{ subjectSlug: string; filename: string; bytesWritten: number } | null> {
+    const subjectSlug = sanitizePathSegment(params.subjectSlug || subjectSlugFromPrompt(params.prompt), MAX_SUBJECT_LEN);
+    const dir = this.imagensDirAbs(
+      params.workspaceId,
+      params.teamId,
+      params.teamName,
+      subjectSlug,
+    );
+    await mkdir(dir, { recursive: true });
+    const ct = (params.contentType ?? '').toLowerCase();
+    const ext =
+      ct.includes('png') ? 'png' : ct.includes('jpeg') || ct.includes('jpg') ? 'jpg' : ct.includes('webp') ? 'webp' : 'png';
+    const filename = `${Date.now()}_${randomBytes(4).toString('hex')}.${ext}`;
+    const dest = path.join(dir, filename);
+    const resolvedDest = path.resolve(dest);
+    if (!isPathInsideDir(this.teamBaseAbs(params.workspaceId, params.teamId, params.teamName), resolvedDest)) {
+      return null;
+    }
+    await writeFile(resolvedDest, params.bytes);
+    return { subjectSlug, filename, bytesWritten: params.bytes.length };
   }
 
   async listAlbums(workspaceId: string, teamId: string, teamName: string): Promise<ITeamGalleryAlbum[]> {

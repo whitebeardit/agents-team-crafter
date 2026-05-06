@@ -111,6 +111,17 @@ function buildAgentModelOptions(
 export function formatRuntimeErrorWithFallback(prefix: string, msg: string): string {
   const lower = msg.toLowerCase();
   const isMaxTurns = lower.includes('max turns') && lower.includes('exceeded');
+  const isContaminatedToolName =
+    lower.includes('tool ') &&
+    lower.includes('not found') &&
+    (msg.includes('<|channel|>') || msg.includes('<|'));
+  if (isContaminatedToolName) {
+    return [
+      'Nao consegui concluir porque o modelo devolveu uma chamada de tool com marcador interno de canal.',
+      'O runtime remove esses marcadores da entrada; tente reenviar a ultima confirmacao se a conversa antiga ainda continha esse marcador.',
+      `Detalhe tecnico: ${prefix}: ${msg}`,
+    ].join('\n');
+  }
   if (!isMaxTurns) return `${prefix}: ${msg}`;
   return [
     'Nao consegui concluir este fluxo dentro do limite de interacoes do modelo.',
@@ -245,7 +256,11 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
     const catalogTools = buildCapabilityCatalogTools(
       config.tools,
       config.toolIntegrationContext,
-      meta,
+      {
+        ...meta,
+        runtimeModel: config.openaiRuntimeModel,
+        ...(config.imageGenerationModel ? { imageGenerationModel: config.imageGenerationModel } : {}),
+      },
     ) as Tool[];
     const mcpTools = buildMcpSdkTools(config.mcpToolSpecs, meta) as Tool[];
     const customTools = buildWorkspaceCustomTools(config.customToolDefinitions ?? [], meta, {

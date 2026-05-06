@@ -41,6 +41,7 @@ function integrationPayloadHasSecrets(next: IWorkspaceIntegrationsPayload): bool
     Boolean(next.llmProvider) ||
     Boolean(next.openrouterRuntimeModel?.trim()) ||
     Boolean(next.openrouterPlannerModel?.trim()) ||
+    Boolean(next.openrouterImageGenerationModel?.trim()) ||
     Boolean(next.smtp?.host?.trim() && next.smtp?.user?.trim() && next.smtp?.password?.trim()) ||
     Boolean(
       next.slack &&
@@ -140,8 +141,22 @@ export class WorkspaceIntegrationsService {
   /** Contexto para tools builtin (catalog) no runtime de agentes. */
   async getToolIntegrationContext(workspaceId: string): Promise<IToolIntegrationContext> {
     const p = await this.getPlainPayload(workspaceId);
-    if (!p) return {};
-    const out: IToolIntegrationContext = {};
+    const provider =
+      p?.llmProvider ??
+      ((process.env.LLM_PROVIDER || this.env.LLM_PROVIDER) as TLlmProvider | undefined) ??
+      DEFAULT_LLM_PROVIDER;
+    const out: IToolIntegrationContext = { activeLlmProvider: provider };
+    if (!p) {
+      const envOpenRouterKey =
+        process.env.OPENROUTER_API_KEY?.trim() || this.env.OPENROUTER_API_KEY?.trim();
+      if (envOpenRouterKey) {
+        out.openrouter = {
+          apiKey: envOpenRouterKey,
+          baseUrl: OPENROUTER_BASE_URL,
+        };
+      }
+      return out;
+    }
     if (p.toolCalendar?.restBaseUrl?.trim() || p.toolCalendar?.authHeader?.trim()) {
       out.calendar = {
         restBaseUrl: p.toolCalendar.restBaseUrl?.trim(),
@@ -153,6 +168,27 @@ export class WorkspaceIntegrationsService {
       out.openai = {
         apiKey: openaiKey,
         ...(p.imageGenerationModel ? { defaultImageModel: p.imageGenerationModel } : {}),
+      };
+    }
+    const openRouterKey =
+      p.openrouterApiKey?.trim() ||
+      process.env.OPENROUTER_API_KEY?.trim() ||
+      this.env.OPENROUTER_API_KEY?.trim();
+    if (openRouterKey) {
+      const referer = this.resolveOpenRouterHttpReferer();
+      const title =
+        process.env.OPENROUTER_APP_TITLE?.trim() || this.env.OPENROUTER_APP_TITLE?.trim();
+      const extraHeaders: Record<string, string> = {};
+      if (referer) extraHeaders['HTTP-Referer'] = referer;
+      if (title) extraHeaders['X-OpenRouter-Title'] = title;
+      out.openrouter = {
+        apiKey: openRouterKey,
+        baseUrl: OPENROUTER_BASE_URL,
+        ...(Object.keys(extraHeaders).length > 0 ? { extraHeaders } : {}),
+        ...(p.openrouterRuntimeModel?.trim() ? { defaultModel: p.openrouterRuntimeModel.trim() } : {}),
+        ...(p.openrouterImageGenerationModel?.trim()
+          ? { defaultImageModel: p.openrouterImageGenerationModel.trim() }
+          : {}),
       };
     }
     return out;
@@ -366,6 +402,31 @@ export class WorkspaceIntegrationsService {
       throw new AppError(
         'VALIDATION_ERROR',
         'O modelo OpenAI escolhido nao esta habilitado para este workspace (Configuracoes > Integracoes).',
+        400,
+      );
+    }
+  }
+
+  async assertImageGenerationModelAllowed(
+    workspaceId: string,
+    model: string | undefined | null,
+  ): Promise<void> {
+    const s0 = typeof model === 'string' ? model.trim() : '';
+    if (!s0) return;
+    if (s0 === 'dall-e-2' || s0 === 'dall-e-3') return;
+    if (!isOpenRouterStyleModelId(s0)) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Modelo de imagem invalido: use dall-e-2, dall-e-3 ou formato provedor/modelo (OpenRouter).',
+        400,
+      );
+    }
+    const p = (await this.getPlainPayload(workspaceId)) ?? {};
+    const allow = p.allowedLlmModelIds?.map((x) => x.trim()).filter(Boolean) ?? [];
+    if (allow.length > 0 && !allow.includes(s0)) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'O modelo de imagem escolhido nao esta na lista de modelos LLM permitidos deste workspace.',
         400,
       );
     }

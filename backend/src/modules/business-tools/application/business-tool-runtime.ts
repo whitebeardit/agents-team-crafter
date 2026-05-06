@@ -76,7 +76,7 @@ export interface IBusinessToolRuntime {
     actionId: string;
     input: unknown;
     correlationId?: string;
-    teamContext?: { teamId: string; teamName: string };
+    teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
     conversationId?: string;
   }): Promise<{ ok: boolean; result?: unknown; error?: string; errorCode?: string }>;
 }
@@ -93,7 +93,7 @@ export class BusinessToolRuntime implements IBusinessToolRuntime {
     actionId: string;
     input: unknown;
     correlationId?: string;
-    teamContext?: { teamId: string; teamName: string };
+    teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
     conversationId?: string;
   }): Promise<{ ok: boolean; result?: unknown; error?: string; errorCode?: string }> {
     const actionId = params.actionId.trim();

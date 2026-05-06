@@ -155,6 +155,7 @@ type IntegrationsApiData = {
     openrouterApiKeyMasked?: string
     openrouterRuntimeModel?: string
     openrouterPlannerModel?: string
+    openrouterImageGenerationModel?: string
     allowedLlmModelIds?: string[]
     openaiApiKeyConfigured: boolean
     openaiApiKeyMasked?: string
@@ -186,6 +187,7 @@ type TOpenRouterCatalogRow = {
   name: string
   supportsTools?: boolean
   supportsStructuredOutputs?: boolean
+  outputModalities?: string[]
   /** Ordem na resposta OpenRouter (`order=most-popular`); menor = mais popular no topo. */
   listingIndex?: number
   pricing?: {
@@ -286,6 +288,7 @@ export default function SettingsPage() {
   const [allowedOrModels, setAllowedOrModels] = useState<string[]>([])
   const [orRuntimePick, setOrRuntimePick] = useState<string>("__unset__")
   const [orPlannerPick, setOrPlannerPick] = useState<string>("__unset__")
+  const [orImagePick, setOrImagePick] = useState<string>("__unset__")
   const [smtpHost, setSmtpHost] = useState("")
   const [smtpPort, setSmtpPort] = useState("587")
   const [smtpSecure, setSmtpSecure] = useState(false)
@@ -305,10 +308,13 @@ export default function SettingsPage() {
   const [reusedAgentBindMode, setReusedAgentBindMode] = useState<"manual" | "merge">("manual")
 
   const tabParam = searchParams.get("tab")
-  const defaultTab =
-    tabParam && (SETTINGS_TAB_VALUES as readonly string[]).includes(tabParam)
-      ? tabParam
-      : "workspace"
+  const tabIsValid = Boolean(tabParam && (SETTINGS_TAB_VALUES as readonly string[]).includes(tabParam))
+  const vaultDeepLink =
+    Boolean(searchParams.get("vaultNote")?.trim()) ||
+    Boolean(searchParams.get("vaultParty")?.trim()) ||
+    Boolean(searchParams.get("vaultAgent")?.trim())
+  /** Deep links do second-brain devem abrir a aba Workspace (Memória do time). */
+  const defaultTab = vaultDeepLink ? "workspace" : tabIsValid ? (tabParam as (typeof SETTINGS_TAB_VALUES)[number]) : "workspace"
 
   // Form states
   const [workspaceName, setWorkspaceName] = useState("")
@@ -352,6 +358,11 @@ export default function SettingsPage() {
     setAllowedOrModels(am)
     setOrRuntimePick(data.secretsMasked.openrouterRuntimeModel?.trim() ? data.secretsMasked.openrouterRuntimeModel : "__unset__")
     setOrPlannerPick(data.secretsMasked.openrouterPlannerModel?.trim() ? data.secretsMasked.openrouterPlannerModel : "__unset__")
+    setOrImagePick(
+      data.secretsMasked.openrouterImageGenerationModel?.trim()
+        ? data.secretsMasked.openrouterImageGenerationModel
+        : "__unset__",
+    )
 
     const avail =
       data.availableOpenAiChatModels && data.availableOpenAiChatModels.length > 0
@@ -904,6 +915,20 @@ export default function SettingsPage() {
     return filteredOrCatalog.map((m) => m.id)
   }, [allowedOrModels, filteredOrCatalog, orCatalogModels])
 
+  const orImageModelPickOptions = useMemo(() => {
+    const catalogById = new Map(orCatalogModels.map((m) => [m.id, m]))
+    const isImageModel = (id: string) => {
+      const m = catalogById.get(id)
+      if (!m) return true
+      const out = m.outputModalities ?? []
+      return out.includes("image") || out.length === 0
+    }
+    if (allowedOrModels.length > 0) {
+      return orModelPickOptions.filter(isImageModel)
+    }
+    return filteredOrCatalog.filter((m) => (m.outputModalities ?? []).includes("image")).map((m) => m.id)
+  }, [allowedOrModels, filteredOrCatalog, orCatalogModels, orModelPickOptions])
+
   const toggleAllowedOrModel = (id: string, checked: boolean) => {
     setAllowedOrModels((prev) => {
       if (checked) {
@@ -924,6 +949,7 @@ export default function SettingsPage() {
         allowedLlmModelIds: allowedOrModels,
         openrouterRuntimeModel: orRuntimePick === "__unset__" ? "" : orRuntimePick,
         openrouterPlannerModel: orPlannerPick === "__unset__" ? "" : orPlannerPick,
+        openrouterImageGenerationModel: orImagePick === "__unset__" ? "" : orImagePick,
       })
       mergeIntegrationPutResponse(res)
       toast.success("Modelos OpenRouter guardados")
@@ -1357,6 +1383,7 @@ export default function SettingsPage() {
           <WorkspaceVaultCard
             deepLinkNoteId={searchParams.get("vaultNote") ?? undefined}
             deepLinkPartyId={searchParams.get("vaultParty") ?? undefined}
+            deepLinkAgentId={searchParams.get("vaultAgent") ?? undefined}
           />
 
           <Card>
@@ -1548,8 +1575,8 @@ export default function SettingsPage() {
               <p>
                 <strong className="text-foreground">Provedor LLM</strong>: escolha <strong>OpenRouter</strong> para
                 chat/planner com catálogo oficial de modelos, ou <strong>OpenAI</strong> para o fluxo clássico. A tool{" "}
-                <code className="text-xs">image_generation</code> (DALL-E) continua a usar chave OpenAI quando
-                configurada.
+                <code className="text-xs">image_generation</code> pode usar OpenRouter (modelos de imagem como
+                Seedream) ou OpenAI (DALL-E) conforme a tool e as chaves configuradas.
               </p>
               <p>
                 <strong className="text-foreground">SMTP / Slack (workspace)</strong>: base para envio de email e
@@ -1824,7 +1851,7 @@ export default function SettingsPage() {
                       ) : null}
                     </div>
                   </ScrollArea>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-2">
                       <Label>Modelo default runtime</Label>
                       <Select value={orRuntimePick} onValueChange={setOrRuntimePick}>
@@ -1856,6 +1883,26 @@ export default function SettingsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Modelo default de imagem</Label>
+                      <Select value={orImagePick} onValueChange={setOrImagePick}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Escolher..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__unset__">Usar padrao OpenRouter de imagem</SelectItem>
+                          {orImageModelPickOptions.map((id) => (
+                            <SelectItem key={`img-${id}`} value={id}>
+                              {id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Usado quando <code className="text-xs">image_generation</code> envia{" "}
+                        <code className="text-xs">model: default</code> e o agente nao tem override.
+                      </p>
                     </div>
                   </div>
                   <Button type="button" onClick={() => void saveOpenRouterModelsIntegration()} disabled={intBusy}>
@@ -1943,11 +1990,12 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {llmProviderPick === "openrouter" ? "OpenAI (opcional — imagens DALL-E)" : "OpenAI (BYOK)"}
+                  {llmProviderPick === "openrouter" ? "OpenAI (opcional — imagens DALL-E)" : "OpenAI (BYOK)"}
               </CardTitle>
               <CardDescription>
-                Chave para o runtime dos agentes neste workspace e para a ferramenta de catalogo{" "}
-                <code className="text-xs">image_generation</code> (DALL-E 2 / DALL-E 3), quando ativa no agente.{" "}
+                Chave para o runtime OpenAI neste workspace e para a ferramenta de catalogo{" "}
+                <code className="text-xs">image_generation</code> quando o provider da tool for OpenAI (DALL-E 2 /
+                DALL-E 3). Com provider OpenRouter, a mesma tool usa a chave OpenRouter acima.{" "}
                 <a
                   href="https://platform.openai.com/api-keys"
                   target="_blank"

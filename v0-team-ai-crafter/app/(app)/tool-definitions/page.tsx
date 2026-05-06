@@ -77,10 +77,10 @@ export default function ToolDefinitionsPage() {
             getWorkspaceId: () => currentWorkspace.id,
           })
         : null,
-    [token, refreshToken, currentWorkspace?.id],
+    [token, refreshToken, currentWorkspace, currentWorkspace?.id],
   )
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!api) return
     setLoading(true)
     try {
@@ -92,11 +92,11 @@ export default function ToolDefinitionsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [api])
 
   useEffect(() => {
     void load()
-  }, [token, refreshToken, currentWorkspace?.id])
+  }, [load])
 
   const usedInternalActionIds = useMemo(() => {
     const ids = new Set<string>()

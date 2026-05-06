@@ -979,9 +979,19 @@ export class CoordinatorOrchestratorService {
         toolIntegrationContext,
         customToolDefinitions,
         businessToolRuntime: this.businessToolRuntime,
-        teamContext: { teamId: teamRow.id, teamName: teamRow.name },
+        teamContext: {
+          teamId: teamRow.id,
+          teamName: teamRow.name,
+          gallerySubjectSlug:
+            typeof invocation.metadata?.gallerySubjectSlug === 'string'
+              ? invocation.metadata.gallerySubjectSlug
+              : undefined,
+        },
         singleAgentMode: Boolean((teamRow as Record<string, unknown>)['singleAgentMode']),
         openaiRuntimeModel: specialistRuntimeModel,
+        ...(typeof srow['imageGenerationModel'] === 'string' && srow['imageGenerationModel'].trim()
+          ? { imageGenerationModel: srow['imageGenerationModel'].trim() }
+          : {}),
       });
       await this.agentRuntime.compile(config);
       const llmConfig = await this.workspaceIntegrationsService.resolveLlmProviderConfig(ws);

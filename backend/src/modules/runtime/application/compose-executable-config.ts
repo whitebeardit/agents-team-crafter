@@ -18,9 +18,10 @@ export function composeExecutableAgentConfig(parts: {
   toolIntegrationContext?: IToolIntegrationContext;
   customToolDefinitions?: IWorkspaceCustomToolDefinition[];
   businessToolRuntime?: IBusinessToolRuntime;
-  teamContext?: { teamId: string; teamName: string };
+  teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
   singleAgentMode?: boolean;
   openaiRuntimeModel: string;
+  imageGenerationModel?: string;
 }): IExecutableAgentConfig {
   return { ...parts };
 }

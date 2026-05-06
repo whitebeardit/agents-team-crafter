@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, Download, Images, Trash2 } from "lucide-react"
+import { ArrowLeft, Copy, Download, Images, Pencil, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -28,6 +28,8 @@ import { ImagePreviewDialog, type ImagePreviewItem, ImagePreviewTriggerButton } 
 interface IGalleryAlbum {
   subjectSlug: string
   fileCount: number
+  shortTitle?: string
+  conversationId?: string
 }
 
 interface IGalleryFile {
@@ -165,6 +167,34 @@ export default function TeamGalleryPage() {
     }
   }
 
+  async function renameAlbumTitle() {
+    if (!api || !subject) return
+    const current = albums.find((a) => a.subjectSlug === subject)
+    if (!current?.conversationId) {
+      toast.error("Álbum sem sessão associada para renomear")
+      return
+    }
+    const next = window.prompt("Novo título curto", current.shortTitle ?? "")
+    const shortTitle = next?.trim()
+    if (!shortTitle) return
+    try {
+      const res = await api.patch<{ shortTitle: string }>(
+        `/teams/${teamId}/debug-sessions/${encodeURIComponent(current.conversationId)}/title`,
+        { shortTitle },
+      )
+      setAlbums((prev) =>
+        prev.map((a) =>
+          a.conversationId === current.conversationId
+            ? { ...a, shortTitle: res.data.shortTitle }
+            : a,
+        ),
+      )
+      toast.success("Título atualizado")
+    } catch {
+      toast.error("Não foi possível atualizar o título")
+    }
+  }
+
   function downloadFromBlobUrl(blobUrl: string, filename: string) {
     const a = document.createElement("a")
     a.href = blobUrl
@@ -173,6 +203,15 @@ export default function TeamGalleryPage() {
     document.body.appendChild(a)
     a.click()
     a.remove()
+  }
+
+  async function copyConversationId(conversationId: string) {
+    try {
+      await navigator.clipboard.writeText(conversationId)
+      toast.success("ID da sessão copiado")
+    } catch {
+      toast.error("Não foi possível copiar o ID da sessão")
+    }
   }
 
   const previewItems: ImagePreviewItem[] = useMemo(() => {
@@ -221,19 +260,45 @@ export default function TeamGalleryPage() {
                 <ul className="space-y-1">
                   {albums.map((a) => (
                     <li key={a.subjectSlug}>
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSubject(a.subjectSlug)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            setSubject(a.subjectSlug)
+                          }
+                        }}
                         className={cn(
-                          "w-full text-left rounded-md px-2 py-1.5 text-sm transition-colors",
+                          "w-full text-left rounded-md px-2 py-1.5 text-sm transition-colors cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                           subject === a.subjectSlug
                             ? "bg-primary/15 text-foreground font-medium"
                             : "hover:bg-muted text-muted-foreground hover:text-foreground",
                         )}
                       >
-                        <span className="line-clamp-2">{a.subjectSlug}</span>
+                        <span className="line-clamp-2">{a.shortTitle?.trim() || a.subjectSlug}</span>
+                        {a.conversationId ? (
+                          <span className="block text-[10px] opacity-70">
+                            pasta técnica: sessão <span className="font-mono">{a.conversationId.slice(0, 8)}…</span>
+                            <button
+                              type="button"
+                              className="ml-1 inline-flex items-center align-middle opacity-80 hover:opacity-100"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                void copyConversationId(a.conversationId!)
+                              }}
+                              title="Copiar ID completo da sessão"
+                              aria-label="Copiar ID completo da sessão"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ) : (
+                          <span className="block text-[10px] opacity-60">{a.subjectSlug}</span>
+                        )}
                         <span className="text-xs opacity-70 tabular-nums">({a.fileCount})</span>
-                      </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -244,15 +309,56 @@ export default function TeamGalleryPage() {
 
         <Card className="border-border min-h-[320px]">
           <CardHeader>
-            <CardTitle className="text-base">{subject ? `Assunto: ${subject}` : "Selecione um álbum"}</CardTitle>
+            <CardTitle className="text-base">
+              {subject
+                ? (() => {
+                    const current = albums.find((a) => a.subjectSlug === subject)
+                    return `Assunto: ${current?.shortTitle?.trim() || subject}`
+                  })()
+                : "Selecione um álbum"}
+            </CardTitle>
             {subject ? (
               <CardDescription>
                 {files.length} ficheiro(s)
                 {loadingFiles ? " · a carregar pré-visualizações…" : null}
+                {(() => {
+                  const current = albums.find((a) => a.subjectSlug === subject)
+                  return current?.conversationId
+                    ? ` · pasta técnica: sessão ${current.conversationId.slice(0, 8)}…`
+                    : ""
+                })()}
               </CardDescription>
             ) : (
               <CardDescription>Escolha um assunto à esquerda para ver as imagens.</CardDescription>
             )}
+            {subject ? (
+              <div className="pt-2 flex items-center gap-2">
+                {(() => {
+                  const current = albums.find((a) => a.subjectSlug === subject)
+                  if (!current?.conversationId) return null
+                  return (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 gap-1"
+                      onClick={() => void copyConversationId(current.conversationId!)}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copiar ID da sessão
+                    </Button>
+                  )
+                })()}
+              </div>
+            ) : null}
+            {subject ? (
+              <div className="pt-2">
+                <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => void renameAlbumTitle()}>
+                  <Pencil className="w-3.5 h-3.5" />
+                  Editar título
+                </Button>
+              </div>
+            ) : null}
           </CardHeader>
           <CardContent>
             {!subject ? null : loadingFiles && files.length === 0 ? (

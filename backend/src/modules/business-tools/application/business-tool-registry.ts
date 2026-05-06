@@ -12,7 +12,7 @@ export type TBusinessActionContext = {
   workspaceId: string;
   input: unknown;
   correlationId?: string;
-  teamContext?: { teamId: string; teamName: string };
+  teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
   conversationId?: string;
 };
 

@@ -154,10 +154,10 @@ export function ContextualTourHost({ screenKey, autoStart = true }: ContextualTo
     return () => window.clearInterval(id)
   }, [open, stepIndex, step?.anchor])
 
-  const anchorEl = useMemo(() => {
+  const anchorEl = (() => {
     if (!open || !step?.anchor || typeof document === "undefined") return null
     return resolveContextualTourAnchor(step.anchor)
-  }, [open, step, stepIndex, anchorPollTick])
+  })()
 
   const anchorRect = useTourAnchorRect(anchorEl)
   const spotlightMode = Boolean(step?.anchor && anchorEl && anchorRect)

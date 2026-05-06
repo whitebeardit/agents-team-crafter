@@ -18,6 +18,7 @@ import type { IChatSdkSecretsPayload } from '../../channels/domain/chat-sdk-secr
 import { AppError } from '../../../shared/errors/app-error.js';
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
 import { buildChatTeamInvocation } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
+import { generateConversationShortTitle } from '../../team-runtime/application/conversation-short-title.js';
 import { requireCoordinatorForChannelInstance } from '../application/resolve-inbound-coordinator.js';
 import { postCoordinatorExternalResponse } from './post-coordinator-external-response.js';
 import { startTelegramTypingLoop } from './telegram-typing-loop.js';
@@ -107,6 +108,11 @@ function bindInbound(
       teamId,
       conversationId,
     );
+    const sessionMeta = await deps.teamDebugSessionRepo.getSessionMeta(workspaceId, teamId, conversationId);
+    if (!sessionMeta?.shortTitle) {
+      const generated = await generateConversationShortTitle(deps.workspaceIntegrationsService, workspaceId, text);
+      await deps.teamDebugSessionRepo.setConversationTitle(workspaceId, teamId, conversationId, generated);
+    }
     const conversation =
       history.length > 0 ? { id: conversationId, history } : undefined;
     const invocation = buildChatTeamInvocation(
@@ -115,7 +121,14 @@ function bindInbound(
       coordinatorId,
       text,
       agentChannelLabel,
-      { conversationId, conversation, inputMedia: extractInboundInputMedia(rawMessage) },
+      {
+        conversationId,
+        conversation,
+        inputMedia: extractInboundInputMedia(rawMessage),
+        metadata: {
+          ...(conversationId ? { gallerySubjectSlug: conversationId } : {}),
+        },
+      },
     );
     const stopTyping = agentChannelLabel === 'telegram' ? startTelegramTypingLoop(thread) : undefined;
     const telegramStatusDebouncer =
@@ -241,14 +254,11 @@ function bindInbound(
         });
       }
       const assistantText = result.externalResponse?.text?.trim() ?? '';
-      await deps.teamDebugSessionRepo.appendExchange(
-        workspaceId,
-        teamId,
-        conversationId,
-        undefined,
-        text,
-        assistantText || '(sem texto)',
-      );
+      await deps.teamDebugSessionRepo.appendExchange(workspaceId, teamId, conversationId, undefined, text, {
+        text: assistantText || '(sem texto)',
+        format: result.externalResponse?.format,
+        attachments: result.externalResponse?.attachments,
+      });
       await deps.runRecorderService.recordCompleted({
         workspaceId,
         teamId,

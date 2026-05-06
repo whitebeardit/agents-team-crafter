@@ -75,6 +75,7 @@ import { CardTitleWithInfo, FieldInfo, LabelWithInfo } from "@/components/agents
 import { agentFieldHelp } from "@/lib/copy/agent-field-help"
 import { normalizeAgentCategory } from "@/lib/utils/agent-category"
 import { copyJsonToClipboard, downloadJsonFile } from "@/lib/utils/export-json"
+import { buildWorkspaceSecondBrainHref, vaultNotesEmptyCopy } from "@/lib/vault/ui-state"
 
 const channelLabels: Record<string, string> = {
   whatsapp: "WhatsApp",
@@ -112,6 +113,11 @@ type AgentPageIntegrationsSecretsMasked = {
   openrouterApiKeyConfigured?: boolean
   enabledOpenAiChatModels?: string[]
   allowedLlmModelIds?: string[]
+}
+
+type AgentPageOpenRouterCatalogRow = {
+  id: string
+  outputModalities?: string[]
 }
 
 const integrationsSecretsMaskedFallback: AgentPageIntegrationsSecretsMasked = {
@@ -213,7 +219,9 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [requiresApproval, setRequiresApproval] = useState(false)
   const [workspaceLlmConfigured, setWorkspaceLlmConfigured] = useState<boolean | null>(null)
   const [chatModelsForAgentSelect, setChatModelsForAgentSelect] = useState<string[]>([])
+  const [imageModelsForAgentSelect, setImageModelsForAgentSelect] = useState<string[]>([])
   const [openaiRuntimeModelPick, setOpenaiRuntimeModelPick] = useState<string>("__unset__")
+  const [imageGenerationModelPick, setImageGenerationModelPick] = useState<string>("__unset__")
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
   const [businessActionCatalog, setBusinessActionCatalog] = useState<TBusinessCatalogItem[]>([])
   const [workspaceToolFilterKind, setWorkspaceToolFilterKind] = useState<string>("all")
@@ -235,6 +243,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   }
   const [vaultNotes, setVaultNotes] = useState<AgentVaultNoteRow[]>([])
   const [vaultLoading, setVaultLoading] = useState(false)
+  const [vaultNotesLoadError, setVaultNotesLoadError] = useState<"forbidden" | "network" | null>(null)
   const [mainTab, setMainTab] = useState("overview")
   const [vaultPartyFilter, setVaultPartyFilter] = useState<string>("")
   const [partyOptions, setPartyOptions] = useState<Array<{ id: string; displayName: string }>>([])
@@ -274,6 +283,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     setSecurityAccessLevel((a.security?.accessLevel ?? "read") as "read" | "write" | "restricted")
     setRequiresApproval(a.security?.requiresApproval ?? false)
     setOpenaiRuntimeModelPick(a.openaiRuntimeModel ?? "__unset__")
+    setImageGenerationModelPick(a.imageGenerationModel ?? "__unset__")
   },
   [],
 )
@@ -341,17 +351,26 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           const allowed = [
             ...(sm.allowedLlmModelIds?.length ? sm.allowedLlmModelIds : intPayload.allowedLlmModelIds ?? []),
           ].filter(Boolean)
-          if (allowed.length > 0) {
-            setChatModelsForAgentSelect([...new Set(allowed)].sort((a, b) => a.localeCompare(b)))
-          } else {
-            try {
-              const cat = await api.get<{ models: { id: string }[] }>(
-                "/settings/workspace/integrations/openrouter-models?mode=runtime",
-              )
-              setChatModelsForAgentSelect((cat.data.models ?? []).map((m) => m.id))
-            } catch {
-              setChatModelsForAgentSelect([])
+          try {
+            const cat = await api.get<{ models: AgentPageOpenRouterCatalogRow[] }>(
+              "/settings/workspace/integrations/openrouter-models?mode=all",
+            )
+            const rows = cat.data.models ?? []
+            const allowedSet = new Set(allowed)
+            const scoped = allowed.length > 0 ? rows.filter((m) => allowedSet.has(m.id)) : rows
+            const isText = (m: AgentPageOpenRouterCatalogRow) => {
+              const out = m.outputModalities ?? []
+              return out.length === 0 || out.includes("text")
             }
+            const isImage = (m: AgentPageOpenRouterCatalogRow) => (m.outputModalities ?? []).includes("image")
+            const chat = scoped.filter(isText).map((m) => m.id)
+            const image = scoped.filter(isImage).map((m) => m.id)
+            setChatModelsForAgentSelect(chat.length > 0 ? chat : [...new Set(allowed)].sort((a, b) => a.localeCompare(b)))
+            setImageModelsForAgentSelect(image.length > 0 ? image : [...new Set(allowed)].sort((a, b) => a.localeCompare(b)))
+          } catch {
+            const fallback = [...new Set(allowed)].sort((a, b) => a.localeCompare(b))
+            setChatModelsForAgentSelect(fallback)
+            setImageModelsForAgentSelect(fallback)
           }
         } else {
           const avail =
@@ -364,6 +383,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               : undefined
           const choices = en && en.length > 0 ? avail.filter((m) => en.includes(m)) : [...avail]
           setChatModelsForAgentSelect(choices.length > 0 ? choices : [...avail])
+          setImageModelsForAgentSelect(["dall-e-2", "dall-e-3"])
         }
         setMcps(mcpsRes.data)
         setBindings(bindingsRes.data)
@@ -391,14 +411,20 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const refreshVaultNotes = useCallback(async () => {
     if (!api || !id) return
     setVaultLoading(true)
+    setVaultNotesLoadError(null)
     try {
       const path = vaultPartyFilter.trim()
         ? `/vault/parties/${encodeURIComponent(vaultPartyFilter.trim())}/notes?limit=120`
         : `/vault/notes?agentId=${encodeURIComponent(id)}&limit=120`
       const res = await api.get<AgentVaultNoteRow[]>(path)
       setVaultNotes(res.data)
-    } catch {
+    } catch (e) {
       setVaultNotes([])
+      if (e instanceof ApiError && e.status === 403) {
+        setVaultNotesLoadError("forbidden")
+      } else {
+        setVaultNotesLoadError("network")
+      }
     } finally {
       setVaultLoading(false)
     }
@@ -412,6 +438,11 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     if (searchParams.get("vaultTab") === "vault") {
       setMainTab("vault")
     }
+  }, [searchParams])
+
+  useEffect(() => {
+    const party = searchParams.get("vaultParty")?.trim()
+    if (party) setVaultPartyFilter(party)
   }, [searchParams])
 
   useEffect(() => {
@@ -675,6 +706,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             api.put(`/agents/${agent.id}/config`, {
               systemInstruction,
               openaiRuntimeModel: openaiRuntimeModelPick === "__unset__" ? null : openaiRuntimeModelPick,
+              imageGenerationModel: imageGenerationModelPick === "__unset__" ? null : imageGenerationModelPick,
             }),
         },
       ]
@@ -1217,24 +1249,29 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             <Card>
               <CardHeader>
                 <CardTitleWithInfo title="Modelo LLM (override)" infoAriaLabel="Ajuda sobre modelo de runtime">
-                  <p>Opcional: sobrepoe o modelo padrao do workspace para este agente (coordenador ou especialista).</p>
+                  <p>
+                    Opcional: quando vazio, herda o modelo efetivo do workflow/workspace. Quando selecionado, salva um
+                    override apenas para este agente (coordenador ou especialista).
+                  </p>
                 </CardTitleWithInfo>
                 <CardDescription>
                   Opcoes listadas respeitam os modelos habilitados em{" "}
                   <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
                     Configuracoes &gt; Integracoes
                   </Link>
-                  .
+                  . Em OpenRouter, a lista pode incluir IDs <code className="text-xs">provider/model</code>, inclusive
+                  modelos de imagem permitidos no workspace.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2 max-w-lg">
-                <Label htmlFor="agent-openai-model">Modelo</Label>
+              <CardContent className="space-y-5 max-w-lg">
+                <div className="space-y-2">
+                <Label htmlFor="agent-openai-model">Modelo LLM/chat</Label>
                 <Select value={openaiRuntimeModelPick} onValueChange={setOpenaiRuntimeModelPick}>
                   <SelectTrigger id="agent-openai-model">
                     <SelectValue placeholder="Escolher..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__unset__">Usar padrao do workspace / produto</SelectItem>
+                    <SelectItem value="__unset__">Herdar do workflow / workspace</SelectItem>
                     {chatModelsForAgentSelect.map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
@@ -1242,6 +1279,27 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     ))}
                   </SelectContent>
                 </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="agent-image-model">Modelo de imagem</Label>
+                  <Select value={imageGenerationModelPick} onValueChange={setImageGenerationModelPick}>
+                    <SelectTrigger id="agent-image-model">
+                      <SelectValue placeholder="Escolher..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unset__">Herdar imagem do workflow / workspace</SelectItem>
+                      {imageModelsForAgentSelect.map((m) => (
+                        <SelectItem key={`image-${m}`} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Usado pela tool <code className="text-xs">image_generation</code> quando ela envia{" "}
+                    <code className="text-xs">model: default</code>. Não altera o modelo de chat do agente.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1348,25 +1406,37 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             <CardHeader>
               <CardTitleWithInfo title="Second-brain deste agente" infoAriaLabel="Ajuda sobre second-brain">
                 <p>
-                  Notas de aprendizado indexadas para este agente (propostas, ativas ou arquivadas). Aprovacao humana
-                  promove de proposta para ativa.
+                  Escopo local: notas de aprendizado indexadas para este agente (propostas, activas ou arquivadas).
+                  Aprovação humana promove de proposta para activa. A listagem usa os mesmos endpoints que a Memória do
+                  time em Configurações, com filtro por agente (e opcionalmente por cliente).
                 </p>
               </CardTitleWithInfo>
               <CardDescription>
                 {vaultPartyFilter.trim() ? (
                   <>
-                    Filtrado pelo cliente (party) seleccionado.{" "}
-                    <Link href="/settings?tab=workspace" className="text-primary underline-offset-4 hover:underline">
-                      Workspace
+                    Vista filtrada por este agente e pelo cliente (party) seleccionado. Para rever ou aprovar em
+                    contexto de workspace, abra{" "}
+                    <Link
+                      href={buildWorkspaceSecondBrainHref({
+                        vaultAgent: id,
+                        vaultParty: vaultPartyFilter.trim(),
+                      })}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Configurações → Workspace → Memória do time
                     </Link>
+                    .
                   </>
                 ) : (
                   <>
-                    Filtrado por <code className="text-xs">agentId</code> deste registo. Use{" "}
-                    <Link href="/settings?tab=workspace" className="text-primary underline-offset-4 hover:underline">
-                      Configuracoes → Workspace
+                    Vista filtrada por <code className="text-xs">agentId</code> deste registo.{" "}
+                    <Link
+                      href={buildWorkspaceSecondBrainHref({ vaultAgent: id })}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Memória do time (workspace)
                     </Link>{" "}
-                    para visao global do vault.
+                    mostra o mesmo vault com filtros de time, agente e cliente.
                   </>
                 )}
               </CardDescription>
@@ -1404,10 +1474,38 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                 </Button>
               </div>
               {vaultNotes.length === 0 && !vaultLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Sem notas para este agente ainda (ou sem permissao). Ative memoria persistente e execute o time para
-                  gerar propostas.
-                </p>
+                <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-4">
+                  {(() => {
+                    const empty =
+                      vaultNotesLoadError === "forbidden"
+                        ? vaultNotesEmptyCopy("agent", "forbidden")
+                        : vaultNotesLoadError === "network"
+                          ? vaultNotesEmptyCopy("agent", "network")
+                          : vaultNotesEmptyCopy("agent", "empty_after_load", {
+                              hasPartyFilter: Boolean(vaultPartyFilter.trim()),
+                            })
+                    return (
+                      <>
+                        <p className="text-sm font-medium text-foreground">{empty.title}</p>
+                        {empty.lines.map((line, idx) => (
+                          <p key={idx} className="text-sm text-muted-foreground">
+                            {line}
+                          </p>
+                        ))}
+                        <Button type="button" variant="secondary" size="sm" asChild>
+                          <Link
+                            href={buildWorkspaceSecondBrainHref({
+                              vaultAgent: id,
+                              ...(vaultPartyFilter.trim() ? { vaultParty: vaultPartyFilter.trim() } : {}),
+                            })}
+                          >
+                            Abrir Memória do time (mesmos filtros)
+                          </Link>
+                        </Button>
+                      </>
+                    )
+                  })()}
+                </div>
               ) : (
                 <div className="space-y-3">
                   {vaultNotes.map((r) => (
