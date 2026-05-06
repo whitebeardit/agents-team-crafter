@@ -1053,6 +1053,7 @@ export interface ScheduleAppointment {
   packageSaleId?: string
   encounterId?: string
   reminderId?: string
+  origin?: RecordOrigin
   createdAt?: string
   updatedAt?: string
 }
@@ -1193,8 +1194,15 @@ export interface CrmParty {
   email?: string
   phone?: string
   notes?: string
+  origin?: RecordOrigin
   createdAt?: string
   updatedAt?: string
+}
+
+export interface RecordOrigin {
+  id: string
+  type: "agent-coordinator" | "agent-specialist" | "user-manual" | "system"
+  slug: string
 }
 
 export interface PackagePartySummary {
@@ -1214,6 +1222,7 @@ export interface PackageListItem {
   createdAt?: string
   updatedAt?: string
   eligible: boolean
+  origin?: RecordOrigin
   party: PackagePartySummary | null
 }
 
@@ -1245,6 +1254,7 @@ export interface FinanceReceivableListItem {
   description?: string
   sourceEntity?: string
   sourceId?: string
+  origin?: RecordOrigin
   createdAt?: string
   updatedAt?: string
   party: FinancePartySummary | null
@@ -1260,6 +1270,7 @@ export interface FinancePayableListItem {
   description?: string
   sourceEntity?: string
   sourceId?: string
+  origin?: RecordOrigin
   createdAt?: string
   updatedAt?: string
   party: FinancePartySummary | null

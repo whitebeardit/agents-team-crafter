@@ -69,6 +69,11 @@ function blockersSummary(blockers: FinanceDeleteBlocker[]) {
   return blockers.map((b) => `${b.domain}: ${b.count}`).join(", ")
 }
 
+function formatOrigin(origin: { id: string; type: string; slug: string } | undefined) {
+  if (!origin) return "Origem: —"
+  return `Origem: ${origin.type} · ${origin.slug} · ${origin.id}`
+}
+
 export default function FinancePage() {
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [startDate, setStartDate] = useState(addDays(todayDateString(), -30))
@@ -242,6 +247,7 @@ export default function FinancePage() {
                     Vencimento: {formatDate(item.dueDate)}
                     {item.description ? ` • ${item.description}` : ""}
                   </p>
+                  <p className="text-xs text-muted-foreground">{formatOrigin(item.origin)}</p>
                 </div>
                 <Button
                   type="button"
@@ -288,6 +294,7 @@ export default function FinancePage() {
                     Vencimento: {formatDate(item.dueDate)}
                     {item.description ? ` • ${item.description}` : ""}
                   </p>
+                  <p className="text-xs text-muted-foreground">{formatOrigin(item.origin)}</p>
                 </div>
                 <Button
                   type="button"
