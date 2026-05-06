@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 import { ReceivableModel } from './receivable.model.js';
 import { PayableModel } from './payable.model.js';
 
+export type IFinanceDeleteBlocker = { domain: string; count: number };
+
 export class FinanceRepository {
   async createReceivable(
     workspaceId: string,
@@ -57,6 +59,84 @@ export class FinanceRepository {
       { new: true },
     ).exec();
     return doc ? { id: doc._id.toString(), paid: true } : null;
+  }
+
+  async listReceivablesByDateRange(
+    workspaceId: string,
+    input: { startDate: string; endDate: string; paid?: boolean; limit?: number },
+  ) {
+    const cap = Math.min(Math.max(1, input.limit ?? 300), 1000);
+    const start = new Date(`${input.startDate}T00:00:00.000Z`);
+    const end = new Date(`${input.endDate}T23:59:59.999Z`);
+    const docs = await ReceivableModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      dueDate: { $gte: start, $lte: end },
+      ...(typeof input.paid === 'boolean' ? { paid: input.paid } : {}),
+    })
+      .sort({ dueDate: -1, createdAt: -1 })
+      .limit(cap)
+      .exec();
+    return docs.map((doc) => this.pubReceivable(doc));
+  }
+
+  async listPayablesByDateRange(
+    workspaceId: string,
+    input: { startDate: string; endDate: string; paid?: boolean; limit?: number },
+  ) {
+    const cap = Math.min(Math.max(1, input.limit ?? 300), 1000);
+    const start = new Date(`${input.startDate}T00:00:00.000Z`);
+    const end = new Date(`${input.endDate}T23:59:59.999Z`);
+    const docs = await PayableModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      dueDate: { $gte: start, $lte: end },
+      ...(typeof input.paid === 'boolean' ? { paid: input.paid } : {}),
+    })
+      .sort({ dueDate: -1, createdAt: -1 })
+      .limit(cap)
+      .exec();
+    return docs.map((doc) => this.pubPayable(doc));
+  }
+
+  async getReceivableDeleteBlockers(workspaceId: string, receivableId: string): Promise<IFinanceDeleteBlocker[]> {
+    const ws = new Types.ObjectId(workspaceId);
+    const linked = await ReceivableModel.countDocuments({
+      workspaceId: ws,
+      _id: receivableId,
+      sourceEntity: { $exists: true, $ne: null },
+      sourceId: { $exists: true, $ne: null },
+    });
+    const out: IFinanceDeleteBlocker[] = [];
+    if (linked > 0) out.push({ domain: 'linkedSource', count: linked });
+    return out;
+  }
+
+  async getPayableDeleteBlockers(workspaceId: string, payableId: string): Promise<IFinanceDeleteBlocker[]> {
+    const ws = new Types.ObjectId(workspaceId);
+    const linked = await PayableModel.countDocuments({
+      workspaceId: ws,
+      _id: payableId,
+      sourceEntity: { $exists: true, $ne: null },
+      sourceId: { $exists: true, $ne: null },
+    });
+    const out: IFinanceDeleteBlocker[] = [];
+    if (linked > 0) out.push({ domain: 'linkedSource', count: linked });
+    return out;
+  }
+
+  async deleteReceivableById(workspaceId: string, receivableId: string): Promise<boolean> {
+    const res = await ReceivableModel.deleteOne({
+      workspaceId: new Types.ObjectId(workspaceId),
+      _id: receivableId,
+    }).exec();
+    return (res.deletedCount ?? 0) > 0;
+  }
+
+  async deletePayableById(workspaceId: string, payableId: string): Promise<boolean> {
+    const res = await PayableModel.deleteOne({
+      workspaceId: new Types.ObjectId(workspaceId),
+      _id: payableId,
+    }).exec();
+    return (res.deletedCount ?? 0) > 0;
   }
 
   async listOverdueReceivables(workspaceId: string) {
@@ -177,6 +257,62 @@ export class FinanceRepository {
         overdueReceivables: overdueReceivables.length,
         overduePayables: overduePayables.length,
       },
+    };
+  }
+
+  private pubReceivable(doc: {
+    _id: Types.ObjectId;
+    partyId: Types.ObjectId;
+    amount: number;
+    currency?: string;
+    dueDate: Date;
+    paid: boolean;
+    description?: string;
+    sourceEntity?: string;
+    sourceId?: Types.ObjectId;
+    createdAt?: Date;
+    updatedAt?: Date;
+  }) {
+    return {
+      id: doc._id.toString(),
+      partyId: doc.partyId.toString(),
+      amount: doc.amount,
+      currency: doc.currency ?? 'BRL',
+      dueDate: doc.dueDate.toISOString(),
+      paid: Boolean(doc.paid),
+      description: doc.description ?? '',
+      sourceEntity: doc.sourceEntity,
+      sourceId: doc.sourceId?.toString(),
+      createdAt: doc.createdAt?.toISOString(),
+      updatedAt: doc.updatedAt?.toISOString(),
+    };
+  }
+
+  private pubPayable(doc: {
+    _id: Types.ObjectId;
+    destinationPartyId: Types.ObjectId;
+    amount: number;
+    currency?: string;
+    dueDate: Date;
+    paid: boolean;
+    description?: string;
+    sourceEntity?: string;
+    sourceId?: Types.ObjectId;
+    createdAt?: Date;
+    updatedAt?: Date;
+  }) {
+    return {
+      id: doc._id.toString(),
+      destinationPartyId: doc.destinationPartyId.toString(),
+      amount: doc.amount,
+      currency: doc.currency ?? 'BRL',
+      dueDate: doc.dueDate.toISOString(),
+      paid: Boolean(doc.paid),
+      description: doc.description ?? '',
+      sourceEntity: doc.sourceEntity,
+      sourceId: doc.sourceId?.toString(),
+      createdAt: doc.createdAt?.toISOString(),
+      updatedAt: doc.updatedAt?.toISOString(),
     };
   }
 }

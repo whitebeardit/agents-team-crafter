@@ -1123,6 +1123,60 @@ export interface PackagesListResponse {
   total: number
 }
 
+export interface FinancePartySummary {
+  id: string
+  displayName: string
+  email?: string
+  phone?: string
+}
+
+export interface FinanceDeleteBlocker {
+  domain: string
+  count: number
+}
+
+export interface FinanceReceivableListItem {
+  id: string
+  partyId: string
+  amount: number
+  currency: string
+  dueDate: string
+  paid: boolean
+  description?: string
+  sourceEntity?: string
+  sourceId?: string
+  createdAt?: string
+  updatedAt?: string
+  party: FinancePartySummary | null
+}
+
+export interface FinancePayableListItem {
+  id: string
+  destinationPartyId: string
+  amount: number
+  currency: string
+  dueDate: string
+  paid: boolean
+  description?: string
+  sourceEntity?: string
+  sourceId?: string
+  createdAt?: string
+  updatedAt?: string
+  party: FinancePartySummary | null
+}
+
+export interface FinanceReceivablesListResponse {
+  receivables: FinanceReceivableListItem[]
+  range: { startDate: string; endDate: string; days: number }
+  total: number
+}
+
+export interface FinancePayablesListResponse {
+  payables: FinancePayableListItem[]
+  range: { startDate: string; endDate: string; days: number }
+  total: number
+}
+
 /** KPIs derivados no BFF a partir das séries `agents_team_crafter_*`. */
 export interface TeamPlanMetricsKpis {
   teamPlanExecute: {

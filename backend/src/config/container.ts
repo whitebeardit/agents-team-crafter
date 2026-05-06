@@ -110,6 +110,7 @@ export interface IAppDeps {
    */
   redis: Redis | null;
   partyRepo: PartyRepository;
+  financeRepo?: FinanceRepository;
   packageSaleRepo: PackageSaleRepository;
   packageProductRepo: PackageProductRepository;
   clinicConversationStateRepo: ClinicConversationStateRepository;
@@ -263,6 +264,7 @@ export function createDeps(env: IEnv): IAppDeps {
     conversationTimelineRepo,
     redis,
     partyRepo,
+    financeRepo,
     packageSaleRepo,
     packageProductRepo,
     clinicConversationStateRepo,

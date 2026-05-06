@@ -9,6 +9,8 @@ const PayableSchema = new Schema(
     dueDate: { type: Date, required: true, index: true },
     paid: { type: Boolean, default: false, index: true },
     description: { type: String, default: '' },
+    sourceEntity: { type: String },
+    sourceId: { type: Schema.Types.ObjectId },
   },
   { timestamps: true },
 );

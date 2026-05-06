@@ -24,7 +24,7 @@ export const SYSTEM_NAV_ITEMS: readonly SystemNavItem[] = [
   { slug: "crm", name: "CRM", href: "/crm", icon: ContactRound, status: "active" },
   { slug: "attendance", name: "Atendimento", href: "/attendance", icon: Headset, status: "active" },
   { slug: "packages", name: "Pacotes", href: "/packages", icon: Package, status: "active" },
-  { slug: "finance", name: "Financeiro", icon: HandCoins, status: "coming-soon" },
+  { slug: "finance", name: "Financeiro", href: "/finance", icon: HandCoins, status: "active" },
   { slug: "care", name: "Care", icon: HeartPulse, status: "coming-soon" },
   { slug: "clinical", name: "Clinical", icon: NotebookPen, status: "coming-soon" },
 ]

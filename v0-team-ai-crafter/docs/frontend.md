@@ -46,7 +46,7 @@ Alguns domínios de negócio expõem **página dedicada** sob `app/(app)/<rota>/
 Organização da navegação lateral:
 
 - **Plataforma**: dashboard e capacidades da própria plataforma (`/dashboard`, `/teams`, `/agents`, `/templates`, `/channels`, `/tool-definitions`, `/governance`, `/runs`, `/observability`).
-- **Sistemas**: frontends verticais de negócio com rota dedicada ativa (`/schedule`, `/crm`, `/attendance`, `/packages`).
+- **Sistemas**: frontends verticais de negócio com rota dedicada ativa (`/schedule`, `/crm`, `/attendance`, `/packages`, `/finance`).
 - **Próximos sistemas**: catálogo de rollout progressivo com visibilidade em menu (itens "Em breve") sem navegação ativa.
 
 | Rota             | Grupo no menu | Função (resumo)                     |
@@ -55,16 +55,16 @@ Organização da navegação lateral:
 | `/crm`           | Sistemas      | CRM — parties/clientes do workspace |
 | `/attendance`    | Sistemas      | Atendimento operacional (fase 1)    |
 | `/packages`      | Sistemas      | Pacotes (listagem e auditoria)      |
+| `/finance`       | Sistemas      | Financeiro (listagem, busca, deleção com travas) |
 | `/observability` | Plataforma    | Observabilidade operacional         |
 
 **Política:** não é obrigatório que cada pack do BFF tenha rota própria no Next; verticais adicionais (care, finance, clinical, …) podem surgir como páginas quando a UI for priorizada — até lá o fluxo típico continua a ser **time + tools + canais** com contratos no BFF. Ao adicionar uma nova rota de produto, atualize este doc e o [README](../README.md) (tabela **Rotas da Aplicação** e árvore `app/(app)/`).
 
 Sequência oficial de rollout após CRM/Agenda:
 
-1. Financeiro
-2. Care
-3. Clinical
-4. Lembretes (caso separado de Agenda)
+1. Care
+2. Clinical
+3. Lembretes (caso separado de Agenda)
 
 ---
 
