@@ -1094,6 +1094,7 @@ export interface CareCaseListItem {
   endsAt: string
   notes?: string
   status: ScheduleAppointmentStatus | string
+  origin?: RecordOrigin
   party: CrmParty | null
 }
 
@@ -1128,6 +1129,7 @@ export interface ClinicalSessionListItem {
   endsAt: string
   notes?: string
   status: ScheduleAppointmentStatus | string
+  origin?: RecordOrigin
   party: CrmParty | null
 }
 
@@ -1161,6 +1163,7 @@ export interface ReminderListItem {
   endsAt: string
   notes?: string
   status: ScheduleAppointmentStatus | string
+  origin?: RecordOrigin
   party: CrmParty | null
 }
 

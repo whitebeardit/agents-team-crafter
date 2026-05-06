@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ApiError, createApiClient } from "@/lib/api/client"
+import { formatRecordOrigin } from "@/lib/format-record-origin"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import type { ClinicalReadiness, ClinicalSessionListItem, CrmParty, ScheduleAppointmentsDayResponse, Team } from "@/lib/types"
 
@@ -197,6 +198,7 @@ export default function ClinicalPage() {
         endsAt: item.endsAt,
         notes: item.notes,
         status: item.status,
+        origin: item.origin,
         party: partiesById[item.partyId] ?? null,
       }))
       setSessions(rows)
@@ -375,6 +377,7 @@ export default function ClinicalPage() {
                     <p className="text-sm text-muted-foreground">
                       Início: {formatDateTime(item.startsAt)} • Fim: {formatDateTime(item.endsAt)}
                     </p>
+                    <p className="text-xs text-muted-foreground">{formatRecordOrigin(item.origin)}</p>
                     {item.notes ? <p className="text-sm">Notas: {item.notes}</p> : null}
                   </div>
                   <div className="flex shrink-0 justify-end">

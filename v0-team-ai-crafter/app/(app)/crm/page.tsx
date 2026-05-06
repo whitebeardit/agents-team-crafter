@@ -5,6 +5,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { CheckCircle2, Clipboard, Loader2, RefreshCw, Trash2 } from "lucide-react"
 import { ApiError, createApiClient } from "@/lib/api/client"
+import { formatRecordOrigin } from "@/lib/format-record-origin"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import type { CrmParty, Team } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -379,6 +380,7 @@ export default function CrmPage() {
                 </div>
                 <p className="text-xs text-muted-foreground">ID: {party.id}</p>
                 <p className="text-sm text-muted-foreground">{party.email || "Sem e-mail"} • {party.phone || "Sem telefone"}</p>
+                <p className="text-xs text-muted-foreground">{formatRecordOrigin(party.origin)}</p>
               </div>
               <div className="flex shrink-0 justify-end">
                 <Button

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { ApiError, createApiClient } from "@/lib/api/client"
+import { formatRecordOrigin } from "@/lib/format-record-origin"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import {
   AlertDialog,
@@ -269,6 +270,7 @@ export default function PackagesPage() {
                       Unidades: {item.unitsUsed}/{item.unitsTotal} • Restantes: {item.remaining}
                     </p>
                     <p className="text-sm text-muted-foreground">Criado em: {formatDateTime(item.createdAt)}</p>
+                    <p className="text-xs text-muted-foreground">{formatRecordOrigin(item.origin)}</p>
                   </div>
                   <div className="flex shrink-0 justify-end">
                     <Button

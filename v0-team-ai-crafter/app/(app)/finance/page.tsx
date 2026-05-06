@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ApiError, createApiClient } from "@/lib/api/client"
+import { formatRecordOrigin } from "@/lib/format-record-origin"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import type {
   FinanceDeleteBlocker,
@@ -67,11 +68,6 @@ function formatMoney(amount: number, currency: string) {
 
 function blockersSummary(blockers: FinanceDeleteBlocker[]) {
   return blockers.map((b) => `${b.domain}: ${b.count}`).join(", ")
-}
-
-function formatOrigin(origin: { id: string; type: string; slug: string } | undefined) {
-  if (!origin) return "Origem: —"
-  return `Origem: ${origin.type} · ${origin.slug} · ${origin.id}`
 }
 
 export default function FinancePage() {
@@ -247,7 +243,7 @@ export default function FinancePage() {
                     Vencimento: {formatDate(item.dueDate)}
                     {item.description ? ` • ${item.description}` : ""}
                   </p>
-                  <p className="text-xs text-muted-foreground">{formatOrigin(item.origin)}</p>
+                  <p className="text-xs text-muted-foreground">{formatRecordOrigin(item.origin)}</p>
                 </div>
                 <Button
                   type="button"
@@ -294,7 +290,7 @@ export default function FinancePage() {
                     Vencimento: {formatDate(item.dueDate)}
                     {item.description ? ` • ${item.description}` : ""}
                   </p>
-                  <p className="text-xs text-muted-foreground">{formatOrigin(item.origin)}</p>
+                  <p className="text-xs text-muted-foreground">{formatRecordOrigin(item.origin)}</p>
                 </div>
                 <Button
                   type="button"
