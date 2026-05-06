@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const PackageSaleSchema = new Schema(
   {
@@ -11,11 +12,7 @@ const PackageSaleSchema = new Schema(
     productSlug: { type: String, trim: true, lowercase: true },
     priceCentsAtSale: { type: Number, min: 0 },
     origin: {
-      type: {
-        id: { type: String, required: true },
-        type: { type: String, enum: ['agent-coordinator', 'agent-specialist', 'user-manual', 'system'], required: true },
-        slug: { type: String, required: true },
-      },
+      type: RecordOriginSubschema,
       required: true,
       default: () => ({ id: 'system', type: 'system', slug: 'legacy_package_sale' }),
     },

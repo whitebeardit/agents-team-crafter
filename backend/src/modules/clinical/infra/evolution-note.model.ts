@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const EvolutionNoteSchema = new Schema(
   {
@@ -8,11 +9,7 @@ const EvolutionNoteSchema = new Schema(
     appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment', required: false, index: true },
     body: { type: String, required: true },
     origin: {
-      type: {
-        id: { type: String, required: true },
-        type: { type: String, enum: ['agent-coordinator', 'agent-specialist', 'user-manual', 'system'], required: true },
-        slug: { type: String, required: true },
-      },
+      type: RecordOriginSubschema,
       required: true,
       default: () => ({ id: 'system', type: 'system', slug: 'legacy_clinical_evolution_note' }),
     },
