@@ -113,6 +113,7 @@ O **team-runtime** (`modules/team-runtime`) concentra `invokeTeam`, o orquestrad
 
 ## Ver também
 
+- [Dependências entre domínios (business tools)](../../docs/business-domain-tool-dependencies.md) — que packs assumem CRM, Care, Agenda, etc., ao nível de domínio.
 - [AGENTS.md](./AGENTS.md) — diagrama com BFF, webhooks e runtime.
 - [data-layer.md](./data-layer.md) — persistência e `workspaceId`.
 - [chat-sdk.md](./chat-sdk.md) — webhooks e `Chat`.
