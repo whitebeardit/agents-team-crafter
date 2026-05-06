@@ -1084,6 +1084,106 @@ export interface ScheduleAppointmentsDayResponse {
   appointments: ScheduleAppointment[]
 }
 
+export interface CareCaseListItem {
+  id: string
+  title: string
+  partyId: string
+  careSubjectId?: string
+  startsAt: string
+  endsAt: string
+  notes?: string
+  status: ScheduleAppointmentStatus | string
+  party: CrmParty | null
+}
+
+export interface CareReadinessCheck {
+  code: string
+  status: "ok" | "attention" | "critical"
+  message: string
+  nextStep: string
+  value: number
+}
+
+export interface CareReadiness {
+  total: number
+  completed: number
+  cancelled: number
+  noShow: number
+  withNotes: number
+  withClinicalLink: number
+  completionRate: number
+  health: "ok" | "attention" | "critical"
+  checks: CareReadinessCheck[]
+  generatedAt: string
+}
+
+export interface ClinicalSessionListItem {
+  id: string
+  title: string
+  partyId: string
+  careSubjectId?: string
+  encounterId?: string
+  startsAt: string
+  endsAt: string
+  notes?: string
+  status: ScheduleAppointmentStatus | string
+  party: CrmParty | null
+}
+
+export interface ClinicalReadinessCheck {
+  code: string
+  status: "ok" | "attention" | "critical"
+  message: string
+  nextStep: string
+  value: number
+}
+
+export interface ClinicalReadiness {
+  total: number
+  completed: number
+  withNotes: number
+  noShow: number
+  completionRate: number
+  noteCoverageRate: number
+  health: "ok" | "attention" | "critical"
+  checks: ClinicalReadinessCheck[]
+  generatedAt: string
+}
+
+export interface ReminderListItem {
+  id: string
+  reminderId?: string
+  title: string
+  partyId: string
+  careSubjectId?: string
+  startsAt: string
+  endsAt: string
+  notes?: string
+  status: ScheduleAppointmentStatus | string
+  party: CrmParty | null
+}
+
+export interface RemindersReadinessCheck {
+  code: string
+  status: "ok" | "attention" | "critical"
+  message: string
+  nextStep: string
+  value: number
+}
+
+export interface RemindersReadiness {
+  total: number
+  active: number
+  cancelled: number
+  completed: number
+  noShow: number
+  withCareContext: number
+  activeRate: number
+  health: "ok" | "attention" | "critical"
+  checks: RemindersReadinessCheck[]
+  generatedAt: string
+}
+
 /** CRM: contato comercial (`GET /parties`, `GET /parties/:id`). */
 export interface CrmParty {
   id: string
