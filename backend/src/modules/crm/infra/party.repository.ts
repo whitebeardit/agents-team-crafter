@@ -149,6 +149,8 @@ export class PartyRepository {
       origin?: Partial<TRecordOrigin>;
       teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
       correlationId?: string;
+      actorAgentId?: string;
+      actorRole?: 'coordinator' | 'specialist';
     },
   ) {
     const wid = new Types.ObjectId(workspaceId);
@@ -156,6 +158,7 @@ export class PartyRepository {
     const origin = resolveRecordOrigin({
       explicit: input.origin,
       teamContext: input.teamContext,
+      actorContext: { agentId: input.actorAgentId, role: input.actorRole },
       correlationId: input.correlationId,
       fallbackSlug: 'crm_party',
     });

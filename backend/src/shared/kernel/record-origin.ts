@@ -23,10 +23,12 @@ function cleanId(value?: string): string | undefined {
 }
 
 type TTeamContext = { teamId: string; teamName: string; gallerySubjectSlug?: string };
+type TActorContext = { agentId?: string; role?: 'coordinator' | 'specialist' };
 
 export function resolveRecordOrigin(params: {
   explicit?: Partial<TRecordOrigin>;
   teamContext?: TTeamContext;
+  actorContext?: TActorContext;
   correlationId?: string;
   fallbackSlug: string;
 }): TRecordOrigin {
@@ -35,6 +37,16 @@ export function resolveRecordOrigin(params: {
   const explicitSlug = cleanId(params.explicit?.slug);
   if (explicitId && explicitType && explicitSlug) {
     return { id: explicitId, type: explicitType, slug: slugify(explicitSlug) };
+  }
+
+  const actorId = cleanId(params.actorContext?.agentId);
+  const actorRole = params.actorContext?.role;
+  if (actorId && actorRole) {
+    return {
+      id: actorId,
+      type: actorRole === 'specialist' ? 'agent-specialist' : 'agent-coordinator',
+      slug: slugify(params.teamContext?.gallerySubjectSlug || params.teamContext?.teamName || params.fallbackSlug),
+    };
   }
 
   const teamId = cleanId(params.teamContext?.teamId);

@@ -146,6 +146,8 @@ export function buildWorkspaceCustomTools(
               correlationId: meta.correlationId,
               teamContext: meta.teamContext,
               conversationId: meta.conversationId,
+              actorAgentId: meta.actorAgentId,
+              actorRole: meta.actorRole,
             });
             logToolInvocation({
               workspaceId: meta.workspaceId,

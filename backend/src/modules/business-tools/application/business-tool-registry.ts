@@ -14,6 +14,8 @@ export type TBusinessActionContext = {
   correlationId?: string;
   teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
   conversationId?: string;
+  actorAgentId?: string;
+  actorRole?: 'coordinator' | 'specialist';
 };
 
 export type TBusinessActionHandler = (ctx: TBusinessActionContext) => Promise<unknown>;

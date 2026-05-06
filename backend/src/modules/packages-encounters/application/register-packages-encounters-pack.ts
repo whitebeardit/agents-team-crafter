@@ -19,7 +19,7 @@ export function registerPackagesEncountersPack(
   consumptions: PackageConsumptionRepository,
   packageProducts: PackageProductRepository,
 ): void {
-  registry.register('package_sell_to_party', async ({ workspaceId, input, teamContext, correlationId }) => {
+  registry.register('package_sell_to_party', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolvePartyIdFromPartyOrPhone({
       workspaceId,
@@ -57,6 +57,8 @@ export function registerPackagesEncountersPack(
       priceCentsAtSale,
       teamContext,
       correlationId,
+      actorAgentId,
+      actorRole,
     });
   });
 
@@ -111,7 +113,7 @@ export function registerPackagesEncountersPack(
     };
   });
 
-  registry.register('attendance_register_session', async ({ workspaceId, input, teamContext, correlationId }) => {
+  registry.register('attendance_register_session', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolvePartyIdFromPartyOrPhone({
       workspaceId,
@@ -135,6 +137,8 @@ export function registerPackagesEncountersPack(
       durationMinutes: typeof data.durationMinutes === 'number' ? data.durationMinutes : Number(data.durationMinutes) || 0,
       teamContext,
       correlationId,
+      actorAgentId,
+      actorRole,
     });
   });
 
