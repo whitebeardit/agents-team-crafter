@@ -216,25 +216,6 @@ export const agentFieldHelp = {
     </>
   ),
 
-  channelsEnabled: (
-    <>
-      <p>
-        Tipos de canal em que este agente (em geral o <strong>coordenador</strong>) pode atuar: capacidade declarada.
-        Os webhooks e nós reais no grafo vêm dos <strong>canais do workspace associados ao time</strong> na ficha do
-        time — sem canal no time, não há ligação externa mesmo com tipos ligados aqui.
-      </p>
-    </>
-  ),
-
-  canReplyDirectly: (
-    <>
-      <p>
-        Preferência de roteamento: se o coordenador pode responder direto no canal ou apenas via outros agentes. O
-        comportamento exato depende do conector Chat SDK e da configuração do time.
-      </p>
-    </>
-  ),
-
   securityAccessLevel: (
     <>
       <p>
@@ -263,12 +244,4 @@ export const agentFieldHelp = {
     </>
   ),
 
-  chatSdkCard: (
-    <>
-      <p>
-        Resumo de como webhooks do Chat SDK disparam o <strong>coordenador</strong> do time cujo time inclui o canal.
-        Detalhes de URL e segredos estão abaixo e em <code className="text-xs bg-muted px-1 rounded">docs/CHAT_SDK_TEAM_TRIGGER.md</code>.
-      </p>
-    </>
-  ),
 } satisfies Record<string, ReactNode>

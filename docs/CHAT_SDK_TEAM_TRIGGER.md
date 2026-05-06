@@ -4,10 +4,12 @@ Este documento descreve como configurar canais **Chat SDK** (`provider: 'chat_sd
 
 ## Conceitos
 
-1. **Agente coordenador** — único papel que pode ter `channels[]` e `channelConfig` de entrada externa.
+1. **Agente coordenador** — único papel que pode receber disparos externos (gateado em `assertCoordinatorRole` em [`team.routes.ts`](../backend/src/modules/teams/interfaces/team.routes.ts)). Os campos `agent.channels[]` e `agent.channelConfig` ficam apenas como **snapshot declarativo** no documento (preservado em export/import). A partir da remoção da aba **Canais** em `/agents/:id`, eles **não são mais editáveis pela UI** e **não são consultados em runtime**.
 2. **Instância `Channel`** (Mongo) — `type`, `provider`, `platform`, `config` (roteamento / metadados públicos), `secretsEncrypted` (segredos cifrados).
-3. **Time** — `channelIds` aponta para instâncias de canal; apenas times **`active`** participam do roteamento inbound.
+3. **Time** — `channelIds` aponta para instâncias de canal; apenas times **`active`** participam do roteamento inbound. **É a fonte de verdade do roteamento**: o resolver inbound (`requireCoordinatorForChannelInstance` em [`resolve-inbound-coordinator.ts`](../backend/src/modules/chat-sdk/application/resolve-inbound-coordinator.ts)) localiza o coordenador buscando o time ativo cujo `channelIds` contém o `Channel._id` do webhook.
 4. **Regra MVP (1:1)** — o mesmo `channelId` não pode estar em `channelIds` de **dois times ativos** ao mesmo tempo no mesmo workspace.
+
+> **UI**: para ligar um canal a um coordenador, configure o canal em `/channels` (criação por plataforma + segredos via `PUT /channels/:id/secrets`) e adicione o `channelId` na aba **Canais** do time em `/teams/:id` (campo `channelIds`). A página `/agents/:id` deixa de oferecer aba de canais a partir desta versão.
 
 ## Pré-requisitos comuns
 

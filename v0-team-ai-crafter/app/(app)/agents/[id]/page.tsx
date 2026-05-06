@@ -51,7 +51,6 @@ import {
   Brain,
   Wrench,
   Plug,
-  Radio,
   Shield,
   Users,
   Settings2,
@@ -64,7 +63,6 @@ import {
   Check,
   AlertCircle,
   Info,
-  ExternalLink,
   Download,
   ClipboardCopy,
   Library,
@@ -76,13 +74,6 @@ import { agentFieldHelp } from "@/lib/copy/agent-field-help"
 import { normalizeAgentCategory } from "@/lib/utils/agent-category"
 import { copyJsonToClipboard, downloadJsonFile } from "@/lib/utils/export-json"
 import { buildWorkspaceSecondBrainHref, vaultNotesEmptyCopy } from "@/lib/vault/ui-state"
-
-const channelLabels: Record<string, string> = {
-  whatsapp: "WhatsApp",
-  slack: "Slack",
-  email: "Email",
-  api: "API",
-}
 
 const accessLevelLabels: Record<string, string> = {
   read: "Leitura",
@@ -213,8 +204,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       config?: Record<string, unknown>
     }>
   >([])
-  const [enabledChannels, setEnabledChannels] = useState<Array<"whatsapp" | "slack" | "email" | "api">>([])
-  const [canReplyDirectly, setCanReplyDirectly] = useState(true)
   const [securityAccessLevel, setSecurityAccessLevel] = useState<"read" | "write" | "restricted">("read")
   const [requiresApproval, setRequiresApproval] = useState(false)
   const [workspaceLlmConfigured, setWorkspaceLlmConfigured] = useState<boolean | null>(null)
@@ -278,8 +267,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     }
     setOpenaiBuiltInTools(a.capabilities?.openaiBuiltInTools ?? [])
     setCustomToolDefinitionIds(a.capabilities?.customToolDefinitionIds ?? [])
-    setEnabledChannels((a.channelConfig?.enabled ?? a.channels) as Array<"whatsapp" | "slack" | "email" | "api">)
-    setCanReplyDirectly(a.channelConfig?.canReplyDirectly ?? true)
     setSecurityAccessLevel((a.security?.accessLevel ?? "read") as "read" | "write" | "restricted")
     setRequiresApproval(a.security?.requiresApproval ?? false)
     setOpenaiRuntimeModelPick(a.openaiRuntimeModel ?? "__unset__")
@@ -612,7 +599,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   }
 
   const readOnly = agent.origin === "whitebeard"
-  const channelsLockedForRole = agent.role === "specialist"
 
   const agentTeams = teams.filter((t) => t.coordinatorId === agent.id || t.agentIds.includes(agent.id))
 
@@ -680,18 +666,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               customToolDefinitionIds,
             }),
         },
-        ...(agent.role === "coordinator"
-          ? [
-              {
-                label: "Canais",
-                run: () =>
-                  api.put(`/agents/${agent.id}/channels`, {
-                    enabled: enabledChannels,
-                    canReplyDirectly,
-                  }),
-              },
-            ]
-          : []),
         {
           label: "Seguranca",
           run: () =>
@@ -953,7 +927,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       {/* Tabs */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
         <div className="-mx-1 w-full overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] lg:mx-0 lg:overflow-visible lg:pb-0">
-          <TabsList className="inline-flex h-auto min-h-10 w-max flex-nowrap justify-start gap-0.5 p-[3px] lg:grid lg:h-auto lg:w-full lg:grid-cols-8 lg:gap-0">
+          <TabsList className="inline-flex h-auto min-h-10 w-max flex-nowrap justify-start gap-0.5 p-[3px] lg:grid lg:h-auto lg:w-full lg:grid-cols-7 lg:gap-0">
           <TabsTrigger value="overview" className="flex shrink-0 items-center gap-2">
             <AgentWhitebeardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Visao Geral</span>
@@ -977,10 +951,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           <TabsTrigger value="mcps" className="flex shrink-0 items-center gap-2">
             <Plug className="w-4 h-4" />
             <span className="hidden sm:inline">MCPs</span>
-          </TabsTrigger>
-          <TabsTrigger value="channels" className="flex shrink-0 items-center gap-2">
-            <Radio className="w-4 h-4" />
-            <span className="hidden sm:inline">Canais</span>
           </TabsTrigger>
           <TabsTrigger value="security" className="flex shrink-0 items-center gap-2">
             <Shield className="w-4 h-4" />
@@ -1130,13 +1100,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     <div>
                       <p className="text-sm font-medium">{agent.knowledge?.sources?.length || 0}</p>
                       <p className="text-xs text-muted-foreground">Fontes de Conhecimento</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <Radio className="w-5 h-5 text-success" />
-                    <div>
-                      <p className="text-sm font-medium">{agent.channelConfig?.enabled?.length || agent.channels.length}</p>
-                      <p className="text-xs text-muted-foreground">Canais Ativos</p>
                     </div>
                   </div>
                 </div>
@@ -2081,147 +2044,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                   <Plus className="w-4 h-4 mr-2" />
                   Vincular primeiro MCP
                 </Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Channels Tab */}
-        <TabsContent value="channels" className="space-y-6">
-          {channelsLockedForRole && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Canais apenas para coordenadores</AlertTitle>
-              <AlertDescription>
-                Apenas agentes com função <strong>Coordenador</strong> podem ter canais configurados. Este agente
-                é especialista; entrada e saída externas ficam a cargo do coordenador do time.
-              </AlertDescription>
-            </Alert>
-          )}
-          {!channelsLockedForRole && agent.role === "coordinator" && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Tipos de canal (aqui) vs. canais no grafo do time</AlertTitle>
-              <AlertDescription>
-                As opções abaixo são <strong>tipos</strong> de canal em que o coordenador pode atuar (capacidade do
-                agente). Já os <strong>nós de canal</strong> no editor de grafo vêm dos canais do workspace
-                associados ao time na ficha do time (tab Canais, campo <code className="text-xs">channelIds</code>
-                ). Os dois conceitos complementam-se: sem canais no time, o grafo não mostra ligações externas mesmo
-                com tipos ligados aqui.
-              </AlertDescription>
-            </Alert>
-          )}
-          <Card>
-            <CardHeader>
-              <CardTitleWithInfo title="Canais Habilitados" infoAriaLabel="Ajuda sobre canais habilitados">
-                {agentFieldHelp.channelsEnabled}
-              </CardTitleWithInfo>
-              <CardDescription>Defina em quais canais o agente pode atuar</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(["whatsapp", "slack", "email", "api"] as const).map((channel) => {
-                const isEnabled = enabledChannels.includes(channel)
-                return (
-                  <div
-                    key={channel}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      isEnabled ? "border-success bg-success/5" : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${isEnabled ? "bg-success/10" : "bg-muted"}`}>
-                        <Radio className={`w-5 h-5 ${isEnabled ? "text-success" : "text-muted-foreground"}`} />
-                      </div>
-                      <div>
-                        <p className="font-medium">{channelLabels[channel]}</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={isEnabled}
-                      disabled={readOnly || channelsLockedForRole}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setEnabledChannels((prev) => [...prev, channel])
-                          return
-                        }
-                        setEnabledChannels((prev) => prev.filter((id) => id !== channel))
-                      }}
-                    />
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitleWithInfo title="Comportamento de Resposta" infoAriaLabel="Ajuda sobre comportamento de resposta">
-                {agentFieldHelp.canReplyDirectly}
-              </CardTitleWithInfo>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium">Pode responder diretamente</p>
-                  <p className="text-sm text-muted-foreground">
-                    Se desabilitado, respostas sao apenas via coordenador
-                  </p>
-                </div>
-                <Switch
-                  checked={canReplyDirectly}
-                  onCheckedChange={setCanReplyDirectly}
-                  disabled={readOnly || channelsLockedForRole}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {!channelsLockedForRole && agent.role === "coordinator" && (
-            <Card className="border-dashed">
-              <CardHeader>
-                <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                  <span className="inline-flex items-center gap-2">
-                    Chat SDK (Slack, Discord, Telegram, …)
-                    <a
-                      href="https://chat-sdk.dev"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary inline-flex items-center gap-1 text-sm font-normal"
-                    >
-                      Docs <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </span>
-                  <FieldInfo ariaLabel="Ajuda sobre integração Chat SDK">{agentFieldHelp.chatSdkCard}</FieldInfo>
-                </CardTitle>
-                <CardDescription>
-                  Webhooks públicos disparam o <strong>coordenador</strong> do time ativo cujo{" "}
-                  <code className="text-xs">channelIds</code> inclui esse canal. Slack roteia por{" "}
-                  <code className="text-xs">config.slackTeamId</code>; Discord, Telegram e outras plataformas usam o
-                  ID do documento do canal na URL do webhook.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Configure na página <strong>Canais</strong> (<code className="text-xs">provider: chat_sdk</code>,{" "}
-                  <code className="text-xs">platform</code>) e segredos com admin (
-                  <code className="text-xs">PUT /channels/:id/secrets</code>) — requer{" "}
-                  <code className="text-xs">ENCRYPTION_MASTER_KEY</code> no servidor.
-                </p>
-                <p>
-                  Exemplos:{" "}
-                  <code className="text-xs break-all">
-                    POST /api/v1/webhooks/chat/&lt;workspaceId&gt;/slack
-                  </code>{" "}
-                  ou{" "}
-                  <code className="text-xs break-all">
-                    POST …/webhooks/chat/&lt;workspaceId&gt;/discord|telegram/…/&lt;channelId&gt;
-                  </code>
-                  .
-                </p>
-                <p className="text-xs">
-                  Chaves, <code className="text-xs">setWebhook</code> (Telegram) e portal Discord:{" "}
-                  <code className="bg-muted px-1 rounded">docs/CHAT_SDK_TEAM_TRIGGER.md</code>.
-                </p>
               </CardContent>
             </Card>
           )}

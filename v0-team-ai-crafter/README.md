@@ -2324,9 +2324,17 @@ Atualiza ferramentas do agente.
 }
 ```
 
-#### PUT /agents/:id/channels
+#### PUT /agents/:id/channels (legado / declarativo)
 
-Atualiza configuracao de canais do agente.
+> A partir da remoção da aba **Canais** em `/agents/:id`, esta rota não é mais
+> exposta na UI. Permanece disponível apenas para imports antigos e clientes API
+> que ainda atualizem o snapshot declarativo `channelConfig`. **Não influencia
+> o roteamento em runtime.** O vínculo operacional do Chat SDK é
+> `team.channelIds` (ver `docs/CHAT_SDK_TEAM_TRIGGER.md`); a aba **Canais** do
+> time é a fonte de verdade.
+
+Atualiza o snapshot declarativo de canais do agente coordenador (metadado para
+export/import).
 
 **Request:**
 

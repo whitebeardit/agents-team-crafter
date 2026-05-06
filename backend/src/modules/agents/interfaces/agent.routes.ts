@@ -566,6 +566,15 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     return reply.send(successEnvelope(capabilities));
   });
 
+  /**
+   * LEGADO/DECLARATIVO. `channelConfig` (enabled, canReplyDirectly) é metadado
+   * preservado para export/import de agentes e times; não é consultado em runtime.
+   * O roteamento inbound do Chat SDK resolve o coordenador via `team.channelIds`
+   * (ver `requireCoordinatorForChannelInstance` em modules/chat-sdk/application/
+   * resolve-inbound-coordinator.ts). Esta rota não é mais exposta na UI a partir
+   * da remoção da aba "Canais" da página /agents/:id; segue disponível para
+   * imports antigos e clientes API que ainda atualizem o snapshot declarativo.
+   */
   app.put('/agents/:id/channels', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;

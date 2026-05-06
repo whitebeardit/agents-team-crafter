@@ -55,6 +55,12 @@ export const toolsSchema = z.object({
   customToolDefinitionIds: z.array(mongoId).optional().default([]),
 });
 
+/**
+ * LEGADO/DECLARATIVO: snapshot de canais por agente (apenas coordenador). Não é
+ * consultado em runtime. Permanece no schema para preservar export/import e
+ * compatibilidade com clientes que ainda chamem `PUT /agents/:id/channels`.
+ * O roteamento inbound real usa `team.channelIds`.
+ */
 export const channelsCfgSchema = z.object({
   enabled: z.array(channelType),
   canReplyDirectly: z.boolean(),
