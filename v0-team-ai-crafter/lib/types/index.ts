@@ -1097,6 +1097,32 @@ export interface CrmParty {
   updatedAt?: string
 }
 
+export interface PackagePartySummary {
+  id: string
+  displayName: string
+  email?: string
+  phone?: string
+}
+
+export interface PackageListItem {
+  id: string
+  partyId: string
+  packageName: string
+  unitsTotal: number
+  unitsUsed: number
+  remaining: number
+  createdAt?: string
+  updatedAt?: string
+  eligible: boolean
+  party: PackagePartySummary | null
+}
+
+export interface PackagesListResponse {
+  packages: PackageListItem[]
+  range: { startDate: string; endDate: string; days: number }
+  total: number
+}
+
 /** KPIs derivados no BFF a partir das séries `agents_team_crafter_*`. */
 export interface TeamPlanMetricsKpis {
   teamPlanExecute: {
