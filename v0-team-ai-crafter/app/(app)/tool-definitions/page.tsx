@@ -77,7 +77,7 @@ export default function ToolDefinitionsPage() {
             getWorkspaceId: () => currentWorkspace.id,
           })
         : null,
-    [token, refreshToken, currentWorkspace, currentWorkspace?.id],
+    [token, refreshToken, currentWorkspace],
   )
 
   const load = useCallback(async () => {
