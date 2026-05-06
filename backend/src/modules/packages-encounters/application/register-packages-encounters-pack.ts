@@ -19,7 +19,7 @@ export function registerPackagesEncountersPack(
   consumptions: PackageConsumptionRepository,
   packageProducts: PackageProductRepository,
 ): void {
-  registry.register('package_sell_to_party', async ({ workspaceId, input }) => {
+  registry.register('package_sell_to_party', async ({ workspaceId, input, teamContext, correlationId }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolvePartyIdFromPartyOrPhone({
       workspaceId,
@@ -55,6 +55,8 @@ export function registerPackagesEncountersPack(
       packageProductId,
       productSlug: productSlugSnapshot,
       priceCentsAtSale,
+      teamContext,
+      correlationId,
     });
   });
 
@@ -109,7 +111,7 @@ export function registerPackagesEncountersPack(
     };
   });
 
-  registry.register('attendance_register_session', async ({ workspaceId, input }) => {
+  registry.register('attendance_register_session', async ({ workspaceId, input, teamContext, correlationId }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolvePartyIdFromPartyOrPhone({
       workspaceId,
@@ -131,6 +133,8 @@ export function registerPackagesEncountersPack(
       packageSaleId,
       notes: typeof data.notes === 'string' ? data.notes : '',
       durationMinutes: typeof data.durationMinutes === 'number' ? data.durationMinutes : Number(data.durationMinutes) || 0,
+      teamContext,
+      correlationId,
     });
   });
 

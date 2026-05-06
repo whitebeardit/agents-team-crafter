@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { EncounterModel } from './encounter.model.js';
+import { resolveRecordOrigin, type TRecordOrigin } from '../../../shared/kernel/record-origin.js';
 
 export class EncounterRepository {
   async create(
@@ -10,8 +11,17 @@ export class EncounterRepository {
       careSubjectId?: string;
       notes?: string;
       durationMinutes?: number;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
     },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'encounter',
+    });
     const doc = await EncounterModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(input.partyId),
@@ -19,6 +29,7 @@ export class EncounterRepository {
       careSubjectId: input.careSubjectId ? new Types.ObjectId(input.careSubjectId) : undefined,
       notes: input.notes ?? '',
       durationMinutes: input.durationMinutes ?? 0,
+      origin,
     });
     return this.pub(doc);
   }
@@ -91,6 +102,7 @@ export class EncounterRepository {
     careSubjectId?: Types.ObjectId;
     notes?: string;
     durationMinutes?: number;
+    origin: TRecordOrigin;
     createdAt?: Date;
   }) {
     return {
@@ -100,6 +112,7 @@ export class EncounterRepository {
       careSubjectId: doc.careSubjectId?.toString(),
       notes: doc.notes,
       durationMinutes: doc.durationMinutes,
+      origin: doc.origin,
       createdAt: doc.createdAt?.toISOString(),
     };
   }

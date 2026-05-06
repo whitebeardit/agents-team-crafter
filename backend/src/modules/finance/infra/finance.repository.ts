@@ -1,14 +1,30 @@
 import { Types } from 'mongoose';
 import { ReceivableModel } from './receivable.model.js';
 import { PayableModel } from './payable.model.js';
+import { resolveRecordOrigin, type TRecordOrigin } from '../../../shared/kernel/record-origin.js';
 
 export type IFinanceDeleteBlocker = { domain: string; count: number };
 
 export class FinanceRepository {
   async createReceivable(
     workspaceId: string,
-    input: { partyId: string; amount: number; dueDate: string; description?: string; currency?: string },
+    input: {
+      partyId: string;
+      amount: number;
+      dueDate: string;
+      description?: string;
+      currency?: string;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
+    },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'finance_receivable',
+    });
     const doc = await ReceivableModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(input.partyId),
@@ -17,6 +33,7 @@ export class FinanceRepository {
       dueDate: new Date(input.dueDate),
       paid: false,
       description: input.description ?? '',
+      origin,
     });
     return { id: doc._id.toString(), kind: 'receivable' as const };
   }
@@ -29,8 +46,17 @@ export class FinanceRepository {
       dueDate: string;
       description?: string;
       currency?: string;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
     },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'finance_payable',
+    });
     const doc = await PayableModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       destinationPartyId: new Types.ObjectId(input.destinationPartyId),
@@ -39,6 +65,7 @@ export class FinanceRepository {
       dueDate: new Date(input.dueDate),
       paid: false,
       description: input.description ?? '',
+      origin,
     });
     return { id: doc._id.toString(), kind: 'payable' as const };
   }
@@ -268,6 +295,7 @@ export class FinanceRepository {
     dueDate: Date;
     paid: boolean;
     description?: string;
+    origin: TRecordOrigin;
     sourceEntity?: string;
     sourceId?: Types.ObjectId;
     createdAt?: Date;
@@ -281,6 +309,7 @@ export class FinanceRepository {
       dueDate: doc.dueDate.toISOString(),
       paid: Boolean(doc.paid),
       description: doc.description ?? '',
+      origin: doc.origin,
       sourceEntity: doc.sourceEntity,
       sourceId: doc.sourceId?.toString(),
       createdAt: doc.createdAt?.toISOString(),
@@ -296,6 +325,7 @@ export class FinanceRepository {
     dueDate: Date;
     paid: boolean;
     description?: string;
+    origin: TRecordOrigin;
     sourceEntity?: string;
     sourceId?: Types.ObjectId;
     createdAt?: Date;
@@ -309,6 +339,7 @@ export class FinanceRepository {
       dueDate: doc.dueDate.toISOString(),
       paid: Boolean(doc.paid),
       description: doc.description ?? '',
+      origin: doc.origin,
       sourceEntity: doc.sourceEntity,
       sourceId: doc.sourceId?.toString(),
       createdAt: doc.createdAt?.toISOString(),

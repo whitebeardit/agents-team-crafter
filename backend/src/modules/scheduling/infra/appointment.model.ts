@@ -19,6 +19,15 @@ const AppointmentSchema = new Schema(
       index: true,
     },
     notes: { type: String, default: '' },
+    origin: {
+      type: {
+        id: { type: String, required: true },
+        type: { type: String, enum: ['agent-coordinator', 'agent-specialist', 'user-manual', 'system'], required: true },
+        slug: { type: String, required: true },
+      },
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_schedule_appointment' }),
+    },
   },
   { timestamps: true },
 );

@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { PackageSaleModel } from './package-sale.model.js';
+import { resolveRecordOrigin, type TRecordOrigin } from '../../../shared/kernel/record-origin.js';
 
 export class PackageSaleRepository {
   async create(
@@ -11,8 +12,17 @@ export class PackageSaleRepository {
       packageProductId?: string;
       productSlug?: string;
       priceCentsAtSale?: number;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
     },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'packages_sale',
+    });
     const doc = await PackageSaleModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(input.partyId),
@@ -22,6 +32,7 @@ export class PackageSaleRepository {
       packageProductId: input.packageProductId ? new Types.ObjectId(input.packageProductId) : undefined,
       productSlug: input.productSlug?.trim().toLowerCase(),
       priceCentsAtSale: input.priceCentsAtSale,
+      origin,
     });
     return this.pub(doc);
   }
@@ -147,6 +158,7 @@ export class PackageSaleRepository {
     packageProductId?: Types.ObjectId;
     productSlug?: string;
     priceCentsAtSale?: number;
+    origin: TRecordOrigin;
     createdAt?: Date;
     updatedAt?: Date;
   }) {
@@ -160,6 +172,7 @@ export class PackageSaleRepository {
       packageProductId: doc.packageProductId?.toString(),
       productSlug: doc.productSlug,
       priceCentsAtSale: doc.priceCentsAtSale,
+      origin: doc.origin,
       createdAt: doc.createdAt?.toISOString(),
       updatedAt: doc.updatedAt?.toISOString(),
     };

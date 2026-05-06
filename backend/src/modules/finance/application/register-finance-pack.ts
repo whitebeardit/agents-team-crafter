@@ -8,7 +8,7 @@ export function registerFinancePack(
   finance: FinanceRepository,
   parties: PartyRepository,
 ): void {
-  registry.register('finance_create_receivable', async ({ workspaceId, input }) => {
+  registry.register('finance_create_receivable', async ({ workspaceId, input, teamContext, correlationId }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolvePartyIdFromPartyOrPhone({
       workspaceId,
@@ -25,10 +25,12 @@ export function registerFinancePack(
       dueDate,
       description: typeof data.description === 'string' ? data.description : undefined,
       currency: typeof data.currency === 'string' ? data.currency : undefined,
+      teamContext,
+      correlationId,
     });
   });
 
-  registry.register('finance_create_payable', async ({ workspaceId, input }) => {
+  registry.register('finance_create_payable', async ({ workspaceId, input, teamContext, correlationId }) => {
     const data = input as Record<string, unknown>;
     const destinationPartyId =
       typeof data.destinationPartyId === 'string' ? data.destinationPartyId : '';
@@ -43,6 +45,8 @@ export function registerFinancePack(
       dueDate,
       description: typeof data.description === 'string' ? data.description : undefined,
       currency: typeof data.currency === 'string' ? data.currency : undefined,
+      teamContext,
+      correlationId,
     });
   });
 

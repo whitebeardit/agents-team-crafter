@@ -3,33 +3,63 @@ import { AnamnesisModel } from './anamnesis.model.js';
 import { EvolutionNoteModel } from './evolution-note.model.js';
 import { EncounterModel } from '../../packages-encounters/infra/encounter.model.js';
 import type { PartyRepository } from '../../crm/infra/party.repository.js';
+import { resolveRecordOrigin, type TRecordOrigin } from '../../../shared/kernel/record-origin.js';
 
 export class ClinicalRepository {
   constructor(private readonly parties: PartyRepository) {}
 
   async createAnamnesis(
     workspaceId: string,
-    input: { careSubjectId: string; template?: string; content: unknown },
+    input: {
+      careSubjectId: string;
+      template?: string;
+      content: unknown;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
+    },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'clinical_anamnesis',
+    });
     const doc = await AnamnesisModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       careSubjectId: new Types.ObjectId(input.careSubjectId),
       template: input.template ?? 'custom',
       content: input.content,
+      origin,
     });
     return { id: doc._id.toString(), careSubjectId: input.careSubjectId };
   }
 
   async addEvolutionNote(
     workspaceId: string,
-    input: { careSubjectId: string; body: string; encounterId?: string; appointmentId?: string },
+    input: {
+      careSubjectId: string;
+      body: string;
+      encounterId?: string;
+      appointmentId?: string;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
+    },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'clinical_evolution_note',
+    });
     const doc = await EvolutionNoteModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       careSubjectId: new Types.ObjectId(input.careSubjectId),
       encounterId: input.encounterId ? new Types.ObjectId(input.encounterId) : undefined,
       appointmentId: input.appointmentId ? new Types.ObjectId(input.appointmentId) : undefined,
       body: input.body.trim(),
+      origin,
     });
     return { id: doc._id.toString() };
   }
@@ -66,8 +96,21 @@ export class ClinicalRepository {
 
   async openClinicalEncounter(
     workspaceId: string,
-    input: { partyId: string; careSubjectId: string; notes?: string },
+    input: {
+      partyId: string;
+      careSubjectId: string;
+      notes?: string;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
+    },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'clinical_encounter',
+    });
     const doc = await EncounterModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(input.partyId),
@@ -75,6 +118,7 @@ export class ClinicalRepository {
       encounterKind: 'clinical',
       clinicalStatus: 'open',
       notes: input.notes ?? '',
+      origin,
     });
     return { id: doc._id.toString() };
   }

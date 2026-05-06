@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { DateTime } from 'luxon';
 import { AppointmentModel } from './appointment.model.js';
+import { resolveRecordOrigin, type TRecordOrigin } from '../../../shared/kernel/record-origin.js';
 
 function utcDayRange(dayIso: string) {
   const base = /^\d{4}-\d{2}-\d{2}$/.test(dayIso.trim())
@@ -34,8 +35,17 @@ export class AppointmentRepository {
       reminderId?: string;
       notes?: string;
       status?: 'scheduled' | 'confirmed' | 'cancelled' | 'no_show' | 'completed';
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
     },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      correlationId: input.correlationId,
+      fallbackSlug: 'schedule_appointment',
+    });
     const doc = await AppointmentModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(input.partyId),
@@ -49,6 +59,7 @@ export class AppointmentRepository {
       endsAt: new Date(input.endsAt),
       notes: input.notes ?? '',
       status: input.status ?? 'scheduled',
+      origin,
     });
     return this.toPublic(doc);
   }
@@ -177,6 +188,7 @@ export class AppointmentRepository {
     endsAt: Date;
     notes?: string;
     status: string;
+    origin: TRecordOrigin;
     createdAt?: Date;
     updatedAt?: Date;
   }) {
@@ -193,6 +205,7 @@ export class AppointmentRepository {
       endsAt: doc.endsAt.toISOString(),
       notes: doc.notes ?? '',
       status: doc.status,
+      origin: doc.origin,
       createdAt: doc.createdAt?.toISOString(),
       updatedAt: doc.updatedAt?.toISOString(),
     };
