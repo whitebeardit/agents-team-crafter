@@ -30,6 +30,7 @@ import { registerObservabilityRoutes } from '../modules/observability/interfaces
 import { registerPlatformRoutes } from '../modules/platform/interfaces/platform.routes.js';
 import { registerBusinessActionRoutes } from '../modules/business-tools/interfaces/business-actions.routes.js';
 import { registerTeamVaultRoutes } from '../modules/team-vault/interfaces/team-vault.routes.js';
+import { registerPackagesRoutes } from '../modules/packages-encounters/interfaces/packages.routes.js';
 
 export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDeps?: IAppDeps) {
   const resolvedDeps = injectedDeps ?? createDeps(env);
@@ -56,6 +57,7 @@ export async function registerRoutes(app: FastifyInstance, env: IEnv, injectedDe
       await registerPlatformAgentRoutes(r, resolvedDeps);
       await registerGovernanceRoutes(r, resolvedDeps);
       await registerSchedulingRoutes(r, resolvedDeps);
+      await registerPackagesRoutes(r, resolvedDeps);
       await registerPartyRoutes(r, resolvedDeps);
       await registerObservabilityRoutes(r, resolvedDeps);
       await registerPlatformRoutes(r, resolvedDeps);

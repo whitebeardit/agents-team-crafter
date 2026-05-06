@@ -54,8 +54,8 @@ export function sanitizeAgentForTemplate(exp: TAgentExportPayload): TAgentExport
 function sanitizeChannelFull(
   c: TTeamExportChannelFullSnapshot,
 ): TTeamExportChannelFullSnapshot {
-  const hadSecret = Boolean(c.secretsEncrypted);
-  const { secretsEncrypted: _r, ...rest } = c;
+  const { secretsEncrypted, ...rest } = c;
+  const hadSecret = Boolean(secretsEncrypted);
   const out: TTeamExportChannelFullSnapshot = {
     ...rest,
   };

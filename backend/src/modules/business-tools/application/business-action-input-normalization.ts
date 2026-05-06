@@ -201,7 +201,21 @@ const ACTION_NORMALIZATION_CONFIGS: Readonly<Record<string, TActionNormalization
       { targetKey: 'partyId', aliases: PARTY_ID_ALIASES },
       { targetKey: 'phone', aliases: PHONE_ALIASES },
       { targetKey: 'packageName', aliases: ['packageName', 'packName', 'nomePacote'] },
+      { targetKey: 'productSlug', aliases: ['productSlug', 'catalogSlug', 'slugPacote'] },
     ],
+  },
+  package_catalog_upsert: {
+    safetyClass: 'A',
+    rules: [
+      { targetKey: 'slug', aliases: ['slug', 'productSlug'] },
+      { targetKey: 'displayName', aliases: ['displayName', 'nome', 'nomeComercial'] },
+      { targetKey: 'units', aliases: ['units', 'unitsTotal', 'sessoes'] },
+      { targetKey: 'priceCents', aliases: ['priceCents', 'precoCentavos'] },
+    ],
+  },
+  package_catalog_list: {
+    safetyClass: 'A',
+    rules: [],
   },
   package_list_by_party: {
     safetyClass: 'A',

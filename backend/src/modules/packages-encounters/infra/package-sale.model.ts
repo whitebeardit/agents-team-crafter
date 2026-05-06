@@ -7,6 +7,9 @@ const PackageSaleSchema = new Schema(
     packageName: { type: String, required: true },
     unitsTotal: { type: Number, required: true },
     unitsUsed: { type: Number, default: 0 },
+    packageProductId: { type: Schema.Types.ObjectId, ref: 'PackageProduct', index: true },
+    productSlug: { type: String, trim: true, lowercase: true },
+    priceCentsAtSale: { type: Number, min: 0 },
   },
   { timestamps: true },
 );

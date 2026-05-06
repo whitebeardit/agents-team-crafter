@@ -14,7 +14,9 @@ export class MemoryCompactorService {
   }
 
   /** Placeholder para futura consolidação por budget (arquiva notas antigas). */
-  async maybeCompactAgent(_workspaceId: string, _agentId: string): Promise<{ compacted: boolean }> {
+  async maybeCompactAgent(workspaceId: string, agentId: string): Promise<{ compacted: boolean }> {
+    void workspaceId;
+    void agentId;
     const budget = this.env.VAULT_LEARNINGS_TOKEN_BUDGET ?? 1000;
     if (budget <= 0) return { compacted: false };
     return { compacted: false };

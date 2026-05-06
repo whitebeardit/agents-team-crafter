@@ -204,7 +204,10 @@ function remapGraphEntityIds(
 }
 
 function buildAgentCreateBody(agentRecord: Record<string, unknown>, role: string) {
-  const { id: _id, createdAt: _ca, updatedAt: _ua, ...rest } = agentRecord;
+  const rest = { ...agentRecord };
+  delete rest.id;
+  delete rest.createdAt;
+  delete rest.updatedAt;
   const base: Record<string, unknown> = {
     ...rest,
     origin: 'company',
@@ -428,7 +431,7 @@ export async function importTeamFromExport(
             workspaceId,
             m as EOpenAiWorkspaceChatModel,
           );
-        } catch (e) {
+        } catch {
           runtime.openaiRuntimeModel = undefined;
           warnings.push(`Modelo removido para o agente ${a['name'] ?? oldId} (plano/integracoes nao permitem: ${m}).`);
         }

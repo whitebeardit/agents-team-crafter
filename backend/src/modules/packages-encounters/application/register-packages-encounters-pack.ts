@@ -1,6 +1,7 @@
 import type { BusinessToolRegistry } from '../../business-tools/application/business-tool-registry.js';
 import { resolvePartyIdFromPartyOrPhone } from '../../crm/application/resolve-party-id-from-input.js';
 import type { PackageSaleRepository } from '../infra/package-sale.repository.js';
+import type { PackageProductRepository } from '../infra/package-product.repository.js';
 import type { EncounterRepository } from '../infra/encounter.repository.js';
 import type { PartyRepository } from '../../crm/infra/party.repository.js';
 import type { CareSubjectRepository } from '../../care/infra/care-subject.repository.js';
@@ -16,6 +17,7 @@ export function registerPackagesEncountersPack(
   parties: PartyRepository,
   careSubjects: CareSubjectRepository,
   consumptions: PackageConsumptionRepository,
+  packageProducts: PackageProductRepository,
 ): void {
   registry.register('package_sell_to_party', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;
@@ -26,12 +28,56 @@ export function registerPackagesEncountersPack(
       requireIdentity: true,
     });
     if (!partyId) throw new Error('partyId ou phone obrigatorio');
-    const packageName = typeof data.packageName === 'string' ? data.packageName : '';
-    const unitsTotal = Number(data.unitsTotal);
-    if (!packageName.trim() || Number.isNaN(unitsTotal) || unitsTotal < 1) {
-      throw new Error('packageName e unitsTotal validos obrigatorios');
+    const productSlugRaw = typeof data.productSlug === 'string' ? data.productSlug.trim() : '';
+    let packageName = typeof data.packageName === 'string' ? data.packageName.trim() : '';
+    let unitsTotal = Number(data.unitsTotal);
+    let packageProductId: string | undefined;
+    let productSlugSnapshot: string | undefined;
+    let priceCentsAtSale: number | undefined;
+
+    if (productSlugRaw) {
+      const product = await packageProducts.findBySlug(workspaceId, productSlugRaw);
+      if (!product) throw new Error(`Produto de pacote nao encontrado: ${productSlugRaw}`);
+      packageName = product.displayName;
+      unitsTotal = product.units;
+      packageProductId = product.id;
+      productSlugSnapshot = product.slug;
+      priceCentsAtSale = product.priceCents;
     }
-    return packages.create(workspaceId, { partyId, packageName: packageName.trim(), unitsTotal });
+
+    if (!packageName || Number.isNaN(unitsTotal) || unitsTotal < 1) {
+      throw new Error('Informe productSlug (catalogo) ou packageName e unitsTotal validos');
+    }
+    return packages.create(workspaceId, {
+      partyId,
+      packageName,
+      unitsTotal,
+      packageProductId,
+      productSlug: productSlugSnapshot,
+      priceCentsAtSale,
+    });
+  });
+
+  registry.register('package_catalog_upsert', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
+    const displayName = typeof data.displayName === 'string' ? data.displayName.trim() : '';
+    const units = Number(data.units);
+    const priceCents =
+      data.priceCents === undefined || data.priceCents === null
+        ? undefined
+        : Number(data.priceCents);
+    if (!slug || !displayName || Number.isNaN(units) || units < 1) {
+      throw new Error('slug, displayName e units validos obrigatorios');
+    }
+    if (priceCents !== undefined && (Number.isNaN(priceCents) || priceCents < 0)) {
+      throw new Error('priceCents invalido');
+    }
+    return packageProducts.upsert(workspaceId, { slug, displayName, units, priceCents });
+  });
+
+  registry.register('package_catalog_list', async ({ workspaceId }) => {
+    return { products: await packageProducts.listByWorkspace(workspaceId) };
   });
 
   registry.register('package_get_balance', async ({ workspaceId, input }) => {
@@ -74,6 +120,9 @@ export function registerPackagesEncountersPack(
     if (!partyId) throw new Error('partyId ou phone obrigatorio');
     const packageSaleId = typeof data.packageSaleId === 'string' ? data.packageSaleId : undefined;
     if (packageSaleId) {
+      const sale = await packages.findById(workspaceId, packageSaleId);
+      if (!sale) throw new Error('packageSale nao encontrado');
+      if (sale.partyId !== partyId) throw new Error('packageSale deve pertencer ao mesmo partyId');
       const consumed = await packages.consumeUnit(workspaceId, packageSaleId);
       if (!consumed) throw new Error('Nao foi possivel consumir unidade do pacote');
     }
@@ -99,6 +148,12 @@ export function registerPackagesEncountersPack(
 
     const sale = await packages.findById(workspaceId, packageSaleId);
     if (!sale) throw new Error('packageSale nao encontrado');
+
+    const encounter = await encounters.findById(workspaceId, encounterId);
+    if (!encounter) throw new Error('encounter nao encontrado');
+    if (encounter.partyId !== sale.partyId) {
+      throw new Error('encounter deve pertencer ao mesmo partyId que a venda do pacote');
+    }
 
     const created = await consumptions.createOnce(workspaceId, {
       packageSaleId,

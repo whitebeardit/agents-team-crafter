@@ -24,6 +24,8 @@ export const PLANNER_PACK_TO_ACTION_IDS: Readonly<Record<string, readonly string
   ],
   packages_encounters: [
     'package_sell_to_party',
+    'package_catalog_upsert',
+    'package_catalog_list',
     'package_get_balance',
     'package_list_by_party',
     'attendance_register_session',

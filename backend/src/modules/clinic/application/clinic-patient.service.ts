@@ -1,5 +1,5 @@
 import { normalizePartyPhone } from '../../crm/domain/normalize-party-phone.js';
-import type { PartyRepository } from '../../crm/infra/party.repository.js';
+import type { IPartyUpdateOperation, PartyRepository } from '../../crm/infra/party.repository.js';
 import type { CareSubjectRepository } from '../../care/infra/care-subject.repository.js';
 
 export type ClinicPatientResolution = {
@@ -59,7 +59,7 @@ export class ClinicPatientService {
       });
     } else {
       // Best-effort enrichment: if caller sent name/email/notes and record lacks it, fill.
-      const set: Record<string, unknown> = {};
+      const set: IPartyUpdateOperation['set'] = {};
       const unset: Array<'email' | 'phone' | 'notes'> = [];
       const name = typeof input.name === 'string' ? input.name.trim() : '';
       if (name && party.displayName !== name) {
@@ -81,7 +81,7 @@ export class ClinicPatientService {
       }
       if (Object.keys(set).length > 0 || unset.length > 0) {
         const updated = await this.parties.update(workspaceId, party.id, {
-          set: set as any,
+          set,
           unset,
         });
         if (updated) party = updated;

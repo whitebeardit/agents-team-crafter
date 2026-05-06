@@ -36,6 +36,7 @@ import { CareSubjectRepository } from '../modules/care/infra/care-subject.reposi
 import { ServiceCatalogRepository } from '../modules/services-sales/infra/service-catalog.repository.js';
 import { ServiceOrderRepository } from '../modules/services-sales/infra/service-order.repository.js';
 import { PackageSaleRepository } from '../modules/packages-encounters/infra/package-sale.repository.js';
+import { PackageProductRepository } from '../modules/packages-encounters/infra/package-product.repository.js';
 import { EncounterRepository } from '../modules/packages-encounters/infra/encounter.repository.js';
 import { PackageConsumptionRepository } from '../modules/packages-encounters/infra/package-consumption.repository.js';
 import { FinanceRepository } from '../modules/finance/infra/finance.repository.js';
@@ -109,6 +110,8 @@ export interface IAppDeps {
    */
   redis: Redis | null;
   partyRepo: PartyRepository;
+  packageSaleRepo: PackageSaleRepository;
+  packageProductRepo: PackageProductRepository;
   clinicConversationStateRepo: ClinicConversationStateRepository;
   teamDebugSessionRepo: TeamDebugSessionRepository;
   vaultLockRepo: VaultLockRepository;
@@ -151,6 +154,7 @@ export function createDeps(env: IEnv): IAppDeps {
   const serviceCatalogRepo = new ServiceCatalogRepository();
   const serviceOrderRepo = new ServiceOrderRepository();
   const packageSaleRepo = new PackageSaleRepository();
+  const packageProductRepo = new PackageProductRepository();
   const encounterRepo = new EncounterRepository();
   const packageConsumptionRepo = new PackageConsumptionRepository();
   const clinicConversationStateRepo = new ClinicConversationStateRepository();
@@ -165,6 +169,7 @@ export function createDeps(env: IEnv): IAppDeps {
     serviceCatalogRepo,
     serviceOrderRepo,
     packageSaleRepo,
+    packageProductRepo,
     encounterRepo,
     packageConsumptionRepo,
     financeRepo,
@@ -258,6 +263,8 @@ export function createDeps(env: IEnv): IAppDeps {
     conversationTimelineRepo,
     redis,
     partyRepo,
+    packageSaleRepo,
+    packageProductRepo,
     clinicConversationStateRepo,
     teamDebugSessionRepo,
     vaultLockRepo,

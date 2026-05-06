@@ -422,19 +422,48 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
   'package_sell_to_party': {
     title: 'Pacotes — Vender pacote à parte',
     description:
-      'Regista venda de pacote. Identifique a party com `partyId` ou com `phone` (celular) do CRM.',
+      'Regista venda de pacote. Identifique a party com `partyId` ou `phone`. Use `productSlug` (catálogo, ex.: standard) **ou** `packageName` + `unitsTotal` manualmente.',
     packId: 'packages_encounters',
     inputSchema: {
       type: 'object',
       properties: {
         partyId: { type: 'string', description: 'ID da party compradora.' },
         phone: { type: 'string', description: 'Celular do paciente; alternativa a partyId.' },
-        packageName: { type: 'string', description: 'Nome comercial do pacote.' },
-        unitsTotal: { type: 'number', description: 'Quantidade total de unidades/sessões.' },
+        packageName: { type: 'string', description: 'Nome comercial do pacote (se não usar productSlug).' },
+        unitsTotal: { type: 'number', description: 'Unidades/sessões (se não usar productSlug).' },
+        productSlug: {
+          type: 'string',
+          description: 'Slug do produto no catálogo (`package_catalog_list`); preenche nome e unidades.',
+        },
       },
-      required: ['partyId', 'packageName', 'unitsTotal'],
+      required: ['partyId'],
     },
-    requiredFieldLabels: ['Party (partyId) ou phone', 'Pacote (packageName)', 'Unidades (unitsTotal)'],
+    requiredFieldLabels: [
+      'Party (partyId) ou phone',
+      'Catálogo (productSlug) ou pacote manual (packageName + unitsTotal)',
+    ],
+  },
+  'package_catalog_upsert': {
+    title: 'Pacotes — Catálogo (criar/atualizar)',
+    description: 'Define produto de pacote por slug (ex.: standard), unidades e preço opcional em centavos.',
+    packId: 'packages_encounters',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        slug: { type: 'string', description: 'Identificador estável (ex.: standard).' },
+        displayName: { type: 'string', description: 'Nome comercial.' },
+        units: { type: 'number', description: 'Sessões incluídas no pacote.' },
+        priceCents: { type: 'number', description: 'Preço em centavos (BRL); opcional.' },
+      },
+      required: ['slug', 'displayName', 'units'],
+    },
+    requiredFieldLabels: ['Slug', 'Nome (displayName)', 'Unidades (units)'],
+  },
+  'package_catalog_list': {
+    title: 'Pacotes — Listar catálogo',
+    description: 'Lista produtos de pacote do workspace (slug, unidades, preço).',
+    packId: 'packages_encounters',
+    inputSchema: { type: 'object', properties: {}, required: [] },
   },
   'package_get_balance': {
     title: 'Pacotes — Saldo do pacote',
