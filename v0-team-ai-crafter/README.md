@@ -515,15 +515,16 @@ Lista todos os agentes disponiveis.
 **Query Parameters:**
 
 
-| Param      | Tipo   | Descricao                                       |
-| ---------- | ------ | ----------------------------------------------- |
-| `origin`   | string | Filtrar por origem: `whitebeard` ou `company`   |
-| `category` | string | Filtrar por categoria                           |
-| `channel`  | string | Filtrar por canal suportado                     |
-| `role`     | string | Filtrar por role: `coordinator` ou `specialist` |
-| `search`   | string | Busca por nome ou descricao                     |
-| `page`     | number | Pagina (default: 1)                             |
-| `perPage`  | number | Items por pagina (default: 20)                  |
+| Param      | Tipo   | Descricao                                                                 |
+| ---------- | ------ | ------------------------------------------------------------------------- |
+| `origin`   | string | Filtrar por origem: `whitebeard` ou `company`                           |
+| `category` | string | Filtrar por categoria                                                   |
+| `channel`  | string | Filtrar por canal suportado                                             |
+| `role`     | string | Filtrar por role: `coordinator` ou `specialist`                         |
+| `teamId`   | string | Opcional: restringe aos agentes do time (coordenador + `agentIds`)       |
+| `search`   | string | Busca por nome ou descricao                                               |
+| `page`     | number | Pagina (default: 1)                                                       |
+| `perPage`  | number | Items por pagina (default: 20)                                            |
 
 
 **Response 200:**

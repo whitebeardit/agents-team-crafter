@@ -79,6 +79,10 @@ Rotas de **leitura** (JWT + `X-Workspace-Id` como as restantes) que devolvem um 
 
 A UI Next.js chama estes endpoints a partir de botões “Exportar JSON” / “Copiar JSON” no detalhe de agente, no drawer de agente e no detalhe de time (ficheiros em `v0-team-ai-crafter/app/...` e `components/...`).
 
+### Listagem de agentes (`GET /agents`)
+
+Query opcional **`teamId`**: quando presente, o servidor resolve o time no workspace e devolve apenas agentes que fazem parte desse time (**coordenador** + ids em **`agentIds`**). Se o time não existir, a lista vem vazia. Implementação: [`agent.routes.ts`](../../backend/src/modules/agents/interfaces/agent.routes.ts), [`agent.repository.ts`](../../backend/src/modules/agents/infra/agent.repository.ts).
+
 ---
 
 ## Autenticação e tenant
