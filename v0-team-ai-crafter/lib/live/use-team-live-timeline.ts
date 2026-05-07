@@ -50,6 +50,31 @@ function trimLiveText(text: string, max = 220): string {
   return `${normalized.slice(0, max - 1)}...`
 }
 
+function conversationIdFromTimelineItem(item: TeamConversationTimelineItem): string | null {
+  const raw = item.meta?.conversationId
+  if (typeof raw !== "string") return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function timelineByAgentForConversation(
+  byAgent: Record<string, TeamConversationTimelineItem[]>,
+  selectedConversationId: string | null,
+): Record<string, TeamConversationTimelineItem[]> {
+  if (!selectedConversationId) return {}
+  const out: Record<string, TeamConversationTimelineItem[]> = {}
+  for (const [agentId, items] of Object.entries(byAgent)) {
+    const scoped = items.filter((it) => {
+      const itemConversationId = conversationIdFromTimelineItem(it)
+      // Alguns eventos live (status/tool/result) podem não carregar conversationId em meta.
+      // Quando já existe conversa ativa, mantemos esses eventos para não "sumir" atividade no grafo.
+      return itemConversationId === selectedConversationId || itemConversationId === null
+    })
+    if (scoped.length > 0) out[agentId] = scoped
+  }
+  return out
+}
+
 function computeLiveStateFromTimeline(
   byAgent: Record<string, TeamConversationTimelineItem[]>,
   base: Record<string, TeamGraphLiveAgentConversationState>,
@@ -103,16 +128,40 @@ export function useTeamLiveTimeline(input: {
   scopeRunId?: string | null
   /** Chamado no máximo uma vez por `runId` estranho a `scopeRunId` (timeline ou run completo). */
   onForeignRunDetected?: (runId: string) => void
+  /** Chamado apenas para itens recebidos via SSE (não replay inicial). */
+  onLiveTimelineItem?: (item: TeamConversationTimelineItem) => void
+  /** Conversa ativa selecionada para o estado contextual dos balões em Live. */
+  selectedConversationId?: string | null
+  /**
+   * Quando `true`, sem conversa selecionada o estado de agentes fica neutro
+   * (o replay continua disponível em `items`/timeline).
+   */
+  requireConversationSelectionForAgentState?: boolean
 }) {
-  const { teamId, api, enabled, replayLimit = 120, coordinatorId, scopeRunId, onForeignRunDetected } = input
+  const {
+    teamId,
+    api,
+    enabled,
+    replayLimit = 120,
+    coordinatorId,
+    scopeRunId,
+    onForeignRunDetected,
+    onLiveTimelineItem,
+    selectedConversationId,
+    requireConversationSelectionForAgentState = false,
+  } = input
 
   const onForeignRunDetectedRef = useRef(onForeignRunDetected)
   useEffect(() => {
     onForeignRunDetectedRef.current = onForeignRunDetected
   }, [onForeignRunDetected])
+  const onLiveTimelineItemRef = useRef(onLiveTimelineItem)
+  useEffect(() => {
+    onLiveTimelineItemRef.current = onLiveTimelineItem
+  }, [onLiveTimelineItem])
 
   const [timelineByAgent, setTimelineByAgent] = useState<Record<string, TeamConversationTimelineItem[]>>({})
-  const [liveAgentState, setLiveAgentState] = useState<Record<string, TeamGraphLiveAgentConversationState>>({})
+  const [liveAgentBaseState, setLiveAgentBaseState] = useState<Record<string, TeamGraphLiveAgentConversationState>>({})
   const [liveMirrorLines, setLiveMirrorLines] = useState<TeamDebugLiveMirrorLine[]>([])
   const [liveMirrorStreamText, setLiveMirrorStreamText] = useState("")
   const [connected, setConnected] = useState(false)
@@ -141,6 +190,22 @@ export function useTeamLiveTimeline(input: {
     setLiveMirrorStreamText("")
     setError(null)
   }, [])
+
+  const liveAgentState = useMemo(() => {
+    const scopedConversationId = selectedConversationId?.trim() ?? ""
+    const byAgent =
+      requireConversationSelectionForAgentState && scopedConversationId.length > 0
+        ? timelineByAgentForConversation(timelineByAgent, scopedConversationId)
+        : requireConversationSelectionForAgentState
+          ? {}
+          : timelineByAgent
+    return computeLiveStateFromTimeline(byAgent, liveAgentBaseState)
+  }, [
+    timelineByAgent,
+    requireConversationSelectionForAgentState,
+    selectedConversationId,
+    liveAgentBaseState,
+  ])
 
   useEffect(() => {
     if (!enabled || !api) return
@@ -173,7 +238,6 @@ export function useTeamLiveTimeline(input: {
           }
         }
         setTimelineByAgent(grouped)
-        setLiveAgentState((base) => computeLiveStateFromTimeline(grouped, base))
       } catch {
         /* replay opcional */
       }
@@ -202,7 +266,10 @@ export function useTeamLiveTimeline(input: {
                 setLiveMirrorStreamText((prev) => prev + payload.text)
               },
               onAgentStatus: (e: TeamRunProgressEvent) => {
-                setLiveAgentState((prev) => ({
+                if (requireConversationSelectionForAgentState && !(selectedConversationId?.trim()?.length > 0)) {
+                  return
+                }
+                setLiveAgentBaseState((prev) => ({
                   ...prev,
                   [e.agentId]: {
                     status: e.status,
@@ -226,11 +293,10 @@ export function useTeamLiveTimeline(input: {
                 }
                 if (seenTimelineIdsRef.current.has(item.id)) return
                 seenTimelineIdsRef.current.add(item.id)
+                onLiveTimelineItemRef.current?.(item)
                 const bucket = resolveTimelineBucket(item, coordinatorId)
                 setTimelineByAgent((prev) => {
-                  const merged = mergeTimelineByAgent(prev, bucket, item)
-                  setLiveAgentState((base) => computeLiveStateFromTimeline(merged, base))
-                  return merged
+                  return mergeTimelineByAgent(prev, bucket, item)
                 })
               },
               onRunComplete: (data: TeamRunResponse) => {
@@ -261,7 +327,7 @@ export function useTeamLiveTimeline(input: {
                     },
                   ])
                 }
-                window.setTimeout(() => setLiveAgentState({}), 3200)
+                window.setTimeout(() => setLiveAgentBaseState({}), 3200)
               },
               onError: (err) => {
                 setError(err.message ?? "Erro no stream live")
@@ -286,11 +352,21 @@ export function useTeamLiveTimeline(input: {
       ac.abort()
       generationRef.current += 1
       clear()
-      setLiveAgentState({})
+      setLiveAgentBaseState({})
       setConnected(false)
       setReconnecting(false)
     }
-  }, [enabled, api, teamId, replayLimit, clear, coordinatorId, scopeRunId])
+  }, [
+    enabled,
+    api,
+    teamId,
+    replayLimit,
+    clear,
+    coordinatorId,
+    scopeRunId,
+    requireConversationSelectionForAgentState,
+    selectedConversationId,
+  ])
 
   return {
     items,

@@ -88,6 +88,10 @@ export interface TeamDebugConsoleProps {
   liveTimelineItems?: TeamConversationTimelineItem[]
   /** Mostra alternância chat/timeline no console. */
   enableTimelineView?: boolean
+  /** Conversa ativa controlada pelo componente pai (opcional). */
+  conversationId?: string | null
+  /** Notifica mudança de conversa (manual/automática). */
+  onConversationIdChange?: (conversationId: string, meta: { manual: boolean }) => void
 }
 
 type ChatLine = {
@@ -389,10 +393,12 @@ export function TeamDebugConsole({
   liveMirrorStreamText = null,
   liveTimelineItems = [],
   enableTimelineView = false,
+  conversationId: controlledConversationId,
+  onConversationIdChange,
 }: TeamDebugConsoleProps) {
   const compact = variant === "compact"
   const useHttpRun = useHttpRunProp ?? !useStreamRun
-  const [conversationId, setConversationId] = useState(() =>
+  const [localConversationId, setLocalConversationId] = useState(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `dbg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -407,6 +413,21 @@ export function TeamDebugConsole({
   const [sessionTitles, setSessionTitles] = useState<Record<string, string>>({})
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [viewMode, setViewMode] = useState<"chat" | "timeline">("chat")
+  const conversationId = (controlledConversationId ?? localConversationId)?.trim() || localConversationId
+
+  const updateConversationId = useCallback(
+    (nextConversationId: string, manual: boolean) => {
+      if (!controlledConversationId) {
+        setLocalConversationId(nextConversationId)
+      }
+      onConversationIdChange?.(nextConversationId, { manual })
+    },
+    [controlledConversationId, onConversationIdChange],
+  )
+
+  useEffect(() => {
+    onConversationIdChange?.(conversationId, { manual: false })
+  }, [conversationId, onConversationIdChange])
 
   const agentNameMap = useMemo(() => {
     const m: Record<string, string> = { ...(agentDisplayNames ?? {}) }
@@ -471,7 +492,7 @@ export function TeamDebugConsole({
           `/teams/${teamId}/debug-sessions/${encodeURIComponent(cid)}`,
         )
         applyTurnsFromServer(res.data.turns ?? [])
-        setConversationId(res.data.conversationId)
+        updateConversationId(res.data.conversationId, true)
         if (res.data.shortTitle?.trim()) {
           setSessionTitles((prev) => ({ ...prev, [res.data.conversationId]: res.data.shortTitle!.trim() }))
         }
@@ -481,7 +502,7 @@ export function TeamDebugConsole({
         toast.error(err.message ?? "Não foi possível carregar a sessão")
       }
     },
-    [api, teamId, applyTurnsFromServer],
+    [api, teamId, applyTurnsFromServer, updateConversationId],
   )
 
   const sessionOptions = useMemo(() => {
@@ -898,11 +919,11 @@ export function TeamDebugConsole({
             size="sm"
             disabled={busy}
             onClick={() => {
-              setConversationId(
+              const nextConversationId =
                 typeof crypto !== "undefined" && "randomUUID" in crypto
                   ? crypto.randomUUID()
-                  : `dbg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-              )
+                  : `dbg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+              updateConversationId(nextConversationId, true)
               setLines([])
               setLastRaw(null)
               void refreshSessions()

@@ -38,6 +38,18 @@ import { teamRunSourceLabel, teamRunStatusLabel } from "@/lib/runs-display"
 
 const AgentOfficeGame = dynamic(() => import("@/components/office/agent-office-game"), { ssr: false })
 
+function conversationIdFromTimelineItem(item: TeamConversationTimelineItem): string | null {
+  const raw = item.meta?.conversationId
+  if (typeof raw !== "string") return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function conversationIdFromOfficeEvent(event?: OfficeEvent): string | null {
+  if (!event?.original) return null
+  return conversationIdFromTimelineItem(event.original)
+}
+
 function focusPair(event: OfficeEvent, coordinatorId: string): { from?: string; to?: string } {
   if (event.fromAgentId && event.toAgentId && event.fromAgentId !== event.toAgentId) {
     return {
@@ -94,6 +106,8 @@ export function TeamOfficePageClient() {
   const [livePaceEnabled, setLivePaceEnabled] = useState(false)
   const [liveDwellMs, setLiveDwellMs] = useState(1200)
   const [hideStreamChunks, setHideStreamChunks] = useState(true)
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const [conversationSelectionLocked, setConversationSelectionLocked] = useState(false)
   /** Live + passo a passo: índice mostrado no mapa; -1 = usar índice normal (último evento). */
   const [liveDisplayIndex, setLiveDisplayIndex] = useState(-1)
   const controllerRef = useRef<AgentOfficeController | null>(null)
@@ -208,8 +222,14 @@ export function TeamOfficePageClient() {
     api,
     /** Igual ao grafo: timeline global do time; não filtrar por execução (runs novas do console tinham outro runId). */
     enabled: mode === "live" && !!api && !!team,
-    replayLimit: 400,
+    replayLimit: 120,
     coordinatorId: team?.coordinatorId,
+    onLiveTimelineItem: (item) => {
+      if (conversationSelectionLocked || selectedConversationId) return
+      const discovered = conversationIdFromTimelineItem(item)
+      if (!discovered) return
+      setSelectedConversationId(discovered)
+    },
   })
 
   const filteredLiveTimelineItems = useMemo(
@@ -239,9 +259,29 @@ export function TeamOfficePageClient() {
     return replayEvents
   }, [mode, liveOfficeEvents, simulationEvents, replayEvents])
 
+  const sceneEvents = useMemo((): OfficeEvent[] => {
+    if (mode !== "live") return timelineEvents
+    if (!selectedConversationId) return timelineEvents
+    return timelineEvents.filter((event) => {
+      const eventConversationId = conversationIdFromOfficeEvent(event)
+      return eventConversationId === selectedConversationId || eventConversationId === null
+    })
+  }, [mode, timelineEvents, selectedConversationId])
+
+  useEffect(() => {
+    if (mode !== "live" || conversationSelectionLocked || selectedConversationId) return
+    const discoveredConversationId = [...timelineEvents]
+      .reverse()
+      .map((event) => conversationIdFromOfficeEvent(event))
+      .find((id): id is string => typeof id === "string" && id.length > 0)
+    if (discoveredConversationId) {
+      setSelectedConversationId(discoveredConversationId)
+    }
+  }, [mode, conversationSelectionLocked, selectedConversationId, timelineEvents])
+
   const baseEffectiveIndex = useMemo(
-    () => resolveSelectedIndex(mode, selectedIndex, timelineEvents.length),
-    [mode, selectedIndex, timelineEvents.length],
+    () => resolveSelectedIndex(mode, selectedIndex, sceneEvents.length),
+    [mode, selectedIndex, sceneEvents.length],
   )
 
   const effectiveIndex = useMemo(() => {
@@ -249,15 +289,15 @@ export function TeamOfficePageClient() {
       mode === "live" &&
       livePaceEnabled &&
       liveDisplayIndex >= 0 &&
-      timelineEvents.length > 0
+      sceneEvents.length > 0
     ) {
-      return Math.min(liveDisplayIndex, timelineEvents.length - 1)
+      return Math.min(liveDisplayIndex, sceneEvents.length - 1)
     }
     return baseEffectiveIndex
-  }, [mode, livePaceEnabled, liveDisplayIndex, timelineEvents.length, baseEffectiveIndex])
+  }, [mode, livePaceEnabled, liveDisplayIndex, sceneEvents.length, baseEffectiveIndex])
 
   const activeEvent =
-    effectiveIndex >= 0 && effectiveIndex < timelineEvents.length ? timelineEvents[effectiveIndex] : undefined
+    effectiveIndex >= 0 && effectiveIndex < sceneEvents.length ? sceneEvents[effectiveIndex] : undefined
 
   const timelineAgentIds = useMemo(() => {
     const ids = new Set<string>()
@@ -406,8 +446,8 @@ export function TeamOfficePageClient() {
 
   /** Live + passo a passo: sincroniza índice exibido (pausa entre eventos). */
   useEffect(() => {
-    if (mode !== "live" || !livePaceEnabled || timelineEvents.length === 0) return
-    const target = timelineEvents.length - 1
+    if (mode !== "live" || !livePaceEnabled || sceneEvents.length === 0) return
+    const target = sceneEvents.length - 1
     if (liveDisplayIndex < 0) {
       setLiveDisplayIndex(target)
       return
@@ -418,7 +458,7 @@ export function TeamOfficePageClient() {
       }, liveDwellMs)
       return () => window.clearTimeout(t)
     }
-  }, [mode, livePaceEnabled, timelineEvents.length, liveDisplayIndex, liveDwellMs])
+  }, [mode, livePaceEnabled, sceneEvents.length, liveDisplayIndex, liveDwellMs])
 
   useEffect(() => {
     if (!livePaceEnabled) setLiveDisplayIndex(-1)
@@ -452,6 +492,8 @@ export function TeamOfficePageClient() {
       setSelectedIndex(0)
     } else if (m === "live") {
       setSelectedIndex(-1)
+      setSelectedConversationId(null)
+      setConversationSelectionLocked(false)
     } else if (m === "replay") {
       setSelectedIndex(-1)
     }
@@ -480,6 +522,12 @@ export function TeamOfficePageClient() {
           <p className="text-sm text-muted-foreground">
             Visualização do trabalho do time em tempo real, replay da timeline ou simulação de demonstração.
           </p>
+          {mode === "live" && !selectedConversationId ? (
+            <p className="text-xs text-muted-foreground">
+              Live sem conversa fixada: a visualização segue os eventos do time e fixa automaticamente quando detectar uma
+              conversa.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
@@ -561,7 +609,16 @@ export function TeamOfficePageClient() {
                   controllerRef.current = c
                 }}
               />
-              <AgentOfficeOverlay agents={visualAgents} activeEvent={activeEvent} coordinatorId={team.coordinatorId} />
+              <AgentOfficeOverlay
+                agents={visualAgents}
+                activeEvent={activeEvent}
+                coordinatorId={team.coordinatorId}
+                idleMessage={
+                  mode === "live" && !selectedConversationId
+                    ? "Live aguardando conversa ativa. Selecione uma conversa na timeline ou aguarde novo evento para auto-seleção."
+                    : undefined
+                }
+              />
             </div>
           </div>
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -645,6 +702,13 @@ export function TeamOfficePageClient() {
             onSelectIndex={(i) => {
               setSelectedIndex(i)
               setPlaying(false)
+              if (mode === "live") {
+                const pickedConversationId = conversationIdFromOfficeEvent(timelineEvents[i])
+                if (pickedConversationId) {
+                  setSelectedConversationId(pickedConversationId)
+                  setConversationSelectionLocked(true)
+                }
+              }
               if (mode === "live") {
                 setLivePaceEnabled(false)
                 setLiveDisplayIndex(-1)

@@ -46,6 +46,14 @@ import {
 } from "@/components/ui/sheet"
 import { GraphLegendInline, GraphLegendPopover } from "@/components/graph/graph-legend"
 import { useTeamLiveTimeline } from "@/lib/live/use-team-live-timeline"
+import type { TeamConversationTimelineItem } from "@/lib/types"
+
+function conversationIdFromTimelineItem(item: TeamConversationTimelineItem): string | null {
+  const raw = item.meta?.conversationId
+  if (typeof raw !== "string") return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
 
 export default function GraphEditorPage({
   params: _params,
@@ -63,6 +71,8 @@ export default function GraphEditorPage({
   const [saving, setSaving] = useState(false)
   const [liveMode, setLiveMode] = useState(false)
   const [liveSheetOpen, setLiveSheetOpen] = useState(false)
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const [conversationSelectionLocked, setConversationSelectionLocked] = useState(false)
   const removeResolveRef = useRef<((value: boolean) => void) | null>(null)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
   const [removeDialogCopy, setRemoveDialogCopy] = useState({ title: "", description: "" })
@@ -88,6 +98,14 @@ export default function GraphEditorPage({
     enabled: liveMode,
     replayLimit: 120,
     coordinatorId: team?.coordinatorId,
+    selectedConversationId,
+    requireConversationSelectionForAgentState: true,
+    onLiveTimelineItem: (item) => {
+      if (conversationSelectionLocked || selectedConversationId) return
+      const discovered = conversationIdFromTimelineItem(item)
+      if (!discovered) return
+      setSelectedConversationId(discovered)
+    },
   })
 
   const agentDisplayNamesForDebug = useMemo(() => {
@@ -330,6 +348,10 @@ export default function GraphEditorPage({
               checked={liveMode}
               onCheckedChange={(v) => {
                 setLiveMode(v)
+                if (v) {
+                  setSelectedConversationId(null)
+                  setConversationSelectionLocked(false)
+                }
                 if (!v) {
                   setLiveSheetOpen(false)
                 }
@@ -490,6 +512,11 @@ export default function GraphEditorPage({
                 liveMirrorStreamText={liveMirrorStreamText}
                 liveTimelineItems={liveTimelineItems}
                 enableTimelineView
+                conversationId={selectedConversationId}
+                onConversationIdChange={(nextId, meta) => {
+                  setSelectedConversationId(nextId)
+                  if (meta.manual) setConversationSelectionLocked(true)
+                }}
                 variant="compact"
                 hideHeader
                 className="flex min-h-0 flex-1"
