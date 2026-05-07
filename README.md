@@ -228,3 +228,11 @@ Também existe suporte a Docker Compose na raiz do repositório para subir servi
 ## Versão
 
 Primeira versão publicada no repositório: **v1**.
+
+## Operacao em Producao (Verticais)
+
+Guia operacional para uso real de CRM, Agenda/Scheduling e Clinical:
+
+- `docs/production/verticals-real-production-playbook.md`
+- `docs/production/verticals-production-status-matrix.md`
+- `docs/production/gold-recertification-log.md`
