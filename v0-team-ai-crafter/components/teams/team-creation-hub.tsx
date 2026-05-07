@@ -60,7 +60,7 @@ export function TeamCreationHub({
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Criar novo time</h1>
           <p className="mt-1 text-muted-foreground">
-            IA, template do catálogo, ou criação manual. Importa um JSON de time (v2) para replicar um stack completo.
+            IA, template do catálogo, ou configuração guiada. Importa um JSON de time (v2) para replicar um stack completo.
           </p>
         </div>
         <ContextualTourManualTrigger screenKey="ai_builder" />
@@ -74,7 +74,7 @@ export function TeamCreationHub({
             A partir de template
           </TabsTrigger>
           <TabsTrigger value="manual" className="min-h-10 px-2 text-center sm:px-3">
-            Fallback manual
+            Configuração guiada
           </TabsTrigger>
         </TabsList>
         <TabsContent value="assistant" className="mt-6">

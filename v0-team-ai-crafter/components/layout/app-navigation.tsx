@@ -39,19 +39,33 @@ type NavSection = {
 const PLATFORM_NAVIGATION: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Times", href: "/teams", icon: Users },
-  { name: "Agentes", href: "/agents", icon: AgentWhitebeardIcon },
-  { name: "Templates", href: "/templates", icon: FileStack },
-  { name: "Canais", href: "/channels", icon: Radio },
-  { name: "Tools", href: "/tool-definitions", icon: Wrench },
-  { name: "Governança", href: "/governance", icon: Gavel },
   { name: "Execuções", href: "/runs", icon: History },
   { name: "Observabilidade", href: "/observability", icon: Activity },
 ]
 
+const CONFIGURATION_NAVIGATION: NavItem[] = [
+  { name: "Agentes", href: "/agents", icon: AgentWhitebeardIcon },
+  { name: "Templates", href: "/templates", icon: FileStack },
+  { name: "Canais", href: "/channels", icon: Radio },
+  { name: "Ferramentas", href: "/tool-definitions", icon: Wrench },
+]
+
+const GOVERNANCE_NAVIGATION: NavItem[] = [
+  { name: "Governança", href: "/governance", icon: Gavel },
+]
+
 const APP_NAVIGATION_SECTIONS: NavSection[] = [
   {
-    label: "Plataforma",
+    label: "Operar",
     items: PLATFORM_NAVIGATION,
+  },
+  {
+    label: "Configurar",
+    items: CONFIGURATION_NAVIGATION,
+  },
+  {
+    label: "Governar",
+    items: GOVERNANCE_NAVIGATION,
   },
   {
     label: "Sistemas",

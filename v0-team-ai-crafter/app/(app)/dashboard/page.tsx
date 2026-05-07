@@ -99,6 +99,8 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<DashboardAlert[]>([])
   const [govOps, setGovOps] = useState<GovernanceOpsSummary | null>(null)
   const [govOpsLoaded, setGovOpsLoaded] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -109,17 +111,25 @@ export default function DashboardPage() {
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const [metricsRes, recentTeamsRes, alertsRes, govOpsRes] = await Promise.all([
-        api.get<Metrics>("/dashboard/metrics"),
-        api.get<RecentTeam[]>("/dashboard/recent-teams"),
-        api.get<DashboardAlert[]>("/dashboard/alerts"),
-        api.get<GovernanceOpsSummary>("/governance/ops-summary").catch(() => null),
-      ])
-      setMetrics(metricsRes.data)
-      setRecentTeams(recentTeamsRes.data.slice(0, 3))
-      setAlerts(alertsRes.data)
-      setGovOps(govOpsRes?.data ?? null)
-      setGovOpsLoaded(true)
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const [metricsRes, recentTeamsRes, alertsRes, govOpsRes] = await Promise.all([
+          api.get<Metrics>("/dashboard/metrics"),
+          api.get<RecentTeam[]>("/dashboard/recent-teams"),
+          api.get<DashboardAlert[]>("/dashboard/alerts"),
+          api.get<GovernanceOpsSummary>("/governance/ops-summary").catch(() => null),
+        ])
+        setMetrics(metricsRes.data)
+        setRecentTeams(recentTeamsRes.data.slice(0, 3))
+        setAlerts(alertsRes.data)
+        setGovOps(govOpsRes?.data ?? null)
+      } catch {
+        setLoadError("Não foi possível carregar o dashboard operacional.")
+      } finally {
+        setGovOpsLoaded(true)
+        setLoading(false)
+      }
     })()
   }, [token, refreshToken, currentWorkspace])
 
@@ -175,6 +185,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Metrics — data-tour-anchor para spotlight (Loop 72) */}
+      {loadError ? (
+        <div
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          role="alert"
+        >
+          {loadError}
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-tour-anchor="dashboard-metrics">
         {metricCards.map((metric) => (
           <Card key={metric.title} className="border-border bg-card">
@@ -186,7 +204,7 @@ export default function DashboardPage() {
                   </p>
                   <div className="flex items-baseline gap-2 mt-1">
                     <p className="text-3xl font-bold text-foreground">
-                      {metric.value}
+                      {loading ? "—" : metric.value}
                     </p>
                   </div>
                 </div>
@@ -373,7 +391,12 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {alerts.map((alert) => {
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Carregando pendências...</p>
+            ) : alerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem pendências no momento.</p>
+            ) : (
+              alerts.map((alert) => {
               const isWarning = alert.type === "warning"
               const isError = alert.type === "error"
               const iconClass = isWarning ? "text-warning" : isError ? "text-destructive" : "text-primary"
@@ -396,7 +419,8 @@ export default function DashboardPage() {
                   </Link>
                 </div>
               )
-            })}
+              })
+            )}
           </div>
         </CardContent>
       </Card>

@@ -12,6 +12,7 @@ interface ChannelCardProps {
   onTest?: (channel: Channel) => void
   onToggle?: (channel: Channel) => void
   onRemove?: (channel: Channel) => void
+  busyAction?: "configure" | "test" | "toggle" | "remove" | null
 }
 
 const channelIcons: Record<string, React.ElementType> = {
@@ -58,6 +59,7 @@ export function ChannelCard({
   onTest,
   onToggle,
   onRemove,
+  busyAction = null,
 }: ChannelCardProps) {
   const Icon = channelIcons[channel.type] || Globe
 
@@ -127,15 +129,18 @@ export function ChannelCard({
             size="sm"
             className="flex-1"
             onClick={() => onConfigure?.(channel)}
+            disabled={busyAction !== null}
           >
             <Settings className="w-4 h-4 mr-2" />
-            Configurar
+            {busyAction === "configure" ? "A abrir..." : "Configurar"}
           </Button>
           {channel.status === "connected" && (
             <Button
               variant="ghost"
               size="icon"
               onClick={() => onTest?.(channel)}
+              disabled={busyAction !== null}
+              aria-label={`Testar canal ${channel.name}`}
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
@@ -144,6 +149,12 @@ export function ChannelCard({
             variant={channel.status === "connected" ? "ghost" : "default"}
             size="icon"
             onClick={() => onToggle?.(channel)}
+            disabled={busyAction !== null}
+            aria-label={
+              channel.status === "connected"
+                ? `Desconectar canal ${channel.name}`
+                : `Conectar canal ${channel.name}`
+            }
           >
             <Power className="w-4 h-4" />
           </Button>
@@ -155,6 +166,7 @@ export function ChannelCard({
               onClick={() => onRemove(channel)}
               type="button"
               aria-label={`Remover canal ${channel.name}`}
+              disabled={busyAction !== null}
             >
               <Trash2 className="w-4 h-4" />
             </Button>

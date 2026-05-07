@@ -94,7 +94,9 @@ function LoginForm() {
               </FieldGroup>
 
               {error && (
-                <p className="text-sm text-destructive mt-4">{error}</p>
+                <p className="text-sm text-destructive mt-4" role="alert" aria-live="assertive">
+                  {error}
+                </p>
               )}
 
               <Button

@@ -33,6 +33,8 @@ export default function TeamsPage() {
   const [teamPendingDelete, setTeamPendingDelete] = useState<Team | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const importFileRef = useRef<HTMLInputElement | null>(null)
 
   const buildApiClient = useCallback(() => {
@@ -49,18 +51,26 @@ export default function TeamsPage() {
     const api = buildApiClient()
     if (!api) return
     void (async () => {
-      const qs = new URLSearchParams()
-      if (statusFilter !== "all") qs.set("status", statusFilter)
-      qs.set("page", "1")
-      qs.set("perPage", "50")
-      const [teamsRes, agentsRes] = await Promise.all([
-        api.get<Team[]>(`/teams?${qs.toString()}`),
-        api.get<Agent[]>("/agents?page=1&perPage=100"),
-      ])
-      setTeams(teamsRes.data)
-      setAgentsById(
-        Object.fromEntries(agentsRes.data.map((agent) => [agent.id, agent] as const)),
-      )
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const qs = new URLSearchParams()
+        if (statusFilter !== "all") qs.set("status", statusFilter)
+        qs.set("page", "1")
+        qs.set("perPage", "50")
+        const [teamsRes, agentsRes] = await Promise.all([
+          api.get<Team[]>(`/teams?${qs.toString()}`),
+          api.get<Agent[]>("/agents?page=1&perPage=100"),
+        ])
+        setTeams(teamsRes.data)
+        setAgentsById(
+          Object.fromEntries(agentsRes.data.map((agent) => [agent.id, agent] as const)),
+        )
+      } catch {
+        setLoadError("Não foi possível carregar os times. Verifique sua conexão e tente novamente.")
+      } finally {
+        setLoading(false)
+      }
     })()
   }, [buildApiClient, statusFilter])
 
@@ -210,7 +220,18 @@ export default function TeamsPage() {
       </Tabs>
 
       {/* Teams Grid */}
-      {filteredTeams.length > 0 ? (
+      {loading ? (
+        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+          Carregando times...
+        </div>
+      ) : loadError ? (
+        <div
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive"
+          role="alert"
+        >
+          {loadError}
+        </div>
+      ) : filteredTeams.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredTeams.map((team) => (
             <TeamCard

@@ -70,6 +70,8 @@ export default function AgentsPage() {
   const [agentToDelete, setAgentToDelete] = useState<Agent | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingAgent, setDeletingAgent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
@@ -81,24 +83,32 @@ export default function AgentsPage() {
     })
 
     void (async () => {
-      const qs = new URLSearchParams()
-      if (originFilter !== "all") qs.set("origin", originFilter)
-      if (categoryFilter !== "all") qs.set("category", categoryFilter)
-      if (channelFilter !== "all") qs.set("channel", channelFilter)
-      if (roleFilter !== "all") qs.set("role", roleFilter)
-      if (teamFilter !== "all") qs.set("teamId", teamFilter)
-      if (search) qs.set("search", search)
-      qs.set("page", "1")
-      qs.set("perPage", "100")
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const qs = new URLSearchParams()
+        if (originFilter !== "all") qs.set("origin", originFilter)
+        if (categoryFilter !== "all") qs.set("category", categoryFilter)
+        if (channelFilter !== "all") qs.set("channel", channelFilter)
+        if (roleFilter !== "all") qs.set("role", roleFilter)
+        if (teamFilter !== "all") qs.set("teamId", teamFilter)
+        if (search) qs.set("search", search)
+        qs.set("page", "1")
+        qs.set("perPage", "100")
 
-      const [listRes, catsRes, teamsRes] = await Promise.all([
-        api.get<Agent[]>(`/agents?${qs.toString()}`),
-        api.get<string[]>("/agents/categories"),
-        api.get<Team[]>("/teams?page=1&perPage=100"),
-      ])
-      setAgents(listRes.data)
-      setAgentCategories(catsRes.data)
-      setTeams(teamsRes.data)
+        const [listRes, catsRes, teamsRes] = await Promise.all([
+          api.get<Agent[]>(`/agents?${qs.toString()}`),
+          api.get<string[]>("/agents/categories"),
+          api.get<Team[]>("/teams?page=1&perPage=100"),
+        ])
+        setAgents(listRes.data)
+        setAgentCategories(catsRes.data)
+        setTeams(teamsRes.data)
+      } catch {
+        setLoadError("Não foi possível carregar o catálogo de agentes. Tente novamente.")
+      } finally {
+        setLoading(false)
+      }
     })()
   }, [token, refreshToken, currentWorkspace, originFilter, categoryFilter, channelFilter, roleFilter, teamFilter, search])
 
@@ -357,7 +367,18 @@ export default function AgentsPage() {
       </div>
 
       {/* Agents Grid */}
-      {filteredAgents.length > 0 ? (
+      {loading ? (
+        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+          Carregando agentes...
+        </div>
+      ) : loadError ? (
+        <div
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive"
+          role="alert"
+        >
+          {loadError}
+        </div>
+      ) : filteredAgents.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredAgents.map((agent) => (
             <AgentCard

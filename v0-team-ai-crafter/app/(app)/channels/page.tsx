@@ -104,6 +104,9 @@ export default function ChannelsPage() {
   const [chatSdkCreatePlatform, setChatSdkCreatePlatform] = useState<ChatSdkPlatform | null>(null)
   const [chatSdkCreateName, setChatSdkCreateName] = useState("")
   const [chatSdkCreateInProgress, setChatSdkCreateInProgress] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busyByChannelId, setBusyByChannelId] = useState<Record<string, "configure" | "test" | "toggle" | "remove" | null>>({})
 
   const api = useMemo(() => {
     if (!token || !currentWorkspace) return null
@@ -125,8 +128,18 @@ export default function ChannelsPage() {
     if (!api) return
     let cancelled = false
     void (async () => {
-      const res = await api.get<Channel[]>("/channels")
-      if (!cancelled) setChannels(res.data)
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const res = await api.get<Channel[]>("/channels")
+        if (!cancelled) setChannels(res.data)
+      } catch {
+        if (!cancelled) {
+          setLoadError("Não foi possível carregar os canais do workspace.")
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     })()
     return () => {
       cancelled = true
@@ -139,17 +152,21 @@ export default function ChannelsPage() {
 
   const handleConfigure = async (channel: Channel) => {
     if (!api) return
+    setBusyByChannelId((prev) => ({ ...prev, [channel.id]: "configure" }))
     try {
       const res = await api.get<Channel>(`/channels/${channel.id}`)
       setConfigureChannel(res.data)
       setConfigureOpen(true)
     } catch {
       toast.error("Não foi possível carregar o canal")
+    } finally {
+      setBusyByChannelId((prev) => ({ ...prev, [channel.id]: null }))
     }
   }
 
   const handleTest = async (channel: Channel) => {
     if (!api) return
+    setBusyByChannelId((prev) => ({ ...prev, [channel.id]: "test" }))
     try {
       const res = await api.post<{ status: string; latency: number; message: string }>(
         `/channels/${channel.id}/test`,
@@ -158,11 +175,14 @@ export default function ChannelsPage() {
       toast.success(`${res.data.message} (${res.data.latency}ms)`)
     } catch {
       toast.error(`Falha ao testar "${channel.name}"`)
+    } finally {
+      setBusyByChannelId((prev) => ({ ...prev, [channel.id]: null }))
     }
   }
 
   const handleToggle = async (channel: Channel) => {
     if (!api) return
+    setBusyByChannelId((prev) => ({ ...prev, [channel.id]: "toggle" }))
     try {
       if (channel.status === "connected") {
         await api.post(`/channels/${channel.id}/disconnect`, {})
@@ -174,6 +194,8 @@ export default function ChannelsPage() {
       await refreshChannels()
     } catch {
       toast.error("Falha ao atualizar canal")
+    } finally {
+      setBusyByChannelId((prev) => ({ ...prev, [channel.id]: null }))
     }
   }
 
@@ -226,6 +248,7 @@ export default function ChannelsPage() {
 
   const confirmDeleteChannel = async () => {
     if (!api || !channelToDelete) return
+    setBusyByChannelId((prev) => ({ ...prev, [channelToDelete.id]: "remove" }))
     setDeleteInProgress(true)
     try {
       await api.del(`/channels/${channelToDelete.id}`)
@@ -252,6 +275,7 @@ export default function ChannelsPage() {
       }
     } finally {
       setDeleteInProgress(false)
+      setBusyByChannelId((prev) => ({ ...prev, [channelToDelete.id]: null }))
     }
   }
 
@@ -273,6 +297,11 @@ export default function ChannelsPage() {
         <AlertTitle>Duas formas de criar canais</AlertTitle>
         <AlertDescription className="space-y-2 text-sm">
           <p>
+            Para operação diária, use primeiro <strong className="text-foreground">Criar canal</strong>, depois{" "}
+            <strong className="text-foreground">Configurar</strong> e finalize com{" "}
+            <strong className="text-foreground">Testar</strong>.
+          </p>
+          <p>
             <strong className="text-foreground">Chat SDK — plataformas</strong>: um canal por plataforma (Slack,
             Discord, Teams, …) com <code className="text-xs">provider=chat_sdk</code>, roteamento e segredos proprios
             em <strong>Configurar</strong>. E o caminho para integrar o runtime dos agentes com mensagens nessas apps.
@@ -293,6 +322,13 @@ export default function ChannelsPage() {
             </Link>
             .
           </p>
+          <details className="rounded-md border border-border bg-secondary/30 p-3">
+            <summary className="cursor-pointer font-medium text-foreground">Modo avançado</summary>
+            <p className="mt-2 text-muted-foreground">
+              Aqui mostramos termos técnicos como <code className="text-xs">provider=chat_sdk</code> e plataforma para
+              facilitar integração em produção. Operadores podem ignorar esta seção no uso diário.
+            </p>
+          </details>
         </AlertDescription>
       </Alert>
 
@@ -340,18 +376,32 @@ export default function ChannelsPage() {
 
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-4">Canais Configurados</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {channels.map((channel) => (
-            <ChannelCard
-              key={channel.id}
-              channel={channel}
-              onConfigure={handleConfigure}
-              onTest={handleTest}
-              onToggle={handleToggle}
-              onRemove={(c) => setChannelToDelete(c)}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+            Carregando canais...
+          </div>
+        ) : loadError ? (
+          <div
+            className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive"
+            role="alert"
+          >
+            {loadError}
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {channels.map((channel) => (
+              <ChannelCard
+                key={channel.id}
+                channel={channel}
+                onConfigure={handleConfigure}
+                onTest={handleTest}
+                onToggle={handleToggle}
+                onRemove={(c) => setChannelToDelete(c)}
+                busyAction={busyByChannelId[channel.id] ?? null}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <Card className="border-border bg-card">
