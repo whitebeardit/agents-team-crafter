@@ -13,9 +13,7 @@ import {
   Plus,
   Gavel,
   History,
-  CalendarDays,
   Activity,
-  ContactRound,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { cn } from "@/lib/utils"
@@ -24,6 +22,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Badge } from "@/components/ui/badge"
+import { SYSTEM_NAV_ITEMS } from "@/components/layout/system-navigation-catalog"
 
 export type NavItem = {
   name: string
@@ -31,18 +31,36 @@ export type NavItem = {
   icon: LucideIcon | typeof AgentWhitebeardIcon
 }
 
-export const APP_NAVIGATION: NavItem[] = [
+type NavSection = {
+  label: string
+  items: NavItem[]
+}
+
+const PLATFORM_NAVIGATION: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Times", href: "/teams", icon: Users },
   { name: "Agentes", href: "/agents", icon: AgentWhitebeardIcon },
   { name: "Templates", href: "/templates", icon: FileStack },
   { name: "Canais", href: "/channels", icon: Radio },
-  { name: "Agenda", href: "/schedule", icon: CalendarDays },
-  { name: "CRM", href: "/crm", icon: ContactRound },
   { name: "Tools", href: "/tool-definitions", icon: Wrench },
   { name: "Governança", href: "/governance", icon: Gavel },
   { name: "Execuções", href: "/runs", icon: History },
   { name: "Observabilidade", href: "/observability", icon: Activity },
+]
+
+const APP_NAVIGATION_SECTIONS: NavSection[] = [
+  {
+    label: "Plataforma",
+    items: PLATFORM_NAVIGATION,
+  },
+  {
+    label: "Sistemas",
+    items: SYSTEM_NAV_ITEMS.filter((item) => item.status === "active").map((item) => ({
+      name: item.name,
+      href: item.href ?? "#",
+      icon: item.icon,
+    })),
+  },
 ]
 
 type NavVariant = "sidebar-expanded" | "sidebar-collapsed" | "mobile-sheet"
@@ -79,31 +97,77 @@ export function AppNavLinks({
     )
   }
 
+  const sectionTitleClass = cn(
+    "mb-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/50",
+    collapsed && "sr-only",
+  )
+
+  const comingSoonItems = SYSTEM_NAV_ITEMS.filter((item) => item.status === "coming-soon")
+
   return (
     <nav className={cn("flex flex-col", className)}>
-      <ul className="space-y-1">
-        {APP_NAVIGATION.map((item) => {
-          const isActive = pathname.startsWith(item.href)
-          const inner = (
-            <Link
-              href={item.href}
-              className={linkClass(isActive)}
-              onClick={onNavigate}
-              aria-current={isActive ? "page" : undefined}
-            >
-              <item.icon className="w-5 h-5 shrink-0" />
-              {showLabels && <span>{item.name}</span>}
-            </Link>
-          )
-          return (
-            <li key={item.name}>
-              {variant === "sidebar-collapsed"
-                ? wrapWithTooltip(inner, item.name)
-                : inner}
-            </li>
-          )
-        })}
-      </ul>
+      <div className="space-y-4">
+        {APP_NAVIGATION_SECTIONS.map((section) => (
+          <section key={section.label}>
+            <h2 className={sectionTitleClass}>{section.label}</h2>
+            <ul className="space-y-1">
+              {section.items.map((item) => {
+                const isActive = pathname.startsWith(item.href)
+                const inner = (
+                  <Link
+                    href={item.href}
+                    className={linkClass(isActive)}
+                    onClick={onNavigate}
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    <item.icon className="w-5 h-5 shrink-0" />
+                    {showLabels && <span>{item.name}</span>}
+                  </Link>
+                )
+                return (
+                  <li key={item.name}>
+                    {variant === "sidebar-collapsed" ? wrapWithTooltip(inner, item.name) : inner}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ))}
+
+        <section>
+          <h2 className={sectionTitleClass}>Próximos sistemas</h2>
+          <ul className="space-y-1">
+            {comingSoonItems.map((item) => {
+              const inner = (
+                <div
+                  className={cn(
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+                    "text-sidebar-foreground/55",
+                    collapsed && "justify-center px-0",
+                  )}
+                  aria-disabled="true"
+                >
+                  <item.icon className="w-5 h-5 shrink-0" />
+                  {showLabels ? (
+                    <span className="flex w-full items-center justify-between gap-2">
+                      <span>{item.name}</span>
+                      <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+                        Em breve
+                      </Badge>
+                    </span>
+                  ) : null}
+                </div>
+              )
+
+              return (
+                <li key={item.slug}>
+                  {variant === "sidebar-collapsed" ? wrapWithTooltip(inner, `${item.name} · Em breve`) : inner}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      </div>
 
       <div
         className={cn(

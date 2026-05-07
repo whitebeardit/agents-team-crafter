@@ -6,13 +6,22 @@ export function specialistToolName(agentId: string): string {
   return `specialist_${safe}`.slice(0, 64);
 }
 
+export function normalizeSpecialistToolName(raw: string): string {
+  return raw
+    .replace(/<\|channel\|>[a-zA-Z0-9_-]+/g, '')
+    .replace(/<\|[^|]{1,64}\|>/g, '')
+    .replace(/[^a-zA-Z0-9_-].*$/, '')
+    .trim();
+}
+
 /** Reverse tool name → specialist id using the same roster encoding as buildOpenAiTools. */
 export function resolveSpecialistAgentIdFromToolName(
   toolName: string,
   specialistIds: string[],
 ): string | undefined {
+  const normalized = normalizeSpecialistToolName(toolName);
   for (const id of specialistIds) {
-    if (specialistToolName(id) === toolName) return id;
+    if (specialistToolName(id) === normalized) return id;
   }
   return undefined;
 }

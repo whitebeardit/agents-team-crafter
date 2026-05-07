@@ -9,6 +9,15 @@ import type { IGraphNode } from '../../graphs/domain/graph-types.js';
 import type { TeamPlanRepository } from '../infra/team-plan.repository.js';
 import { fetchTeamPlanJsonCompletion } from './team-plan-json-completion.js';
 import {
+  type ILlmProviderConfig,
+  openRouterMaxOutputTokensFromEnv,
+  resolveModelIdForProvider,
+} from '../../../shared/kernel/llm-provider-config.js';
+import {
+  buildOpenRouterDashboardTitle,
+  openRouterOriginLabelFromHttpReferer,
+} from '../../../shared/kernel/openrouter-attribution.js';
+import {
   type ITeamPlannerStructuredBriefing,
   TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
   TEAM_PLANNER_SYSTEM_PROMPT,
@@ -28,7 +37,7 @@ import {
   PLANNER_PACK_TO_ACTION_IDS,
 } from './planner-pack-presets.js';
 import { ensureInternalActionDefinitions } from './ensure-planner-tool-definitions.js';
-import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics } from '../../../app/metrics.js';
+import { recordTeamPlanAutoBindMetrics, startTeamPlanExecuteMetrics, recordLlmPlannerFallback } from '../../../app/metrics.js';
 import { resolveTeamPlanAutoBindPolicy } from './team-plan-auto-bind-policy.js';
 import { assertWorkspaceQuotaDelta } from '../../workspaces/application/workspace-plan-limits.js';
 import { PLANNER_SPECIALIST_EXAMPLE_PHRASES_MIN } from '../../agents/domain/example-user-phrases.js';
@@ -39,6 +48,11 @@ import {
 } from './team-plan-planner-output.schema.js';
 import { stripPlannerAgentsForImport, teamPlanImportEnvelopeSchema } from './team-plan-snapshot.schema.js';
 import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
+import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
+import {
+  listDomainCapabilities,
+  resolveDomainCapabilitySelection,
+} from '../../business-tools/application/domain-capability-registry.js';
 import {
   assertSpecialistsExclusiveCatalogTools,
   formatCatalogToolConflictsForMessage,
@@ -57,11 +71,40 @@ const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'te
 /** Limite de actionIds processados por execução (evita abuso / payloads enormes). */
 const TEAM_PLAN_AUTO_BIND_MAX_ACTIONS = 64;
 
+function uniqueCatalogTools(values: readonly string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const id = value.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function resolveBusinessCatalogToolHints(agent: TPlannerOutput['agents'][number], plan: TPlannerOutput): string[] {
+  const tools: string[] = [];
+  const packIds = agent.requiredPackIds.length > 0 ? agent.requiredPackIds : plan.requiredPacks;
+  tools.push(...resolveDomainCapabilitySelection(packIds).catalogTools);
+
+  const actionIds = agent.requiredBusinessActionIds.length > 0 ? agent.requiredBusinessActionIds : plan.requiredTools;
+  if (actionIds.length > 0) tools.push('internal_actions');
+  for (const actionId of actionIds) {
+    const preset = getBusinessActionPreset(actionId);
+    tools.push(...(preset?.dependsOnCatalogTools ?? []));
+  }
+  return uniqueCatalogTools(tools);
+}
+
 function materializePlannerAgentCatalogTools(plan: TPlannerOutput): TPlannerOutput['agents'] {
   let specialistOrdinal = 0;
   return plan.agents.map((agent) => {
     const specialistIndex = agent.role === 'specialist' ? specialistOrdinal++ : 0;
-    const catalogTools = resolveCatalogToolsForPlanAgent(agent, { plan, specialistIndex });
+    const catalogTools = uniqueCatalogTools([
+      ...resolveCatalogToolsForPlanAgent(agent, { plan, specialistIndex }),
+      ...resolveBusinessCatalogToolHints(agent, plan),
+    ]);
     return { ...agent, catalogTools };
   });
 }
@@ -123,6 +166,14 @@ export interface ITeamPlanBindPreviewPack {
   actionIdsRemovedByOverride: string[];
 }
 
+export interface ITeamPlanBindPreviewDomain {
+  domainId: string;
+  label: string;
+  actionIds: string[];
+  selectedActionIds: string[];
+  dependencyDomainIds: string[];
+}
+
 export interface ITeamPlanBindDiffSummary {
   affectedAgentCount: number;
   addedActionCount: number;
@@ -146,6 +197,7 @@ export interface ITeamPlanBindPreview {
   bindResolutionMode: 'global' | 'per_agent';
   toolDefinitions: ITeamPlanBindPreviewDefinition[];
   suggestedPacks: ITeamPlanBindPreviewPack[];
+  suggestedDomains: ITeamPlanBindPreviewDomain[];
   diffSummary: ITeamPlanBindDiffSummary;
   agents: ITeamPlanBindPreviewAgent[];
 }
@@ -216,7 +268,8 @@ function normalizeBindOverrides(
 function buildPackIdsByActionId(requiredPacks: string[] | undefined, allowedActionIds: string[]): Map<string, string[]> {
   const allowed = new Set(allowedActionIds);
   const packIdsByActionId = new Map<string, string[]>();
-  for (const rawPackId of requiredPacks ?? []) {
+  const resolvedPackIds = resolveDomainCapabilitySelection(requiredPacks ?? []).domainIds;
+  for (const rawPackId of resolvedPackIds) {
     const packId = rawPackId.trim().toLowerCase();
     const packActionIds = PLANNER_PACK_TO_ACTION_IDS[packId];
     if (!packActionIds) continue;
@@ -672,18 +725,40 @@ export class TeamPlanService {
     return JSON.stringify(payload, null, 2);
   }
 
+  private async buildOpenRouterPlannerRequestHeaders(
+    workspaceId: string,
+    llmConfig: ILlmProviderConfig,
+  ): Promise<Record<string, string> | undefined> {
+    if (llmConfig.provider !== 'openrouter') return llmConfig.extraHeaders;
+    const ref = llmConfig.extraHeaders?.['HTTP-Referer'];
+    const origin = openRouterOriginLabelFromHttpReferer(ref);
+    const wsName =
+      await this.deps.workspaceIntegrationsService.resolveWorkspaceNameForOpenRouterAttribution(workspaceId);
+    const slug = this.deps.workspaceIntegrationsService.getOpenRouterAttributionAppSlug();
+    const title = buildOpenRouterDashboardTitle({
+      appSlug: slug,
+      workspaceName: wsName,
+      agentName: 'team-planner',
+      publicOrigin: origin,
+    });
+    return { ...(llmConfig.extraHeaders ?? {}), 'X-OpenRouter-Title': title };
+  }
+
   private async fetchRepairedPlannerOutput(params: {
     workspaceId: string;
-    apiKey: string;
+    llmConfig: ILlmProviderConfig;
     problem: string;
     context?: string;
     invalidPlanJson: string;
     diagnosis: string;
     repairAttempt: number;
   }): Promise<TPlannerOutput | null> {
-    const model = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(params.workspaceId);
+    const modelBase = await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(
+      params.workspaceId,
+    );
+    const model = resolveModelIdForProvider(modelBase, params.llmConfig.provider);
     const { content } = await fetchTeamPlanJsonCompletion({
-      apiKey: params.apiKey,
+      apiKey: params.llmConfig.apiKey,
       model,
       systemPrompt: TEAM_PLANNER_REPAIR_SYSTEM_PROMPT,
       userMessage: buildTeamPlannerRepairUserMessage({
@@ -693,6 +768,11 @@ export class TeamPlanService {
         diagnosis: params.diagnosis,
         repairAttempt: params.repairAttempt,
       }),
+      baseUrl: params.llmConfig.baseUrl,
+      extraHeaders: await this.buildOpenRouterPlannerRequestHeaders(params.workspaceId, params.llmConfig),
+      ...(params.llmConfig.provider === 'openrouter'
+        ? { maxTokens: openRouterMaxOutputTokensFromEnv() }
+        : {}),
     });
     const extracted = this.extractJsonLoose(content);
     if (extracted === null) return null;
@@ -715,7 +795,7 @@ export class TeamPlanService {
     context?: string;
     briefing?: ITeamPlannerStructuredBriefing;
     initialRaw: TPlannerOutput;
-    apiKey: string;
+    llmConfig: ILlmProviderConfig;
   }): Promise<{
     raw: TPlannerOutput;
     plannerMetaExtras: Partial<ITeamPlannerMeta>;
@@ -760,7 +840,7 @@ export class TeamPlanService {
       const invalidPlanJson = this.formatPlanPayloadForRepair(ev);
       const repaired = await this.fetchRepairedPlannerOutput({
         workspaceId: params.workspaceId,
-        apiKey: params.apiKey,
+        llmConfig: params.llmConfig,
         problem: params.problem,
         context: params.context,
         invalidPlanJson,
@@ -818,15 +898,15 @@ export class TeamPlanService {
       );
     }
 
-    const keyResolution = await this.deps.workspaceIntegrationsService.resolveOpenAiApiKeyWithSource(workspaceId);
-    const apiKey = keyResolution.apiKey;
-    const openaiResolvedFromEnv = keyResolution.source === 'environment';
+    const llmConfig = await this.deps.workspaceIntegrationsService.resolveLlmProviderConfig(workspaceId);
+    const openaiResolvedFromEnv = false; // campo legado; mantido por compatibilidade de resposta API
 
     let raw: TPlannerOutput;
     let plannerMeta: ITeamPlannerMeta;
 
-    if (!apiKey) {
+    if (!llmConfig) {
       raw = this.buildFallback(input.problem, input.context, input.briefing);
+      recordLlmPlannerFallback('none', 'no_openai_key');
       plannerMeta = {
         usedOpenAi: false,
         usedFallback: true,
@@ -835,17 +915,23 @@ export class TeamPlanService {
       };
     } else {
       try {
-        const plannerModelResolved =
-          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
+        const plannerModelBase =
+          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(workspaceId);
+        const plannerModelResolved = resolveModelIdForProvider(plannerModelBase, llmConfig.provider);
         const { content } = await fetchTeamPlanJsonCompletion({
-          apiKey,
+          apiKey: llmConfig.apiKey,
           model: plannerModelResolved,
           systemPrompt: TEAM_PLANNER_SYSTEM_PROMPT,
           userMessage: buildTeamPlannerUserMessage(input.problem, input.context, input.briefing),
+          baseUrl: llmConfig.baseUrl,
+          extraHeaders: await this.buildOpenRouterPlannerRequestHeaders(workspaceId, llmConfig),
+          ...(llmConfig.provider === 'openrouter'
+            ? { maxTokens: openRouterMaxOutputTokensFromEnv() }
+            : {}),
         });
         const extracted = this.extractJsonLoose(content);
         if (extracted === null) {
-          log.warn({ workspaceId }, 'team plan: JSON nao extraido da resposta OpenAI');
+          log.warn({ workspaceId, provider: llmConfig.provider }, 'team plan: JSON nao extraido da resposta LLM');
           raw = this.buildFallback(input.problem, input.context, input.briefing);
           plannerMeta = {
             usedOpenAi: false,
@@ -885,29 +971,29 @@ export class TeamPlanService {
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        log.warn({ workspaceId, err: msg }, 'team plan: falha na chamada OpenAI');
+        log.warn({ workspaceId, provider: llmConfig.provider, err: msg }, 'team plan: falha na chamada LLM');
         raw = this.buildFallback(input.problem, input.context, input.briefing);
-        const plannerModelResolved =
-          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId);
+        const plannerModelBase =
+          await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(workspaceId);
         plannerMeta = {
           usedOpenAi: false,
           usedFallback: true,
           fallbackReason: 'openai_request_failed',
           openaiResolvedFromEnv,
           parseErrorSummary: msg.slice(0, 400),
-          plannerModel: plannerModelResolved,
+          plannerModel: resolveModelIdForProvider(plannerModelBase, llmConfig.provider),
         };
       }
     }
 
-    if (apiKey && plannerMeta.usedOpenAi && !plannerMeta.usedFallback) {
+    if (llmConfig && plannerMeta.usedOpenAi && !plannerMeta.usedFallback) {
       const resolved = await this.resolveCatalogUniquenessWithRepair({
         workspaceId,
         problem: input.problem,
         context: input.context,
         briefing: input.briefing,
         initialRaw: raw,
-        apiKey,
+        llmConfig,
       });
       raw = resolved.raw;
       plannerMeta = {
@@ -916,10 +1002,12 @@ export class TeamPlanService {
       };
     }
 
-    if (apiKey && !plannerMeta.plannerModel) {
+    if (llmConfig && !plannerMeta.plannerModel) {
+      const plannerModelBase =
+        await this.deps.workspaceIntegrationsService.resolveTeamPlannerModelForProvider(workspaceId);
       plannerMeta = {
         ...plannerMeta,
-        plannerModel: await this.deps.workspaceIntegrationsService.resolveTeamPlannerModel(workspaceId),
+        plannerModel: resolveModelIdForProvider(plannerModelBase, llmConfig.provider),
       };
     }
 
@@ -1345,6 +1433,22 @@ export class TeamPlanService {
         };
       })
       .filter((pack) => pack.actionIds.length > 0);
+    const domainResolution = resolveDomainCapabilitySelection(packIdsMerged);
+    const domainLabels = new Map(listDomainCapabilities().map((domain) => [domain.id, domain.label]));
+    const suggestedDomains: ITeamPlanBindPreviewDomain[] = domainResolution.domainIds
+      .map((domainId) => {
+        const domainActionIds = (domainResolution.actionIdsByDomainId[domainId] ?? []).filter((actionId) =>
+          actionIds.includes(actionId),
+        );
+        return {
+          domainId,
+          label: domainLabels.get(domainId) ?? domainId,
+          actionIds: domainActionIds,
+          selectedActionIds: domainActionIds.filter((actionId) => selectedActionIds.includes(actionId)),
+          dependencyDomainIds: domainResolution.dependencies.domainIds.filter((depId) => depId === domainId),
+        };
+      })
+      .filter((domain) => domain.actionIds.length > 0);
 
     return {
       actionIdsFull,
@@ -1369,6 +1473,7 @@ export class TeamPlanService {
         bindResolutionMode,
         toolDefinitions,
         suggestedPacks,
+        suggestedDomains,
         diffSummary,
         agents,
       },
@@ -1595,10 +1700,13 @@ export class TeamPlanService {
           continue;
         }
         const specialistIndex = plannedAgent.role === 'specialist' ? specialistOrdinal++ : 0;
-        const catalogTools = resolveCatalogToolsForPlanAgent(plannedAgent, {
-          plan: parsed,
-          specialistIndex,
-        });
+        const catalogTools = uniqueCatalogTools([
+          ...resolveCatalogToolsForPlanAgent(plannedAgent, {
+            plan: parsed,
+            specialistIndex,
+          }),
+          ...resolveBusinessCatalogToolHints(plannedAgent, parsed),
+        ]);
         const domainForSpecialist =
           plannedAgent.role === 'specialist' && plannedAgent.exampleUserPhrases.length > 0
             ? {

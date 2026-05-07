@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const AppointmentSchema = new Schema(
   {
@@ -19,6 +20,11 @@ const AppointmentSchema = new Schema(
       index: true,
     },
     notes: { type: String, default: '' },
+    origin: {
+      type: RecordOriginSubschema,
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_schedule_appointment' }),
+    },
   },
   { timestamps: true },
 );

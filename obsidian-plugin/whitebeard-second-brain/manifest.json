@@ -1,0 +1,9 @@
+{
+  "id": "whitebeard-second-brain",
+  "name": "Whitebeard second-brain",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Open vault notes in the Whitebeard WebUI (read-only; no API writes).",
+  "author": "Whitebeard",
+  "isDesktopOnly": false
+}

@@ -33,6 +33,7 @@ export async function ensureInternalActionDefinitions(
         ? (preset.inputSchema as Record<string, unknown>)
         : ({
             type: 'object',
+            properties: {},
             additionalProperties: true,
             description: `Parâmetros para a ação interna ${actionId}`,
           } as Record<string, unknown>);

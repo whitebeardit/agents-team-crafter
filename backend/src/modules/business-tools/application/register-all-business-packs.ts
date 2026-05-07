@@ -8,6 +8,7 @@ import type { ServiceCatalogRepository } from '../../services-sales/infra/servic
 import type { ServiceOrderRepository } from '../../services-sales/infra/service-order.repository.js';
 import { registerPackagesEncountersPack } from '../../packages-encounters/application/register-packages-encounters-pack.js';
 import type { PackageSaleRepository } from '../../packages-encounters/infra/package-sale.repository.js';
+import type { PackageProductRepository } from '../../packages-encounters/infra/package-product.repository.js';
 import type { EncounterRepository } from '../../packages-encounters/infra/encounter.repository.js';
 import type { PackageConsumptionRepository } from '../../packages-encounters/infra/package-consumption.repository.js';
 import { ClinicalRepository } from '../../clinical/infra/clinical.repository.js';
@@ -31,6 +32,7 @@ export function registerAllBusinessPacks(deps: {
   serviceCatalogRepo: ServiceCatalogRepository;
   serviceOrderRepo: ServiceOrderRepository;
   packageSaleRepo: PackageSaleRepository;
+  packageProductRepo: PackageProductRepository;
   encounterRepo: EncounterRepository;
   packageConsumptionRepo: PackageConsumptionRepository;
   financeRepo: FinanceRepository;
@@ -50,6 +52,7 @@ export function registerAllBusinessPacks(deps: {
     deps.partyRepo,
     deps.careSubjectRepo,
     deps.packageConsumptionRepo,
+    deps.packageProductRepo,
   );
   const clinicalRepo = new ClinicalRepository(deps.partyRepo);
   registerClinicalPack(deps.registry, clinicalRepo, deps.partyRepo);

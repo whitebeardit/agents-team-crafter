@@ -57,6 +57,7 @@ export default function AgentsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [channelFilter, setChannelFilter] = useState<ChannelType | "all">("all")
   const [roleFilter, setRoleFilter] = useState<"coordinator" | "specialist" | "all">("all")
+  const [teamFilter, setTeamFilter] = useState<string>("all")
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
@@ -85,6 +86,7 @@ export default function AgentsPage() {
       if (categoryFilter !== "all") qs.set("category", categoryFilter)
       if (channelFilter !== "all") qs.set("channel", channelFilter)
       if (roleFilter !== "all") qs.set("role", roleFilter)
+      if (teamFilter !== "all") qs.set("teamId", teamFilter)
       if (search) qs.set("search", search)
       qs.set("page", "1")
       qs.set("perPage", "100")
@@ -98,7 +100,7 @@ export default function AgentsPage() {
       setAgentCategories(catsRes.data)
       setTeams(teamsRes.data)
     })()
-  }, [token, refreshToken, currentWorkspace, originFilter, categoryFilter, channelFilter, roleFilter, search])
+  }, [token, refreshToken, currentWorkspace, originFilter, categoryFilter, channelFilter, roleFilter, teamFilter, search])
 
   const filteredAgents = useMemo(() => agents, [agents])
 
@@ -112,6 +114,7 @@ export default function AgentsPage() {
     categoryFilter !== "all" ||
     channelFilter !== "all" ||
     roleFilter !== "all" ||
+    teamFilter !== "all" ||
     search !== ""
 
   const clearFilters = () => {
@@ -120,6 +123,7 @@ export default function AgentsPage() {
     setCategoryFilter("all")
     setChannelFilter("all")
     setRoleFilter("all")
+    setTeamFilter("all")
   }
 
   const handleViewAgent = (agent: Agent) => {
@@ -321,6 +325,20 @@ export default function AgentsPage() {
             <SelectItem value="all">Todas as funcoes</SelectItem>
             <SelectItem value="coordinator">Coordenadores</SelectItem>
             <SelectItem value="specialist">Especialistas</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={teamFilter} onValueChange={setTeamFilter}>
+          <SelectTrigger className="w-44 bg-secondary border-border">
+            <SelectValue placeholder="Time" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os times</SelectItem>
+            {teams.map((team) => (
+              <SelectItem key={team.id} value={team.id}>
+                {team.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

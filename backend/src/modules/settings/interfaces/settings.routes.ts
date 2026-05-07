@@ -5,6 +5,7 @@ import { requireAdmin } from '../../../config/container.js';
 import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { putWorkspaceIntegrationsBodySchema } from '../domain/workspace-integrations.schema.js';
+import { listOpenRouterCatalogModels } from '../../../shared/kernel/openrouter-models-catalog.js';
 import {
   putTeamPlanPolicyBodySchema,
   resolveTeamPlanAutoBindPolicy,
@@ -14,6 +15,48 @@ const workspacePut = z.object({
   name: z.string().optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
 });
+
+/** Merge de `preferences` no PUT perfil: shallow nas chaves de topo, merge profundo em `contextualTours.byWorkspace`. */
+function mergeUserPreferences(
+  current: Record<string, unknown> | undefined,
+  incoming: Record<string, unknown>,
+): Record<string, unknown> {
+  const base = { ...(current ?? {}) };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (key !== 'contextualTours') {
+      base[key] = value;
+      continue;
+    }
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      base[key] = value;
+      continue;
+    }
+    const incomingCt = value as Record<string, unknown>;
+    const curCt = (base['contextualTours'] as Record<string, unknown> | undefined) ?? {};
+    const mergedCt: Record<string, unknown> = { ...curCt };
+    const incomingBw = incomingCt['byWorkspace'];
+    if (incomingBw !== null && typeof incomingBw === 'object' && !Array.isArray(incomingBw)) {
+      const curBw = { ...((curCt['byWorkspace'] as Record<string, unknown> | undefined) ?? {}) };
+      for (const [wsId, screens] of Object.entries(incomingBw as Record<string, unknown>)) {
+        if (screens !== null && typeof screens === 'object' && !Array.isArray(screens)) {
+          curBw[wsId] = {
+            ...((curBw[wsId] as Record<string, unknown> | undefined) ?? {}),
+            ...(screens as Record<string, unknown>),
+          };
+        } else {
+          curBw[wsId] = screens;
+        }
+      }
+      mergedCt['byWorkspace'] = curBw;
+    }
+    for (const [ctKey, ctVal] of Object.entries(incomingCt)) {
+      if (ctKey === 'byWorkspace') continue;
+      mergedCt[ctKey] = ctVal;
+    }
+    base['contextualTours'] = mergedCt;
+  }
+  return base;
+}
 
 /** ~1.1MB base64 payload guard (data URLs for avatars) */
 const MAX_AVATAR_CHARS = 1_600_000;
@@ -33,6 +76,10 @@ const testSmtpBody = z.object({
   to: z.string().email(),
 });
 
+const openRouterModelsQuerySchema = z.object({
+  mode: z.enum(['runtime', 'planner', 'all']).optional().default('all'),
+});
+
 export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDeps) {
   const tenant = [deps.authenticate, deps.requireTenant];
 
@@ -46,6 +93,12 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
   app.get('/settings/workspace/integrations', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const data = await deps.workspaceIntegrationsService.getMasked(ws);
+    return reply.send(successEnvelope(data));
+  });
+
+  app.get('/settings/workspace/integrations/openrouter-models', { preHandler: tenant }, async (req, reply) => {
+    const q = openRouterModelsQuerySchema.parse(req.query ?? {});
+    const data = await listOpenRouterCatalogModels(q.mode);
     return reply.send(successEnvelope(data));
   });
 
@@ -93,6 +146,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
           secretsMasked: r.secretsMasked,
           operationalCatalogTools: r.operationalCatalogTools,
           availableOpenAiChatModels: r.availableOpenAiChatModels,
+          allowedLlmModelIds: r.allowedLlmModelIds,
         }),
       );
     },
@@ -153,7 +207,7 @@ export async function registerSettingsRoutes(app: FastifyInstance, deps: IAppDep
     if (!cur) throw new AppError('NOT_FOUND', 'Usuario nao encontrado', 404);
     const mergedPrefs =
       body.preferences !== undefined
-        ? { ...((cur.preferences as Record<string, unknown>) ?? {}), ...body.preferences }
+        ? mergeUserPreferences(cur.preferences as Record<string, unknown> | undefined, body.preferences)
         : undefined;
     if (body.avatar !== undefined) {
       const a = body.avatar.trim();

@@ -14,4 +14,11 @@ export const PLATFORM_AGENT_TEAM_CATALOG = [
     description: 'Capacidade sistêmica da plataforma para planejar times e reutilizar agentes existentes.',
     agents: [{ name: 'Coordenador de criação de time', systemRole: 'team-crafter' }],
   },
+  {
+    id: 'librarian-team',
+    name: 'Bibliotecário Second-Brain',
+    description:
+      'Capacidade sistêmica da plataforma para curadoria do vault Obsidian do workspace (invisível ao utilizador final).',
+    agents: [{ name: 'Bibliotecário Second-Brain', systemRole: 'librarian' }],
+  },
 ] as const;

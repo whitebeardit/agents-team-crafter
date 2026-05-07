@@ -28,6 +28,8 @@ function kindToOfficeType(kind: TeamConversationTimelineItem["kind"]): OfficeEve
       return "tool_result"
     case "error":
       return "error"
+    case "memory":
+      return "activity"
     case "activity":
     case "status":
     default:

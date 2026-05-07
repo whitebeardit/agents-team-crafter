@@ -50,7 +50,13 @@ export function buildManualTeamInvocation(
   body: ITeamRunBody,
   correlationId?: string,
   conversation?: ITeamInvocation['conversation'],
+  extraMetadata?: Record<string, unknown>,
 ): ITeamInvocation {
+  const meta: Record<string, unknown> = {
+    ...(correlationId ? { correlationId } : {}),
+    ...(body.conversationId?.trim() ? { conversationId: body.conversationId.trim() } : {}),
+    ...(extraMetadata ?? {}),
+  };
   return {
     trigger: 'manual',
     workspaceId,
@@ -64,14 +70,7 @@ export function buildManualTeamInvocation(
       taskType: body.taskType,
       requestedAccessLevel: body.requestedAccessLevel,
     },
-    ...((correlationId || body.conversationId?.trim())
-      ? {
-          metadata: {
-            ...(correlationId ? { correlationId } : {}),
-            ...(body.conversationId?.trim() ? { conversationId: body.conversationId.trim() } : {}),
-          },
-        }
-      : {}),
+    ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
     ...(conversation ? { conversation } : {}),
   };
 }
@@ -88,9 +87,14 @@ export function buildChatTeamInvocation(
     /** Turnos anteriores persistidos; mensagem corrente é só `message` (não entra no histórico ainda). */
     conversation?: ITeamInvocation['conversation'];
     inputMedia?: ITeamInvocation['inputMedia'];
+    metadata?: Record<string, unknown>;
   },
 ): ITeamInvocation {
   const convId = options?.conversationId?.trim();
+  const meta: Record<string, unknown> = {
+    ...(convId ? { conversationId: convId } : {}),
+    ...(options?.metadata ?? {}),
+  };
   return {
     trigger: 'chat',
     workspaceId,
@@ -99,7 +103,7 @@ export function buildChatTeamInvocation(
     message,
     ...(options?.inputMedia?.length ? { inputMedia: options.inputMedia } : {}),
     coordinatorExternalContext: { channelLabel },
-    ...(convId ? { metadata: { conversationId: convId } } : {}),
+    ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
     ...(options?.conversation ? { conversation: options.conversation } : {}),
   };
 }

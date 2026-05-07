@@ -45,6 +45,8 @@ export async function registerPartyRoutes(app: FastifyInstance, deps: IAppDeps) 
       ...(email ? { email } : {}),
       ...(body.phone?.trim() ? { phone: body.phone.trim() } : {}),
       ...(body.notes?.trim() ? { notes: body.notes.trim() } : {}),
+      origin: { id: req.requestId, type: 'user-manual', slug: 'crm_manual_create_party' },
+      correlationId: req.requestId,
     });
     return reply.code(201).send(successEnvelope(data));
   });

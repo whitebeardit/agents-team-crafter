@@ -46,6 +46,71 @@ describe('executeImageGeneration', () => {
     expect(r).toContain('DALL-E 3');
   });
 
+  it('uses OpenRouter image generation when provider is openrouter', async () => {
+    const dataUrl = `data:image/png;base64,${Buffer.from([137, 80, 78, 71]).toString('base64')}`;
+    const mockFetch = jest.fn(async (_url: string, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) : {};
+      expect(body.model).toBe('bytedance-seed/seedream-4.5');
+      expect(body.modalities).toEqual(['image']);
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            choices: [{ message: { content: dataUrl } }],
+          }),
+      };
+    });
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const ctx: IToolIntegrationContext = {
+      activeLlmProvider: 'openrouter',
+      openrouter: {
+        apiKey: 'sk-or-test',
+        baseUrl: 'https://openrouter.ai/api/v1',
+      },
+    };
+    const r = await executeImageGeneration(
+      ctx,
+      {
+        prompt: 'A teddy bear with wings',
+        model: 'bytedance-seed/seedream-4.5',
+        size: '1024x1024',
+        provider: 'openrouter',
+      },
+      { workspaceId: 'ws' },
+    );
+    expect(r).toContain('Imagem gerada (OpenRouter: bytedance-seed/seedream-4.5)');
+    expect(r).toContain('![Imagem gerada](data:image/png;base64,');
+  });
+
+  it('uses OpenRouter by default when workspace provider is OpenRouter and no OpenAI key exists', async () => {
+    const mockFetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          choices: [{ message: { content: '![Imagem](https://cdn.openrouter.ai/image.png)' } }],
+        }),
+    }));
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const ctx: IToolIntegrationContext = {
+      activeLlmProvider: 'openrouter',
+      openrouter: {
+        apiKey: 'sk-or-test',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        defaultImageModel: 'bytedance-seed/seedream-4.5',
+      },
+    };
+    const r = await executeImageGeneration(
+      ctx,
+      { prompt: 'x', model: 'default', size: '1024x1024', provider: 'default' },
+      { workspaceId: 'ws' },
+    );
+    expect(r).toContain('https://cdn.openrouter.ai/image.png');
+  });
+
   it('defaults to 1024x1024 when size is omitted (DALL-E 3)', async () => {
     const mockFetch = jest.fn(async (_url: string, init?: RequestInit) => {
       const body = init?.body ? JSON.parse(String(init.body)) : {};
@@ -177,10 +242,16 @@ describe('executeImageGeneration', () => {
       { prompt: 'A blue circle', model: 'dall-e-3', size: '1024x1024' },
       {
         workspaceId: 'ws',
-        teamContext: { teamId: '507f1f77bcf86cd799439011', teamName: 'Time Teste' },
+        teamContext: {
+          teamId: '507f1f77bcf86cd799439011',
+          teamName: 'Time Teste',
+          gallerySubjectSlug: 'dbg-3a6f8bd2-72c2-4ce8-8456-0f2cd9fd1a7f',
+        },
       },
     );
     expect(r).toContain('Copia guardada na galeria');
-    expect(r).toContain('![Imagem gerada](https://cdn.openai.com/example.png)');
+    expect(r).toContain(
+      '![Imagem gerada](/api/v1/teams/507f1f77bcf86cd799439011/gallery/dbg-3a6f8bd2-72c2-4ce8-8456-0f2cd9fd1a7f/file/',
+    );
   });
 });

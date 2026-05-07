@@ -83,7 +83,7 @@ export class ClinicTimeService implements IClinicTimeService {
     const m1 = raw.match(/^(\d{1,2})\s*h(?:\s*(\d{1,2}))?$/);
     const m2 = raw.match(/^(\d{1,2}):(\d{2})$/);
     const hour = Number((m1?.[1] ?? m2?.[1]) ?? NaN);
-    const minute = Number((m1?.[2] ?? m2?.[2] ?? '0') ?? NaN);
+    const minute = m1 ? Number(m1[2] ?? 0) : m2 ? Number(m2[2]) : NaN;
 
     if (!Number.isFinite(hour) || hour < 0 || hour > 23) throw new Error(`hora invalida: ${input}`);
     if (!Number.isFinite(minute) || minute < 0 || minute > 59) throw new Error(`minuto invalido: ${input}`);

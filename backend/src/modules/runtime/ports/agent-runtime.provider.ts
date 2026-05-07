@@ -1,5 +1,6 @@
 import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integration.types.js';
 import type { IBusinessToolRuntime } from '../../business-tools/application/business-tool-runtime.js';
+import type { ILlmProviderConfig } from '../../../shared/kernel/llm-provider-config.js';
 
 /**
  * Configuracao executavel agregada para o runtime de agentes (Fase 15).
@@ -46,11 +47,13 @@ export interface IExecutableAgentConfig {
   /** Execucao de tools `internal_action` (business tools platform). */
   businessToolRuntime?: IBusinessToolRuntime;
   /** Quando a execucao e no contexto de um time (ex.: especialista no orquestrador). */
-  teamContext?: { teamId: string; teamName: string };
+  teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
   /** Exceção explícita para permitir execução direta no modo simplificado. */
   singleAgentMode?: boolean;
   /** ID do modelo OpenAI (valor do enum de workspace) resolvido antes do runStep. */
   openaiRuntimeModel: string;
+  /** Override opcional para a tool `image_generation`; omitido = herdar workspace/provider. */
+  imageGenerationModel?: string;
 }
 
 export type TRuntimeEvent =
@@ -71,8 +74,18 @@ export interface IAgentRunInput {
   locale?: string;
   requestedAccessLevel?: 'read' | 'write' | 'restricted';
   taskType?: string;
-  /** BYOK por workspace; se omitido, o provider pode usar OPENAI_API_KEY do ambiente (demo). */
+  /** BYOK por workspace; se omitido, o provider pode usar OPENAI_API_KEY do ambiente (demo). @deprecated Prefira llmConfig. */
   openaiApiKey?: string;
+  /**
+   * Configuração completa do provider LLM para este run.
+   * Quando presente, sobrepõe `openaiApiKey` e determina provider/baseUrl/headers.
+   */
+  llmConfig?: ILlmProviderConfig;
+  /**
+   * Headers HTTP extra por run (ex.: X-OpenRouter-Title dinâmico).
+   * Sobrepõe chaves em `llmConfig.extraHeaders` quando em conflito.
+   */
+  llmExtraHeaders?: Record<string, string>;
   /** Estado para manter determinismo (PolicyEngine), não para o LLM decidir. */
   depth?: number;
   visitedAgentIds?: string[];
@@ -94,8 +107,16 @@ export interface ICoordinatorRunParams {
   systemInstruction?: string;
   userMessage: string;
   userContentParts?: TRuntimeInputPart[];
+  /** @deprecated Prefira llmConfig. */
   openaiApiKey?: string;
   openaiRuntimeModel: string;
+  /**
+   * Configuração completa do provider LLM.
+   * Quando presente, sobrepõe `openaiApiKey` e determina provider/baseUrl/headers.
+   */
+  llmConfig?: ILlmProviderConfig;
+  /** Sobrepõe `llmConfig.extraHeaders` por run (ex.: título OpenRouter por agente). */
+  llmExtraHeaders?: Record<string, string>;
   sdkTools: readonly TCoordinatorSdkTool[];
   /** When set, coordinator run uses streaming mode and forwards text chunks (SSE / live UI). */
   onAssistantTextDelta?: (delta: string) => void;

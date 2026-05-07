@@ -4,6 +4,7 @@ export interface IAgentListFilters {
   channel?: string;
   role?: 'coordinator' | 'specialist';
   search?: string;
+  teamId?: string;
 }
 
 export interface IAgentRepository {

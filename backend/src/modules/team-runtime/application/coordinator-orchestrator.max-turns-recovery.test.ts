@@ -1,5 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { CoordinatorOrchestratorService } from './coordinator-orchestrator.service.js';
+import {
+  testEnvStub,
+  secondBrainDepsStub,
+  commonWorkspaceIntegrationsMock,
+} from './coordinator-orchestrator-test-utils.js';
 
 describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () => {
   it('recovers with deterministic CRM read when preflight fails and coordinator returns max turns', async () => {
@@ -26,10 +31,10 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
       })),
     };
     const specialistRegistry = { buildOpenAiTools: jest.fn(() => []) };
+    const sb = secondBrainDepsStub();
     const workspaceIntegrationsService = {
-      resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
+      ...commonWorkspaceIntegrationsMock(),
       getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
-      resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };
     const execute = jest.fn<() => Promise<{ ok: boolean; result?: unknown; errorCode?: string; error?: string }>>();
     // preflight attempt fails; runtime proceeds to coordinator
@@ -44,6 +49,7 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
     const businessToolRuntime = { execute };
 
     const service = new CoordinatorOrchestratorService(
+      testEnvStub(),
       agentRepo as never,
       teamRepo as never,
       agentRuntime as never,
@@ -55,6 +61,10 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
       { listByIds: jest.fn(async () => []) } as never,
       businessToolRuntime as never,
       { get: jest.fn(async () => null), upsert: jest.fn(async () => {}) } as never,
+      sb.vaultWriter as never,
+      sb.vaultNoteIndexRepo as never,
+      sb.secondBrainRecall as never,
+      sb.secondBrainCurator as never,
     );
 
     const out = await service.execute({
@@ -97,16 +107,17 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
       })),
     };
     const specialistRegistry = { buildOpenAiTools: jest.fn(() => []) };
+    const sb2 = secondBrainDepsStub();
     const workspaceIntegrationsService = {
-      resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
+      ...commonWorkspaceIntegrationsMock(),
       getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
-      resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };
     const businessToolRuntime = {
       execute: jest.fn(async () => ({ ok: false, errorCode: 'EXECUTION_ERROR', error: 'unavailable' })),
     };
 
     const service = new CoordinatorOrchestratorService(
+      testEnvStub(),
       agentRepo as never,
       teamRepo as never,
       agentRuntime as never,
@@ -118,6 +129,10 @@ describe('CoordinatorOrchestratorService max-turns CRM recovery (Loop 138)', () 
       { listByIds: jest.fn(async () => []) } as never,
       businessToolRuntime as never,
       { get: jest.fn(async () => null), upsert: jest.fn(async () => {}) } as never,
+      sb2.vaultWriter as never,
+      sb2.vaultNoteIndexRepo as never,
+      sb2.secondBrainRecall as never,
+      sb2.secondBrainCurator as never,
     );
 
     const out = await service.execute({

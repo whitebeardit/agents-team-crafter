@@ -119,7 +119,7 @@ export function AgentDetailsDrawer({
   const toolCount = agent.capabilities?.tools?.length || 0
   const workspaceToolCount = agent.capabilities?.customToolDefinitionIds?.length || 0
   const knowledgeCount = agent.knowledge?.sources?.length || 0
-  const channelCount = agent.channelConfig?.enabled?.length || agent.channels.length
+  const channelCount = agent.channels.length
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

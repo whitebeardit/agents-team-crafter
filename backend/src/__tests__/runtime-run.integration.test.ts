@@ -499,7 +499,7 @@ describe('POST /teams/:id/run (team runtime)', () => {
     };
     expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationExpired') ?? false).toBe(false);
     expect(body.data.events?.some((e) => e.type === 'destructiveConfirmationRequested') ?? false).toBe(false);
-    expect(body.data.externalResponse?.text).toMatch(/chave openai nao configurada/i);
+    expect(body.data.externalResponse?.text).toMatch(/chave (openai|llm) nao configurada/i);
   });
 
   it('keeps patient onboarding conversation outside destructive guard when user replies "confirmo"', async () => {

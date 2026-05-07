@@ -7,6 +7,8 @@ import type { IToolIntegrationContext } from '../../../shared/kernel/tool-integr
 import {
   executeCalendarAccess,
   executeImageGeneration,
+  executeOpenRouterWebFetch,
+  executeOpenRouterWebSearch,
 } from './tool-builtin-executors.js';
 import { logToolInvocation } from './tool-invocation-logger.js';
 
@@ -15,9 +17,14 @@ const CATALOG_STUB: Record<
   { description: string; stubResult: (input: Record<string, unknown>) => string }
 > = {
   web_search: {
-    description: 'Search the public web for up-to-date information (stub until wired to a search API).',
+    description: 'Search the public web for up-to-date information via OpenRouter when configured.',
     stubResult: () =>
-      '[catalog_stub] web_search: integrate a search provider; returning placeholder. Include URLs in the user message for best results today.',
+      '[catalog_stub] web_search: configure OpenRouter in Integracoes to run real web search.',
+  },
+  web_fetch: {
+    description: 'Fetch and extract content from a URL via OpenRouter when configured.',
+    stubResult: () =>
+      '[catalog_stub] web_fetch: configure OpenRouter in Integracoes to fetch URL content.',
   },
   file_search: {
     description: 'Search uploaded or connected files (stub).',
@@ -44,9 +51,9 @@ const CATALOG_STUB: Record<
       '[catalog_stub] calendar_access: configure toolCalendar.restBaseUrl em Integracoes.',
   },
   image_generation: {
-    description: 'Generate images via OpenAI (DALL-E 2/3) when API key is configured.',
+    description: 'Generate images via OpenRouter or OpenAI when API key is configured.',
     stubResult: () =>
-      '[catalog_stub] image_generation: configure chave OpenAI em Integracoes (ou OPENAI_API_KEY) para gerar imagens reais.',
+      '[catalog_stub] image_generation: configure chave OpenRouter ou OpenAI em Integracoes para gerar imagens reais.',
   },
 };
 
@@ -57,6 +64,18 @@ export const catalogQueryArgs = z.object({
     .describe(
       'Texto de consulta, caminho relativo ou SQL conforme a ferramenta. Use string vazia quando não houver filtro específico.',
     ),
+});
+
+export const webFetchArgs = z.object({
+  url: z
+    .string()
+    .min(1)
+    .describe('Fully qualified URL to fetch, e.g. https://example.com/page.'),
+  model: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('Use default to apply the effective OpenRouter model, or provider/model for a specific OpenRouter model.'),
 });
 
 /**
@@ -75,17 +94,44 @@ export const imageGenerationArgs = z.object({
       'DALL-E 2: 256x256, 512x512, 1024x1024. DALL-E 3: 1024x1024, 1792x1024, 1024x1792. Square social: prefer 1024x1024 or 256x256 for lower cost.',
     ),
   model: z
-    .enum(['dall-e-2', 'dall-e-3', 'default'])
+    .string()
+    .min(1)
+    .max(200)
     .describe(
-      'Use default to apply workspace Integrations default model; otherwise dall-e-2 (lower cost) or dall-e-3 (quality).',
+      'Use default to apply the effective provider default; use dall-e-2/dall-e-3 for OpenAI or provider/model (e.g. bytedance-seed/seedream-4.5) for OpenRouter.',
     ),
+  provider: z
+    .enum(['default', 'openai', 'openrouter'])
+    .describe('Use default for workspace provider preference, or force openai/openrouter.'),
 });
 
 export type TBuildCatalogMeta = {
   workspaceId: string;
   correlationId?: string;
-  teamContext?: { teamId: string; teamName: string };
+  teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+  runtimeModel?: string;
+  imageGenerationModel?: string;
 };
+
+function applyImageModelOverride(
+  input: { prompt?: string; size?: string; model?: string; provider?: 'default' | 'openai' | 'openrouter' },
+  override?: string,
+): { prompt?: string; size?: string; model?: string; provider?: 'default' | 'openai' | 'openrouter' } {
+  const rawModel = input.model?.trim();
+  const model = rawModel && rawModel !== 'default' ? rawModel : override?.trim();
+  if (!model) return input;
+  const provider =
+    model === 'dall-e-2' || model === 'dall-e-3'
+      ? 'openai'
+      : model.includes('/')
+        ? 'openrouter'
+        : input.provider;
+  return {
+    ...input,
+    model,
+    ...(provider ? { provider } : {}),
+  };
+}
 
 /**
  * Function tools do catálogo (IDs persistidos em capabilities.tools).
@@ -102,6 +148,39 @@ export function buildCapabilityCatalogTools(
     if (!isAllowedTool(id)) continue;
     const bid = id as TAvailableToolId;
 
+    if (bid === 'web_search' && ctx.openrouter?.apiKey) {
+      out.push(
+        tool({
+          name: `catalog_${id}`.slice(0, 64),
+          description:
+            'Search the public web using OpenRouter server tool. Returns a concise grounded response with sources when available.',
+          parameters: catalogQueryArgs,
+          execute: async (input) =>
+            executeOpenRouterWebSearch(ctx, input as { query?: string; model?: string }, {
+              workspaceId: meta.workspaceId,
+              ...(meta.correlationId ? { correlationId: meta.correlationId } : {}),
+              ...(meta.runtimeModel ? { runtimeModel: meta.runtimeModel } : {}),
+            }),
+        }),
+      );
+      continue;
+    }
+    if (bid === 'web_fetch' && ctx.openrouter?.apiKey) {
+      out.push(
+        tool({
+          name: `catalog_${id}`.slice(0, 64),
+          description: 'Fetch and extract content from a URL using OpenRouter server tool.',
+          parameters: webFetchArgs,
+          execute: async (input) =>
+            executeOpenRouterWebFetch(ctx, input as { url?: string; model?: string }, {
+              workspaceId: meta.workspaceId,
+              ...(meta.correlationId ? { correlationId: meta.correlationId } : {}),
+              ...(meta.runtimeModel ? { runtimeModel: meta.runtimeModel } : {}),
+            }),
+        }),
+      );
+      continue;
+    }
     if (bid === 'calendar_access' && ctx.calendar?.restBaseUrl) {
       out.push(
         tool({
@@ -117,19 +196,26 @@ export function buildCapabilityCatalogTools(
       );
       continue;
     }
-    if (bid === 'image_generation' && ctx.openai?.apiKey) {
+    if (bid === 'image_generation' && (ctx.openai?.apiKey || ctx.openrouter?.apiKey)) {
       out.push(
         tool({
           name: `catalog_${id}`.slice(0, 64),
           description:
-            'Generate an image with OpenAI Images API (DALL-E 2 or DALL-E 3). Returns Markdown ![...](https://...) with a public HTTPS URL. Set model to default to use the workspace default from Integrations.',
+            'Generate an image with OpenRouter image models or OpenAI Images API. Returns Markdown ![...](...) with an image URL or saved gallery URL. Set provider/model explicitly when needed.',
           parameters: imageGenerationArgs,
           execute: async (input) =>
-            executeImageGeneration(ctx, input as { prompt?: string; size?: string; model?: string }, {
-              workspaceId: meta.workspaceId,
-              correlationId: meta.correlationId,
-              teamContext: meta.teamContext,
-            }),
+            executeImageGeneration(
+              ctx,
+              applyImageModelOverride(
+                input as { prompt?: string; size?: string; model?: string; provider?: 'default' | 'openai' | 'openrouter' },
+                meta.imageGenerationModel,
+              ),
+              {
+                workspaceId: meta.workspaceId,
+                correlationId: meta.correlationId,
+                teamContext: meta.teamContext,
+              },
+            ),
         }),
       );
       continue;

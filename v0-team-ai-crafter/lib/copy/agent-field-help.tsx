@@ -87,12 +87,11 @@ export const agentFieldHelp = {
       <p>
         Seja específico sobre <strong>entregáveis</strong> (ex.: texto final, roteiro, arte com URL). Para criação de
         imagens com a tool <code className="text-xs">image_generation</code>, use{" "}
-        <code className="text-xs">model</code>: <code className="text-xs">default</code> (respeita o padrão em
-        Integrações), <code className="text-xs">dall-e-3</code> ou <code className="text-xs">dall-e-2</code>. Tamanhos
-        válidos incluem DALL-E 2: <code className="text-xs">256x256</code>, <code className="text-xs">512x512</code>,{" "}
-        <code className="text-xs">1024x1024</code>; DALL-E 3: <code className="text-xs">1024x1024</code>,{" "}
-        <code className="text-xs">1792x1024</code>, <code className="text-xs">1024x1792</code>. Pedidos tipo
-        &quot;400x400&quot; mapeiam para quadrado no tamanho mais próximo.
+        <code className="text-xs">provider</code>: <code className="text-xs">default</code>,{" "}
+        <code className="text-xs">openrouter</code> ou <code className="text-xs">openai</code>. Em OpenRouter,{" "}
+        <code className="text-xs">model</code> aceita IDs como <code className="text-xs">bytedance-seed/seedream-4.5</code>; em
+        OpenAI, use <code className="text-xs">dall-e-3</code> ou <code className="text-xs">dall-e-2</code>.{" "}
+        <code className="text-xs">default</code> respeita o provider efetivo do workspace/agente.
       </p>
     </>
   ),
@@ -141,8 +140,9 @@ export const agentFieldHelp = {
   persistentMemory: (
     <>
       <p>
-        Indica preferência por lembrar informações entre sessões; o texto vira orientação no prompt. A persistência
-        real depende de integrações futuras ou de canal.
+        Quando activo, o runtime pode injectar no prompt do <strong>especialista</strong> aprendizados do vault com
+        estado <strong>active</strong> (second-brain), dentro de um orçamento de tokens. A aba Second-brain na ficha
+        do agente lista notas independentemente deste toggle; propostas e revisão continuam disponíveis no workspace.
       </p>
     </>
   ),
@@ -159,17 +159,16 @@ export const agentFieldHelp = {
   catalogTools: (
     <>
       <p>
-        Ferramentas do catálogo operacional (OpenAI Agents SDK). Cada item habilitado vira uma function tool no
-        agente. A execução real exige integração configurada no workspace (Postgres, CRM, calendário, chave OpenAI
-        para <code className="text-xs">image_generation</code>, etc.); sem integração, o runtime pode responder com
-        stub ou indisponível.
+        Ferramentas do catálogo operacional. Cada item habilitado vira uma function tool no agente. A execução real
+        exige integração configurada no workspace (calendário REST, OpenRouter para web/search/fetch e imagens, ou
+        OpenAI para imagens DALL-E); sem integração, o runtime pode responder com stub ou indisponível.
       </p>
       <p>
         <strong>Geração de imagens:</strong> a tool exige <code className="text-xs">prompt</code>,{" "}
-        <code className="text-xs">size</code> e <code className="text-xs">model</code> (
-        <code className="text-xs">default</code> usa o padrão do workspace em Integrações, ou{" "}
-        <code className="text-xs">dall-e-2</code> / <code className="text-xs">dall-e-3</code>). Tamanhos cobrem DALL-E
-        2 e 3; o servidor normaliza combinações inválidas. Configure o modelo padrão em Configurações → Integrações.
+        <code className="text-xs">size</code>, <code className="text-xs">model</code> e{" "}
+        <code className="text-xs">provider</code>. Para OpenRouter, informe um modelo como{" "}
+        <code className="text-xs">bytedance-seed/seedream-4.5</code> ou use <code className="text-xs">default</code>.
+        Para OpenAI, use <code className="text-xs">dall-e-2</code> / <code className="text-xs">dall-e-3</code>.
       </p>
     </>
   ),
@@ -217,25 +216,6 @@ export const agentFieldHelp = {
     </>
   ),
 
-  channelsEnabled: (
-    <>
-      <p>
-        Tipos de canal em que este agente (em geral o <strong>coordenador</strong>) pode atuar: capacidade declarada.
-        Os webhooks e nós reais no grafo vêm dos <strong>canais do workspace associados ao time</strong> na ficha do
-        time — sem canal no time, não há ligação externa mesmo com tipos ligados aqui.
-      </p>
-    </>
-  ),
-
-  canReplyDirectly: (
-    <>
-      <p>
-        Preferência de roteamento: se o coordenador pode responder direto no canal ou apenas via outros agentes. O
-        comportamento exato depende do conector Chat SDK e da configuração do time.
-      </p>
-    </>
-  ),
-
   securityAccessLevel: (
     <>
       <p>
@@ -264,12 +244,4 @@ export const agentFieldHelp = {
     </>
   ),
 
-  chatSdkCard: (
-    <>
-      <p>
-        Resumo de como webhooks do Chat SDK disparam o <strong>coordenador</strong> do time cujo time inclui o canal.
-        Detalhes de URL e segredos estão abaixo e em <code className="text-xs bg-muted px-1 rounded">docs/CHAT_SDK_TEAM_TRIGGER.md</code>.
-      </p>
-    </>
-  ),
 } satisfies Record<string, ReactNode>

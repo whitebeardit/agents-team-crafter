@@ -104,6 +104,11 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, deps: IAppDe
       });
       await deps.memberRepo.addMember(ws.id, req.user!.sub, 'owner');
       await deps.userRepo.addWorkspaceId(req.user!.sub, ws.id);
+      try {
+        await deps.librarianPlatformAgent.ensureWorkspaceSecondBrain(ws.id);
+      } catch {
+        /* vault/librarian bootstrap best-effort */
+      }
       return reply.code(201).send(
         successEnvelope({
           id: ws.id,

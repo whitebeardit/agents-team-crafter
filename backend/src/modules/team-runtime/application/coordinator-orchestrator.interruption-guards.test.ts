@@ -1,5 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { CoordinatorOrchestratorService } from './coordinator-orchestrator.service.js';
+import {
+  testEnvStub,
+  secondBrainDepsStub,
+  commonWorkspaceIntegrationsMock,
+} from './coordinator-orchestrator-test-utils.js';
 
 describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () => {
   function buildServiceWithCoordinatorEvents(
@@ -28,16 +33,17 @@ describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () =>
       })),
     };
     const specialistRegistry = { buildOpenAiTools: jest.fn(() => []) };
+    const sb = secondBrainDepsStub();
     const workspaceIntegrationsService = {
-      resolveOpenAiApiKey: jest.fn(async () => 'fake-key'),
+      ...commonWorkspaceIntegrationsMock(),
       getToolIntegrationContext: jest.fn(async () => ({ resolver: async () => ({ status: 'missing' }) })),
-      resolveAgentsRuntimeModel: jest.fn(async () => 'gpt-5.4-mini'),
     };
     const businessToolRuntime = {
       execute: jest.fn(async () => ({ ok: false, errorCode: 'EXECUTION_ERROR', error: 'unavailable' })),
     };
 
     return new CoordinatorOrchestratorService(
+      testEnvStub(),
       agentRepo as never,
       teamRepo as never,
       agentRuntime as never,
@@ -49,6 +55,10 @@ describe('CoordinatorOrchestratorService interruption guards (Loop 139A)', () =>
       { listByIds: jest.fn(async () => []) } as never,
       businessToolRuntime as never,
       { get: jest.fn(async () => null), upsert: jest.fn(async () => {}) } as never,
+      sb.vaultWriter as never,
+      sb.vaultNoteIndexRepo as never,
+      sb.secondBrainRecall as never,
+      sb.secondBrainCurator as never,
     );
   }
 

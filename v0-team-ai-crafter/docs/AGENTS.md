@@ -107,6 +107,7 @@ flowchart TB
 | [data-layer.md](./data-layer.md) | MongoDB como fonte de verdade, `workspaceId`, cifra de segredos. |
 | [chat-sdk.md](./chat-sdk.md) | Webhooks, adapters, estado Redis/memory, ligação ao runtime. |
 | [agents-and-handoff.md](./agents-and-handoff.md) | Team runtime, coordenador, tools de especialistas, OpenAI Agents SDK. |
+| [second-brain-ux-rollout.md](./second-brain-ux-rollout.md) | Second brain na UI: deep links entre ficha do agente e Memória do time em Settings, critérios de aceite e rollout. |
 
 **Contrato de schemas (OpenAI):** ao alterar presets de business tools ou o registo de `internal_action`, seguir a regra do repositório em [`.cursor/rules/openai-tool-json-schema.mdc`](../../.cursor/rules/openai-tool-json-schema.mdc) — object schemas expostos à API devem incluir sempre `properties`.
 

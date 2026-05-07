@@ -41,15 +41,29 @@ Referência rápida (detalhe completo no [README](../README.md)):
 
 ## Rotas de verticais na UI
 
-Alguns domínios de negócio expõem **página dedicada** sob `app/(app)/<rota>/` (além do núcleo times/agentes/canais). A lista canónica de entradas do menu lateral está em [`components/layout/app-navigation.tsx`](../components/layout/app-navigation.tsx).
+Alguns domínios de negócio expõem **página dedicada** sob `app/(app)/<rota>/` (além do núcleo times/agentes/canais). A lista canónica de entradas do menu lateral está em [`components/layout/app-navigation.tsx`](../components/layout/app-navigation.tsx), com catálogo de sistemas centralizado em [`components/layout/system-navigation-catalog.ts`](../components/layout/system-navigation-catalog.ts).
 
-| Rota             | Função (resumo)                     |
-| ---------------- | ----------------------------------- |
-| `/schedule`      | Agenda (scheduling)                 |
-| `/crm`           | CRM — parties/clientes do workspace |
-| `/observability` | Observabilidade operacional         |
+Organização da navegação lateral:
+
+- **Plataforma**: dashboard e capacidades da própria plataforma (`/dashboard`, `/teams`, `/agents`, `/templates`, `/channels`, `/tool-definitions`, `/governance`, `/runs`, `/observability`).
+- **Sistemas**: frontends verticais de negócio com rota dedicada ativa (`/schedule`, `/crm`, `/attendance`, `/packages`, `/finance`, `/care`, `/clinical`, `/reminders`).
+- **Próximos sistemas**: catálogo de rollout progressivo com visibilidade em menu (itens "Em breve") sem navegação ativa.
+
+| Rota             | Grupo no menu | Função (resumo)                     |
+| ---------------- | ------------- | ----------------------------------- |
+| `/schedule`      | Sistemas      | Agenda (scheduling)                 |
+| `/crm`           | Sistemas      | CRM — parties/clientes do workspace |
+| `/attendance`    | Sistemas      | Atendimento operacional (fase 1)    |
+| `/packages`      | Sistemas      | Pacotes (listagem e auditoria)      |
+| `/finance`       | Sistemas      | Financeiro (listagem, busca, deleção com travas) |
+| `/care`          | Sistemas      | Care (auditoria manual de casos com contexto clínico) |
+| `/clinical`      | Sistemas      | Clinical (auditoria manual de sessões e qualidade de registo) |
+| `/reminders`     | Sistemas      | Lembretes (auditoria manual de execução e estados) |
+| `/observability` | Plataforma    | Observabilidade operacional         |
 
 **Política:** não é obrigatório que cada pack do BFF tenha rota própria no Next; verticais adicionais (care, finance, clinical, …) podem surgir como páginas quando a UI for priorizada — até lá o fluxo típico continua a ser **time + tools + canais** com contratos no BFF. Ao adicionar uma nova rota de produto, atualize este doc e o [README](../README.md) (tabela **Rotas da Aplicação** e árvore `app/(app)/`).
+
+Sequência oficial de rollout após CRM/Agenda: concluída (Care, Clinical e Lembretes ativos).
 
 ---
 

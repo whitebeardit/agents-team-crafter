@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const CareSubjectSchema = new Schema(
   {
@@ -7,6 +8,11 @@ const CareSubjectSchema = new Schema(
     name: { type: String, required: true },
     subjectKind: { type: String, enum: ['human', 'animal', 'psych'], required: true, index: true },
     notes: { type: String },
+    origin: {
+      type: RecordOriginSubschema,
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_care_subject' }),
+    },
   },
   { timestamps: true },
 );

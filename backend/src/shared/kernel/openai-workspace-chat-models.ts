@@ -1,6 +1,9 @@
 /**
  * Catálogo fechado de modelos de chat OpenAI permitidos em workspace / agentes.
- * IDs = strings da API OpenAI.
+ * IDs = strings da API OpenAI (sem prefixo de provider).
+ *
+ * Ao usar OpenRouter, os mesmos IDs são roteados via `resolveModelIdForProvider`
+ * que adiciona o prefixo `openai/` automaticamente.
  */
 export enum EOpenAiWorkspaceChatModel {
   Gpt54 = 'gpt-5.4',
@@ -10,6 +13,24 @@ export enum EOpenAiWorkspaceChatModel {
   Gpt4o = 'gpt-4o',
   Gpt4oMini = 'gpt-4o-mini',
 }
+
+/**
+ * Modelos OpenRouter não-OpenAI que podem ser usados como override por workspace.
+ * IDs no formato `provider/model` conforme catálogo do OpenRouter.
+ * Não são validados como `EOpenAiWorkspaceChatModel`; só aceites quando
+ * `llmProvider = 'openrouter'` e passados via `openrouterRuntimeModel` ou `openrouterPlannerModel`.
+ */
+export const OPENROUTER_RECOMMENDED_MODELS = [
+  'anthropic/claude-opus-4-5',
+  'anthropic/claude-sonnet-4-5',
+  'anthropic/claude-haiku-3-5',
+  'google/gemini-2.5-pro',
+  'google/gemini-2.5-flash',
+  'meta-llama/llama-4-maverick',
+  'mistralai/mistral-large',
+] as const;
+
+export type TOpenRouterRecommendedModel = (typeof OPENROUTER_RECOMMENDED_MODELS)[number];
 
 export const OPENAI_WORKSPACE_CHAT_MODEL_VALUES = Object.values(
   EOpenAiWorkspaceChatModel,

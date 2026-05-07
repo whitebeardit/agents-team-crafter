@@ -71,7 +71,7 @@ export function buildWorkspaceCustomTools(
   meta: {
     workspaceId: string;
     correlationId?: string;
-    teamContext?: { teamId: string; teamName: string };
+    teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
     conversationId?: string;
     actorAgentId?: string;
     actorRole?: 'coordinator' | 'specialist';
@@ -146,6 +146,8 @@ export function buildWorkspaceCustomTools(
               correlationId: meta.correlationId,
               teamContext: meta.teamContext,
               conversationId: meta.conversationId,
+              actorAgentId: meta.actorAgentId,
+              actorRole: meta.actorRole,
             });
             logToolInvocation({
               workspaceId: meta.workspaceId,

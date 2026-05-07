@@ -5,6 +5,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { CalendarDays, CheckCircle2, ChevronsUpDown, Clipboard, Loader2, RefreshCw } from "lucide-react"
 import { ApiError, createApiClient } from "@/lib/api/client"
+import { formatRecordOrigin } from "@/lib/format-record-origin"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
 import type { CrmParty, ScheduleAgendaResponse, ScheduleAppointment, Team } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -388,6 +389,7 @@ export default function SchedulePage() {
                               )}
                             </div>
                           </div>
+                          <p className="text-xs text-muted-foreground">{formatRecordOrigin(a.origin)}</p>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={statusBadgeClass(a.status)}>

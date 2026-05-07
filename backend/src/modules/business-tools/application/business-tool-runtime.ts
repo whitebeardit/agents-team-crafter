@@ -76,8 +76,10 @@ export interface IBusinessToolRuntime {
     actionId: string;
     input: unknown;
     correlationId?: string;
-    teamContext?: { teamId: string; teamName: string };
+    teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
     conversationId?: string;
+    actorAgentId?: string;
+    actorRole?: 'coordinator' | 'specialist';
   }): Promise<{ ok: boolean; result?: unknown; error?: string; errorCode?: string }>;
 }
 
@@ -93,8 +95,10 @@ export class BusinessToolRuntime implements IBusinessToolRuntime {
     actionId: string;
     input: unknown;
     correlationId?: string;
-    teamContext?: { teamId: string; teamName: string };
+    teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
     conversationId?: string;
+    actorAgentId?: string;
+    actorRole?: 'coordinator' | 'specialist';
   }): Promise<{ ok: boolean; result?: unknown; error?: string; errorCode?: string }> {
     const actionId = params.actionId.trim();
     const rawInput = params.input;
@@ -170,6 +174,8 @@ export class BusinessToolRuntime implements IBusinessToolRuntime {
           correlationId: params.correlationId,
           teamContext: params.teamContext,
           conversationId: params.conversationId,
+          actorAgentId: params.actorAgentId,
+          actorRole: params.actorRole,
         });
         const coerced = (() => {
           if (!actionId.startsWith('clinic_')) return { ok: true as const, result: rawResult };

@@ -46,7 +46,7 @@ export function registerSchedulingPack(
     });
   });
 
-  registry.register('schedule_create_appointment', async ({ workspaceId, input }) => {
+  registry.register('schedule_create_appointment', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolvePartyIdFromPartyOrPhone({
       workspaceId,
@@ -124,6 +124,10 @@ export function registerSchedulingPack(
       encounterId,
       reminderId,
       notes: typeof data.notes === 'string' ? data.notes : '',
+      teamContext,
+      correlationId,
+      actorAgentId,
+      actorRole,
     });
   });
 
@@ -207,7 +211,7 @@ export function registerSchedulingPack(
     return next;
   });
 
-  registry.register('schedule_complete_appointment', async ({ workspaceId, input }) => {
+  registry.register('schedule_complete_appointment', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : '';
     if (!appointmentId) throw new Error('appointmentId obrigatorio');
@@ -226,6 +230,10 @@ export function registerSchedulingPack(
             notes: typeof data.notes === 'string' ? data.notes : current.notes,
             durationMinutes:
               typeof data.durationMinutes === 'number' ? data.durationMinutes : Number(data.durationMinutes) || 0,
+            teamContext,
+            correlationId,
+            actorAgentId,
+            actorRole,
           });
     if (!encounter) throw new Error('nao foi possivel concluir appointment');
 

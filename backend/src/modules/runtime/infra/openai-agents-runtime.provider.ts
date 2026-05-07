@@ -1,5 +1,6 @@
 import { Agent, Runner } from '@openai/agents';
 import { OpenAIProvider } from '@openai/agents-openai';
+import OpenAI from 'openai';
 import type { Tool } from '@openai/agents';
 import type {
   IAgentRuntimeProvider,
@@ -12,14 +13,95 @@ import { formatAgentUserContentParts, formatAgentUserMessage } from '../applicat
 import { buildCapabilityCatalogTools, buildMcpSdkTools } from '../application/build-specialist-sdk-tools.js';
 import { buildWorkspaceCustomTools } from '../application/build-workspace-custom-tools.js';
 import { isGpt5FamilyModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
+import {
+  type ILlmProviderConfig,
+  buildOpenAiProviderConfig,
+  openRouterMaxOutputTokensFromEnv,
+  resolveModelIdForProvider,
+} from '../../../shared/kernel/llm-provider-config.js';
+import { preferOpenRouterTitleOverReferer } from '../../../shared/kernel/openrouter-attribution.js';
 
-function buildAgentModelOptions(modelId: string): { model: string; modelSettings?: object } {
+/**
+ * Resolve a configuração LLM efectiva para um run.
+ * Usa `llmConfig` se fornecido; senão constrói config OpenAI legacy a partir de `openaiApiKey`.
+ * Devolve null quando não há chave disponível.
+ */
+function resolveEffectiveLlmConfig(params: {
+  llmConfig?: ILlmProviderConfig;
+  openaiApiKey?: string;
+}): ILlmProviderConfig | null {
+  if (params.llmConfig) return params.llmConfig;
+  const key = params.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
+  if (!key) return null;
+  return buildOpenAiProviderConfig(key);
+}
+
+/** Alinha tipos quando o TS resolve `openai` por caminhos duplicados (agents-openai vs app). */
+function toAgentsOpenAiClient(client: OpenAI) {
+  return client as never;
+}
+
+function mergeLlmDefaultHeaders(
+  config: ILlmProviderConfig,
+  runExtra?: Record<string, string>,
+): Record<string, string> | undefined {
+  const merged: Record<string, string> = { ...(config.extraHeaders ?? {}), ...(runExtra ?? {}) };
+  return preferOpenRouterTitleOverReferer(merged);
+}
+
+/**
+ * Instancia o `OpenAIProvider` a partir da configuração do provider LLM.
+ * Para OpenRouter: cliente OpenAI com `defaultHeaders` (HTTP-Referer, X-OpenRouter-Title, etc.).
+ * Para OpenAI: Responses API por defeito; usa cliente explícito só quando há headers extra.
+ */
+function buildProviderFromConfig(
+  config: ILlmProviderConfig,
+  runExtraHeaders?: Record<string, string>,
+): OpenAIProvider {
+  const defaultHeaders = mergeLlmDefaultHeaders(config, runExtraHeaders);
+
+  if (config.provider === 'openrouter') {
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      ...(defaultHeaders ? { defaultHeaders } : {}),
+    });
+    return new OpenAIProvider({ openAIClient: toAgentsOpenAiClient(client), useResponses: false });
+  }
+
+  if (defaultHeaders && Object.keys(defaultHeaders).length > 0) {
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      defaultHeaders,
+    });
+    return new OpenAIProvider({
+      openAIClient: toAgentsOpenAiClient(client),
+      useResponses: config.useResponses,
+    });
+  }
+
+  return new OpenAIProvider({ apiKey: config.apiKey, useResponses: config.useResponses });
+}
+
+function buildAgentModelOptions(
+  modelId: string,
+  provider: ILlmProviderConfig['provider'],
+): { model: string; modelSettings?: object } {
+  const resolvedModel = resolveModelIdForProvider(modelId, provider);
+  const openRouterCap =
+    provider === 'openrouter' ? { maxTokens: openRouterMaxOutputTokensFromEnv() } : {};
+
   if (!isGpt5FamilyModel(modelId)) {
-    return { model: modelId };
+    if (provider === 'openrouter') {
+      return { model: resolvedModel, modelSettings: openRouterCap };
+    }
+    return { model: resolvedModel };
   }
   return {
-    model: modelId,
+    model: resolvedModel,
     modelSettings: {
+      ...openRouterCap,
       reasoning: { effort: 'none' },
       text: { verbosity: 'low' },
     },
@@ -29,6 +111,17 @@ function buildAgentModelOptions(modelId: string): { model: string; modelSettings
 export function formatRuntimeErrorWithFallback(prefix: string, msg: string): string {
   const lower = msg.toLowerCase();
   const isMaxTurns = lower.includes('max turns') && lower.includes('exceeded');
+  const isContaminatedToolName =
+    lower.includes('tool ') &&
+    lower.includes('not found') &&
+    (msg.includes('<|channel|>') || msg.includes('<|'));
+  if (isContaminatedToolName) {
+    return [
+      'Nao consegui concluir porque o modelo devolveu uma chamada de tool com marcador interno de canal.',
+      'O runtime remove esses marcadores da entrada; tente reenviar a ultima confirmacao se a conversa antiga ainda continha esse marcador.',
+      `Detalhe tecnico: ${prefix}: ${msg}`,
+    ].join('\n');
+  }
   if (!isMaxTurns) return `${prefix}: ${msg}`;
   return [
     'Nao consegui concluir este fluxo dentro do limite de interacoes do modelo.',
@@ -139,11 +232,14 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   }
 
   async runStep(config: IExecutableAgentConfig, input: IAgentRunInput): Promise<IAgentRunResult> {
-    const apiKey = input.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
+    const llmConfig = resolveEffectiveLlmConfig({
+      llmConfig: input.llmConfig,
+      openaiApiKey: input.openaiApiKey,
+    });
+    if (!llmConfig) {
       return {
         finalOutput:
-          'Chave OpenAI nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY no ambiente (apenas demo).',
+          'Chave LLM nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY / OPENROUTER_API_KEY no ambiente (apenas demo).',
         events: [],
       };
     }
@@ -160,7 +256,11 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
     const catalogTools = buildCapabilityCatalogTools(
       config.tools,
       config.toolIntegrationContext,
-      meta,
+      {
+        ...meta,
+        runtimeModel: config.openaiRuntimeModel,
+        ...(config.imageGenerationModel ? { imageGenerationModel: config.imageGenerationModel } : {}),
+      },
     ) as Tool[];
     const mcpTools = buildMcpSdkTools(config.mcpToolSpecs, meta) as Tool[];
     const customTools = buildWorkspaceCustomTools(config.customToolDefinitions ?? [], meta, {
@@ -173,12 +273,12 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       instructions: config.systemInstruction ?? 'Voce e um agente de IA.',
       tools: sdkTools,
       handoffs: [],
-      ...buildAgentModelOptions(config.openaiRuntimeModel),
+      ...buildAgentModelOptions(config.openaiRuntimeModel, llmConfig.provider),
     });
 
     const userInput = buildRunnerInputFromAgentInput(input);
     const runner = new Runner({
-      modelProvider: new OpenAIProvider({ apiKey }),
+      modelProvider: buildProviderFromConfig(llmConfig, input.llmExtraHeaders),
     });
 
     try {
@@ -201,11 +301,14 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
   }
 
   async runCoordinatorTurn(params: ICoordinatorRunParams): Promise<IAgentRunResult> {
-    const apiKey = params.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
+    const llmConfig = resolveEffectiveLlmConfig({
+      llmConfig: params.llmConfig,
+      openaiApiKey: params.openaiApiKey,
+    });
+    if (!llmConfig) {
       return {
         finalOutput:
-          'Chave OpenAI nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY no ambiente (apenas demo).',
+          'Chave LLM nao configurada. Defina integracoes do workspace em Configuracoes ou OPENAI_API_KEY / OPENROUTER_API_KEY no ambiente (apenas demo).',
         events: [],
       };
     }
@@ -216,11 +319,11 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       instructions: params.systemInstruction ?? 'Voce e o coordenador do time de agentes.',
       tools,
       handoffs: [],
-      ...buildAgentModelOptions(params.openaiRuntimeModel),
+      ...buildAgentModelOptions(params.openaiRuntimeModel, llmConfig.provider),
     });
 
     const runner = new Runner({
-      modelProvider: new OpenAIProvider({ apiKey }),
+      modelProvider: buildProviderFromConfig(llmConfig, params.llmExtraHeaders),
     });
 
     try {

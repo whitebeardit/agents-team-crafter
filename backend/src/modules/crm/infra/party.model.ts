@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const PartySchema = new Schema(
   {
@@ -15,6 +16,11 @@ const PartySchema = new Schema(
     email: { type: String },
     phone: { type: String },
     notes: { type: String },
+    origin: {
+      type: RecordOriginSubschema,
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_crm_party' }),
+    },
   },
   { timestamps: true },
 );

@@ -3,6 +3,7 @@ import type { UpdateQuery } from 'mongoose';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { assertPersistablePartyPhone, normalizePartyPhone } from '../domain/normalize-party-phone.js';
 import { PartyModel } from './party.model.js';
+import { resolveRecordOrigin, type TRecordOrigin } from '../../../shared/kernel/record-origin.js';
 
 export type PartyOptionalFieldKey = 'email' | 'phone' | 'notes';
 
@@ -145,10 +146,22 @@ export class PartyRepository {
       email?: string;
       phone?: string;
       notes?: string;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
+      actorAgentId?: string;
+      actorRole?: 'coordinator' | 'specialist';
     },
   ) {
     const wid = new Types.ObjectId(workspaceId);
     const phoneDigits = this.normalizeOptionalPhoneFromRaw(input.phone);
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      actorContext: { agentId: input.actorAgentId, role: input.actorRole },
+      correlationId: input.correlationId,
+      fallbackSlug: 'crm_party',
+    });
     try {
       const doc = await PartyModel.create({
         workspaceId: wid,
@@ -158,6 +171,7 @@ export class PartyRepository {
         email: input.email?.trim(),
         phone: phoneDigits,
         notes: input.notes?.trim(),
+        origin,
       });
       return this.toPublic(doc);
     } catch (err) {
@@ -406,6 +420,7 @@ export class PartyRepository {
     email?: string;
     phone?: string;
     notes?: string;
+    origin: TRecordOrigin;
     createdAt?: Date;
     updatedAt?: Date;
   }) {
@@ -418,6 +433,7 @@ export class PartyRepository {
       email: d.email,
       phone: d.phone,
       notes: d.notes,
+      origin: d.origin,
       createdAt: d.createdAt?.toISOString(),
       updatedAt: d.updatedAt?.toISOString(),
     };

@@ -4,6 +4,8 @@ Plataforma SaaS para criacao e gerenciamento de times de agentes de IA com edito
 
 **Arquitetura (wiki):** visão multi-tenant, diagramas e documentação por camada em [docs/AGENTS.md](./docs/AGENTS.md).
 
+**Visão geral do produto (screenshots, Telegram, tour da UI):** ver o [README na raiz do monorepo](../README.md).
+
 ## Sumario
 
 - [Requisitos](#requisitos)
@@ -29,14 +31,14 @@ Plataforma SaaS para criacao e gerenciamento de times de agentes de IA com edito
 
 ## Requisitos
 
-- **Node.js** conforme `engines` em [`package.json`](./package.json) (atualmente >= 20.19, com faixas 22/24 suportadas)
-- **npm** (este app usa [`package-lock.json`](./package-lock.json); nao ha lockfile pnpm neste pacote)
+- **Node.js** conforme `engines` em `[package.json](./package.json)` (atualmente >= 20.19, com faixas 22/24 suportadas)
+- **npm** (este app usa `[package-lock.json](./package-lock.json)`; nao ha lockfile pnpm neste pacote)
 - MongoDB >= 6.x (recomendado)
 - Redis opcional no **BFF** para estado persistente do Chat SDK (`REDIS_URL` em `backend/.env`; ver [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md))
 
 ## Instalacao
 
-No **monorepo** [`agents-team-crafter`](../README.md), a app Next.js fica em `v0-team-ai-crafter/`:
+No **monorepo** `[agents-team-crafter](../README.md)`, a app Next.js fica em `v0-team-ai-crafter/`:
 
 ```bash
 cd v0-team-ai-crafter
@@ -55,7 +57,7 @@ npm run build
 npm start
 ```
 
-No **backend** (BFF), com MongoDB no ar, rode `npm run seed` para criar dados de demo. Depois faça login no app com **admin@whitebeard.dev** / **Admin123!** (somente desenvolvimento).
+No **backend** (BFF), com MongoDB no ar, rode `npm run seed` para criar dados de demo. Depois faça login no app com **[admin@whitebeard.dev](mailto:admin@whitebeard.dev)** / **Admin123!** (somente desenvolvimento).
 
 ### Testes E2E (Playwright)
 
@@ -115,6 +117,7 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 │   │   ├── teams/                # Listagem e gestao de times
 │   │   │   ├── [id]/             # Detalhes do time
 │   │   │   │   ├── graph/        # Editor de grafo
+│   │   │   │   ├── office/       # Escritorio virtual
 │   │   │   │   └── gallery/      # Galeria (time)
 │   │   │   ├── create/           # Wizard criar time
 │   │   │   └── ai-create/        # Criacao assistida por IA
@@ -147,33 +150,36 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 
 ## Rotas da Aplicacao
 
-Superficies de **negócio** com página dedicada (ex.: `/crm`, `/schedule`) coexistem com o núcleo do produto (times, agentes, canais). Outras verticais do BFF (care, finance, clinical, …) podem ganhar rota equivalente quando houver UI — até lá operam via **runtime de tools** e canais. Itens da barra lateral: [`components/layout/app-navigation.tsx`](./components/layout/app-navigation.tsx).
+Superficies de **negócio** com página dedicada (ex.: `/crm`, `/schedule`) coexistem com o núcleo do produto (times, agentes, canais). Outras verticais do BFF (care, finance, clinical, …) podem ganhar rota equivalente quando houver UI — até lá operam via **runtime de tools** e canais. Itens da barra lateral: `[components/layout/app-navigation.tsx](./components/layout/app-navigation.tsx)`.
 
-| Rota                  | Descricao                                          |
-| --------------------- | -------------------------------------------------- |
-| `/`                   | Redirect para `/login` ou `/dashboard`             |
-| `/login`              | Pagina de autenticacao                             |
-| `/register`           | Cadastro de novo usuario                           |
-| `/invite/[inviteId]`  | Aceitar convite para workspace                     |
-| `/dashboard`          | Dashboard principal com metricas                   |
-| `/agents`             | Catalogo de agentes disponiveis                    |
-| `/agents/create`      | Wizard de criacao de agente                        |
-| `/agents/[id]`        | Detalhe de um agente; exportar ou copiar JSON (`GET /api/v1/agents/:id/export`) |
-| `/governance`         | Painel de governance (metricas, auditoria)         |
-| `/runs`               | Historico de execucoes de times                    |
-| `/tool-definitions`   | Gestao de definicoes de tools (conforme permissao) |
-| `/teams`              | Listagem de times                                  |
-| `/teams/create`       | Wizard de criacao de time (5 etapas)               |
-| `/teams/ai-create`    | Fluxo de criacao de time assistido por IA          |
+
+| Rota                  | Descricao                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `/`                   | Redirect para `/login` ou `/dashboard`                                             |
+| `/login`              | Pagina de autenticacao                                                             |
+| `/register`           | Cadastro de novo usuario                                                           |
+| `/invite/[inviteId]`  | Aceitar convite para workspace                                                     |
+| `/dashboard`          | Dashboard principal com metricas                                                   |
+| `/agents`             | Catalogo de agentes disponiveis                                                    |
+| `/agents/create`      | Wizard de criacao de agente                                                        |
+| `/agents/[id]`        | Detalhe de um agente; exportar ou copiar JSON (`GET /api/v1/agents/:id/export`)    |
+| `/governance`         | Painel de governance (metricas, auditoria)                                         |
+| `/runs`               | Historico de execucoes de times                                                    |
+| `/tool-definitions`   | Gestao de definicoes de tools (conforme permissao)                                 |
+| `/teams`              | Listagem de times                                                                  |
+| `/teams/create`       | Wizard de criacao de time (5 etapas)                                               |
+| `/teams/ai-create`    | Fluxo de criacao de time assistido por IA                                          |
 | `/teams/[id]`         | Detalhes do time; exportar ou copiar JSON do time (`GET /api/v1/teams/:id/export`) |
-| `/teams/[id]/graph`   | Editor visual de grafo do time                     |
-| `/teams/[id]/gallery` | Galeria associada ao time                          |
-| `/templates`          | Galeria de templates                               |
-| `/channels`           | Gestao de canais                                   |
-| `/schedule`           | Agenda (scheduling)                                |
-| `/crm`                | CRM — clientes/parties do workspace                |
-| `/observability`      | Observabilidade operacional                        |
-| `/settings`           | Configuracoes do workspace e perfil                |
+| `/teams/[id]/graph`   | Editor visual de grafo do time                                                     |
+| `/teams/[id]/office`  | Escritorio virtual (canvas, timeline, replay)                                      |
+| `/teams/[id]/gallery` | Galeria associada ao time                                                          |
+| `/templates`          | Galeria de templates                                                               |
+| `/channels`           | Gestao de canais                                                                   |
+| `/schedule`           | Agenda (scheduling)                                                                |
+| `/crm`                | CRM — clientes/parties do workspace                                                |
+| `/observability`      | Observabilidade operacional                                                        |
+| `/settings`           | Configuracoes do workspace e perfil                                                |
+
 
 ---
 
@@ -183,7 +189,7 @@ Base URL: `{API_URL}/api/v1`
 
 ### Indice e fonte no codigo
 
-Para evitar drift entre este documento e o servidor, a **lista canonica de rotas** registadas sob `/api/v1` esta em [`backend/src/app/routes.ts`](../backend/src/app/routes.ts). Resumo em camada: [docs/backend-api.md](./docs/backend-api.md). Webhooks Chat SDK (URLs e segredos): [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md).
+Para evitar drift entre este documento e o servidor, a **lista canonica de rotas** registadas sob `/api/v1` esta em `[backend/src/app/routes.ts](../backend/src/app/routes.ts)`. Resumo em camada: [docs/backend-api.md](./docs/backend-api.md). Webhooks Chat SDK (URLs e segredos): [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md).
 
 ### Headers Padrao
 
@@ -507,15 +513,19 @@ Convida membro para o workspace.
 Lista todos os agentes disponiveis.
 
 **Query Parameters:**
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `origin` | string | Filtrar por origem: `whitebeard` ou `company` |
-| `category` | string | Filtrar por categoria |
-| `channel` | string | Filtrar por canal suportado |
-| `role` | string | Filtrar por role: `coordinator` ou `specialist` |
-| `search` | string | Busca por nome ou descricao |
-| `page` | number | Pagina (default: 1) |
-| `perPage` | number | Items por pagina (default: 20) |
+
+
+| Param      | Tipo   | Descricao                                                                 |
+| ---------- | ------ | ------------------------------------------------------------------------- |
+| `origin`   | string | Filtrar por origem: `whitebeard` ou `company`                           |
+| `category` | string | Filtrar por categoria                                                   |
+| `channel`  | string | Filtrar por canal suportado                                             |
+| `role`     | string | Filtrar por role: `coordinator` ou `specialist`                         |
+| `teamId`   | string | Opcional: restringe aos agentes do time (coordenador + `agentIds`)       |
+| `search`   | string | Busca por nome ou descricao                                               |
+| `page`     | number | Pagina (default: 1)                                                       |
+| `perPage`  | number | Items por pagina (default: 20)                                            |
+
 
 **Response 200:**
 
@@ -712,12 +722,15 @@ Lista categorias disponiveis.
 Lista times do workspace.
 
 **Query Parameters:**
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `status` | string | Filtrar por status: `active`, `draft`, `inactive` |
-| `search` | string | Busca por nome ou descricao |
-| `page` | number | Pagina (default: 1) |
-| `perPage` | number | Items por pagina (default: 20) |
+
+
+| Param     | Tipo   | Descricao                                         |
+| --------- | ------ | ------------------------------------------------- |
+| `status`  | string | Filtrar por status: `active`, `draft`, `inactive` |
+| `search`  | string | Busca por nome ou descricao                       |
+| `page`    | number | Pagina (default: 1)                               |
+| `perPage` | number | Items por pagina (default: 20)                    |
+
 
 **Response 200:**
 
@@ -1125,11 +1138,14 @@ Valida a configuracao do grafo.
 Lista templates disponiveis.
 
 **Query Parameters:**
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `origin` | string | Filtrar por origem: `whitebeard` ou `company` |
-| `category` | string | Filtrar por categoria |
-| `search` | string | Busca por nome ou descricao |
+
+
+| Param      | Tipo   | Descricao                                     |
+| ---------- | ------ | --------------------------------------------- |
+| `origin`   | string | Filtrar por origem: `whitebeard` ou `company` |
+| `category` | string | Filtrar por categoria                         |
+| `search`   | string | Busca por nome ou descricao                   |
+
 
 **Response 200:**
 
@@ -1279,11 +1295,14 @@ Remove um template customizado.
 Lista canais do workspace.
 
 **Query Parameters:**
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `type` | string | Filtrar por tipo: `whatsapp`, `slack`, `email`, `api`, `teams`, `discord`, `gchat`, `telegram`, `github`, `linear` |
-| `status` | string | Filtrar por status: `connected`, `disconnected`, `pending` |
-| `teamId` | string | Filtrar por time associado |
+
+
+| Param    | Tipo   | Descricao                                                                                                          |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| `type`   | string | Filtrar por tipo: `whatsapp`, `slack`, `email`, `api`, `teams`, `discord`, `gchat`, `telegram`, `github`, `linear` |
+| `status` | string | Filtrar por status: `connected`, `disconnected`, `pending`                                                         |
+| `teamId` | string | Filtrar por time associado                                                                                         |
+
 
 **Response 200:**
 
@@ -1623,10 +1642,13 @@ Testa a conexao do canal.
 Lista conexoes MCP do workspace.
 
 **Query Parameters:**
-| Param | Tipo | Descricao |
-|-------|------|-----------|
+
+
+| Param    | Tipo   | Descricao                                                  |
+| -------- | ------ | ---------------------------------------------------------- |
 | `status` | string | Filtrar por status: `connected`, `disconnected`, `pending` |
-| `search` | string | Busca por nome ou descricao |
+| `search` | string | Busca por nome ou descricao                                |
+
 
 **Response 200:**
 
@@ -1975,10 +1997,13 @@ Remove vinculo MCP de um agente.
 Lista fontes de conhecimento do workspace.
 
 **Query Parameters:**
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `type` | string | Filtrar por tipo: `document`, `database`, `api`, `website` |
-| `status` | string | Filtrar por status: `active`, `inactive`, `syncing` |
+
+
+| Param    | Tipo   | Descricao                                                  |
+| -------- | ------ | ---------------------------------------------------------- |
+| `type`   | string | Filtrar por tipo: `document`, `database`, `api`, `website` |
+| `status` | string | Filtrar por status: `active`, `inactive`, `syncing`        |
+
 
 **Response 200:**
 
@@ -2299,9 +2324,17 @@ Atualiza ferramentas do agente.
 }
 ```
 
-#### PUT /agents/:id/channels
+#### PUT /agents/:id/channels (legado / declarativo)
 
-Atualiza configuracao de canais do agente.
+> A partir da remoção da aba **Canais** em `/agents/:id`, esta rota não é mais
+> exposta na UI. Permanece disponível apenas para imports antigos e clientes API
+> que ainda atualizem o snapshot declarativo `channelConfig`. **Não influencia
+> o roteamento em runtime.** O vínculo operacional do Chat SDK é
+> `team.channelIds` (ver `docs/CHAT_SDK_TEAM_TRIGGER.md`); a aba **Canais** do
+> time é a fonte de verdade.
+
+Atualiza o snapshot declarativo de canais do agente coordenador (metadado para
+export/import).
 
 **Request:**
 
@@ -2429,10 +2462,12 @@ Executa o **time**: o **coordenador** e o unico agente LLM de topo; **especialis
 
 **Erros comuns:**
 
+
 | HTTP | `error.code`                                    | Quando                       |
 | ---- | ----------------------------------------------- | ---------------------------- |
 | 404  | `NOT_FOUND`                                     | Time nao existe no workspace |
 | 400  | `TEAM_RUNTIME_GUARD` / `TEAM_RUNTIME_INVARIANT` | Invariantes de runtime       |
+
 
 #### POST /agents/:id/archive
 
@@ -2829,24 +2864,27 @@ Regenera uma chave de API.
 
 ### Rotas adicionais do BFF (governance, runs, planos, audit, etc.)
 
-Alem dos recursos documentados nas secoes anteriores, o BFF expoe modulos registados em [`routes.ts`](../backend/src/app/routes.ts), entre outros:
+Alem dos recursos documentados nas secoes anteriores, o BFF expoe modulos registados em `[routes.ts](../backend/src/app/routes.ts)`, entre outros:
+
 
 | Area                 | Prefixo / ficheiro                                                                                                                                       | Notas                                                                                             |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **governance**       | `/governance/*` — [`governance.routes.ts`](../backend/src/modules/governance/interfaces/governance.routes.ts)                                            | Analytics, SLOs, eventos de auditoria (`GET /governance/audit-events` com rate limit; ver abaixo) |
-| **runs**             | `/runs`, `/runs/:runId`, `/runs/:runId/events` — [`run.routes.ts`](../backend/src/modules/runs/interfaces/run.routes.ts)                                 | Historico de execucoes de times                                                                   |
-| **agent-plans**      | `/agent-plans`, `/agent-plans/:id`, `POST .../execute` — [`agent-plan.routes.ts`](../backend/src/modules/agent-planning/interfaces/agent-plan.routes.ts) | Planos por agente                                                                                 |
-| **agent-governance** | `GET/POST /agent-overlap-reviews` — [`agent-governance.routes.ts`](../backend/src/modules/agent-governance/interfaces/agent-governance.routes.ts)        | Revisao de sobreposicao de dominio entre agentes                                                  |
-| **platform-agents**  | `GET /platform/agent-teams/catalog` — [`platform-agent.routes.ts`](../backend/src/modules/platform-agents/interfaces/platform-agent.routes.ts)           | Catálogo de equipas de agentes de plataforma                                                      |
+| **governance**       | `/governance/`* — `[governance.routes.ts](../backend/src/modules/governance/interfaces/governance.routes.ts)`                                            | Analytics, SLOs, eventos de auditoria (`GET /governance/audit-events` com rate limit; ver abaixo) |
+| **runs**             | `/runs`, `/runs/:runId`, `/runs/:runId/events` — `[run.routes.ts](../backend/src/modules/runs/interfaces/run.routes.ts)`                                 | Historico de execucoes de times                                                                   |
+| **agent-plans**      | `/agent-plans`, `/agent-plans/:id`, `POST .../execute` — `[agent-plan.routes.ts](../backend/src/modules/agent-planning/interfaces/agent-plan.routes.ts)` | Planos por agente                                                                                 |
+| **agent-governance** | `GET/POST /agent-overlap-reviews` — `[agent-governance.routes.ts](../backend/src/modules/agent-governance/interfaces/agent-governance.routes.ts)`        | Revisao de sobreposicao de dominio entre agentes                                                  |
+| **platform-agents**  | `GET /platform/agent-teams/catalog` — `[platform-agent.routes.ts](../backend/src/modules/platform-agents/interfaces/platform-agent.routes.ts)`           | Catálogo de equipas de agentes de plataforma                                                      |
+
 
 As secoes seguintes detalham **audit**, **tool-definitions** e **team-plans**. Todas as rotas autenticadas tipicas exigem `Authorization`, `X-Workspace-Id` e envelope padrao. Detalhes de validacao: schemas Zod nos ficheiros indicados.
 
 #### GET /audit-logs
 
 - **Quem:** membro com papel **admin** ou **owner** no workspace.
-- **Resposta:** lista de entradas de auditoria (limite fixo no servidor; ver [`audit.routes.ts`](../backend/src/modules/audit/interfaces/audit.routes.ts)).
+- **Resposta:** lista de entradas de auditoria (limite fixo no servidor; ver `[audit.routes.ts](../backend/src/modules/audit/interfaces/audit.routes.ts)`).
 
 #### Tool definitions (`/tool-definitions`)
+
 
 | Metodo | Path                    | Papel              |
 | ------ | ----------------------- | ------------------ |
@@ -2856,9 +2894,11 @@ As secoes seguintes detalham **audit**, **tool-definitions** e **team-plans**. T
 | PUT    | `/tool-definitions/:id` | Admin workspace    |
 | DELETE | `/tool-definitions/:id` | Admin workspace    |
 
-Corpo de criacao/atualizacao: `name`, `slug`, `kind` (`builtin_ref` \| `http_webhook` \| `mcp_ref`), `jsonSchema` e `config` opcionais. Ver [`tool-definition.routes.ts`](../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts).
+
+Corpo de criacao/atualizacao: `name`, `slug`, `kind` (`builtin_ref`  `http_webhook`  `mcp_ref`), `jsonSchema` e `config` opcionais. Ver `[tool-definition.routes.ts](../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts)`.
 
 #### Team plans (`/team-plans`)
+
 
 | Metodo | Path                             | Descricao                                                                                     |
 | ------ | -------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -2868,13 +2908,14 @@ Corpo de criacao/atualizacao: `name`, `slug`, `kind` (`builtin_ref` \| `http_web
 | POST   | `/team-plans/:id/execute`        | Executa plano; body opcional `{ operationId?` }                                               |
 | POST   | `/team-plans/:id/execute/stream` | Mesmo body; resposta **SSE** (`text/event-stream`) com eventos `phase`, `complete` ou `error` |
 
-Implementacao: [`team-plan.routes.ts`](../backend/src/modules/team-planning/interfaces/team-plan.routes.ts).
+
+Implementacao: `[team-plan.routes.ts](../backend/src/modules/team-planning/interfaces/team-plan.routes.ts)`.
 
 ---
 
 ## Tipos TypeScript
 
-**Fonte de verdade:** [`lib/types/index.ts`](./lib/types/index.ts). Importe tipos a partir desse modulo no frontend; nao copie blocos longos deste README para evitar drift.
+**Fonte de verdade:** `[lib/types/index.ts](./lib/types/index.ts)`. Importe tipos a partir desse modulo no frontend; nao copie blocos longos deste README para evitar drift.
 
 Extrato alinhado ao codigo atual (canais e pedido de execucao de time):
 
@@ -2936,6 +2977,7 @@ Tipos de **plano de time** (`TeamPlanDraft`, `TeamPlanAgentDraft`, …) e restan
 
 ## Codigos de Erro
 
+
 | Codigo                | HTTP | Descricao                                                                                                |
 | --------------------- | ---- | -------------------------------------------------------------------------------------------------------- |
 | `INVALID_CREDENTIALS` | 401  | Credenciais invalidas                                                                                    |
@@ -2947,13 +2989,14 @@ Tipos de **plano de time** (`TeamPlanDraft`, `TeamPlanAgentDraft`, …) e restan
 | `TOO_MANY_REQUESTS`   | 429  | Limite de pedidos excedido (ex.: `GET /governance/audit-events`); corpo pode incluir `retryAfterSeconds` |
 | `INTERNAL_ERROR`      | 500  | Erro interno do servidor                                                                                 |
 
+
 > Limites adicionais podem ser aplicados no reverse proxy.
 
 ---
 
 ## Rate limiting e limites no BFF
 
-Nao ha rate limiting **global** aplicado a todas as rotas HTTP no [`app.ts`](../backend/src/app/app.ts). Existem limites **por rota** em **governance**: por exemplo `GET /governance/audit-events` usa janela fixa (Redis quando `REDIS_URL` esta configurado; fallback in-memory) — ver [`governance.routes.ts`](../backend/src/modules/governance/interfaces/governance.routes.ts). Ha limite de **tamanho de upload** em avatar (`multipart`, 1 MB) em [`backend/src/app/app.ts`](../backend/src/app/app.ts).
+Nao ha rate limiting **global** aplicado a todas as rotas HTTP no `[app.ts](../backend/src/app/app.ts)`. Existem limites **por rota** em **governance**: por exemplo `GET /governance/audit-events` usa janela fixa (Redis quando `REDIS_URL` esta configurado; fallback in-memory) — ver `[governance.routes.ts](../backend/src/modules/governance/interfaces/governance.routes.ts)`. Ha limite de **tamanho de upload** em avatar (`multipart`, 1 MB) em `[backend/src/app/app.ts](../backend/src/app/app.ts)`.
 
 Para producao, configure limites adicionais no **edge** (API gateway, CDN, Nginx, etc.) conforme a sua politica.
 
@@ -2963,7 +3006,7 @@ Para producao, configure limites adicionais no **edge** (API gateway, CDN, Nginx
 
 ### Chat SDK (implementado)
 
-Entrada publica para Slack, Discord, Telegram, GitHub, etc., sob **`/api/v1/webhooks/chat/...`**. Nao usa JWT de utilizador; identifica `workspaceId` (e canal) pelo path e configuracao. Documentacao normativa: [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md) e [docs/chat-sdk.md](./docs/chat-sdk.md).
+Entrada publica para Slack, Discord, Telegram, GitHub, etc., sob `**/api/v1/webhooks/chat/...`**. Nao usa JWT de utilizador; identifica `workspaceId` (e canal) pelo path e configuracao. Documentacao normativa: [CHAT_SDK_TEAM_TRIGGER.md](../docs/CHAT_SDK_TEAM_TRIGGER.md) e [docs/chat-sdk.md](./docs/chat-sdk.md).
 
 ### Webhooks de eventos de produto (nao implementados)
 
@@ -2979,5 +3022,6 @@ Notificacoes push para integradores (ex.: `team.created`, `channel.connected`, `
 
 Para duvidas ou problemas, entre em contato:
 
-- Email: suporte@teamagentsaicrafter.com
-- Documentacao: https://docs.teamagentsaicrafter.com
+- Email: [suporte@teamagentsaicrafter.com](mailto:suporte@teamagentsaicrafter.com)
+- Documentacao: [https://docs.teamagentsaicrafter.com](https://docs.teamagentsaicrafter.com)
+

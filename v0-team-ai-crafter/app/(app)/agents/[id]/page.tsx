@@ -1,12 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import type {
   Agent,
   AgentExportPayload,
   AgentMCPBinding,
+  BusinessActionDomain,
   KnowledgeSource,
   MCPConnection,
   OperationalCatalogTool,
@@ -51,7 +52,6 @@ import {
   Brain,
   Wrench,
   Plug,
-  Radio,
   Shield,
   Users,
   Settings2,
@@ -64,22 +64,17 @@ import {
   Check,
   AlertCircle,
   Info,
-  ExternalLink,
   Download,
   ClipboardCopy,
+  Library,
+  Loader2,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { CardTitleWithInfo, FieldInfo, LabelWithInfo } from "@/components/agents/field-info"
 import { agentFieldHelp } from "@/lib/copy/agent-field-help"
 import { normalizeAgentCategory } from "@/lib/utils/agent-category"
 import { copyJsonToClipboard, downloadJsonFile } from "@/lib/utils/export-json"
-
-const channelLabels: Record<string, string> = {
-  whatsapp: "WhatsApp",
-  slack: "Slack",
-  email: "Email",
-  api: "API",
-}
+import { buildWorkspaceSecondBrainHref, vaultNotesEmptyCopy } from "@/lib/vault/ui-state"
 
 const accessLevelLabels: Record<string, string> = {
   read: "Leitura",
@@ -102,6 +97,24 @@ const OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK: readonly string[] = [
   "gpt-4o",
   "gpt-4o-mini",
 ]
+
+/** Mesma forma que `secretsMasked` no GET /integrations (fallback do catch precisa do mesmo tipo para não unir com branch estreita). */
+type AgentPageIntegrationsSecretsMasked = {
+  llmProvider?: "openai" | "openrouter"
+  openaiApiKeyConfigured: boolean
+  openrouterApiKeyConfigured?: boolean
+  enabledOpenAiChatModels?: string[]
+  allowedLlmModelIds?: string[]
+}
+
+type AgentPageOpenRouterCatalogRow = {
+  id: string
+  outputModalities?: string[]
+}
+
+const integrationsSecretsMaskedFallback: AgentPageIntegrationsSecretsMasked = {
+  openaiApiKeyConfigured: false,
+}
 
 type TBusinessCatalogItem = {
   actionId: string
@@ -158,6 +171,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const params = useParams<{ id: string }>()
   const id = params.id
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
   const [isMCPBindingOpen, setIsMCPBindingOpen] = useState(false)
@@ -191,21 +205,49 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       config?: Record<string, unknown>
     }>
   >([])
-  const [enabledChannels, setEnabledChannels] = useState<Array<"whatsapp" | "slack" | "email" | "api">>([])
-  const [canReplyDirectly, setCanReplyDirectly] = useState(true)
   const [securityAccessLevel, setSecurityAccessLevel] = useState<"read" | "write" | "restricted">("read")
   const [requiresApproval, setRequiresApproval] = useState(false)
-  const [workspaceOpenAiConfigured, setWorkspaceOpenAiConfigured] = useState<boolean | null>(null)
+  const [workspaceLlmConfigured, setWorkspaceLlmConfigured] = useState<boolean | null>(null)
   const [chatModelsForAgentSelect, setChatModelsForAgentSelect] = useState<string[]>([])
+  const [imageModelsForAgentSelect, setImageModelsForAgentSelect] = useState<string[]>([])
   const [openaiRuntimeModelPick, setOpenaiRuntimeModelPick] = useState<string>("__unset__")
+  const [imageGenerationModelPick, setImageGenerationModelPick] = useState<string>("__unset__")
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
   const [businessActionCatalog, setBusinessActionCatalog] = useState<TBusinessCatalogItem[]>([])
+  const [businessDomains, setBusinessDomains] = useState<BusinessActionDomain[]>([])
+  const [domainBusy, setDomainBusy] = useState<string | null>(null)
   const [workspaceToolFilterKind, setWorkspaceToolFilterKind] = useState<string>("all")
   const [workspaceToolFilterDomain, setWorkspaceToolFilterDomain] = useState<string>("all")
   const [workspaceToolFilterRisk, setWorkspaceToolFilterRisk] = useState<string>("all")
   const [workspaceToolFilterExposure, setWorkspaceToolFilterExposure] = useState<string>("all")
   const [workspaceToolFilterOwner, setWorkspaceToolFilterOwner] = useState<string>("all")
   const [exportJsonBusy, setExportJsonBusy] = useState(false)
+
+  type AgentVaultNoteRow = {
+    noteId: string
+    status: string
+    kind: string
+    title: string
+    bodyPreview: string
+    contentHash?: string
+    version?: number
+    partyId?: string
+  }
+  const [vaultNotes, setVaultNotes] = useState<AgentVaultNoteRow[]>([])
+  const [vaultLoading, setVaultLoading] = useState(false)
+  const [vaultNotesLoadError, setVaultNotesLoadError] = useState<"forbidden" | "network" | null>(null)
+  const [mainTab, setMainTab] = useState("overview")
+  const [vaultPartyFilter, setVaultPartyFilter] = useState<string>("")
+  const [partyOptions, setPartyOptions] = useState<Array<{ id: string; displayName: string }>>([])
+  const [vaultEditOpen, setVaultEditOpen] = useState(false)
+  const [vaultEditBusy, setVaultEditBusy] = useState(false)
+  const [vaultEditDraft, setVaultEditDraft] = useState<{
+    noteId: string
+    title: string
+    body: string
+    contentHash: string
+  } | null>(null)
+  const vaultNoteRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const applyAgentPayload = useCallback(
     (a: Agent, options?: { operationalCatalogToolIds?: Set<string> }) => {
@@ -228,11 +270,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     }
     setOpenaiBuiltInTools(a.capabilities?.openaiBuiltInTools ?? [])
     setCustomToolDefinitionIds(a.capabilities?.customToolDefinitionIds ?? [])
-    setEnabledChannels((a.channelConfig?.enabled ?? a.channels) as Array<"whatsapp" | "slack" | "email" | "api">)
-    setCanReplyDirectly(a.channelConfig?.canReplyDirectly ?? true)
     setSecurityAccessLevel((a.security?.accessLevel ?? "read") as "read" | "write" | "restricted")
     setRequiresApproval(a.security?.requiresApproval ?? false)
     setOpenaiRuntimeModelPick(a.openaiRuntimeModel ?? "__unset__")
+    setImageGenerationModelPick(a.imageGenerationModel ?? "__unset__")
   },
   [],
 )
@@ -247,7 +288,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     })
     void (async () => {
       try {
-        const [agentRes, mcpsRes, bindingsRes, knowledgeRes, teamsRes, toolDefsRes, integrationsRes, catalogRes] =
+        const [agentRes, mcpsRes, bindingsRes, knowledgeRes, teamsRes, toolDefsRes, integrationsRes, catalogRes, domainsRes] =
           await Promise.all([
           api.get<Agent>(`/agents/${id}`),
           api.get<MCPConnection[]>("/mcps"),
@@ -268,47 +309,80 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             .catch(() => ({ data: [], meta: {} })),
           api
             .get<{
-              secretsMasked: {
-                openaiApiKeyConfigured: boolean
-                enabledOpenAiChatModels?: string[]
-              }
+              allowedLlmModelIds?: string[]
+              secretsMasked: AgentPageIntegrationsSecretsMasked
               operationalCatalogTools: OperationalCatalogTool[]
               availableOpenAiChatModels?: string[]
             }>("/settings/workspace/integrations")
             .catch(() => ({
               data: {
-                secretsMasked: { openaiApiKeyConfigured: false },
+                secretsMasked: integrationsSecretsMaskedFallback,
                 operationalCatalogTools: [] as OperationalCatalogTool[],
                 availableOpenAiChatModels: [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK],
+                allowedLlmModelIds: [] as string[],
               },
               meta: {},
             })),
           api.get<TBusinessCatalogItem[]>("/business-actions/catalog").catch(() => ({ data: [], meta: {} })),
+          api.get<BusinessActionDomain[]>("/business-actions/domains").catch(() => ({ data: [], meta: {} })),
         ])
         const opTools = integrationsRes.data.operationalCatalogTools ?? []
         setOperationalCatalogTools(opTools)
         const opIds = new Set(opTools.map((tool) => tool.id))
         applyAgentPayload(agentRes.data, { operationalCatalogToolIds: opIds })
-        setWorkspaceOpenAiConfigured(integrationsRes.data.secretsMasked.openaiApiKeyConfigured)
-        const avail =
-          integrationsRes.data.availableOpenAiChatModels &&
-          integrationsRes.data.availableOpenAiChatModels.length > 0
-            ? integrationsRes.data.availableOpenAiChatModels
-            : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
-        const sm = integrationsRes.data.secretsMasked
-        const en =
-          "enabledOpenAiChatModels" in sm && Array.isArray(sm.enabledOpenAiChatModels)
-            ? sm.enabledOpenAiChatModels
-            : undefined
-        const choices =
-          en && en.length > 0 ? avail.filter((m) => en.includes(m)) : [...avail]
-        setChatModelsForAgentSelect(choices.length > 0 ? choices : [...avail])
+        const intPayload = integrationsRes.data
+        const sm = intPayload.secretsMasked
+        const prov = sm.llmProvider === "openai" ? "openai" : "openrouter"
+        const llmReady =
+          prov === "openrouter"
+            ? Boolean(sm.openrouterApiKeyConfigured)
+            : Boolean(sm.openaiApiKeyConfigured)
+        setWorkspaceLlmConfigured(llmReady)
+        if (prov === "openrouter") {
+          const allowed = [
+            ...(sm.allowedLlmModelIds?.length ? sm.allowedLlmModelIds : intPayload.allowedLlmModelIds ?? []),
+          ].filter(Boolean)
+          try {
+            const cat = await api.get<{ models: AgentPageOpenRouterCatalogRow[] }>(
+              "/settings/workspace/integrations/openrouter-models?mode=all",
+            )
+            const rows = cat.data.models ?? []
+            const allowedSet = new Set(allowed)
+            const scoped = allowed.length > 0 ? rows.filter((m) => allowedSet.has(m.id)) : rows
+            const isText = (m: AgentPageOpenRouterCatalogRow) => {
+              const out = m.outputModalities ?? []
+              return out.length === 0 || out.includes("text")
+            }
+            const isImage = (m: AgentPageOpenRouterCatalogRow) => (m.outputModalities ?? []).includes("image")
+            const chat = scoped.filter(isText).map((m) => m.id)
+            const image = scoped.filter(isImage).map((m) => m.id)
+            setChatModelsForAgentSelect(chat.length > 0 ? chat : [...new Set(allowed)].sort((a, b) => a.localeCompare(b)))
+            setImageModelsForAgentSelect(image.length > 0 ? image : [...new Set(allowed)].sort((a, b) => a.localeCompare(b)))
+          } catch {
+            const fallback = [...new Set(allowed)].sort((a, b) => a.localeCompare(b))
+            setChatModelsForAgentSelect(fallback)
+            setImageModelsForAgentSelect(fallback)
+          }
+        } else {
+          const avail =
+            intPayload.availableOpenAiChatModels && intPayload.availableOpenAiChatModels.length > 0
+              ? intPayload.availableOpenAiChatModels
+              : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
+          const en =
+            "enabledOpenAiChatModels" in sm && Array.isArray(sm.enabledOpenAiChatModels)
+              ? sm.enabledOpenAiChatModels
+              : undefined
+          const choices = en && en.length > 0 ? avail.filter((m) => en.includes(m)) : [...avail]
+          setChatModelsForAgentSelect(choices.length > 0 ? choices : [...avail])
+          setImageModelsForAgentSelect(["dall-e-2", "dall-e-3"])
+        }
         setMcps(mcpsRes.data)
         setBindings(bindingsRes.data)
         setKnowledgeSources(knowledgeRes.data)
         setTeams(teamsRes.data)
         setWorkspaceToolDefs(toolDefsRes.data)
         setBusinessActionCatalog(Array.isArray(catalogRes.data) ? catalogRes.data : [])
+        setBusinessDomains(Array.isArray(domainsRes.data) ? domainsRes.data : [])
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Falha ao carregar agente"
         toast.error(msg)
@@ -325,6 +399,105 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       getWorkspaceId: () => currentWorkspace.id,
     })
   }, [token, refreshToken, currentWorkspace])
+
+  const enableDomainForAgent = async (domainId: string) => {
+    if (!api || !agent) return
+    setDomainBusy(domainId)
+    try {
+      const res = await api.put<{
+        capabilities: Agent["capabilities"]
+      }>(`/agents/${agent.id}/domains`, { domainIds: [domainId] })
+      setEnabledTools(res.data.capabilities?.platformBuiltInTools ?? res.data.capabilities?.tools ?? [])
+      setOpenaiBuiltInTools(res.data.capabilities?.openaiBuiltInTools ?? [])
+      setCustomToolDefinitionIds(res.data.capabilities?.customToolDefinitionIds ?? [])
+      const toolDefsRes = await api.get<typeof workspaceToolDefs>("/tool-definitions")
+      setWorkspaceToolDefs(toolDefsRes.data)
+      toast.success("Domínio habilitado para o agente")
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Falha ao habilitar domínio")
+    } finally {
+      setDomainBusy(null)
+    }
+  }
+
+  const refreshVaultNotes = useCallback(async () => {
+    if (!api || !id) return
+    setVaultLoading(true)
+    setVaultNotesLoadError(null)
+    try {
+      const path = vaultPartyFilter.trim()
+        ? `/vault/parties/${encodeURIComponent(vaultPartyFilter.trim())}/notes?limit=120`
+        : `/vault/notes?agentId=${encodeURIComponent(id)}&limit=120`
+      const res = await api.get<AgentVaultNoteRow[]>(path)
+      setVaultNotes(res.data)
+    } catch (e) {
+      setVaultNotes([])
+      if (e instanceof ApiError && e.status === 403) {
+        setVaultNotesLoadError("forbidden")
+      } else {
+        setVaultNotesLoadError("network")
+      }
+    } finally {
+      setVaultLoading(false)
+    }
+  }, [api, id, vaultPartyFilter])
+
+  useEffect(() => {
+    void refreshVaultNotes()
+  }, [refreshVaultNotes])
+
+  useEffect(() => {
+    if (searchParams.get("vaultTab") === "vault") {
+      setMainTab("vault")
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const party = searchParams.get("vaultParty")?.trim()
+    if (party) setVaultPartyFilter(party)
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!api) return
+    void (async () => {
+      try {
+        const res = await api.get<Array<{ id: string; displayName: string }>>("/parties?limit=50")
+        setPartyOptions(Array.isArray(res.data) ? res.data : [])
+      } catch {
+        setPartyOptions([])
+      }
+    })()
+  }, [api])
+
+  const vaultLiveTeamId = useMemo(() => {
+    if (!id || teams.length === 0) return null
+    const hit = teams.find((t) => t.agentIds?.includes(id))
+    return hit?.id ?? teams[0]?.id ?? null
+  }, [id, teams])
+
+  useEffect(() => {
+    if (!api || !vaultLiveTeamId || mainTab !== "vault") return
+    const ac = new AbortController()
+    void api.streamTeamLive(
+      vaultLiveTeamId,
+      {
+        onVaultNoteChanged: () => {
+          void refreshVaultNotes()
+        },
+      },
+      ac.signal,
+    )
+    return () => ac.abort()
+  }, [api, vaultLiveTeamId, mainTab, refreshVaultNotes])
+
+  const vaultScrollTarget = searchParams.get("vaultNote")
+  useEffect(() => {
+    if (!vaultScrollTarget || vaultNotes.length === 0) return
+    const el = vaultNoteRefs.current[vaultScrollTarget]
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [vaultScrollTarget, vaultNotes])
 
   const handleExportAgentJsonDownload = useCallback(async () => {
     if (!api || !agent) return
@@ -451,7 +624,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   }
 
   const readOnly = agent.origin === "whitebeard"
-  const channelsLockedForRole = agent.role === "specialist"
 
   const agentTeams = teams.filter((t) => t.coordinatorId === agent.id || t.agentIds.includes(agent.id))
 
@@ -519,18 +691,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               customToolDefinitionIds,
             }),
         },
-        ...(agent.role === "coordinator"
-          ? [
-              {
-                label: "Canais",
-                run: () =>
-                  api.put(`/agents/${agent.id}/channels`, {
-                    enabled: enabledChannels,
-                    canReplyDirectly,
-                  }),
-              },
-            ]
-          : []),
         {
           label: "Seguranca",
           run: () =>
@@ -545,6 +705,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             api.put(`/agents/${agent.id}/config`, {
               systemInstruction,
               openaiRuntimeModel: openaiRuntimeModelPick === "__unset__" ? null : openaiRuntimeModelPick,
+              imageGenerationModel: imageGenerationModelPick === "__unset__" ? null : imageGenerationModelPick,
             }),
         },
       ]
@@ -574,10 +735,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       const [agentFreshRes, integrationsFreshRes] = await Promise.all([
         api.get<Agent>(`/agents/${id}`),
         api.get<{
-          secretsMasked: {
-            openaiApiKeyConfigured: boolean
-            enabledOpenAiChatModels?: string[]
-          }
+          allowedLlmModelIds?: string[]
+          secretsMasked: AgentPageIntegrationsSecretsMasked
           operationalCatalogTools: OperationalCatalogTool[]
           availableOpenAiChatModels?: string[]
         }>("/settings/workspace/integrations"),
@@ -586,16 +745,40 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       setOperationalCatalogTools(opTools)
       const opIds = new Set(opTools.map((tool) => tool.id))
       applyAgentPayload(agentFreshRes.data, { operationalCatalogToolIds: opIds })
-      setWorkspaceOpenAiConfigured(integrationsFreshRes.data.secretsMasked.openaiApiKeyConfigured)
       const intData = integrationsFreshRes.data
-      const availFresh =
-        intData.availableOpenAiChatModels && intData.availableOpenAiChatModels.length > 0
-          ? intData.availableOpenAiChatModels
-          : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
-      const enFresh = intData.secretsMasked.enabledOpenAiChatModels
-      const choicesFresh =
-        enFresh && enFresh.length > 0 ? availFresh.filter((m) => enFresh.includes(m)) : [...availFresh]
-      setChatModelsForAgentSelect(choicesFresh.length > 0 ? choicesFresh : [...availFresh])
+      const smFresh = intData.secretsMasked
+      const provFresh = smFresh.llmProvider === "openai" ? "openai" : "openrouter"
+      setWorkspaceLlmConfigured(
+        provFresh === "openrouter"
+          ? Boolean(smFresh.openrouterApiKeyConfigured)
+          : Boolean(smFresh.openaiApiKeyConfigured),
+      )
+      if (provFresh === "openrouter") {
+        const allowedFresh = [
+          ...(smFresh.allowedLlmModelIds?.length ? smFresh.allowedLlmModelIds : intData.allowedLlmModelIds ?? []),
+        ].filter(Boolean)
+        if (allowedFresh.length > 0) {
+          setChatModelsForAgentSelect([...new Set(allowedFresh)].sort((a, b) => a.localeCompare(b)))
+        } else {
+          try {
+            const cat = await api.get<{ models: { id: string }[] }>(
+              "/settings/workspace/integrations/openrouter-models?mode=runtime",
+            )
+            setChatModelsForAgentSelect((cat.data.models ?? []).map((m) => m.id))
+          } catch {
+            setChatModelsForAgentSelect([])
+          }
+        }
+      } else {
+        const availFresh =
+          intData.availableOpenAiChatModels && intData.availableOpenAiChatModels.length > 0
+            ? intData.availableOpenAiChatModels
+            : [...OPENAI_WORKSPACE_CHAT_MODELS_FALLBACK]
+        const enFresh = intData.secretsMasked.enabledOpenAiChatModels
+        const choicesFresh =
+          enFresh && enFresh.length > 0 ? availFresh.filter((m) => enFresh.includes(m)) : [...availFresh]
+        setChatModelsForAgentSelect(choicesFresh.length > 0 ? choicesFresh : [...availFresh])
+      }
     } catch (e) {
       const msg = e instanceof ApiError ? `${e.message} (${e.code})` : "Falha ao salvar"
       toast.error(msg)
@@ -657,15 +840,16 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   return (
     <div className="space-y-6">
       <ContextualTourHost screenKey="agent_detail" />
-      {workspaceOpenAiConfigured === false && agent.origin === "company" ? (
+      {workspaceLlmConfigured === false && agent.origin === "company" ? (
         <Alert className="border-amber-500/50 bg-amber-500/5">
           <AlertCircle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-800 dark:text-amber-200">Chave OpenAI do workspace</AlertTitle>
+          <AlertTitle className="text-amber-800 dark:text-amber-200">Chave LLM do workspace</AlertTitle>
           <AlertDescription className="text-amber-900/90 dark:text-amber-100/90 flex flex-col sm:flex-row sm:items-center gap-3">
             <span>
-              Nao ha chave OpenAI (BYOK) neste workspace. O runtime dos agentes precisa dela em producao
-              multi-tenant, ou de <code className="text-xs bg-background/50 px-1 rounded">OPENAI_API_KEY</code>{" "}
-              no servidor (apenas demo local).
+              Nao ha chave BYOK do provider LLM ativo neste workspace. O runtime precisa dela em producao
+              multi-tenant, ou de <code className="text-xs bg-background/50 px-1 rounded">OPENROUTER_API_KEY</code> /{" "}
+              <code className="text-xs bg-background/50 px-1 rounded">OPENAI_API_KEY</code> no servidor (apenas demo
+              local).
             </span>
             <Button asChild variant="secondary" size="sm" className="w-fit shrink-0">
               <Link href="/settings?tab=integrations">Configurar integracoes</Link>
@@ -766,7 +950,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
         <div className="-mx-1 w-full overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] lg:mx-0 lg:overflow-visible lg:pb-0">
           <TabsList className="inline-flex h-auto min-h-10 w-max flex-nowrap justify-start gap-0.5 p-[3px] lg:grid lg:h-auto lg:w-full lg:grid-cols-7 lg:gap-0">
           <TabsTrigger value="overview" className="flex shrink-0 items-center gap-2">
@@ -781,6 +965,10 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
             <Brain className="w-4 h-4" />
             <span className="hidden sm:inline">Conhecimento</span>
           </TabsTrigger>
+          <TabsTrigger value="vault" className="flex shrink-0 items-center gap-2">
+            <Library className="w-4 h-4" />
+            <span className="hidden sm:inline">Second-brain</span>
+          </TabsTrigger>
           <TabsTrigger value="tools" className="flex shrink-0 items-center gap-2">
             <Wrench className="w-4 h-4" />
             <span className="hidden sm:inline">Ferramentas</span>
@@ -788,10 +976,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           <TabsTrigger value="mcps" className="flex shrink-0 items-center gap-2">
             <Plug className="w-4 h-4" />
             <span className="hidden sm:inline">MCPs</span>
-          </TabsTrigger>
-          <TabsTrigger value="channels" className="flex shrink-0 items-center gap-2">
-            <Radio className="w-4 h-4" />
-            <span className="hidden sm:inline">Canais</span>
           </TabsTrigger>
           <TabsTrigger value="security" className="flex shrink-0 items-center gap-2">
             <Shield className="w-4 h-4" />
@@ -943,13 +1127,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                       <p className="text-xs text-muted-foreground">Fontes de Conhecimento</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <Radio className="w-5 h-5 text-success" />
-                    <div>
-                      <p className="text-sm font-medium">{agent.channelConfig?.enabled?.length || agent.channels.length}</p>
-                      <p className="text-xs text-muted-foreground">Canais Ativos</p>
-                    </div>
-                  </div>
                 </div>
                 <Separator />
                 <div>
@@ -1059,25 +1236,30 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           {isAdvancedMode && (
             <Card>
               <CardHeader>
-                <CardTitleWithInfo title="Modelo OpenAI (override)" infoAriaLabel="Ajuda sobre modelo de runtime">
-                  <p>Opcional: sobrepoe o modelo padrao do workspace para este agente (coordenador ou especialista).</p>
+                <CardTitleWithInfo title="Modelo LLM (override)" infoAriaLabel="Ajuda sobre modelo de runtime">
+                  <p>
+                    Opcional: quando vazio, herda o modelo efetivo do workflow/workspace. Quando selecionado, salva um
+                    override apenas para este agente (coordenador ou especialista).
+                  </p>
                 </CardTitleWithInfo>
                 <CardDescription>
                   Opcoes listadas respeitam os modelos habilitados em{" "}
                   <Link href="/settings?tab=integrations" className="text-primary underline-offset-4 hover:underline">
                     Configuracoes &gt; Integracoes
                   </Link>
-                  .
+                  . Em OpenRouter, a lista pode incluir IDs <code className="text-xs">provider/model</code>, inclusive
+                  modelos de imagem permitidos no workspace.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2 max-w-lg">
-                <Label htmlFor="agent-openai-model">Modelo</Label>
+              <CardContent className="space-y-5 max-w-lg">
+                <div className="space-y-2">
+                <Label htmlFor="agent-openai-model">Modelo LLM/chat</Label>
                 <Select value={openaiRuntimeModelPick} onValueChange={setOpenaiRuntimeModelPick}>
                   <SelectTrigger id="agent-openai-model">
                     <SelectValue placeholder="Escolher..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__unset__">Usar padrao do workspace / produto</SelectItem>
+                    <SelectItem value="__unset__">Herdar do workflow / workspace</SelectItem>
                     {chatModelsForAgentSelect.map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
@@ -1085,6 +1267,27 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                     ))}
                   </SelectContent>
                 </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="agent-image-model">Modelo de imagem</Label>
+                  <Select value={imageGenerationModelPick} onValueChange={setImageGenerationModelPick}>
+                    <SelectTrigger id="agent-image-model">
+                      <SelectValue placeholder="Escolher..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unset__">Herdar imagem do workflow / workspace</SelectItem>
+                      {imageModelsForAgentSelect.map((m) => (
+                        <SelectItem key={`image-${m}`} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Usado pela tool <code className="text-xs">image_generation</code> quando ela envia{" "}
+                    <code className="text-xs">model: default</code>. Não altera o modelo de chat do agente.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1186,8 +1389,339 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
           </Card>
         </TabsContent>
 
+        <TabsContent value="vault" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitleWithInfo title="Second-brain deste agente" infoAriaLabel="Ajuda sobre second-brain">
+                <p>
+                  Escopo local: notas de aprendizado indexadas para este agente (propostas, activas ou arquivadas).
+                  Aprovação humana promove de proposta para activa. A listagem usa os mesmos endpoints que a Memória do
+                  time em Configurações, com filtro por agente (e opcionalmente por cliente).
+                </p>
+              </CardTitleWithInfo>
+              <CardDescription>
+                {vaultPartyFilter.trim() ? (
+                  <>
+                    Vista filtrada por este agente e pelo cliente (party) seleccionado. Para rever ou aprovar em
+                    contexto de workspace, abra{" "}
+                    <Link
+                      href={buildWorkspaceSecondBrainHref({
+                        vaultAgent: id,
+                        vaultParty: vaultPartyFilter.trim(),
+                      })}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Configurações → Workspace → Memória do time
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Vista filtrada por <code className="text-xs">agentId</code> deste registo.{" "}
+                    <Link
+                      href={buildWorkspaceSecondBrainHref({ vaultAgent: id })}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Memória do time (workspace)
+                    </Link>{" "}
+                    mostra o mesmo vault com filtros de time, agente e cliente.
+                  </>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Cliente (party)</Label>
+                  <Select
+                    value={vaultPartyFilter.trim() ? vaultPartyFilter : "__all__"}
+                    onValueChange={(v) => setVaultPartyFilter(v === "__all__" ? "" : v)}
+                  >
+                    <SelectTrigger className="w-[min(100%,280px)]">
+                      <SelectValue placeholder="Todos por agente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos (por agente)</SelectItem>
+                      {partyOptions.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.displayName || p.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void refreshVaultNotes()}
+                  disabled={!api || vaultLoading}
+                >
+                  {vaultLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Atualizar lista
+                </Button>
+              </div>
+              {vaultNotes.length === 0 && !vaultLoading ? (
+                <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-4">
+                  {(() => {
+                    const empty =
+                      vaultNotesLoadError === "forbidden"
+                        ? vaultNotesEmptyCopy("agent", "forbidden")
+                        : vaultNotesLoadError === "network"
+                          ? vaultNotesEmptyCopy("agent", "network")
+                          : vaultNotesEmptyCopy("agent", "empty_after_load", {
+                              hasPartyFilter: Boolean(vaultPartyFilter.trim()),
+                            })
+                    return (
+                      <>
+                        <p className="text-sm font-medium text-foreground">{empty.title}</p>
+                        {empty.lines.map((line, idx) => (
+                          <p key={idx} className="text-sm text-muted-foreground">
+                            {line}
+                          </p>
+                        ))}
+                        <Button type="button" variant="secondary" size="sm" asChild>
+                          <Link
+                            href={buildWorkspaceSecondBrainHref({
+                              vaultAgent: id,
+                              ...(vaultPartyFilter.trim() ? { vaultParty: vaultPartyFilter.trim() } : {}),
+                            })}
+                          >
+                            Abrir Memória do time (mesmos filtros)
+                          </Link>
+                        </Button>
+                      </>
+                    )
+                  })()}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {vaultNotes.map((r) => (
+                    <div
+                      key={r.noteId}
+                      ref={(el) => {
+                        vaultNoteRefs.current[r.noteId] = el
+                      }}
+                      className="rounded-md border border-border p-3 text-sm"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium line-clamp-1">{r.title || r.noteId}</span>
+                        <Badge variant="outline">{r.status}</Badge>
+                        <Badge variant="secondary">{r.kind}</Badge>
+                      </div>
+                      {r.bodyPreview ? (
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{r.bodyPreview}</p>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {api ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={async () => {
+                              try {
+                                const res = await api.get<{
+                                  body: string
+                                  contentHash: string
+                                }>(`/vault/notes/${r.noteId}`)
+                                const rawBody = res.data.body.trimStart()
+                                const lines = rawBody.split(/\r?\n/)
+                                let title = r.title
+                                let innerBody = rawBody
+                                if (lines[0]?.startsWith("# ")) {
+                                  title = lines[0].slice(2).trim()
+                                  innerBody = lines.slice(1).join("\n").replace(/^\s+/, "")
+                                }
+                                setVaultEditDraft({
+                                  noteId: r.noteId,
+                                  title,
+                                  body: innerBody,
+                                  contentHash: res.data.contentHash,
+                                })
+                                setVaultEditOpen(true)
+                              } catch (e) {
+                                toast.error(e instanceof ApiError ? e.message : "Falha ao abrir nota")
+                              }
+                            }}
+                          >
+                            Editar
+                          </Button>
+                        ) : null}
+                        {r.status === "proposed" && api ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await api.put(`/vault/notes/${r.noteId}/approve`, undefined, {
+                                    ifMatch: r.contentHash,
+                                  })
+                                  toast.success("Nota aprovada")
+                                  await refreshVaultNotes()
+                                } catch (e) {
+                                  toast.error(e instanceof ApiError ? e.message : "Falha ao aprovar")
+                                }
+                              }}
+                            >
+                              Aprovar
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await api.put(`/vault/notes/${r.noteId}/reject`, undefined, {
+                                    ifMatch: r.contentHash,
+                                  })
+                                  toast.success("Nota rejeitada")
+                                  await refreshVaultNotes()
+                                } catch (e) {
+                                  toast.error(e instanceof ApiError ? e.message : "Falha ao rejeitar")
+                                }
+                              }}
+                            >
+                              Rejeitar
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Dialog open={vaultEditOpen} onOpenChange={setVaultEditOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Editar nota no vault</DialogTitle>
+                <DialogDescription>
+                  Gravar envia If-Match com o hash actual. Se outro utilizador gravou entretanto, recarregue a lista.
+                </DialogDescription>
+              </DialogHeader>
+              {vaultEditDraft ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label>Titulo</Label>
+                    <Input
+                      value={vaultEditDraft.title}
+                      onChange={(e) => setVaultEditDraft((d) => (d ? { ...d, title: e.target.value } : d))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Corpo</Label>
+                    <Textarea
+                      value={vaultEditDraft.body}
+                      onChange={(e) => setVaultEditDraft((d) => (d ? { ...d, body: e.target.value } : d))}
+                      className="mt-1 min-h-[140px] font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setVaultEditOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!vaultEditDraft || !api || vaultEditBusy}
+                  onClick={async () => {
+                    if (!api || !vaultEditDraft) return
+                    setVaultEditBusy(true)
+                    try {
+                      await api.put(
+                        `/vault/notes/${vaultEditDraft.noteId}`,
+                        { title: vaultEditDraft.title.trim(), body: vaultEditDraft.body },
+                        { ifMatch: vaultEditDraft.contentHash },
+                      )
+                      toast.success("Nota gravada")
+                      setVaultEditOpen(false)
+                      setVaultEditDraft(null)
+                      await refreshVaultNotes()
+                    } catch (e) {
+                      if (e instanceof ApiError && e.status === 412) {
+                        toast.error("Conflito: a nota mudou no servidor. Recarregue a lista e tente outra vez.")
+                      } else {
+                        toast.error(e instanceof ApiError ? e.message : "Falha ao gravar")
+                      }
+                    } finally {
+                      setVaultEditBusy(false)
+                    }
+                  }}
+                >
+                  {vaultEditBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Guardar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
         {/* Tools Tab */}
         <TabsContent value="tools" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitleWithInfo title="Domínios habilitados" infoAriaLabel="Ajuda sobre domínios de negócio">
+                Habilite CRM, Clinical, Finance e outros domínios. O backend resolve dependências e ativa as actions
+                internas correspondentes automaticamente.
+              </CardTitleWithInfo>
+              <CardDescription>
+                As tools concretas ficam visíveis abaixo apenas para auditoria e ajuste avançado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              {businessDomains.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum domínio de negócio disponível.</p>
+              ) : (
+                businessDomains.map((domain) => {
+                  const ids = domain.availableActionIds ?? domain.actionIds
+                  const enabledCount = ids.filter((actionId) => {
+                    const def = workspaceToolDefs.find(
+                      (toolDef) =>
+                        toolDef.kind === "internal_action" &&
+                        toolDef.enabled &&
+                        toolDef.config?.actionId === actionId &&
+                        customToolDefinitionIds.includes(toolDef.id),
+                    )
+                    return Boolean(def)
+                  }).length
+                  const fullyEnabled = ids.length > 0 && enabledCount === ids.length
+                  return (
+                    <div key={domain.id} className="rounded-lg border border-border p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{domain.label}</p>
+                            {fullyEnabled ? <Badge variant="secondary">habilitado</Badge> : null}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{domain.description}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={fullyEnabled ? "outline" : "default"}
+                          disabled={readOnly || domainBusy === domain.id}
+                          onClick={() => enableDomainForAgent(domain.id)}
+                        >
+                          {fullyEnabled ? "Reaplicar" : "Habilitar"}
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="outline">{ids.length} actions</Badge>
+                        {(domain.dependsOnDomainIds ?? []).map((dep) => (
+                          <Badge key={dep} variant="outline">depende de {dep}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitleWithInfo title="Ferramentas do catalogo" infoAriaLabel="Ajuda sobre ferramentas do catálogo">
@@ -1594,147 +2128,6 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
                   <Plus className="w-4 h-4 mr-2" />
                   Vincular primeiro MCP
                 </Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Channels Tab */}
-        <TabsContent value="channels" className="space-y-6">
-          {channelsLockedForRole && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Canais apenas para coordenadores</AlertTitle>
-              <AlertDescription>
-                Apenas agentes com função <strong>Coordenador</strong> podem ter canais configurados. Este agente
-                é especialista; entrada e saída externas ficam a cargo do coordenador do time.
-              </AlertDescription>
-            </Alert>
-          )}
-          {!channelsLockedForRole && agent.role === "coordinator" && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Tipos de canal (aqui) vs. canais no grafo do time</AlertTitle>
-              <AlertDescription>
-                As opções abaixo são <strong>tipos</strong> de canal em que o coordenador pode atuar (capacidade do
-                agente). Já os <strong>nós de canal</strong> no editor de grafo vêm dos canais do workspace
-                associados ao time na ficha do time (tab Canais, campo <code className="text-xs">channelIds</code>
-                ). Os dois conceitos complementam-se: sem canais no time, o grafo não mostra ligações externas mesmo
-                com tipos ligados aqui.
-              </AlertDescription>
-            </Alert>
-          )}
-          <Card>
-            <CardHeader>
-              <CardTitleWithInfo title="Canais Habilitados" infoAriaLabel="Ajuda sobre canais habilitados">
-                {agentFieldHelp.channelsEnabled}
-              </CardTitleWithInfo>
-              <CardDescription>Defina em quais canais o agente pode atuar</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(["whatsapp", "slack", "email", "api"] as const).map((channel) => {
-                const isEnabled = enabledChannels.includes(channel)
-                return (
-                  <div
-                    key={channel}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      isEnabled ? "border-success bg-success/5" : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${isEnabled ? "bg-success/10" : "bg-muted"}`}>
-                        <Radio className={`w-5 h-5 ${isEnabled ? "text-success" : "text-muted-foreground"}`} />
-                      </div>
-                      <div>
-                        <p className="font-medium">{channelLabels[channel]}</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={isEnabled}
-                      disabled={readOnly || channelsLockedForRole}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setEnabledChannels((prev) => [...prev, channel])
-                          return
-                        }
-                        setEnabledChannels((prev) => prev.filter((id) => id !== channel))
-                      }}
-                    />
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitleWithInfo title="Comportamento de Resposta" infoAriaLabel="Ajuda sobre comportamento de resposta">
-                {agentFieldHelp.canReplyDirectly}
-              </CardTitleWithInfo>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium">Pode responder diretamente</p>
-                  <p className="text-sm text-muted-foreground">
-                    Se desabilitado, respostas sao apenas via coordenador
-                  </p>
-                </div>
-                <Switch
-                  checked={canReplyDirectly}
-                  onCheckedChange={setCanReplyDirectly}
-                  disabled={readOnly || channelsLockedForRole}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {!channelsLockedForRole && agent.role === "coordinator" && (
-            <Card className="border-dashed">
-              <CardHeader>
-                <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                  <span className="inline-flex items-center gap-2">
-                    Chat SDK (Slack, Discord, Telegram, …)
-                    <a
-                      href="https://chat-sdk.dev"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary inline-flex items-center gap-1 text-sm font-normal"
-                    >
-                      Docs <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </span>
-                  <FieldInfo ariaLabel="Ajuda sobre integração Chat SDK">{agentFieldHelp.chatSdkCard}</FieldInfo>
-                </CardTitle>
-                <CardDescription>
-                  Webhooks públicos disparam o <strong>coordenador</strong> do time ativo cujo{" "}
-                  <code className="text-xs">channelIds</code> inclui esse canal. Slack roteia por{" "}
-                  <code className="text-xs">config.slackTeamId</code>; Discord, Telegram e outras plataformas usam o
-                  ID do documento do canal na URL do webhook.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Configure na página <strong>Canais</strong> (<code className="text-xs">provider: chat_sdk</code>,{" "}
-                  <code className="text-xs">platform</code>) e segredos com admin (
-                  <code className="text-xs">PUT /channels/:id/secrets</code>) — requer{" "}
-                  <code className="text-xs">ENCRYPTION_MASTER_KEY</code> no servidor.
-                </p>
-                <p>
-                  Exemplos:{" "}
-                  <code className="text-xs break-all">
-                    POST /api/v1/webhooks/chat/&lt;workspaceId&gt;/slack
-                  </code>{" "}
-                  ou{" "}
-                  <code className="text-xs break-all">
-                    POST …/webhooks/chat/&lt;workspaceId&gt;/discord|telegram/…/&lt;channelId&gt;
-                  </code>
-                  .
-                </p>
-                <p className="text-xs">
-                  Chaves, <code className="text-xs">setWebhook</code> (Telegram) e portal Discord:{" "}
-                  <code className="bg-muted px-1 rounded">docs/CHAT_SDK_TEAM_TRIGGER.md</code>.
-                </p>
               </CardContent>
             </Card>
           )}

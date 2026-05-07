@@ -223,4 +223,13 @@ export class TeamRepository implements ITeamRepository {
     const res = await TeamModel.deleteMany({ workspaceId: workspaceObjectId });
     return res.deletedCount ?? 0;
   }
+
+  /** Todos os teamIds do workspace (para broadcast vault/SSE). */
+  async listAllTeamIds(workspaceId: string): Promise<string[]> {
+    const docs = await TeamModel.find({ workspaceId: new Types.ObjectId(workspaceId) })
+      .select('_id')
+      .lean()
+      .exec();
+    return docs.map((d) => String((d as { _id: Types.ObjectId })._id));
+  }
 }

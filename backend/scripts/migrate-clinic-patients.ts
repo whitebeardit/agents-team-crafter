@@ -36,7 +36,6 @@ async function main() {
     }
 
     for (const p of parties) {
-      const partyId = String(p._id);
       const existing = await CareSubjectModel.findOne({
         workspaceId: ws._id,
         partyId: p._id,
@@ -70,7 +69,9 @@ main().catch(async (e) => {
   console.error(e);
   try {
     await mongoose.disconnect();
-  } catch {}
+  } catch {
+    /* disconnect best-effort */
+  }
   process.exit(1);
 });
 

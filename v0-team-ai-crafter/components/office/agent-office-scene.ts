@@ -130,7 +130,14 @@ export class AgentOfficeScene extends Phaser.Scene {
     sprite.setScale(scale)
   }
 
+  /** True when the factory can still add game objects (avoids null `displayList` after scene/game destroy). */
+  private isAddFactoryUsable(): boolean {
+    const add = this.add as unknown as { displayList?: unknown } | null | undefined
+    return Boolean(add?.displayList)
+  }
+
   syncAgents(agents: OfficeAgentVisualState[]) {
+    if (!this.isAddFactoryUsable()) return
     this.visualStates = new Map(agents.map((a) => [a.agentId, a]))
     const ids = new Set(agents.map((a) => a.agentId))
     for (const id of this.agentContainers.keys()) {
@@ -374,6 +381,7 @@ export class AgentOfficeScene extends Phaser.Scene {
   }
 
   playEvent(event: OfficeEvent) {
+    if (!this.isAddFactoryUsable()) return
     this.clearCommunicationLine()
     const coordinatorFallback = [...this.visualStates.values()].find((a) => a.role === "coordinator")
 

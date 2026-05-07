@@ -19,22 +19,25 @@ import { getWorkspaceOverlapMode } from '../../governance/application/workspace-
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
 import { ensureCoordinatorSystemInstructionPolicy } from '../application/coordinator-system-instruction-policy.js';
-import {
-  EOpenAiWorkspaceChatModel,
-  parseOpenAiWorkspaceChatModel,
-} from '../../../shared/kernel/openai-workspace-chat-models.js';
+import { ensureCoordinatorSecondBrainPolicy } from '../application/coordinator-second-brain-policy.js';
+import { EOpenAiWorkspaceChatModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { buildAgentExportPayload } from '../application/build-agent-export.js';
 import { normalizeAgentCapabilities } from '../application/agent-capabilities.js';
+import { applyAgentDomainCapabilities } from '../application/agent-domain-capabilities.js';
 
-const openaiRuntimeModelField = z.nativeEnum(EOpenAiWorkspaceChatModel);
+const agentRuntimeModelInputSchema = z.union([
+  z.nativeEnum(EOpenAiWorkspaceChatModel),
+  z.string().min(3).max(200),
+]);
 
-const listQuerySchema = paginationQuerySchema.merge(
+export const listQuerySchema = paginationQuerySchema.merge(
   z.object({
     origin: z.enum(['whitebeard', 'company']).optional(),
     category: z.string().optional(),
     channel: z.string().optional(),
     role: z.enum(['coordinator', 'specialist']).optional(),
     search: z.string().optional(),
+    teamId: z.string().optional(),
   }),
 );
 
@@ -54,7 +57,8 @@ const createAgentSchema = z.object({
   systemRole: systemRoleSchema,
   allowConflictOverride: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
-  openaiRuntimeModel: openaiRuntimeModelField.optional(),
+  openaiRuntimeModel: agentRuntimeModelInputSchema.optional(),
+  imageGenerationModel: z.string().min(3).max(200).optional(),
 });
 
 const updateAgentSchema = z.object({
@@ -71,7 +75,12 @@ const updateAgentSchema = z.object({
   platformManaged: z.boolean().optional(),
   systemRole: systemRoleSchema,
   allowConflictOverride: z.boolean().optional(),
-  openaiRuntimeModel: z.union([openaiRuntimeModelField, z.literal('')]).optional(),
+  openaiRuntimeModel: z.union([agentRuntimeModelInputSchema, z.literal('')]).optional(),
+  imageGenerationModel: z.union([z.string().min(3).max(200), z.literal('')]).optional(),
+});
+
+const enableAgentDomainsSchema = z.object({
+  domainIds: z.array(z.string().min(1)).min(1).max(32),
 });
 
 function asRec(a: unknown): Record<string, unknown> {
@@ -120,6 +129,7 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
         channel: q.channel,
         role: q.role,
         search: q.search,
+        teamId: q.teamId,
       },
       q.page,
       q.perPage,
@@ -131,7 +141,10 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     const ws = req.workspaceId!;
     const body = createAgentSchema.parse(req.body);
     if (body.openaiRuntimeModel) {
-      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, body.openaiRuntimeModel);
+      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, String(body.openaiRuntimeModel));
+    }
+    if (body.imageGenerationModel) {
+      await deps.workspaceIntegrationsService.assertImageGenerationModelAllowed(ws, String(body.imageGenerationModel));
     }
     await assertWorkspaceQuota(deps.settingsRepo, ws, 'agents');
     if (body.role === 'specialist' && body.channels.length > 0) {
@@ -216,8 +229,11 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       platformManaged: body.platformManaged ?? false,
       systemRole: body.systemRole ?? null,
       ...(body.openaiRuntimeModel ? { openaiRuntimeModel: body.openaiRuntimeModel } : {}),
+      ...(body.imageGenerationModel ? { imageGenerationModel: body.imageGenerationModel } : {}),
       ...(body.role === 'coordinator'
-        ? { systemInstruction: ensureCoordinatorSystemInstructionPolicy() }
+        ? {
+            systemInstruction: ensureCoordinatorSecondBrainPolicy(ensureCoordinatorSystemInstructionPolicy()),
+          }
         : {}),
     });
     const overrideOnCreate =
@@ -270,7 +286,10 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     assertCompany(cur);
     const body = updateAgentSchema.parse(req.body);
     if (body.openaiRuntimeModel !== undefined && body.openaiRuntimeModel !== '') {
-      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, body.openaiRuntimeModel);
+      await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, String(body.openaiRuntimeModel));
+    }
+    if (body.imageGenerationModel !== undefined && body.imageGenerationModel !== '') {
+      await deps.workspaceIntegrationsService.assertImageGenerationModelAllowed(ws, String(body.imageGenerationModel));
     }
     const current = cur as Record<string, unknown>;
     if (body.channels !== undefined && cur['role'] !== 'coordinator') {
@@ -305,7 +324,13 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       platformManaged: patch.platformManaged ?? Boolean(current['platformManaged']),
       systemRole:
         patch.systemRole
-        ?? ((current['systemRole'] as 'team-crafter' | 'agent-crafter' | 'domain-guard' | null | undefined) ?? null),
+        ?? ((current['systemRole'] as
+          | 'team-crafter'
+          | 'agent-crafter'
+          | 'domain-guard'
+          | 'librarian'
+          | null
+          | undefined) ?? null),
     };
     const governanceReview = await deps.domainGuardService.review(ws, draftForReview);
     await deps.agentOverlapReviewRepo.create(ws, {
@@ -354,6 +379,18 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     delete patch.allowConflictOverride;
     if (body.openaiRuntimeModel === '') {
       (patch as Record<string, unknown>).openaiRuntimeModel = null;
+    }
+    if (body.imageGenerationModel === '') {
+      (patch as Record<string, unknown>).imageGenerationModel = null;
+    }
+    if (draftForReview.role === 'coordinator') {
+      const patchRec = patch as Record<string, unknown>;
+      const merged = String(
+        patchRec.systemInstruction !== undefined ? patchRec.systemInstruction : (current['systemInstruction'] ?? ''),
+      );
+      patchRec.systemInstruction = ensureCoordinatorSecondBrainPolicy(
+        ensureCoordinatorSystemInstructionPolicy(merged),
+      );
     }
     const updated = await deps.agentRepo.update(ws, id, patch);
     const overrideOnUpdate =
@@ -471,12 +508,19 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       if (rawModel === null || rawModel === '') {
         body['openaiRuntimeModel'] = null;
       } else {
-        const parsed = parseOpenAiWorkspaceChatModel(String(rawModel));
-        if (!parsed) {
-          throw new AppError('VALIDATION_ERROR', 'Modelo OpenAI invalido para o agente.', 400);
-        }
-        await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, parsed);
-        body['openaiRuntimeModel'] = parsed;
+        const rawStr = String(rawModel).trim();
+        await deps.workspaceIntegrationsService.assertAgentRuntimeModelAllowed(ws, rawStr);
+        body['openaiRuntimeModel'] = rawStr;
+      }
+    }
+    const rawImageModel = body['imageGenerationModel'];
+    if (rawImageModel !== undefined) {
+      if (rawImageModel === null || rawImageModel === '') {
+        body['imageGenerationModel'] = null;
+      } else {
+        const rawStr = String(rawImageModel).trim();
+        await deps.workspaceIntegrationsService.assertImageGenerationModelAllowed(ws, rawStr);
+        body['imageGenerationModel'] = rawStr;
       }
     }
     await deps.agentRepo.update(ws, id, body);
@@ -527,6 +571,35 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
     return reply.send(successEnvelope(capabilities));
   });
 
+  app.put('/agents/:id/domains', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = (req.params as { id: string }).id;
+    const cur = await loadAgent(deps, ws, id);
+    assertCompany(cur);
+    const body = enableAgentDomainsSchema.parse(req.body ?? {});
+    const data = await applyAgentDomainCapabilities(
+      {
+        agentRepo: deps.agentRepo,
+        workspaceToolDefinitionRepo: deps.workspaceToolDefinitionRepo,
+        hasBusinessAction: (actionId) => deps.businessToolRegistry.has(actionId),
+      },
+      ws,
+      id,
+      body.domainIds,
+    );
+    if (!data) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
+    return reply.send(successEnvelope(data));
+  });
+
+  /**
+   * LEGADO/DECLARATIVO. `channelConfig` (enabled, canReplyDirectly) é metadado
+   * preservado para export/import de agentes e times; não é consultado em runtime.
+   * O roteamento inbound do Chat SDK resolve o coordenador via `team.channelIds`
+   * (ver `requireCoordinatorForChannelInstance` em modules/chat-sdk/application/
+   * resolve-inbound-coordinator.ts). Esta rota não é mais exposta na UI a partir
+   * da remoção da aba "Canais" da página /agents/:id; segue disponível para
+   * imports antigos e clientes API que ainda atualizem o snapshot declarativo.
+   */
   app.put('/agents/:id/channels', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
     const id = (req.params as { id: string }).id;

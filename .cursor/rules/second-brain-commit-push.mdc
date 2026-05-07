@@ -1,0 +1,12 @@
+---
+description: Ao alterar o vault Whitebeard (second-brain), commit e push obrigatórios no fim da tarefa.
+alwaysApply: true
+---
+
+# Second-brain (vault): commit e push
+
+Raiz Git do vault Whitebeard: **`/home/whitebeard/DEV/OBSIDIAN/WhitebeardKnowledgeBaseAI`** (remote típico: `second-brain`).
+
+Depois de criar, editar ou apagar ficheiros nesse repo, **antes de concluir a tarefa**: `git status` → `git add` (só o que esta sessão alterou para o pedido) → `git commit` (mensagem clara; prefixo `docs`/`vault` se aplicável) → `git push` no branch actual (normalmente `main`). Não deixar alterações só no working tree.
+
+**Excepção:** o utilizador pede explicitamente não commitar ou rever primeiro.

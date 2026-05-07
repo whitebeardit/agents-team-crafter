@@ -11,10 +11,30 @@ import {
   OFFICE_GAME_WIDTH,
 } from "@/components/office/agent-office-scene"
 
+type GameObjectFactoryLike = { displayList?: unknown }
+
+function sceneDisplayListReady(scene: AgentOfficeScene): boolean {
+  const add = scene.add as unknown as GameObjectFactoryLike | null | undefined
+  return Boolean(add?.displayList)
+}
+
+function isGamePendingDestroy(game: Phaser.Game): boolean {
+  return Boolean((game as unknown as { pendingDestroy?: boolean }).pendingDestroy)
+}
+
+/**
+ * Binds the React-side controller only when the scene is running and the GameObjectFactory
+ * still has a display list. After `game.destroy()`, Phaser may leave stale entries in
+ * `scene.keys` while plugins null out `displayList`, which would throw on `this.add.container`.
+ */
 function tryBindController(game: Phaser.Game, agents: OfficeAgentVisualState[]): AgentOfficeController | null {
+  if (isGamePendingDestroy(game)) return null
   if (!game.scene.isActive(AGENT_OFFICE_SCENE_KEY)) return null
   const scene = game.scene.getScene(AGENT_OFFICE_SCENE_KEY) as AgentOfficeScene | undefined
   if (!scene) return null
+  const status = scene.sys.settings.status
+  if (status >= Phaser.Scenes.SHUTDOWN) return null
+  if (!sceneDisplayListReady(scene)) return null
   const c = scene.getController()
   c.syncAgents(agents)
   return c
@@ -63,6 +83,7 @@ export default function AgentOfficeGame({
     gameRef.current = game
 
     const bindOrRetry = () => {
+      if (isGamePendingDestroy(game)) return false
       const c = tryBindController(game, agents)
       if (!c) return false
       controllerRef.current = c
@@ -73,20 +94,20 @@ export default function AgentOfficeGame({
     }
 
     const onGameReady = () => {
+      if (isGamePendingDestroy(game)) return
       if (bindOrRetry()) return
       let attempts = 0
       const poll = () => {
+        if (isGamePendingDestroy(game)) return
         attempts += 1
         if (bindOrRetry()) return
         if (attempts > 120) {
-          const scene = game.scene.getScene(AGENT_OFFICE_SCENE_KEY) as AgentOfficeScene | undefined
-          if (scene) {
-            const c = scene.getController()
+          const c = tryBindController(game, agents)
+          if (c) {
             controllerRef.current = c
             c.setLayoutEditMode(layoutEditModeRef.current)
             c.setOnAgentPositionCommit(onCommitRef.current ?? null)
             onControllerReady?.(c)
-            c.syncAgents(agents)
             if (process.env.NODE_ENV === "development") {
               console.warn("[AgentOfficeGame] Controller ligado em fallback após poll.")
             }
@@ -112,6 +133,8 @@ export default function AgentOfficeGame({
   }, [])
 
   useEffect(() => {
+    const game = gameRef.current
+    if (game && isGamePendingDestroy(game)) return
     controllerRef.current?.syncAgents(agents)
   }, [agents])
 

@@ -46,12 +46,21 @@ export function AgentOfficeOverlay({
   agents,
   activeEvent,
   coordinatorId,
+  idleMessage,
 }: {
   agents: OfficeAgentVisualState[]
   activeEvent?: OfficeEvent
   coordinatorId: string
+  idleMessage?: string
 }) {
-  if (!activeEvent?.message) return null
+  if (!activeEvent?.message) {
+    if (!idleMessage) return null
+    return (
+      <div className="pointer-events-none absolute left-1/2 top-[8%] z-10 w-[min(92%,24rem)] -translate-x-1/2 rounded-lg border border-border bg-card/95 px-3 py-2 text-sm text-muted-foreground shadow-lg backdrop-blur-sm">
+        {idleMessage}
+      </div>
+    )
+  }
 
   const speakerId = bubbleSpeaker(activeEvent, agents, coordinatorId)
   const speaker = speakerId ? agents.find((a) => a.agentId === speakerId) : null

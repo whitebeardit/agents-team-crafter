@@ -10,4 +10,10 @@ export type TGovernanceAuditEventType =
   | 'governance.agent_plan_execute'
   | 'governance.agent_plan_blocked'
   | 'governance.slo_breached'
-  | 'governance.audit_purged';
+  | 'governance.audit_purged'
+  | 'governance.team_vault_note_proposed'
+  | 'governance.team_vault_note_approved'
+  | 'governance.team_vault_note_rejected'
+  | 'governance.team_vault_note_archived'
+  | 'governance.team_vault_note_edited'
+  | 'governance.team_vault_note_deleted';

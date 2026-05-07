@@ -18,8 +18,10 @@ import { assertActiveChannelBindingUnique } from '../application/assert-active-c
 import { getTeamGalleryService } from '../application/team-gallery.service.js';
 import { invokeTeam } from '../../team-runtime/application/invoke-team.service.js';
 import { getDestructiveAuditHistory } from '../../team-runtime/application/coordinator-orchestrator.service.js';
+import { generateConversationShortTitle } from '../../team-runtime/application/conversation-short-title.js';
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
+import { applyAgentDomainCapabilities } from '../../agents/application/agent-domain-capabilities.js';
 import {
   buildManualTeamInvocation,
   teamRunBodySchema,
@@ -41,17 +43,20 @@ import {
 } from '../application/import-team-from-export.js';
 import { deleteTeamWithAgentCascade } from '../application/delete-team-with-agent-cascade.js';
 import { applyCorsHeaders } from '../../../shared/kernel/cors-headers.js';
+import { sanitizePathSegment } from '../domain/team-gallery-path.js';
 
 async function loadTeamRunConversation(
   deps: IAppDeps,
   workspaceId: string,
   teamId: string,
   body: ITeamRunBody,
-): Promise<ITeamInvocation['conversation'] | undefined> {
+): Promise<{ conversation?: ITeamInvocation['conversation'] }> {
   const cid = body.conversationId?.trim();
-  if (!cid) return undefined;
+  if (!cid) return {};
   const history = await deps.teamDebugSessionRepo.getRecentTurns(workspaceId, teamId, cid);
-  return { id: cid, history };
+  return {
+    conversation: { id: cid, history },
+  };
 }
 
 const teamTimelineQuerySchema = z.object({
@@ -108,6 +113,7 @@ const createTeamSchema = z.object({
   channelIds: z.array(z.string()).default([]),
   primaryChannel: productChannelTypeSchema.optional(),
   singleAgentMode: z.boolean().optional(),
+  agentDomainIds: z.record(z.string(), z.array(z.string().min(1))).optional(),
 });
 
 const updateTeamSchema = z.object({
@@ -161,6 +167,27 @@ function toTeamAgentDigest(a: Record<string, unknown>) {
 
 export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
   const tenant = [deps.authenticate, deps.requireTenant];
+  const ensureConversationTitle = async (
+    workspaceId: string,
+    teamId: string,
+    conversationId: string | undefined,
+    message: string,
+  ): Promise<{ shortTitle?: string; shortTitleSlug?: string }> => {
+    const cid = conversationId?.trim();
+    if (!cid) return {};
+    const current = await deps.teamDebugSessionRepo.getSessionMeta(workspaceId, teamId, cid);
+    if (current?.shortTitle?.trim() && current.shortTitleSlug?.trim()) {
+      return { shortTitle: current.shortTitle, shortTitleSlug: current.shortTitleSlug };
+    }
+    const generated = await generateConversationShortTitle(
+      deps.workspaceIntegrationsService,
+      workspaceId,
+      message,
+    );
+    const saved = await deps.teamDebugSessionRepo.setConversationTitle(workspaceId, teamId, cid, generated);
+    if (!saved) return {};
+    return { shortTitle: saved.shortTitle, shortTitleSlug: saved.shortTitleSlug };
+  };
 
   app.get('/teams', { preHandler: tenant }, async (req, reply) => {
     const ws = req.workspaceId!;
@@ -185,6 +212,19 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     if (!agentsOk) throw new AppError('VALIDATION_ERROR', 'Agente invalido no time', 400);
     const chOk = await deps.channelRepo.existsAll(ws, body.channelIds);
     if (!chOk) throw new AppError('VALIDATION_ERROR', 'Canal invalido no time', 400);
+    for (const [agentId, domainIds] of Object.entries(body.agentDomainIds ?? {})) {
+      if (agentId !== body.coordinatorId && !body.agentIds.includes(agentId)) continue;
+      await applyAgentDomainCapabilities(
+        {
+          agentRepo: deps.agentRepo,
+          workspaceToolDefinitionRepo: deps.workspaceToolDefinitionRepo,
+          hasBusinessAction: (actionId) => deps.businessToolRegistry.has(actionId),
+        },
+        ws,
+        agentId,
+        domainIds,
+      );
+    }
     const created = await deps.teamRepo.create(ws, {
       name: body.name,
       description: body.description ?? '',
@@ -379,7 +419,26 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
     const name = String((team as Record<string, unknown>)['name'] ?? '');
     const albums = await gallerySvc.listAlbums(ws, teamId, name);
-    return reply.send(successEnvelope({ albums }));
+    const sessions = await deps.teamDebugSessionRepo.listSessionsForTeam(ws, teamId, 200);
+    const sessionBySlug = new Map<string, (typeof sessions)[number]>();
+    for (const s of sessions) {
+      sessionBySlug.set(sanitizePathSegment(s.conversationId, 48), s);
+      if (typeof s.shortTitleSlug === 'string' && s.shortTitleSlug.trim().length > 0) {
+        sessionBySlug.set(String(s.shortTitleSlug), s);
+      }
+    }
+    return reply.send(
+      successEnvelope({
+        albums: albums.map((a) => {
+          const related = sessionBySlug.get(a.subjectSlug);
+          return {
+            ...a,
+            shortTitle: related?.shortTitle,
+            conversationId: related?.conversationId,
+          };
+        }),
+      }),
+    );
   });
 
   app.get('/teams/:id/gallery/:subject/files', { preHandler: tenant }, async (req, reply) => {
@@ -619,6 +678,9 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
 const debugSessionsListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
 });
+const debugSessionTitleBody = z.object({
+  shortTitle: z.string().trim().min(1).max(48),
+});
 const destructiveAuditQuery = z.object({
   conversationId: z.string().min(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
@@ -699,7 +761,33 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
     const cid = decodeURIComponent(rawCid ?? '').trim();
     if (!cid) throw new AppError('VALIDATION_ERROR', 'conversationId invalido', 400);
     const turns = await deps.teamDebugSessionRepo.getTurnsWithTimestamps(ws, teamId, cid);
-    return reply.send(successEnvelope({ conversationId: cid, turns }));
+    const meta = await deps.teamDebugSessionRepo.getSessionMeta(ws, teamId, cid);
+    return reply.send(
+      successEnvelope({
+        conversationId: cid,
+        turns,
+        shortTitle: meta?.shortTitle,
+        shortTitleSlug: meta?.shortTitleSlug,
+      }),
+    );
+  });
+
+  app.patch('/teams/:id/debug-sessions/:conversationId/title', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const teamId = (req.params as { id: string }).id;
+    const rawCid = (req.params as { conversationId: string }).conversationId;
+    const team = await deps.teamRepo.findById(ws, teamId);
+    if (!team) throw new AppError('NOT_FOUND', 'Time nao encontrado', 404);
+    const cid = decodeURIComponent(rawCid ?? '').trim();
+    if (!cid) throw new AppError('VALIDATION_ERROR', 'conversationId invalido', 400);
+    const body = debugSessionTitleBody.parse(req.body);
+    const updated = await deps.teamDebugSessionRepo.setConversationTitle(ws, teamId, cid, {
+      shortTitle: body.shortTitle,
+      shortTitleSlug: body.shortTitle,
+      titleSource: 'user',
+    });
+    if (!updated) throw new AppError('NOT_FOUND', 'Sessao nao encontrada', 404);
+    return reply.send(successEnvelope(updated));
   });
 
   app.get('/teams/:id/destructive-audit', { preHandler: tenant }, async (req, reply) => {
@@ -780,14 +868,18 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
     const startedAt = new Date();
-    const conversation = await loadTeamRunConversation(deps, ws, teamId, body);
+    const conversationCtx = await loadTeamRunConversation(deps, ws, teamId, body);
+    await ensureConversationTitle(ws, teamId, body.conversationId, body.message);
     const invocation = buildManualTeamInvocation(
       ws,
       String(t['id']),
       String(t['coordinatorId']),
       body,
       req.requestId,
-      conversation,
+      conversationCtx.conversation,
+      {
+        ...(body.conversationId?.trim() ? { gallerySubjectSlug: body.conversationId.trim() } : {}),
+      },
     );
     try {
       const result = await invokeTeam(deps.coordinatorOrchestrator, invocation);
@@ -859,14 +951,11 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
       });
       if (body.conversationId?.trim()) {
         const assistantText = result.externalResponse?.text?.trim() ?? '';
-        await deps.teamDebugSessionRepo.appendExchange(
-          ws,
-          teamId,
-          body.conversationId.trim(),
-          req.user?.sub,
-          body.message,
-          assistantText || '(sem texto)',
-        );
+        await deps.teamDebugSessionRepo.appendExchange(ws, teamId, body.conversationId.trim(), req.user?.sub, body.message, {
+          text: assistantText || '(sem texto)',
+          format: result.externalResponse?.format,
+          attachments: result.externalResponse?.attachments,
+        });
       }
       await deps.runRecorderService.recordCompleted({
         workspaceId: ws,
@@ -878,6 +967,15 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         startedAt,
         result,
       });
+      const runSampleIndex = [...result.runId].reduce((a, c) => a + c.charCodeAt(0), 0);
+      void deps.memorySummarizer
+        .onRunCompleted({
+          workspaceId: ws,
+          coordinatorAgentId: result.coordinatorAgentId,
+          result,
+          runSampleIndex,
+        })
+        .catch(() => {});
       return reply.send(
         successEnvelope({
           runId: result.runId,
@@ -959,6 +1057,7 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         } else if (env.event === 'error') writeSse('error', env.data);
         else if (env.event === 'inboundUserMessage') writeSse('inboundUserMessage', env.data);
         else if (env.event === 'timelineItem') writeSse('timelineItem', env.data);
+        else if (env.event === 'vaultNoteChanged') writeSse('vaultNoteChanged', env.data);
       } catch {
         /* never break webhook path */
       }
@@ -997,14 +1096,18 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
     const body = teamRunBodySchema.parse(req.body);
     const t = team as Record<string, unknown>;
     const startedAt = new Date();
-    const conversation = await loadTeamRunConversation(deps, ws, teamId, body);
+    const conversationCtx = await loadTeamRunConversation(deps, ws, teamId, body);
+    await ensureConversationTitle(ws, teamId, body.conversationId, body.message);
     const invocation = buildManualTeamInvocation(
       ws,
       String(t['id']),
       String(t['coordinatorId']),
       body,
       req.requestId,
-      conversation,
+      conversationCtx.conversation,
+      {
+        ...(body.conversationId?.trim() ? { gallerySubjectSlug: body.conversationId.trim() } : {}),
+      },
     );
 
     const stream = new PassThrough();
@@ -1108,14 +1211,11 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
         await ensureInputTimeline(result.runId);
         if (body.conversationId?.trim()) {
           const assistantText = result.externalResponse?.text?.trim() ?? '';
-          await deps.teamDebugSessionRepo.appendExchange(
-            ws,
-            teamId,
-            body.conversationId.trim(),
-            req.user?.sub,
-            body.message,
-            assistantText || '(sem texto)',
-          );
+          await deps.teamDebugSessionRepo.appendExchange(ws, teamId, body.conversationId.trim(), req.user?.sub, body.message, {
+            text: assistantText || '(sem texto)',
+            format: result.externalResponse?.format,
+            attachments: result.externalResponse?.attachments,
+          });
         }
         const complete = {
           runId: result.runId,
@@ -1170,6 +1270,15 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
           startedAt,
           result,
         });
+        const runSampleIndexStream = [...result.runId].reduce((a, c) => a + c.charCodeAt(0), 0);
+        void deps.memorySummarizer
+          .onRunCompleted({
+            workspaceId: ws,
+            coordinatorAgentId: result.coordinatorAgentId,
+            result,
+            runSampleIndex: runSampleIndexStream,
+          })
+          .catch(() => {});
         deps.teamLiveBroadcaster.publish(ws, teamId, {
           source: 'manual',
           runId: result.runId,

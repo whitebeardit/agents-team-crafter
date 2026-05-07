@@ -106,6 +106,8 @@ export interface TeamDebugSessionSummary {
   conversationId: string
   updatedAt: string
   turnCount: number
+  shortTitle?: string
+  shortTitleSlug?: string
 }
 
 /** Turno com instante — `GET /teams/:id/debug-sessions/:conversationId`. */
@@ -113,6 +115,8 @@ export interface TeamDebugSessionTurn {
   role: "user" | "assistant"
   content: string
   at: string
+  format?: "plain" | "markdown"
+  attachments?: TeamRunExternalImageAttachment[]
 }
 
 /** SSE `agentStatus` durante `POST /teams/:id/run/stream` e `GET /teams/:id/live`. */
@@ -142,6 +146,7 @@ export type TeamConversationKind =
   | "handoff"
   | "status"
   | "error"
+  | "memory"
 
 export interface TeamConversationTimelineItem {
   id: string
@@ -246,6 +251,8 @@ export interface Agent {
   systemInstruction?: string
   /** Override do modelo OpenAI (runtime); omitido = usar default do workspace / produto. */
   openaiRuntimeModel?: string
+  /** Override do modelo de geração de imagem; omitido = usar default do workspace / produto. */
+  imageGenerationModel?: string
 
   capabilities?: AgentCapabilities
   knowledge?: AgentKnowledge
@@ -718,6 +725,14 @@ export interface TeamPlanBindPreviewPack {
   actionIdsRemovedByOverride: string[]
 }
 
+export interface TeamPlanBindPreviewDomain {
+  domainId: string
+  label: string
+  actionIds: string[]
+  selectedActionIds: string[]
+  dependencyDomainIds: string[]
+}
+
 export interface TeamPlanBindDiffSummary {
   affectedAgentCount: number
   addedActionCount: number
@@ -741,8 +756,38 @@ export interface TeamPlanBindPreview {
   bindResolutionMode?: "global" | "per_agent"
   toolDefinitions: TeamPlanBindPreviewDefinition[]
   suggestedPacks: TeamPlanBindPreviewPack[]
+  suggestedDomains?: TeamPlanBindPreviewDomain[]
   diffSummary: TeamPlanBindDiffSummary
   agents: TeamPlanBindPreviewAgent[]
+}
+
+export interface BusinessActionDomain {
+  id: string
+  label: string
+  description: string
+  actionIds: string[]
+  availableActionIds?: string[]
+  unavailableActionIds?: string[]
+  availableActionCount?: number
+  dependsOnDomainIds?: string[]
+  dependsOnActionIds?: string[]
+  dependsOnCatalogTools?: string[]
+  directActionCount?: number
+}
+
+export interface BusinessActionDomainResolution {
+  requestedDomainIds: string[]
+  domainIds: string[]
+  actionIds: string[]
+  catalogTools: string[]
+  dependencies: {
+    domainIds: string[]
+    actionIds: string[]
+    catalogTools: string[]
+  }
+  actionIdsByDomainId: Record<string, string[]>
+  domainIdsByActionId: Record<string, string[]>
+  unavailableActionIds?: string[]
 }
 
 export interface TeamPlanDraft {
@@ -1046,6 +1091,7 @@ export interface ScheduleAppointment {
   packageSaleId?: string
   encounterId?: string
   reminderId?: string
+  origin?: RecordOrigin
   createdAt?: string
   updatedAt?: string
 }
@@ -1077,6 +1123,109 @@ export interface ScheduleAppointmentsDayResponse {
   appointments: ScheduleAppointment[]
 }
 
+export interface CareCaseListItem {
+  id: string
+  title: string
+  partyId: string
+  careSubjectId?: string
+  startsAt: string
+  endsAt: string
+  notes?: string
+  status: ScheduleAppointmentStatus | string
+  origin?: RecordOrigin
+  party: CrmParty | null
+}
+
+export interface CareReadinessCheck {
+  code: string
+  status: "ok" | "attention" | "critical"
+  message: string
+  nextStep: string
+  value: number
+}
+
+export interface CareReadiness {
+  total: number
+  completed: number
+  cancelled: number
+  noShow: number
+  withNotes: number
+  withClinicalLink: number
+  completionRate: number
+  health: "ok" | "attention" | "critical"
+  checks: CareReadinessCheck[]
+  generatedAt: string
+}
+
+export interface ClinicalSessionListItem {
+  id: string
+  title: string
+  partyId: string
+  careSubjectId?: string
+  encounterId?: string
+  startsAt: string
+  endsAt: string
+  notes?: string
+  status: ScheduleAppointmentStatus | string
+  origin?: RecordOrigin
+  party: CrmParty | null
+}
+
+export interface ClinicalReadinessCheck {
+  code: string
+  status: "ok" | "attention" | "critical"
+  message: string
+  nextStep: string
+  value: number
+}
+
+export interface ClinicalReadiness {
+  total: number
+  completed: number
+  withNotes: number
+  noShow: number
+  completionRate: number
+  noteCoverageRate: number
+  health: "ok" | "attention" | "critical"
+  checks: ClinicalReadinessCheck[]
+  generatedAt: string
+}
+
+export interface ReminderListItem {
+  id: string
+  reminderId?: string
+  title: string
+  partyId: string
+  careSubjectId?: string
+  startsAt: string
+  endsAt: string
+  notes?: string
+  status: ScheduleAppointmentStatus | string
+  origin?: RecordOrigin
+  party: CrmParty | null
+}
+
+export interface RemindersReadinessCheck {
+  code: string
+  status: "ok" | "attention" | "critical"
+  message: string
+  nextStep: string
+  value: number
+}
+
+export interface RemindersReadiness {
+  total: number
+  active: number
+  cancelled: number
+  completed: number
+  noShow: number
+  withCareContext: number
+  activeRate: number
+  health: "ok" | "attention" | "critical"
+  checks: RemindersReadinessCheck[]
+  generatedAt: string
+}
+
 /** CRM: contato comercial (`GET /parties`, `GET /parties/:id`). */
 export interface CrmParty {
   id: string
@@ -1086,8 +1235,98 @@ export interface CrmParty {
   email?: string
   phone?: string
   notes?: string
+  origin?: RecordOrigin
   createdAt?: string
   updatedAt?: string
+}
+
+export interface RecordOrigin {
+  id: string
+  type: "agent-coordinator" | "agent-specialist" | "user-manual" | "system"
+  slug: string
+}
+
+export interface PackagePartySummary {
+  id: string
+  displayName: string
+  email?: string
+  phone?: string
+}
+
+export interface PackageListItem {
+  id: string
+  partyId: string
+  packageName: string
+  unitsTotal: number
+  unitsUsed: number
+  remaining: number
+  createdAt?: string
+  updatedAt?: string
+  eligible: boolean
+  origin?: RecordOrigin
+  party: PackagePartySummary | null
+}
+
+export interface PackagesListResponse {
+  packages: PackageListItem[]
+  range: { startDate: string; endDate: string; days: number }
+  total: number
+}
+
+export interface FinancePartySummary {
+  id: string
+  displayName: string
+  email?: string
+  phone?: string
+}
+
+export interface FinanceDeleteBlocker {
+  domain: string
+  count: number
+}
+
+export interface FinanceReceivableListItem {
+  id: string
+  partyId: string
+  amount: number
+  currency: string
+  dueDate: string
+  paid: boolean
+  description?: string
+  sourceEntity?: string
+  sourceId?: string
+  origin?: RecordOrigin
+  createdAt?: string
+  updatedAt?: string
+  party: FinancePartySummary | null
+}
+
+export interface FinancePayableListItem {
+  id: string
+  destinationPartyId: string
+  amount: number
+  currency: string
+  dueDate: string
+  paid: boolean
+  description?: string
+  sourceEntity?: string
+  sourceId?: string
+  origin?: RecordOrigin
+  createdAt?: string
+  updatedAt?: string
+  party: FinancePartySummary | null
+}
+
+export interface FinanceReceivablesListResponse {
+  receivables: FinanceReceivableListItem[]
+  range: { startDate: string; endDate: string; days: number }
+  total: number
+}
+
+export interface FinancePayablesListResponse {
+  payables: FinancePayableListItem[]
+  range: { startDate: string; endDate: string; days: number }
+  total: number
 }
 
 /** KPIs derivados no BFF a partir das séries `agents_team_crafter_*`. */

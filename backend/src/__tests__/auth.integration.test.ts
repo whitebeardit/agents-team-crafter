@@ -203,6 +203,48 @@ describe('auth + tenant', () => {
     expect(meParsed.data.preferences?.notifications?.discord).toBe(true);
   });
 
+  it('PUT /settings/profile deep-merges contextualTours.byWorkspace (patch nao apaga outro workspace)', async () => {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'u@test.com', password: 'secret' },
+    });
+    const { data } = JSON.parse(login.body) as { data: { token: string } };
+    const put1 = await app.inject({
+      method: 'PUT',
+      url: '/api/v1/settings/profile',
+      headers: { authorization: `Bearer ${data.token}` },
+      payload: {
+        preferences: {
+          contextualTours: { byWorkspace: { wsA: { dashboard: 1 } } },
+        },
+      },
+    });
+    expect(put1.statusCode).toBe(200);
+    const put2 = await app.inject({
+      method: 'PUT',
+      url: '/api/v1/settings/profile',
+      headers: { authorization: `Bearer ${data.token}` },
+      payload: {
+        preferences: {
+          contextualTours: { byWorkspace: { wsB: { agents_catalog: 2 } } },
+        },
+      },
+    });
+    expect(put2.statusCode).toBe(200);
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { authorization: `Bearer ${data.token}` },
+    });
+    const meParsed = JSON.parse(me.body) as {
+      data: { preferences?: { contextualTours?: { byWorkspace?: Record<string, Record<string, number>> } } };
+    };
+    const bw = meParsed.data.preferences?.contextualTours?.byWorkspace;
+    expect(bw?.wsA?.dashboard).toBe(1);
+    expect(bw?.wsB?.agents_catalog).toBe(2);
+  });
+
   it('PUT /settings/profile clears avatar with empty string', async () => {
     const login = await app.inject({
       method: 'POST',

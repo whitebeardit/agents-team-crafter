@@ -1,6 +1,7 @@
 /** Espelha `AVAILABLE_TOOL_IDS` do backend (`capabilities.tools`). */
 export const CATALOG_TOOL_IDS = [
   "web_search",
+  "web_fetch",
   "file_search",
   "internal_actions",
   "code_execution",
@@ -30,6 +31,7 @@ export const CATALOG_UTILITY_TOOL_IDS: readonly CatalogToolId[] = CATALOG_TOOL_I
 
 const LABELS_PT: Record<CatalogToolId, string> = {
   web_search: "Pesquisa web",
+  web_fetch: "Leitura de URL",
   file_search: "Busca em ficheiros",
   internal_actions: "Ações internas (técnico/avançado)",
   code_execution: "Execução de código",

@@ -54,5 +54,16 @@ export function validateBusinessActionInput(
       missing.push(key);
     }
   }
-  return missing.length > 0 ? { ok: false, missingFields: missing } : { ok: true };
+  if (missing.length > 0) return { ok: false, missingFields: missing };
+
+  if (actionId === 'package_sell_to_party' && obj) {
+    const productSlug = typeof obj.productSlug === 'string' ? obj.productSlug.trim() : '';
+    const packageName = typeof obj.packageName === 'string' ? obj.packageName.trim() : '';
+    const unitsTotal = Number(obj.unitsTotal);
+    if (!productSlug && (!packageName || Number.isNaN(unitsTotal) || unitsTotal < 1)) {
+      return { ok: false, missingFields: ['packageName', 'unitsTotal'] };
+    }
+  }
+
+  return { ok: true };
 }

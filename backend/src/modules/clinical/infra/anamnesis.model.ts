@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const AnamnesisSchema = new Schema(
   {
@@ -6,6 +7,11 @@ const AnamnesisSchema = new Schema(
     careSubjectId: { type: Schema.Types.ObjectId, ref: 'CareSubject', required: true, index: true },
     template: { type: String, default: 'custom' },
     content: { type: Schema.Types.Mixed, required: true },
+    origin: {
+      type: RecordOriginSubschema,
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_clinical_anamnesis' }),
+    },
   },
   { timestamps: true },
 );

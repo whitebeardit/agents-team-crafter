@@ -67,7 +67,7 @@ export function registerCarePack(
   care: CareSubjectRepository,
   parties?: PartyRepository,
 ): void {
-  registry.register('care_create_patient', async ({ workspaceId, input }) => {
+  registry.register('care_create_patient', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     if (!parties) throw new Error('care_create_patient indisponivel: repositorio de party nao configurado');
     const data = input as Record<string, unknown>;
     const name = typeof data.name === 'string' ? data.name : '';
@@ -83,17 +83,25 @@ export function registerCarePack(
       email: typeof data.email === 'string' ? data.email : undefined,
       phone: typeof data.phone === 'string' ? data.phone : undefined,
       notes: typeof data.notes === 'string' ? data.notes : undefined,
+      teamContext,
+      correlationId,
+      actorAgentId,
+      actorRole,
     });
     const subject = await care.create(workspaceId, {
       partyId: party.id,
       name: name.trim(),
       subjectKind: 'psych',
       notes: typeof data.notes === 'string' ? data.notes : undefined,
+      teamContext,
+      correlationId,
+      actorAgentId,
+      actorRole,
     });
     return { party, subject };
   });
 
-  registry.register('care_create_subject', async ({ workspaceId, input }) => {
+  registry.register('care_create_subject', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolveCarePartyIdOrThrow({
       parties,
@@ -111,6 +119,10 @@ export function registerCarePack(
       name: name.trim(),
       subjectKind: sk as 'human' | 'animal' | 'psych',
       notes: typeof data.notes === 'string' ? data.notes : undefined,
+      teamContext,
+      correlationId,
+      actorAgentId,
+      actorRole,
     });
   });
 

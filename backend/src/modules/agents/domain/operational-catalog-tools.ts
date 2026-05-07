@@ -8,13 +8,21 @@ export interface IOperationalCatalogTool {
 }
 
 const META: Record<string, { name: string; description: string }> = {
+  web_search: {
+    name: 'Pesquisa web (OpenRouter)',
+    description: 'Pesquisa web em tempo real via OpenRouter server tool.',
+  },
+  web_fetch: {
+    name: 'Leitura de URL (OpenRouter)',
+    description: 'Busca e extrai conteúdo de URLs via OpenRouter server tool.',
+  },
   calendar_access: {
     name: 'Acesso ao Calendario',
     description: 'Pedidos HTTP ao calendario configurado nas integracoes.',
   },
   image_generation: {
-    name: 'Geracao de imagens (OpenAI)',
-    description: 'Gera imagens com DALL-E 2 ou DALL-E 3 usando a chave OpenAI do workspace (ou ambiente).',
+    name: 'Geracao de imagens',
+    description: 'Gera imagens com OpenRouter ou OpenAI conforme provider/chave do workspace.',
   },
 };
 
@@ -24,11 +32,15 @@ const META: Record<string, { name: string; description: string }> = {
  */
 export function resolveOperationalCatalogTools(ctx: IToolIntegrationContext): IOperationalCatalogTool[] {
   const out: IOperationalCatalogTool[] = [];
+  if (ctx.openrouter?.apiKey?.trim()) {
+    out.push({ id: 'web_search', ...META.web_search });
+    out.push({ id: 'web_fetch', ...META.web_fetch });
+  }
   if (ctx.calendar?.restBaseUrl?.trim()) {
     const m = META.calendar_access;
     out.push({ id: 'calendar_access', ...m });
   }
-  if (ctx.openai?.apiKey?.trim()) {
+  if (ctx.openai?.apiKey?.trim() || ctx.openrouter?.apiKey?.trim()) {
     const m = META.image_generation;
     out.push({ id: 'image_generation', ...m });
   }

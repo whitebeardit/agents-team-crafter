@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const PayableSchema = new Schema(
   {
@@ -9,6 +10,13 @@ const PayableSchema = new Schema(
     dueDate: { type: Date, required: true, index: true },
     paid: { type: Boolean, default: false, index: true },
     description: { type: String, default: '' },
+    origin: {
+      type: RecordOriginSubschema,
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_finance_payable' }),
+    },
+    sourceEntity: { type: String },
+    sourceId: { type: Schema.Types.ObjectId },
   },
   { timestamps: true },
 );

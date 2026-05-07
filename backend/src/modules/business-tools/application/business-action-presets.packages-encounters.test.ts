@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { getBusinessActionPreset } from './business-action-presets.js';
+import { validateBusinessActionInput } from './business-action-input-validation.js';
 
 describe('business-action-presets packages/encounters (Loop 103)', () => {
   it('defines explicit schema for package sale actions', () => {
@@ -7,11 +8,7 @@ describe('business-action-presets packages/encounters (Loop 103)', () => {
     const balance = getBusinessActionPreset('package_get_balance');
     const listByParty = getBusinessActionPreset('package_list_by_party');
 
-    expect((sell?.inputSchema as { required?: string[] }).required).toEqual([
-      'partyId',
-      'packageName',
-      'unitsTotal',
-    ]);
+    expect((sell?.inputSchema as { required?: string[] }).required).toEqual(['partyId']);
     expect((balance?.inputSchema as { required?: string[] }).required).toEqual(['packageSaleId']);
     expect((listByParty?.inputSchema as { required?: string[] }).required).toEqual(['partyId']);
   });
@@ -28,5 +25,19 @@ describe('business-action-presets packages/encounters (Loop 103)', () => {
     expect((bySale?.inputSchema as { required?: string[] }).required).toEqual(['packageSaleId']);
     expect((summary?.inputSchema as { required?: string[] }).required).toEqual(['partyId']);
     expect((goldGate?.inputSchema as { required?: string[] }).required).toEqual([]);
+  });
+
+  it('package_sell_to_party validates partyId and either productSlug or manual package fields', () => {
+    expect(validateBusinessActionInput('package_sell_to_party', { partyId: 'p1', productSlug: 'standard' })).toEqual({
+      ok: true,
+    });
+    expect(
+      validateBusinessActionInput('package_sell_to_party', { phone: '+5511999999999', productSlug: 'standard' }),
+    ).toEqual({ ok: true });
+    expect(
+      validateBusinessActionInput('package_sell_to_party', { partyId: 'p1', packageName: 'X', unitsTotal: 5 }),
+    ).toEqual({ ok: true });
+    expect(validateBusinessActionInput('package_sell_to_party', { partyId: 'p1' }).ok).toBe(false);
+    expect(validateBusinessActionInput('package_sell_to_party', { partyId: 'p1', packageName: 'X' }).ok).toBe(false);
   });
 });

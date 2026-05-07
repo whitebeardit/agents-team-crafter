@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { readFileSync } from 'node:fs';
 import { WorkspaceModel } from '../modules/workspaces/infra/workspace.model.js';
 import type { IEnv } from '../config/env.js';
 import { createDeps } from '../config/container.js';
+import { ensureCoordinatorSystemInstructionPolicy } from '../modules/agents/application/coordinator-system-instruction-policy.js';
 
 describe('clinic conversational flow (integration)', () => {
   let mongo: MongoMemoryServer;
@@ -246,14 +246,11 @@ describe('clinic conversational flow (integration)', () => {
     }
   });
 
-  it('keeps guided menu policy in coordinator instructions', async () => {
-    const raw = readFileSync(
-      new URL('../../../docs/teams/team-69f25e827342cb4bd0dc7ba3-export.json', import.meta.url),
-      'utf8',
-    );
-    expect(raw).toContain('[COORDINATOR_GUIDED_MENU_POLICY_V1]');
-    expect(raw).toContain('Posso seguir com:');
-    expect(raw).toContain('menu numerado (1..N)');
+  it('keeps coordinator policy marker in instructions', async () => {
+    const instruction = ensureCoordinatorSystemInstructionPolicy('Base instruction');
+    expect(instruction).toContain('[COORDINATOR_TOOL_CONTRACT_POLICY_V1]');
+    expect(instruction).toContain('Política obrigatória para uso de tools');
+    expect(instruction).toContain('campos obrigatórios');
   });
 });
 

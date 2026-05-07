@@ -11,7 +11,8 @@ export type TConversationItemKind =
   | 'tool_result'
   | 'handoff'
   | 'status'
-  | 'error';
+  | 'error'
+  | 'memory';
 
 export interface IConversationTimelineItem {
   id: string;
@@ -35,10 +36,14 @@ export function buildThinkingSummaryFromProgress(phase: string, detail?: string)
   if (normalized === 'invoke') return 'Iniciando execução do coordenador';
   if (normalized === 'done') return 'Consolidando resposta final';
   if (normalized === 'interrupted') return detail?.trim() || 'Execução interrompida por regra de segurança';
+  if (normalized === 'memory.recall') return detail?.trim() || 'A consultar memória do time';
+  if (normalized === 'memory.write') return detail?.trim() || 'A atualizar memória do time';
+  if (normalized === 'memory.disabled') return detail?.trim() || 'Memória do time indisponível neste momento';
   return detail?.trim() || `Processando fase ${phase}`;
 }
 
 export function inferKindFromExecutionEvent(event: ITeamExecutionEvent): TConversationItemKind {
+  if (event.type === 'secondBrainVaultCommit') return 'memory';
   if (event.type === 'coordinatorSpecialistHandoff') return 'handoff';
   if (event.type === 'toolCall') return 'tool_call';
   if (event.type === 'toolResult') return 'tool_result';

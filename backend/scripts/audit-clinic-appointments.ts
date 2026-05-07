@@ -23,12 +23,16 @@ async function main() {
     const completedWithoutEncounter = appts.filter((a) => a.status === 'completed' && !a.encounterId).length;
 
     const encounters = await EncounterModel.find({ workspaceId: ws._id }).lean();
-    const encounterWithoutAppointment = encounters.filter((e) => !('appointmentId' in e) || !(e as any).appointmentId)
-      .length;
+    const encounterWithoutAppointment = encounters.filter((e) => {
+      const doc = e as Record<string, unknown>;
+      if (!('appointmentId' in doc)) return true;
+      const aid = doc['appointmentId'];
+      return aid == null || aid === '';
+    }).length;
 
     report.push({
       workspaceId,
-      name: String((ws as any).name ?? ''),
+      name: String(typeof (ws as { name?: unknown }).name === 'string' ? (ws as { name: string }).name : ''),
       totalAppointments: appts.length,
       withoutCareSubject,
       withoutPackageSale,
@@ -46,7 +50,9 @@ main().catch(async (e) => {
   console.error(e);
   try {
     await mongoose.disconnect();
-  } catch {}
+  } catch {
+    /* disconnect best-effort */
+  }
   process.exit(1);
 });
 

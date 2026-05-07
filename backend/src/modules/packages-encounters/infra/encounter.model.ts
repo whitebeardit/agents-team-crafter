@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const EncounterSchema = new Schema(
   {
@@ -10,6 +11,11 @@ const EncounterSchema = new Schema(
     clinicalStatus: { type: String, enum: ['open', 'closed'], default: 'closed' },
     notes: { type: String, default: '' },
     durationMinutes: { type: Number, default: 0 },
+    origin: {
+      type: RecordOriginSubschema,
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_encounter' }),
+    },
   },
   { timestamps: true },
 );

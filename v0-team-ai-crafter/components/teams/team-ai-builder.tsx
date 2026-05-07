@@ -25,6 +25,7 @@ import type {
   TeamPlanBindOverrides,
   TeamPlanBindPreview,
   TeamPlanBindPreviewAgent,
+  TeamPlanBindPreviewDomain,
   TeamPlanBindPreviewPack,
   TeamPlanAgentDraft,
   TeamPlanBindPreviewDefinition,
@@ -621,7 +622,7 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
   const [isBindOverrideSaving, setIsBindOverrideSaving] = useState(false)
   const [isBindEnableSaving, setIsBindEnableSaving] = useState(false)
   const [bindPreviewApproved, setBindPreviewApproved] = useState(false)
-  const [openaiKeyConfiguredInWorkspace, setOpenaiKeyConfiguredInWorkspace] = useState<boolean | null>(null)
+  const [workspaceLlmKeyMissing, setWorkspaceLlmKeyMissing] = useState<boolean | null>(null)
   const [teamPlanningPolicy, setTeamPlanningPolicy] = useState<TeamPlanningPolicy | null>(null)
   const [overlapMode, setOverlapMode] = useState<GovernanceOverlapMode>("blocking")
   /** Loop 89 — modo simples por defeito; avançado mostra preview de bind completo e blocos técnicos. */
@@ -868,9 +869,22 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     if (!api) return
     void Promise.all([
       api
-        .get<{ secretsMasked: { openaiApiKeyConfigured: boolean } }>("/settings/workspace/integrations")
-        .then((r) => setOpenaiKeyConfiguredInWorkspace(r.data.secretsMasked.openaiApiKeyConfigured))
-        .catch(() => setOpenaiKeyConfiguredInWorkspace(false)),
+        .get<{
+          secretsMasked: {
+            llmProvider?: "openai" | "openrouter"
+            openaiApiKeyConfigured: boolean
+            openrouterApiKeyConfigured?: boolean
+          }
+        }>("/settings/workspace/integrations")
+        .then((r) => {
+          const prov = r.data.secretsMasked.llmProvider === "openai" ? "openai" : "openrouter"
+          const ok =
+            prov === "openrouter"
+              ? Boolean(r.data.secretsMasked.openrouterApiKeyConfigured)
+              : Boolean(r.data.secretsMasked.openaiApiKeyConfigured)
+          setWorkspaceLlmKeyMissing(!ok)
+        })
+        .catch(() => setWorkspaceLlmKeyMissing(true)),
       api
         .get<TeamPlanningPolicy>("/settings/workspace/team-planning-policy")
         .then((r) => setTeamPlanningPolicy(r.data))
@@ -1411,6 +1425,24 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     </div>
   )
 
+  const renderSuggestedDomainCard = (domain: TeamPlanBindPreviewDomain) => (
+    <div key={domain.domainId} className="rounded-lg border p-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" title={domain.domainId}>
+          {domain.label}
+        </Badge>
+        <Badge variant="outline">actions {domain.actionIds.length}</Badge>
+        <Badge variant="outline">final {domain.selectedActionIds.length}</Badge>
+        {domain.dependencyDomainIds.length > 0 ? (
+          <Badge variant="outline">dependência</Badge>
+        ) : null}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {domain.actionIds.map((actionId) => `\`${actionId}\``).join(", ")}
+      </p>
+    </div>
+  )
+
   const renderAgentActionCheckboxRow = (agent: TeamPlanBindPreviewAgent, actionId: string) => {
     const checked = agent.actionIdsToLink.includes(actionId)
     const blockedByInactiveDefinition = agent.actionIdsBlockedByDisabledDefinitions.includes(actionId)
@@ -1457,16 +1489,17 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
         </div>
       ) : null}
 
-      {openaiKeyConfiguredInWorkspace === false && (
+      {workspaceLlmKeyMissing === true && (
         <Alert>
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>OpenAI não configurada no workspace</AlertTitle>
+          <AlertTitle>Chave LLM não configurada no workspace</AlertTitle>
           <AlertDescription className="text-muted-foreground">
-            Para usar o planner com modelo real, adicione uma chave em{" "}
+            Para usar o planner com modelo real, configure o provider em{" "}
             <Link href="/settings" className="font-medium text-primary underline-offset-4 hover:underline">
               Configurações → Integrações
             </Link>{" "}
-            ou defina <code className="text-xs bg-muted px-1 rounded">OPENAI_API_KEY</code> no servidor do backend.
+            (OpenRouter ou OpenAI) ou defina <code className="text-xs bg-muted px-1 rounded">OPENROUTER_API_KEY</code> /{" "}
+            <code className="text-xs bg-muted px-1 rounded">OPENAI_API_KEY</code> no servidor do backend.
           </AlertDescription>
         </Alert>
       )}
@@ -2125,7 +2158,13 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       </div>
                       {bindPreview.suggestedPacks.length > 0 ? (
                         <div className="space-y-2">
-                          <p className="text-sm font-medium">Acoes em lote por pack sugerido</p>
+                          <p className="text-sm font-medium">Domínios habilitados pelo plano</p>
+                          {(bindPreview.suggestedDomains ?? []).length > 0 ? (
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {(bindPreview.suggestedDomains ?? []).map((domain) => renderSuggestedDomainCard(domain))}
+                            </div>
+                          ) : null}
+                          <p className="text-sm font-medium text-muted-foreground">Detalhe avançado por pack</p>
                           {clinicBindLayersActive ? (
                             <div className="space-y-4">
                               {suggestedPacksByLayer.gold.length > 0 ? (

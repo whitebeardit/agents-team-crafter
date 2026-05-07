@@ -3,8 +3,11 @@ import { maskSecretValue } from '../../../utils/mask-secret.js';
 import {
   EOpenAiWorkspaceChatModel,
   effectiveEnabledChatModels,
+  parseOpenAiWorkspaceChatModel,
 } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { AppError } from '../../../shared/errors/app-error.js';
+import { DEFAULT_LLM_PROVIDER, type TLlmProvider } from '../../../shared/kernel/llm-provider-config.js';
+import { OPENROUTER_MODEL_ID_PATTERN } from '../../../shared/kernel/openrouter-model-id-pattern.js';
 
 /** Payload interno (plaintext) guardado cifrado em Workspace.integrationSecretsEncrypted */
 /** Modelo padrao para a tool de catalogo `image_generation` (override por chamada na tool com `model`). */
@@ -12,8 +15,17 @@ export type TImageGenerationModel = 'dall-e-2' | 'dall-e-3';
 
 export interface IWorkspaceIntegrationsPayload {
   openaiApiKey?: string;
+  /**
+   * Provider LLM explícito para este workspace.
+   * Quando omitido herda o default global (env LLM_PROVIDER, ou o padrao do produto em codigo — OpenRouter).
+   */
+  llmProvider?: TLlmProvider;
+  /** Chave BYOK para OpenRouter quando `llmProvider = 'openrouter'`. */
+  openrouterApiKey?: string;
   /** Padrao quando a tool usa `model: default`; se omitido, o runtime usa dall-e-3. */
   imageGenerationModel?: TImageGenerationModel;
+  /** Modelo OpenRouter padrao para `image_generation` quando provider/model forem default. */
+  openrouterImageGenerationModel?: string;
   smtp?: {
     host: string;
     port: number;
@@ -41,11 +53,37 @@ export interface IWorkspaceIntegrationsPayload {
   agentsRuntimeModel?: EOpenAiWorkspaceChatModel;
   /** Modelo do team planner (JSON). */
   teamPlannerModel?: EOpenAiWorkspaceChatModel;
+  /**
+   * Modelo runtime OpenRouter livre (e.g. 'anthropic/claude-sonnet-4-5').
+   * Só aplicado quando `llmProvider = 'openrouter'`.
+   * Quando omitido e provider=openrouter, usa agentsRuntimeModel com prefixo `openai/`.
+   */
+  openrouterRuntimeModel?: string;
+  /**
+   * Modelo planner OpenRouter livre.
+   * Só aplicado quando `llmProvider = 'openrouter'`.
+   */
+  openrouterPlannerModel?: string;
+  /**
+   * IDs `provedor/modelo` permitidos no workspace (subset do catálogo OpenRouter).
+   * Quando não vazio, restringe defaults e overrides de agentes.
+   */
+  allowedLlmModelIds?: string[];
 }
 
 export const putWorkspaceIntegrationsBodySchema = z.object({
   /** Omitir = manter; string vazia = remover chave */
   openaiApiKey: z.string().optional(),
+  /** Provider LLM do workspace; string vazia = remover e herdar do env. */
+  llmProvider: z.union([z.enum(['openai', 'openrouter']), z.literal('')]).optional(),
+  /** Chave OpenRouter BYOK; string vazia = remover. */
+  openrouterApiKey: z.string().optional(),
+  /** Modelo runtime OpenRouter livre; string vazia = remover. */
+  openrouterRuntimeModel: z.string().optional(),
+  /** Modelo planner OpenRouter livre; string vazia = remover. */
+  openrouterPlannerModel: z.string().optional(),
+  /** Modelo de imagem OpenRouter livre; string vazia = remover. */
+  openrouterImageGenerationModel: z.string().optional(),
   smtp: z
     .object({
       host: z.string().optional(),
@@ -79,6 +117,7 @@ export const putWorkspaceIntegrationsBodySchema = z.object({
   teamPlannerModel: z
     .union([z.nativeEnum(EOpenAiWorkspaceChatModel), z.literal('')])
     .optional(),
+  allowedLlmModelIds: z.array(z.string().min(3).max(200)).max(200).optional(),
 });
 
 export type IPutWorkspaceIntegrationsBody = z.infer<typeof putWorkspaceIntegrationsBodySchema>;
@@ -86,6 +125,13 @@ export type IPutWorkspaceIntegrationsBody = z.infer<typeof putWorkspaceIntegrati
 export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | null): {
   openaiApiKeyConfigured: boolean;
   openaiApiKeyMasked?: string;
+  llmProvider?: TLlmProvider;
+  openrouterApiKeyConfigured?: boolean;
+  openrouterApiKeyMasked?: string;
+  openrouterRuntimeModel?: string;
+  openrouterPlannerModel?: string;
+  openrouterImageGenerationModel?: string;
+  allowedLlmModelIds?: string[];
   smtp?: {
     host?: string;
     port?: number;
@@ -116,6 +162,13 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
     ...(payload.openaiApiKey?.trim()
       ? { openaiApiKeyMasked: maskSecretValue(payload.openaiApiKey) }
       : {}),
+    ...(payload.llmProvider ? { llmProvider: payload.llmProvider } : {}),
+    ...(payload.openrouterApiKey?.trim()
+      ? {
+          openrouterApiKeyConfigured: true,
+          openrouterApiKeyMasked: maskSecretValue(payload.openrouterApiKey),
+        }
+      : { openrouterApiKeyConfigured: false }),
     ...(smtp
       ? {
           smtp: {
@@ -156,6 +209,12 @@ export function maskIntegrationsForApi(payload: IWorkspaceIntegrationsPayload | 
       : {}),
     ...(payload.agentsRuntimeModel ? { agentsRuntimeModel: payload.agentsRuntimeModel } : {}),
     ...(payload.teamPlannerModel ? { teamPlannerModel: payload.teamPlannerModel } : {}),
+    ...(payload.openrouterRuntimeModel ? { openrouterRuntimeModel: payload.openrouterRuntimeModel } : {}),
+    ...(payload.openrouterPlannerModel ? { openrouterPlannerModel: payload.openrouterPlannerModel } : {}),
+    ...(payload.openrouterImageGenerationModel
+      ? { openrouterImageGenerationModel: payload.openrouterImageGenerationModel }
+      : {}),
+    ...(payload.allowedLlmModelIds?.length ? { allowedLlmModelIds: [...payload.allowedLlmModelIds] } : {}),
   };
 }
 
@@ -168,6 +227,31 @@ export function mergeWorkspaceIntegrationsPayload(
   if (patch.openaiApiKey !== undefined) {
     if (patch.openaiApiKey.trim() === '') delete next.openaiApiKey;
     else next.openaiApiKey = patch.openaiApiKey.trim();
+  }
+
+  if (patch.llmProvider !== undefined) {
+    if (patch.llmProvider === '') delete next.llmProvider;
+    else next.llmProvider = patch.llmProvider as TLlmProvider;
+  }
+
+  if (patch.openrouterApiKey !== undefined) {
+    if (patch.openrouterApiKey.trim() === '') delete next.openrouterApiKey;
+    else next.openrouterApiKey = patch.openrouterApiKey.trim();
+  }
+
+  if (patch.openrouterRuntimeModel !== undefined) {
+    if (patch.openrouterRuntimeModel.trim() === '') delete next.openrouterRuntimeModel;
+    else next.openrouterRuntimeModel = patch.openrouterRuntimeModel.trim();
+  }
+
+  if (patch.openrouterPlannerModel !== undefined) {
+    if (patch.openrouterPlannerModel.trim() === '') delete next.openrouterPlannerModel;
+    else next.openrouterPlannerModel = patch.openrouterPlannerModel.trim();
+  }
+
+  if (patch.openrouterImageGenerationModel !== undefined) {
+    if (patch.openrouterImageGenerationModel.trim() === '') delete next.openrouterImageGenerationModel;
+    else next.openrouterImageGenerationModel = patch.openrouterImageGenerationModel.trim();
   }
 
   if (patch.smtp !== undefined) {
@@ -251,11 +335,74 @@ export function mergeWorkspaceIntegrationsPayload(
     else next.teamPlannerModel = patch.teamPlannerModel;
   }
 
+  if (patch.allowedLlmModelIds !== undefined) {
+    if (!patch.allowedLlmModelIds.length) delete next.allowedLlmModelIds;
+    else next.allowedLlmModelIds = [...new Set(patch.allowedLlmModelIds.map((s) => s.trim()).filter(Boolean))];
+  }
+
   return next;
+}
+
+function effectiveLlmProvider(payload: IWorkspaceIntegrationsPayload): TLlmProvider {
+  const w = payload.llmProvider;
+  if (w === 'openrouter' || w === 'openai') return w;
+  const env = typeof process !== 'undefined' ? process.env.LLM_PROVIDER?.trim() : undefined;
+  if (env === 'openrouter' || env === 'openai') return env;
+  return DEFAULT_LLM_PROVIDER;
+}
+
+function assertOpenRouterModelId(raw: string | undefined, label: string): void {
+  const t = raw?.trim();
+  if (!t) return;
+  if (OPENROUTER_MODEL_ID_PATTERN.test(t)) return;
+  if (parseOpenAiWorkspaceChatModel(t)) return;
+  throw new AppError(
+    'VALIDATION_ERROR',
+    `${label}: ID de modelo invalido. Use formato provedor/modelo (OpenRouter) ou um modelo GPT do catalogo legado.`,
+    400,
+  );
 }
 
 /** Valida defaults de chat contra `enabledOpenAiChatModels` quando a lista está definida e não vazia. */
 export function assertWorkspaceChatModelsCoherent(payload: IWorkspaceIntegrationsPayload): void {
+  const provider = effectiveLlmProvider(payload);
+
+  if (provider === 'openrouter') {
+    const allowed = payload.allowedLlmModelIds?.map((x) => x.trim()).filter(Boolean) ?? [];
+    const uniq = [...new Set(allowed)];
+    for (const id of uniq) assertOpenRouterModelId(id, 'Lista de modelos permitidos');
+    assertOpenRouterModelId(payload.openrouterRuntimeModel, 'Modelo runtime OpenRouter');
+    assertOpenRouterModelId(payload.openrouterPlannerModel, 'Modelo planner OpenRouter');
+    assertOpenRouterModelId(payload.openrouterImageGenerationModel, 'Modelo de imagem OpenRouter');
+    if (uniq.length > 0) {
+      if (payload.openrouterRuntimeModel?.trim() && !uniq.includes(payload.openrouterRuntimeModel.trim())) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'O modelo runtime OpenRouter deve estar entre os modelos permitidos deste workspace.',
+          400,
+        );
+      }
+      if (payload.openrouterPlannerModel?.trim() && !uniq.includes(payload.openrouterPlannerModel.trim())) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'O modelo planner OpenRouter deve estar entre os modelos permitidos deste workspace.',
+          400,
+        );
+      }
+      if (
+        payload.openrouterImageGenerationModel?.trim() &&
+        !uniq.includes(payload.openrouterImageGenerationModel.trim())
+      ) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'O modelo de imagem OpenRouter deve estar entre os modelos permitidos deste workspace.',
+          400,
+        );
+      }
+    }
+    return;
+  }
+
   const lim = payload.enabledOpenAiChatModels;
   if (!lim?.length) return;
   const eff = effectiveEnabledChatModels(lim);

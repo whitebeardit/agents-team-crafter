@@ -54,9 +54,10 @@ Ordem lógica de registo (todas com prefixo `/api/v1`):
 9. `registerDashboardRoutes`
 10. `registerSettingsRoutes`
 11. `registerAuditRoutes` — `GET /audit-logs` (admin do workspace)
-12. `registerToolDefinitionRoutes` — CRUD `/tool-definitions` (mutações: admin)
-13. `registerTeamPlanRoutes` — `/team-plans` (criar, obter, atualizar, `execute`, `execute/stream` SSE)
-14. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
+12. `registerToolDefinitionRoutes` — CRUD `/tool-definitions` (mutações: admin); ver [Domínios e tool definitions](#domínios-e-tool-definitions-internal_action)
+13. `registerBusinessActionRoutes` — catálogo e domínios de capabilities; ver [Business actions e domínios](#business-actions-e-domínios)
+14. `registerTeamPlanRoutes` — `/team-plans` (criar, obter, atualizar, `execute`, `execute/stream` SSE)
+15. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
 
 Execução por time: **`POST /teams/:id/run`** em `registerTeamRoutes` (`invokeTeam` / `team-runtime`).
 
@@ -78,6 +79,42 @@ Rotas de **leitura** (JWT + `X-Workspace-Id` como as restantes) que devolvem um 
 **Testes** — `backend/src/modules/agents/application/build-agent-export.test.ts`, `backend/src/modules/teams/application/build-team-export.test.ts`.
 
 A UI Next.js chama estes endpoints a partir de botões “Exportar JSON” / “Copiar JSON” no detalhe de agente, no drawer de agente e no detalhe de time (ficheiros em `v0-team-ai-crafter/app/...` e `components/...`).
+
+### Listagem de agentes (`GET /agents`)
+
+Query opcional **`teamId`**: quando presente, o servidor resolve o time no workspace e devolve apenas agentes que fazem parte desse time (**coordenador** + ids em **`agentIds`**). Se o time não existir, a lista vem vazia. Implementação: [`agent.routes.ts`](../../backend/src/modules/agents/interfaces/agent.routes.ts), [`agent.repository.ts`](../../backend/src/modules/agents/infra/agent.repository.ts).
+
+### Business actions e domínios
+
+Rotas em [`business-actions.routes.ts`](../../backend/src/modules/business-tools/interfaces/business-actions.routes.ts) (`registerBusinessActionRoutes`):
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/business-actions/catalog` | Catálogo read-only de internal actions registadas (metadados do preset). |
+| `GET` | `/business-actions/domains` | Lista domínios do registry com `availableActionIds` / `unavailableActionIds` face ao registry em runtime. |
+| `POST` | `/business-actions/domains/resolve` | Corpo `{ "domainIds": ["crm", ...] }` — resolve `resolveDomainCapabilitySelection` e devolve actionIds disponíveis. |
+
+### Domínios por agente
+
+Em [`agent.routes.ts`](../../backend/src/modules/agents/interfaces/agent.routes.ts) (`registerAgentRoutes`):
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `PUT` | `/agents/:id/domains` | Corpo com lista de domain ids — aplica capabilities/domínios ao agente (merge de tools e definitions conforme serviço). |
+
+### Domínios e tool definitions (`internal_action`)
+
+Em [`tool-definition.routes.ts`](../../backend/src/modules/tool-definitions/interfaces/tool-definition.routes.ts):
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/tool-definitions/bulk-internal-action-domains` | **Admin** — cria em lote definitions `internal_action` para domínios indicados. |
+
+Schemas JSON das tools: continuar a seguir o contrato OpenAI descrito em [`../../.cursor/rules/openai-tool-json-schema.mdc`](../../.cursor/rules/openai-tool-json-schema.mdc). Playbook de contribuição: [`../../docs/contributing-business-tools-and-domains.md`](../../docs/contributing-business-tools-and-domains.md).
+
+### Criação de times (`POST /teams`)
+
+Em [`team.routes.ts`](../../backend/src/modules/teams/interfaces/team.routes.ts): o corpo pode incluir opcionalmente **`agentDomainIds`** — mapa de `agentId` → array de identificadores de domínio, para aplicar domínios por membro na criação do time.
 
 ---
 
@@ -109,6 +146,8 @@ O **team-runtime** (`modules/team-runtime`) concentra `invokeTeam`, o orquestrad
 
 ## Ver também
 
+- [Contribuir: business tools e domínios](../../docs/contributing-business-tools-and-domains.md) — checklist handlers, presets, registry.
+- [Dependências entre domínios (business tools)](../../docs/business-domain-tool-dependencies.md) — que packs assumem CRM, Care, Agenda, etc., ao nível de domínio.
 - [AGENTS.md](./AGENTS.md) — diagrama com BFF, webhooks e runtime.
 - [data-layer.md](./data-layer.md) — persistência e `workspaceId`.
 - [chat-sdk.md](./chat-sdk.md) — webhooks e `Chat`.

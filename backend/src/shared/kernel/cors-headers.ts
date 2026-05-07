@@ -8,6 +8,7 @@ export const CORS_ALLOWED_REQUEST_HEADERS = [
   'Authorization',
   'Content-Type',
   'X-Workspace-Id',
+  'If-Match',
 ] as const;
 
 /**

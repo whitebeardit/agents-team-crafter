@@ -6,6 +6,7 @@ import type {
   TeamRunRequest,
   TeamRunResponse,
 } from "@/lib/types"
+import { emitSessionLost } from "@/lib/auth/session-lost-event"
 
 export interface ISuccessEnvelope<T> {
   success: true
@@ -99,6 +100,23 @@ type SetAuth = (auth: { token: string; refreshToken?: string }) => void
 type ClearAuth = () => void
 type GetWorkspaceId = () => string | null | undefined
 
+/** Evita `parseEnvelope` em 401 após refresh falhar: o layout redireciona com sessão limpa. */
+function pendingForever<T>(): Promise<T> {
+  return new Promise(() => {})
+}
+
+function clearSessionAfterAuthFailure(d: { clearAuth: ClearAuth }) {
+  d.clearAuth()
+  emitSessionLost()
+}
+
+/** `fetch` + ReadableStream rejeitam com isto quando o `AbortSignal` do efeito React cancela o SSE. */
+function isAbortError(e: unknown): boolean {
+  if (e == null || typeof e !== "object") return false
+  const name = (e as { name?: string }).name
+  return name === "AbortError"
+}
+
 /** Parse Server-Sent Events body (fetch streaming). */
 async function consumeSseResponse(
   res: Response,
@@ -137,6 +155,7 @@ export interface ITeamRunStreamHandlers {
 export interface ITeamLiveStreamHandlers extends ITeamRunStreamHandlers {
   onInboundUserMessage?: (data: TeamLiveInboundUserMessage) => void
   onTimelineItem?: (item: TeamConversationTimelineItem) => void
+  onVaultNoteChanged?: (data: { workspaceId: string; noteId: string; contentHash: string; version: number }) => void
 }
 
 export interface ITeamPlanExecuteStreamHandlers<T> {
@@ -157,15 +176,20 @@ export function createApiClient(deps: {
   async function refreshTokenIfPossible() {
     const { refreshToken } = deps.getAuth()
     if (!refreshToken) return false
-    const baseUrl = getBaseUrl()
-    const res = await fetch(joinUrl(baseUrl, "/auth/refresh"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    })
-    const env = await parseEnvelope<{ token: string; refreshToken: string; expiresAt: string }>(res)
-    deps.setAuth({ token: env.data.token, refreshToken: env.data.refreshToken })
-    return true
+    try {
+      const baseUrl = getBaseUrl()
+      const res = await fetch(joinUrl(baseUrl, "/auth/refresh"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      })
+      const env = await parseEnvelope<{ token: string; refreshToken: string; expiresAt: string }>(res)
+      deps.setAuth({ token: env.data.token, refreshToken: env.data.refreshToken })
+      return true
+    } catch {
+      clearSessionAfterAuthFailure(deps)
+      return false
+    }
   }
 
   async function request<T>(
@@ -197,8 +221,12 @@ export function createApiClient(deps: {
         if (newToken) headers.set("Authorization", `Bearer ${newToken}`)
         res = await doFetch()
       } else {
-        deps.clearAuth()
+        clearSessionAfterAuthFailure(deps)
       }
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
+      return pendingForever()
     }
 
     return parseEnvelope<T>(res)
@@ -230,8 +258,11 @@ export function createApiClient(deps: {
         if (newToken) headers.set("Authorization", `Bearer ${newToken}`)
         res = await doFetch()
       } else {
-        deps.clearAuth()
+        clearSessionAfterAuthFailure(deps)
       }
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
     }
     return res
   }
@@ -260,7 +291,10 @@ export function createApiClient(deps: {
     if (res.status === 401) {
       const refreshed = await refreshTokenIfPossible()
       if (refreshed) res = await doFetch()
-      else deps.clearAuth()
+      else clearSessionAfterAuthFailure(deps)
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
     }
 
     if (!res.ok) {
@@ -301,70 +335,82 @@ export function createApiClient(deps: {
 
   /** GET SSE: mesmo formato que `streamTeamRun` (inbound Chat SDK + runs manuais publicados no bus). */
   async function streamTeamLive(teamId: string, handlers: ITeamLiveStreamHandlers, signal?: AbortSignal) {
-    const baseUrl = getBaseUrl()
-    const path = `/teams/${teamId}/live`
+    try {
+      const baseUrl = getBaseUrl()
+      const path = `/teams/${teamId}/live`
 
-    const buildHeaders = () => {
-      const headers = new Headers()
-      const { token } = deps.getAuth()
-      if (token) headers.set("Authorization", `Bearer ${token}`)
-      const wid = deps.getWorkspaceId()
-      if (wid) headers.set("X-Workspace-Id", wid)
-      return headers
-    }
-
-    const doFetch = () =>
-      fetch(joinUrl(baseUrl, path), {
-        method: "GET",
-        headers: buildHeaders(),
-        signal,
-      })
-
-    let res = await doFetch()
-    if (res.status === 401) {
-      const refreshed = await refreshTokenIfPossible()
-      if (refreshed) res = await doFetch()
-      else deps.clearAuth()
-    }
-
-    if (!res.ok) {
-      let message = await res.text()
-      if (!message) message = res.statusText
-      try {
-        const j = JSON.parse(message) as { error?: { message?: string; code?: string } }
-        if (j?.error?.message) message = j.error.message
-      } catch {
-        /* ignore */
+      const buildHeaders = () => {
+        const headers = new Headers()
+        const { token } = deps.getAuth()
+        if (token) headers.set("Authorization", `Bearer ${token}`)
+        const wid = deps.getWorkspaceId()
+        if (wid) headers.set("X-Workspace-Id", wid)
+        return headers
       }
-      handlers.onError?.({ message, status: res.status })
-      return
-    }
 
-    await consumeSseResponse(res, (eventName, dataJson) => {
-      try {
-        const data = JSON.parse(dataJson) as unknown
-        if (eventName === "agentStatus") handlers.onAgentStatus?.(data as TeamRunProgressEvent)
-        else if (eventName === "coordinatorDelta") {
-          const d = data as TeamCoordinatorDeltaPayload
-          if (d.text) handlers.onCoordinatorDelta?.(d)
-        } else if (eventName === "runComplete") {
-          handlers.onRunComplete?.(data as TeamRunResponse)
-        } else if (eventName === "error") {
-          const d = data as { code?: string; message?: string; status?: number }
-          handlers.onError?.({
-            code: d.code,
-            message: d.message ?? "Erro no stream",
-            status: d.status,
-          })
-        } else if (eventName === "inboundUserMessage") {
-          handlers.onInboundUserMessage?.(data as TeamLiveInboundUserMessage)
-        } else if (eventName === "timelineItem") {
-          handlers.onTimelineItem?.(data as TeamConversationTimelineItem)
+      const doFetch = () =>
+        fetch(joinUrl(baseUrl, path), {
+          method: "GET",
+          headers: buildHeaders(),
+          signal,
+        })
+
+      let res = await doFetch()
+      if (res.status === 401) {
+        const refreshed = await refreshTokenIfPossible()
+        if (refreshed) res = await doFetch()
+        else clearSessionAfterAuthFailure(deps)
+      }
+      if (res.status === 401) {
+        clearSessionAfterAuthFailure(deps)
+      }
+
+      if (!res.ok) {
+        let message = await res.text()
+        if (!message) message = res.statusText
+        try {
+          const j = JSON.parse(message) as { error?: { message?: string; code?: string } }
+          if (j?.error?.message) message = j.error.message
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* chunk invalido */
+        handlers.onError?.({ message, status: res.status })
+        return
       }
-    })
+
+      await consumeSseResponse(res, (eventName, dataJson) => {
+        try {
+          const data = JSON.parse(dataJson) as unknown
+          if (eventName === "agentStatus") handlers.onAgentStatus?.(data as TeamRunProgressEvent)
+          else if (eventName === "coordinatorDelta") {
+            const d = data as TeamCoordinatorDeltaPayload
+            if (d.text) handlers.onCoordinatorDelta?.(d)
+          } else if (eventName === "runComplete") {
+            handlers.onRunComplete?.(data as TeamRunResponse)
+          } else if (eventName === "error") {
+            const d = data as { code?: string; message?: string; status?: number }
+            handlers.onError?.({
+              code: d.code,
+              message: d.message ?? "Erro no stream",
+              status: d.status,
+            })
+          } else if (eventName === "inboundUserMessage") {
+            handlers.onInboundUserMessage?.(data as TeamLiveInboundUserMessage)
+          } else if (eventName === "timelineItem") {
+            handlers.onTimelineItem?.(data as TeamConversationTimelineItem)
+          } else if (eventName === "vaultNoteChanged") {
+            handlers.onVaultNoteChanged?.(
+              data as { workspaceId: string; noteId: string; contentHash: string; version: number },
+            )
+          }
+        } catch {
+          /* chunk invalido */
+        }
+      })
+    } catch (e) {
+      if (isAbortError(e)) return
+      throw e
+    }
   }
 
   async function streamTeamPlanExecute<T>(
@@ -395,7 +441,10 @@ export function createApiClient(deps: {
     if (res.status === 401) {
       const refreshed = await refreshTokenIfPossible()
       if (refreshed) res = await doFetch()
-      else deps.clearAuth()
+      else clearSessionAfterAuthFailure(deps)
+    }
+    if (res.status === 401) {
+      clearSessionAfterAuthFailure(deps)
     }
 
     if (!res.ok) {
@@ -429,12 +478,23 @@ export function createApiClient(deps: {
     get: async <T>(path: string, opts?: { tenant?: boolean }) => request<T>(path, { method: "GET", tenant: opts?.tenant }),
     post: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean }) =>
       request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined, tenant: opts?.tenant }),
-    put: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean }) =>
-      request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined, tenant: opts?.tenant }),
+    put: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean; ifMatch?: string }) => {
+      const h = new Headers()
+      if (opts?.ifMatch) h.set("If-Match", opts.ifMatch)
+      return request<T>(path, {
+        method: "PUT",
+        body: body ? JSON.stringify(body) : undefined,
+        tenant: opts?.tenant,
+        headers: h,
+      })
+    },
     patch: async <T>(path: string, body?: unknown, opts?: { tenant?: boolean }) =>
       request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined, tenant: opts?.tenant }),
-    del: async <T>(path: string, opts?: { tenant?: boolean }) =>
-      request<T>(path, { method: "DELETE", tenant: opts?.tenant }),
+    del: async <T>(path: string, opts?: { tenant?: boolean; ifMatch?: string }) => {
+      const h = new Headers()
+      if (opts?.ifMatch) h.set("If-Match", opts.ifMatch)
+      return request<T>(path, { method: "DELETE", tenant: opts?.tenant, headers: h })
+    },
     streamTeamRun,
     streamTeamLive,
     streamTeamPlanExecute,

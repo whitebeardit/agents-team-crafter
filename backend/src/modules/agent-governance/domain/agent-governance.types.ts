@@ -1,4 +1,4 @@
-export type TAgentSystemRole = 'team-crafter' | 'agent-crafter' | 'domain-guard' | null;
+export type TAgentSystemRole = 'team-crafter' | 'agent-crafter' | 'domain-guard' | 'librarian' | null;
 
 export interface IAgentDomainProfile {
   summary?: string;

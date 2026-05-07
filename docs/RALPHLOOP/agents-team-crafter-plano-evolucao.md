@@ -541,7 +541,7 @@ Fazer o AI Builder sugerir packs e tools reais automaticamente.
 ### Resultado esperado
 Ao criar um time por objetivo/problema, o planner deve conseguir sugerir:
 
-- packs necessários (identificadores canónicos alinhados ao backend: `PLANNER_PACK_IDS` / `PLANNER_PACK_TO_ACTION_IDS`)
+- packs necessários (identificadores canónicos alinhados ao backend: `PLANNER_PACK_IDS` / `PLANNER_PACK_TO_ACTION_IDS`, derivados de [`domain-capability-registry.ts`](../../backend/src/modules/business-tools/application/domain-capability-registry.ts); playbook [`contributing-business-tools-and-domains.md`](../contributing-business-tools-and-domains.md))
 - tools por agente
 - indicação de escrita/leitura
 - instalação automática dos packs

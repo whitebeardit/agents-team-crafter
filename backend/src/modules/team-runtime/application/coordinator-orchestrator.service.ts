@@ -45,6 +45,18 @@ import {
   buildExecutionInterruptionDescriptor,
   type TInterruptionReasonCode,
 } from '../domain/execution-interruption.js';
+import { DEFAULT_LLM_PROVIDER, resolveModelIdForProvider } from '../../../shared/kernel/llm-provider-config.js';
+import {
+  buildOpenRouterDashboardTitle,
+  openRouterOriginLabelFromHttpReferer,
+} from '../../../shared/kernel/openrouter-attribution.js';
+import type { IEnv } from '../../../config/env.js';
+import type { VaultWriterService } from '../../team-vault/application/vault-writer.service.js';
+import type { VaultNoteIndexRepository } from '../../team-vault/infra/vault-note-index.repository.js';
+import { SecondBrainRecallService } from '../../team-vault/application/second-brain-recall.service.js';
+import { SecondBrainCuratorService } from '../../team-vault/application/second-brain-curator.service.js';
+import { buildSecondBrainCoordinatorTools } from '../../team-vault/application/second-brain-coordinator-tools.js';
+import { renderLearningsAppendixForAgent } from '../../team-vault/application/render-learnings-appendix.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -571,10 +583,17 @@ export interface ICoordinatorExecuteOptions {
   onCoordinatorTextDelta?: (text: string) => void;
 }
 
-function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: string[]): ITeamExecutionEvent {
+function mapRuntimeEventToTeamEvent(
+  e: TRuntimeEvent,
+  rosterSpecialistIds: string[],
+  coordinatorAgentId: string,
+): ITeamExecutionEvent {
   if (e.type === 'taskType') return { type: e.type, value: e.value };
-  const agentId =
+  let agentId =
     e.tool !== undefined ? resolveSpecialistAgentIdFromToolName(e.tool, rosterSpecialistIds) : undefined;
+  if (!agentId && typeof e.tool === 'string' && e.tool.startsWith('second_brain_')) {
+    agentId = coordinatorAgentId;
+  }
   return {
     type: e.type,
     tool: e.tool,
@@ -587,6 +606,7 @@ function mapRuntimeEventToTeamEvent(e: TRuntimeEvent, rosterSpecialistIds: strin
 
 export class CoordinatorOrchestratorService {
   constructor(
+    private readonly env: IEnv,
     private readonly agentRepo: AgentRepository,
     private readonly teamRepo: TeamRepository,
     private readonly agentRuntime: IAgentRuntimeProvider,
@@ -598,6 +618,10 @@ export class CoordinatorOrchestratorService {
     private readonly workspaceToolDefinitionRepo: WorkspaceToolDefinitionRepository,
     private readonly businessToolRuntime: IBusinessToolRuntime,
     private readonly clinicConversationStateRepo: ClinicConversationStateRepository,
+    private readonly vaultWriter: VaultWriterService,
+    private readonly vaultNoteIndexRepo: VaultNoteIndexRepository,
+    private readonly secondBrainRecall: SecondBrainRecallService,
+    private readonly secondBrainCurator: SecondBrainCuratorService,
   ) {}
 
   async execute(
@@ -643,6 +667,12 @@ export class CoordinatorOrchestratorService {
 
     const now = Date.now();
     const preflightEvents: ITeamExecutionEvent[] = [];
+    preflightEvents.push({
+      type: 'secondBrainVaultCommit',
+      agentId: teamRow.coordinatorId,
+      phase: 'vault',
+      detail: this.vaultWriter.getHeadCommit(ws) || 'none',
+    });
     pruneDestructiveConfirmationMemory(now);
     const memoryKey = computeConversationMemoryKey(invocation);
     const pendingDelete = getPendingDestructiveConfirmation(memoryKey, now);
@@ -805,6 +835,7 @@ export class CoordinatorOrchestratorService {
       const a = await this.agentRepo.findById(ws, sid);
       if (!a) continue;
       const row = a as Record<string, unknown>;
+      if (row['systemRole'] === 'librarian') continue;
       assertSpecialistAgentRow(row);
       const name = String(row['name'] ?? 'Specialist');
       const description = String(row['description'] ?? '');
@@ -892,7 +923,19 @@ export class CoordinatorOrchestratorService {
         knowledgeSourceIds,
         this.knowledgeSourceRepo,
       );
-      const systemInstruction = buildSpecialistSystemInstruction(srow, knowledgeAppendix);
+      const knRow = srow['knowledge'] as { usePersistentMemory?: boolean; tokenBudget?: number } | undefined;
+      let vaultLearningsAppendix = '';
+      if (knRow?.usePersistentMemory) {
+        const budget = knRow.tokenBudget ?? this.env.VAULT_LEARNINGS_TOKEN_BUDGET ?? 1000;
+        vaultLearningsAppendix = await renderLearningsAppendixForAgent(
+          this.env,
+          this.vaultNoteIndexRepo,
+          ws,
+          specialistAgentId,
+          budget,
+        );
+      }
+      const systemInstruction = buildSpecialistSystemInstruction(srow, knowledgeAppendix, vaultLearningsAppendix);
 
       const mcpToolSpecs = await loadMcpToolSpecsForAgent(
         ws,
@@ -920,7 +963,7 @@ export class CoordinatorOrchestratorService {
         config: r.config,
       }));
 
-      const specialistRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
+      const specialistRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModelForProvider(
         ws,
         typeof srow['openaiRuntimeModel'] === 'string' ? srow['openaiRuntimeModel'] : null,
       );
@@ -936,12 +979,22 @@ export class CoordinatorOrchestratorService {
         toolIntegrationContext,
         customToolDefinitions,
         businessToolRuntime: this.businessToolRuntime,
-        teamContext: { teamId: teamRow.id, teamName: teamRow.name },
+        teamContext: {
+          teamId: teamRow.id,
+          teamName: teamRow.name,
+          gallerySubjectSlug:
+            typeof invocation.metadata?.gallerySubjectSlug === 'string'
+              ? invocation.metadata.gallerySubjectSlug
+              : undefined,
+        },
         singleAgentMode: Boolean((teamRow as Record<string, unknown>)['singleAgentMode']),
         openaiRuntimeModel: specialistRuntimeModel,
+        ...(typeof srow['imageGenerationModel'] === 'string' && srow['imageGenerationModel'].trim()
+          ? { imageGenerationModel: srow['imageGenerationModel'].trim() }
+          : {}),
       });
       await this.agentRuntime.compile(config);
-      const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
+      const llmConfig = await this.workspaceIntegrationsService.resolveLlmProviderConfig(ws);
 
       const ext = invocation.coordinatorExternalContext;
       const agentSec = srow['security'] as { accessLevel?: string } | undefined;
@@ -959,10 +1012,21 @@ export class CoordinatorOrchestratorService {
       const conversationId =
         typeof invocation.metadata?.conversationId === 'string' ? invocation.metadata.conversationId : undefined;
 
+      const openRouterTitle =
+        llmConfig?.provider === 'openrouter'
+          ? buildOpenRouterDashboardTitle({
+              appSlug: openRouterAppSlug,
+              workspaceName: workspaceAttributionName,
+              agentName: String(srow['name'] ?? '').trim() || specialistAgentId,
+              publicOrigin: openRouterOriginLabelFromHttpReferer(llmConfig.extraHeaders?.['HTTP-Referer']),
+            })
+          : null;
+
       const r = await this.agentRuntime.runStep(config, {
         message: runtimeMessage,
         ...(runtimeInput.contentParts ? { contentParts: runtimeInput.contentParts } : {}),
-        ...(openaiApiKey ? { openaiApiKey } : {}),
+        ...(llmConfig ? { llmConfig } : {}),
+        ...(openRouterTitle ? { llmExtraHeaders: { 'X-OpenRouter-Title': openRouterTitle } } : {}),
         ...(requestedAccessLevel ? { requestedAccessLevel } : {}),
         ...(correlationId ? { correlationId } : {}),
         ...(conversationId ? { conversationId } : {}),
@@ -987,12 +1051,16 @@ export class CoordinatorOrchestratorService {
       return r.finalOutput;
     };
 
-    const sdkTools = this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist });
-    const openaiApiKey = await this.workspaceIntegrationsService.resolveOpenAiApiKey(ws);
+    const coordinatorLlmConfig = await this.workspaceIntegrationsService.resolveLlmProviderConfig(ws);
+    const openRouterAppSlug = this.workspaceIntegrationsService.getOpenRouterAttributionAppSlug();
+    const workspaceAttributionName =
+      coordinatorLlmConfig?.provider === 'openrouter'
+        ? await this.workspaceIntegrationsService.resolveWorkspaceNameForOpenRouterAttribution(ws)
+        : '';
     const userMessage = formatCoordinatorUserMessage(invocation);
     const userContentParts = formatCoordinatorUserContentParts(invocation);
     const crow = coordinator as Record<string, unknown>;
-    const coordinatorRuntimeModel = await this.workspaceIntegrationsService.resolveAgentsRuntimeModel(
+    const coordinatorRuntimeModelBase = await this.workspaceIntegrationsService.resolveAgentsRuntimeModelForProvider(
       ws,
       typeof crow['openaiRuntimeModel'] === 'string' ? crow['openaiRuntimeModel'] : null,
     );
@@ -1012,6 +1080,28 @@ export class CoordinatorOrchestratorService {
       : '';
     const coordinatorSystemInstruction = `${coordinatorCore}${rosterAppendix}${COORDINATOR_SPECIALIST_TOOL_GUIDANCE}${clinicContextAppendix}`;
 
+    const isLibrarianCoord = crow['systemRole'] === 'librarian';
+    const defaultPartyId =
+      typeof clinicContext?.currentPatient?.partyId === 'string' && clinicContext.currentPatient.partyId.trim()
+        ? clinicContext.currentPatient.partyId.trim()
+        : undefined;
+    const secondBrainTools = !isLibrarianCoord
+      ? buildSecondBrainCoordinatorTools({
+          env: this.env,
+          recallService: this.secondBrainRecall,
+          curatorService: this.secondBrainCurator,
+          workspaceId: ws,
+          coordinatorAgentId: teamRow.coordinatorId,
+          runId,
+          emitProgress,
+          defaultPartyId,
+        })
+      : [];
+    const sdkTools = [
+      ...secondBrainTools,
+      ...this.specialistRegistry.buildOpenAiTools({ specialists, executeSpecialist }),
+    ];
+
     const streamText = Boolean(options?.streamCoordinatorText && options?.onCoordinatorTextDelta);
     const timeline: ITeamExecutionEvent[] = [
       { type: 'coordinatorStarted', agentId: teamRow.coordinatorId, phase: 'invoke' },
@@ -1024,6 +1114,21 @@ export class CoordinatorOrchestratorService {
       detail: 'A executar coordenador',
     });
 
+    const coordinatorRuntimeModel = resolveModelIdForProvider(
+      coordinatorRuntimeModelBase,
+      coordinatorLlmConfig?.provider ?? DEFAULT_LLM_PROVIDER,
+    );
+    const coordinatorOpenRouterTitle =
+      coordinatorLlmConfig?.provider === 'openrouter'
+        ? buildOpenRouterDashboardTitle({
+            appSlug: openRouterAppSlug,
+            workspaceName: workspaceAttributionName,
+            agentName: String(crow['name'] ?? '').trim() || teamRow.coordinatorId,
+            publicOrigin: openRouterOriginLabelFromHttpReferer(
+              coordinatorLlmConfig.extraHeaders?.['HTTP-Referer'],
+            ),
+          })
+        : null;
     const result = await this.agentRuntime.runCoordinatorTurn({
       coordinatorAgentId: teamRow.coordinatorId,
       workspaceId: ws,
@@ -1031,7 +1136,10 @@ export class CoordinatorOrchestratorService {
       userMessage,
       ...(userContentParts ? { userContentParts } : {}),
       openaiRuntimeModel: coordinatorRuntimeModel,
-      ...(openaiApiKey ? { openaiApiKey } : {}),
+      ...(coordinatorLlmConfig ? { llmConfig: coordinatorLlmConfig } : {}),
+      ...(coordinatorOpenRouterTitle
+        ? { llmExtraHeaders: { 'X-OpenRouter-Title': coordinatorOpenRouterTitle } }
+        : {}),
       sdkTools,
       ...(streamText && options?.onCoordinatorTextDelta
         ? { onAssistantTextDelta: options.onCoordinatorTextDelta }
@@ -1074,7 +1182,9 @@ export class CoordinatorOrchestratorService {
       phase: 'coordinator',
     });
 
-    const coordinatorMapped = result.events.map((e) => mapRuntimeEventToTeamEvent(e, specialistIds));
+    const coordinatorMapped = result.events.map((e) =>
+      mapRuntimeEventToTeamEvent(e, specialistIds, teamRow.coordinatorId),
+    );
     const hasClinicVerificationFailure = coordinatorMapped.some(
       (e) => e.type === 'toolResult' && e.status === 'error' && e.errorCode === 'CLINIC_VERIFICATION_FAILED',
     );

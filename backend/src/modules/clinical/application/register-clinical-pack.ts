@@ -8,7 +8,7 @@ export function registerClinicalPack(
   clinical: ClinicalRepository,
   parties: PartyRepository,
 ): void {
-  registry.register('clinical_create_anamnesis', async ({ workspaceId, input }) => {
+  registry.register('clinical_create_anamnesis', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
     if (!careSubjectId) throw new Error('careSubjectId obrigatorio');
@@ -16,17 +16,21 @@ export function registerClinicalPack(
       careSubjectId,
       template: typeof data.template === 'string' ? data.template : undefined,
       content: data.content ?? {},
+      teamContext,
+      correlationId,
+      actorAgentId,
+      actorRole,
     });
   });
 
-  registry.register('clinical_add_evolution_note', async ({ workspaceId, input }) => {
+  registry.register('clinical_add_evolution_note', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const careSubjectId = typeof data.careSubjectId === 'string' ? data.careSubjectId : '';
     const body = typeof data.body === 'string' ? data.body : '';
     if (!careSubjectId || !body.trim()) throw new Error('careSubjectId e body obrigatorios');
     const encounterId = typeof data.encounterId === 'string' ? data.encounterId : undefined;
     const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId : undefined;
-    return clinical.addEvolutionNote(workspaceId, { careSubjectId, body, encounterId, appointmentId });
+    return clinical.addEvolutionNote(workspaceId, { careSubjectId, body, encounterId, appointmentId, teamContext, correlationId, actorAgentId, actorRole });
   });
 
   registry.register('clinical_list_subject_history', async ({ workspaceId, input }) => {
@@ -45,7 +49,7 @@ export function registerClinicalPack(
     return { latest: r };
   });
 
-  registry.register('clinical_open_encounter', async ({ workspaceId, input }) => {
+  registry.register('clinical_open_encounter', async ({ workspaceId, input, teamContext, correlationId, actorAgentId, actorRole }) => {
     const data = input as Record<string, unknown>;
     const partyId = await resolvePartyIdFromPartyOrPhone({
       workspaceId,
@@ -59,6 +63,10 @@ export function registerClinicalPack(
       partyId,
       careSubjectId,
       notes: typeof data.notes === 'string' ? data.notes : undefined,
+      teamContext,
+      correlationId,
+      actorAgentId,
+      actorRole,
     });
   });
 

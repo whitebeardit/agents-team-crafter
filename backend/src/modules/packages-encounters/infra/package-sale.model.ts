@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { RecordOriginSubschema } from '../../../shared/infra/record-origin-subschema.js';
 
 const PackageSaleSchema = new Schema(
   {
@@ -7,6 +8,14 @@ const PackageSaleSchema = new Schema(
     packageName: { type: String, required: true },
     unitsTotal: { type: Number, required: true },
     unitsUsed: { type: Number, default: 0 },
+    packageProductId: { type: Schema.Types.ObjectId, ref: 'PackageProduct', index: true },
+    productSlug: { type: String, trim: true, lowercase: true },
+    priceCentsAtSale: { type: Number, min: 0 },
+    origin: {
+      type: RecordOriginSubschema,
+      required: true,
+      default: () => ({ id: 'system', type: 'system', slug: 'legacy_package_sale' }),
+    },
   },
   { timestamps: true },
 );

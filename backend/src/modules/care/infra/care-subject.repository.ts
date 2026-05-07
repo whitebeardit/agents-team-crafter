@@ -1,17 +1,36 @@
 import { Types } from 'mongoose';
 import { CareSubjectModel } from './care-subject.model.js';
+import { resolveRecordOrigin, type TRecordOrigin } from '../../../shared/kernel/record-origin.js';
 
 export class CareSubjectRepository {
   async create(
     workspaceId: string,
-    input: { partyId: string; name: string; subjectKind: 'human' | 'animal' | 'psych'; notes?: string },
+    input: {
+      partyId: string;
+      name: string;
+      subjectKind: 'human' | 'animal' | 'psych';
+      notes?: string;
+      origin?: Partial<TRecordOrigin>;
+      teamContext?: { teamId: string; teamName: string; gallerySubjectSlug?: string };
+      correlationId?: string;
+      actorAgentId?: string;
+      actorRole?: 'coordinator' | 'specialist';
+    },
   ) {
+    const origin = resolveRecordOrigin({
+      explicit: input.origin,
+      teamContext: input.teamContext,
+      actorContext: { agentId: input.actorAgentId, role: input.actorRole },
+      correlationId: input.correlationId,
+      fallbackSlug: 'care_subject',
+    });
     const doc = await CareSubjectModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(input.partyId),
       name: input.name.trim(),
       subjectKind: input.subjectKind,
       notes: input.notes?.trim(),
+      origin,
     });
     return this.toPublic(doc);
   }
@@ -139,6 +158,7 @@ export class CareSubjectRepository {
     name: string;
     subjectKind: string;
     notes?: string;
+    origin: TRecordOrigin;
     createdAt?: Date;
     updatedAt?: Date;
   }) {
@@ -148,6 +168,7 @@ export class CareSubjectRepository {
       name: d.name,
       subjectKind: d.subjectKind,
       notes: d.notes,
+      origin: d.origin,
       createdAt: d.createdAt?.toISOString(),
       updatedAt: d.updatedAt?.toISOString(),
     };

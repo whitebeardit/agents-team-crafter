@@ -1,4 +1,5 @@
 import { Counter, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
+import type { TLlmProvider } from '../shared/kernel/llm-provider-config.js';
 
 export const metricsRegistry = new Registry();
 
@@ -145,4 +146,49 @@ export function observeClinicPackageUnitsRemaining(packageName: string, remainin
   const safeName = packageName.trim() || 'unknown';
   const value = Number.isFinite(remaining) ? Math.max(0, remaining) : 0;
   clinicPackageUnitsRemaining.observe({ package_name: safeName }, value);
+}
+
+// ---------------------------------------------------------------------------
+// LLM Provider Metrics
+// ---------------------------------------------------------------------------
+
+const LLM_LABEL_NAMES = ['provider', 'route', 'outcome'] as const;
+const LLM_DURATION_LABEL_NAMES = ['provider', 'route'] as const;
+
+const llmRequestTotal = new Counter({
+  name: 'agents_team_crafter_llm_request_total',
+  help: 'Total de chamadas ao provider LLM por provider, rota e resultado.',
+  labelNames: [...LLM_LABEL_NAMES],
+  registers: [metricsRegistry],
+});
+
+const llmRequestDurationSeconds = new Histogram({
+  name: 'agents_team_crafter_llm_request_duration_seconds',
+  help: 'Duração das chamadas ao provider LLM em segundos.',
+  labelNames: [...LLM_DURATION_LABEL_NAMES],
+  buckets: [0.1, 0.5, 1, 2, 5, 10, 20, 30, 60],
+  registers: [metricsRegistry],
+});
+
+const llmFallbackTotal = new Counter({
+  name: 'agents_team_crafter_llm_fallback_total',
+  help: 'Total de planner executions que usaram fallback (sem LLM) por reason.',
+  labelNames: ['provider', 'reason'],
+  registers: [metricsRegistry],
+});
+
+/** Inicia o timer de uma chamada LLM e retorna função para registar resultado. */
+export function startLlmRequestMetrics(provider: TLlmProvider, route: 'planner' | 'runtime_step' | 'runtime_coordinator') {
+  const stopTimer = llmRequestDurationSeconds.startTimer({ provider, route });
+  return {
+    observeResult(outcome: 'success' | 'error' | 'no_key') {
+      llmRequestTotal.inc({ provider, route, outcome });
+      stopTimer();
+    },
+  };
+}
+
+/** Regista uso de fallback do planner (sem LLM real). */
+export function recordLlmPlannerFallback(provider: TLlmProvider | 'none', reason: string): void {
+  llmFallbackTotal.inc({ provider, reason: reason.slice(0, 64) });
 }

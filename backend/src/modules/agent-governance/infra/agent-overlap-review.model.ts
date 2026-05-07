@@ -26,7 +26,11 @@ const AgentGovernanceDraftSchema = new Schema(
     qualityCriteria: [{ type: String }],
     reuseHints: [{ type: String }],
     platformManaged: { type: Boolean, default: false },
-    systemRole: { type: String, enum: ['team-crafter', 'agent-crafter', 'domain-guard', null], default: null },
+    systemRole: {
+      type: String,
+      enum: ['team-crafter', 'agent-crafter', 'domain-guard', 'librarian', null],
+      default: null,
+    },
   },
   { _id: false },
 );
