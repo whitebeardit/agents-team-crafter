@@ -48,6 +48,11 @@ import {
 } from './team-plan-planner-output.schema.js';
 import { stripPlannerAgentsForImport, teamPlanImportEnvelopeSchema } from './team-plan-snapshot.schema.js';
 import { resolveCatalogToolsForPlanAgent } from './planner-agent-catalog-tools.js';
+import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
+import {
+  listDomainCapabilities,
+  resolveDomainCapabilitySelection,
+} from '../../business-tools/application/domain-capability-registry.js';
 import {
   assertSpecialistsExclusiveCatalogTools,
   formatCatalogToolConflictsForMessage,
@@ -66,11 +71,40 @@ const log = pino({ level: process.env.LOG_LEVEL ?? 'info' }).child({ module: 'te
 /** Limite de actionIds processados por execução (evita abuso / payloads enormes). */
 const TEAM_PLAN_AUTO_BIND_MAX_ACTIONS = 64;
 
+function uniqueCatalogTools(values: readonly string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const id = value.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function resolveBusinessCatalogToolHints(agent: TPlannerOutput['agents'][number], plan: TPlannerOutput): string[] {
+  const tools: string[] = [];
+  const packIds = agent.requiredPackIds.length > 0 ? agent.requiredPackIds : plan.requiredPacks;
+  tools.push(...resolveDomainCapabilitySelection(packIds).catalogTools);
+
+  const actionIds = agent.requiredBusinessActionIds.length > 0 ? agent.requiredBusinessActionIds : plan.requiredTools;
+  if (actionIds.length > 0) tools.push('internal_actions');
+  for (const actionId of actionIds) {
+    const preset = getBusinessActionPreset(actionId);
+    tools.push(...(preset?.dependsOnCatalogTools ?? []));
+  }
+  return uniqueCatalogTools(tools);
+}
+
 function materializePlannerAgentCatalogTools(plan: TPlannerOutput): TPlannerOutput['agents'] {
   let specialistOrdinal = 0;
   return plan.agents.map((agent) => {
     const specialistIndex = agent.role === 'specialist' ? specialistOrdinal++ : 0;
-    const catalogTools = resolveCatalogToolsForPlanAgent(agent, { plan, specialistIndex });
+    const catalogTools = uniqueCatalogTools([
+      ...resolveCatalogToolsForPlanAgent(agent, { plan, specialistIndex }),
+      ...resolveBusinessCatalogToolHints(agent, plan),
+    ]);
     return { ...agent, catalogTools };
   });
 }
@@ -132,6 +166,14 @@ export interface ITeamPlanBindPreviewPack {
   actionIdsRemovedByOverride: string[];
 }
 
+export interface ITeamPlanBindPreviewDomain {
+  domainId: string;
+  label: string;
+  actionIds: string[];
+  selectedActionIds: string[];
+  dependencyDomainIds: string[];
+}
+
 export interface ITeamPlanBindDiffSummary {
   affectedAgentCount: number;
   addedActionCount: number;
@@ -155,6 +197,7 @@ export interface ITeamPlanBindPreview {
   bindResolutionMode: 'global' | 'per_agent';
   toolDefinitions: ITeamPlanBindPreviewDefinition[];
   suggestedPacks: ITeamPlanBindPreviewPack[];
+  suggestedDomains: ITeamPlanBindPreviewDomain[];
   diffSummary: ITeamPlanBindDiffSummary;
   agents: ITeamPlanBindPreviewAgent[];
 }
@@ -225,7 +268,8 @@ function normalizeBindOverrides(
 function buildPackIdsByActionId(requiredPacks: string[] | undefined, allowedActionIds: string[]): Map<string, string[]> {
   const allowed = new Set(allowedActionIds);
   const packIdsByActionId = new Map<string, string[]>();
-  for (const rawPackId of requiredPacks ?? []) {
+  const resolvedPackIds = resolveDomainCapabilitySelection(requiredPacks ?? []).domainIds;
+  for (const rawPackId of resolvedPackIds) {
     const packId = rawPackId.trim().toLowerCase();
     const packActionIds = PLANNER_PACK_TO_ACTION_IDS[packId];
     if (!packActionIds) continue;
@@ -1389,6 +1433,22 @@ export class TeamPlanService {
         };
       })
       .filter((pack) => pack.actionIds.length > 0);
+    const domainResolution = resolveDomainCapabilitySelection(packIdsMerged);
+    const domainLabels = new Map(listDomainCapabilities().map((domain) => [domain.id, domain.label]));
+    const suggestedDomains: ITeamPlanBindPreviewDomain[] = domainResolution.domainIds
+      .map((domainId) => {
+        const domainActionIds = (domainResolution.actionIdsByDomainId[domainId] ?? []).filter((actionId) =>
+          actionIds.includes(actionId),
+        );
+        return {
+          domainId,
+          label: domainLabels.get(domainId) ?? domainId,
+          actionIds: domainActionIds,
+          selectedActionIds: domainActionIds.filter((actionId) => selectedActionIds.includes(actionId)),
+          dependencyDomainIds: domainResolution.dependencies.domainIds.filter((depId) => depId === domainId),
+        };
+      })
+      .filter((domain) => domain.actionIds.length > 0);
 
     return {
       actionIdsFull,
@@ -1413,6 +1473,7 @@ export class TeamPlanService {
         bindResolutionMode,
         toolDefinitions,
         suggestedPacks,
+        suggestedDomains,
         diffSummary,
         agents,
       },
@@ -1639,10 +1700,13 @@ export class TeamPlanService {
           continue;
         }
         const specialistIndex = plannedAgent.role === 'specialist' ? specialistOrdinal++ : 0;
-        const catalogTools = resolveCatalogToolsForPlanAgent(plannedAgent, {
-          plan: parsed,
-          specialistIndex,
-        });
+        const catalogTools = uniqueCatalogTools([
+          ...resolveCatalogToolsForPlanAgent(plannedAgent, {
+            plan: parsed,
+            specialistIndex,
+          }),
+          ...resolveBusinessCatalogToolHints(plannedAgent, parsed),
+        ]);
         const domainForSpecialist =
           plannedAgent.role === 'specialist' && plannedAgent.exampleUserPhrases.length > 0
             ? {

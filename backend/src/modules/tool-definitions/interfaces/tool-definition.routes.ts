@@ -5,6 +5,7 @@ import { successEnvelope } from '../../../shared/kernel/envelope.js';
 import { AppError } from '../../../shared/errors/app-error.js';
 import { requireAdmin } from '../../../config/container.js';
 import { getBusinessActionPreset } from '../../business-tools/application/business-action-presets.js';
+import { resolveDomainCapabilitySelection } from '../../business-tools/application/domain-capability-registry.js';
 import { actionIdToToolSlug } from '../../team-planning/application/planner-pack-presets.js';
 import type { WorkspaceToolDefinitionRepository } from '../infra/workspace-tool-definition.repository.js';
 
@@ -39,6 +40,10 @@ const updateSchema = toolDefinitionBody
 
 const bulkInternalActionsSchema = z.object({
   actionIds: z.array(z.string()).min(1).max(64),
+});
+
+const bulkInternalActionDomainsSchema = z.object({
+  domainIds: z.array(z.string().min(1)).min(1).max(32),
 });
 
 export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: IAppDeps) {
@@ -125,6 +130,7 @@ export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: I
           config: { actionId },
           jsonSchema: {
             type: 'object',
+            properties: {},
             additionalProperties: true,
             description: `Parametros para a acao interna ${actionId}`,
           },
@@ -145,6 +151,65 @@ export async function registerToolDefinitionRoutes(app: FastifyInstance, deps: I
     }
 
     const payload = { created, skipped, errors };
+    const code = created.length > 0 ? 201 : 200;
+    return reply.code(code).send(successEnvelope(payload));
+  });
+
+  app.post('/tool-definitions/bulk-internal-action-domains', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {
+    const body = bulkInternalActionDomainsSchema.parse(req.body ?? {});
+    const resolution = resolveDomainCapabilitySelection(body.domainIds);
+    const registeredActionIds = resolution.actionIds.filter((actionId) => deps.businessToolRegistry.has(actionId));
+    if (registeredActionIds.length === 0) {
+      throw new AppError('VALIDATION_ERROR', 'Nenhuma action registada para os dominios informados', 400);
+    }
+
+    const existing = await deps.workspaceToolDefinitionRepo.list(req.workspaceId!);
+    const usedActionIds = new Set<string>();
+    for (const t of existing) {
+      if (t.kind === 'internal_action' && typeof t.config?.actionId === 'string') usedActionIds.add(t.config.actionId);
+    }
+
+    const created: Awaited<ReturnType<WorkspaceToolDefinitionRepository['list']>> = [];
+    type TSkipped = { actionId: string; reason: 'already_defined' | 'not_in_catalog' | 'slug_collision' };
+    const skipped: TSkipped[] = [];
+    const errors: { actionId: string; message: string }[] = [];
+    for (const actionId of registeredActionIds) {
+      if (usedActionIds.has(actionId)) {
+        skipped.push({ actionId, reason: 'already_defined' });
+        continue;
+      }
+      const preset = getBusinessActionPreset(actionId);
+      try {
+        const data = await deps.workspaceToolDefinitionRepo.create(req.workspaceId!, {
+          name: preset?.title ?? actionId,
+          slug: actionIdToToolSlug(actionId),
+          kind: 'internal_action',
+          config: { actionId },
+          jsonSchema: {
+            type: 'object',
+            properties: {},
+            additionalProperties: true,
+            description: `Parametros para a acao interna ${actionId}`,
+          },
+        });
+        created.push(data);
+        usedActionIds.add(actionId);
+      } catch (e: unknown) {
+        const dup = e && typeof e === 'object' && 'code' in e && (e as { code?: number }).code === 11000;
+        if (dup) skipped.push({ actionId, reason: 'slug_collision' });
+        else errors.push({ actionId, message: e instanceof Error ? e.message : 'Erro ao criar definicao' });
+      }
+    }
+    const payload = {
+      created,
+      skipped,
+      errors,
+      resolution: {
+        ...resolution,
+        actionIds: registeredActionIds,
+        unavailableActionIds: resolution.actionIds.filter((actionId) => !deps.businessToolRegistry.has(actionId)),
+      },
+    };
     const code = created.length > 0 ? 201 : 200;
     return reply.code(code).send(successEnvelope(payload));
   });

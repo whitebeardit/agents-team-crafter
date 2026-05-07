@@ -725,6 +725,14 @@ export interface TeamPlanBindPreviewPack {
   actionIdsRemovedByOverride: string[]
 }
 
+export interface TeamPlanBindPreviewDomain {
+  domainId: string
+  label: string
+  actionIds: string[]
+  selectedActionIds: string[]
+  dependencyDomainIds: string[]
+}
+
 export interface TeamPlanBindDiffSummary {
   affectedAgentCount: number
   addedActionCount: number
@@ -748,8 +756,38 @@ export interface TeamPlanBindPreview {
   bindResolutionMode?: "global" | "per_agent"
   toolDefinitions: TeamPlanBindPreviewDefinition[]
   suggestedPacks: TeamPlanBindPreviewPack[]
+  suggestedDomains?: TeamPlanBindPreviewDomain[]
   diffSummary: TeamPlanBindDiffSummary
   agents: TeamPlanBindPreviewAgent[]
+}
+
+export interface BusinessActionDomain {
+  id: string
+  label: string
+  description: string
+  actionIds: string[]
+  availableActionIds?: string[]
+  unavailableActionIds?: string[]
+  availableActionCount?: number
+  dependsOnDomainIds?: string[]
+  dependsOnActionIds?: string[]
+  dependsOnCatalogTools?: string[]
+  directActionCount?: number
+}
+
+export interface BusinessActionDomainResolution {
+  requestedDomainIds: string[]
+  domainIds: string[]
+  actionIds: string[]
+  catalogTools: string[]
+  dependencies: {
+    domainIds: string[]
+    actionIds: string[]
+    catalogTools: string[]
+  }
+  actionIdsByDomainId: Record<string, string[]>
+  domainIdsByActionId: Record<string, string[]>
+  unavailableActionIds?: string[]
 }
 
 export interface TeamPlanDraft {

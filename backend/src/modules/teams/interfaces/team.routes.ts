@@ -21,6 +21,7 @@ import { getDestructiveAuditHistory } from '../../team-runtime/application/coord
 import { generateConversationShortTitle } from '../../team-runtime/application/conversation-short-title.js';
 import { assertWorkspaceQuota } from '../../workspaces/application/workspace-plan-limits.js';
 import { productChannelTypeSchema } from '../../channels/domain/product-channel-type.js';
+import { applyAgentDomainCapabilities } from '../../agents/application/agent-domain-capabilities.js';
 import {
   buildManualTeamInvocation,
   teamRunBodySchema,
@@ -112,6 +113,7 @@ const createTeamSchema = z.object({
   channelIds: z.array(z.string()).default([]),
   primaryChannel: productChannelTypeSchema.optional(),
   singleAgentMode: z.boolean().optional(),
+  agentDomainIds: z.record(z.string(), z.array(z.string().min(1))).optional(),
 });
 
 const updateTeamSchema = z.object({
@@ -210,6 +212,19 @@ export async function registerTeamRoutes(app: FastifyInstance, deps: IAppDeps) {
     if (!agentsOk) throw new AppError('VALIDATION_ERROR', 'Agente invalido no time', 400);
     const chOk = await deps.channelRepo.existsAll(ws, body.channelIds);
     if (!chOk) throw new AppError('VALIDATION_ERROR', 'Canal invalido no time', 400);
+    for (const [agentId, domainIds] of Object.entries(body.agentDomainIds ?? {})) {
+      if (agentId !== body.coordinatorId && !body.agentIds.includes(agentId)) continue;
+      await applyAgentDomainCapabilities(
+        {
+          agentRepo: deps.agentRepo,
+          workspaceToolDefinitionRepo: deps.workspaceToolDefinitionRepo,
+          hasBusinessAction: (actionId) => deps.businessToolRegistry.has(actionId),
+        },
+        ws,
+        agentId,
+        domainIds,
+      );
+    }
     const created = await deps.teamRepo.create(ws, {
       name: body.name,
       description: body.description ?? '',

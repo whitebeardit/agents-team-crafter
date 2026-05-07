@@ -8,8 +8,6 @@ import { AppError } from '../../../shared/errors/app-error.js';
 export const SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS = [
   // Domínio de agenda/slots (Scheduling/Reminders)
   'calendar_access',
-  // Ações de negócio (packs ws_*/internal_action)
-  'internal_actions',
 ] as const;
 
 export type TSpecialistExclusiveCatalogToolId = (typeof SPECIALIST_EXCLUSIVE_CATALOG_TOOL_IDS)[number];

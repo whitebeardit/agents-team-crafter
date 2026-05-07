@@ -7,6 +7,7 @@ import type {
   Agent,
   AgentExportPayload,
   AgentMCPBinding,
+  BusinessActionDomain,
   KnowledgeSource,
   MCPConnection,
   OperationalCatalogTool,
@@ -213,6 +214,8 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
   const [imageGenerationModelPick, setImageGenerationModelPick] = useState<string>("__unset__")
   const [operationalCatalogTools, setOperationalCatalogTools] = useState<OperationalCatalogTool[]>([])
   const [businessActionCatalog, setBusinessActionCatalog] = useState<TBusinessCatalogItem[]>([])
+  const [businessDomains, setBusinessDomains] = useState<BusinessActionDomain[]>([])
+  const [domainBusy, setDomainBusy] = useState<string | null>(null)
   const [workspaceToolFilterKind, setWorkspaceToolFilterKind] = useState<string>("all")
   const [workspaceToolFilterDomain, setWorkspaceToolFilterDomain] = useState<string>("all")
   const [workspaceToolFilterRisk, setWorkspaceToolFilterRisk] = useState<string>("all")
@@ -285,7 +288,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
     })
     void (async () => {
       try {
-        const [agentRes, mcpsRes, bindingsRes, knowledgeRes, teamsRes, toolDefsRes, integrationsRes, catalogRes] =
+        const [agentRes, mcpsRes, bindingsRes, knowledgeRes, teamsRes, toolDefsRes, integrationsRes, catalogRes, domainsRes] =
           await Promise.all([
           api.get<Agent>(`/agents/${id}`),
           api.get<MCPConnection[]>("/mcps"),
@@ -321,6 +324,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
               meta: {},
             })),
           api.get<TBusinessCatalogItem[]>("/business-actions/catalog").catch(() => ({ data: [], meta: {} })),
+          api.get<BusinessActionDomain[]>("/business-actions/domains").catch(() => ({ data: [], meta: {} })),
         ])
         const opTools = integrationsRes.data.operationalCatalogTools ?? []
         setOperationalCatalogTools(opTools)
@@ -378,6 +382,7 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
         setTeams(teamsRes.data)
         setWorkspaceToolDefs(toolDefsRes.data)
         setBusinessActionCatalog(Array.isArray(catalogRes.data) ? catalogRes.data : [])
+        setBusinessDomains(Array.isArray(domainsRes.data) ? domainsRes.data : [])
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Falha ao carregar agente"
         toast.error(msg)
@@ -394,6 +399,26 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
       getWorkspaceId: () => currentWorkspace.id,
     })
   }, [token, refreshToken, currentWorkspace])
+
+  const enableDomainForAgent = async (domainId: string) => {
+    if (!api || !agent) return
+    setDomainBusy(domainId)
+    try {
+      const res = await api.put<{
+        capabilities: Agent["capabilities"]
+      }>(`/agents/${agent.id}/domains`, { domainIds: [domainId] })
+      setEnabledTools(res.data.capabilities?.platformBuiltInTools ?? res.data.capabilities?.tools ?? [])
+      setOpenaiBuiltInTools(res.data.capabilities?.openaiBuiltInTools ?? [])
+      setCustomToolDefinitionIds(res.data.capabilities?.customToolDefinitionIds ?? [])
+      const toolDefsRes = await api.get<typeof workspaceToolDefs>("/tool-definitions")
+      setWorkspaceToolDefs(toolDefsRes.data)
+      toast.success("Domínio habilitado para o agente")
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Falha ao habilitar domínio")
+    } finally {
+      setDomainBusy(null)
+    }
+  }
 
   const refreshVaultNotes = useCallback(async () => {
     if (!api || !id) return
@@ -1638,6 +1663,65 @@ export default function AgentDetailsPage({ params: _params }: { params: Promise<
 
         {/* Tools Tab */}
         <TabsContent value="tools" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitleWithInfo title="Domínios habilitados" infoAriaLabel="Ajuda sobre domínios de negócio">
+                Habilite CRM, Clinical, Finance e outros domínios. O backend resolve dependências e ativa as actions
+                internas correspondentes automaticamente.
+              </CardTitleWithInfo>
+              <CardDescription>
+                As tools concretas ficam visíveis abaixo apenas para auditoria e ajuste avançado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              {businessDomains.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum domínio de negócio disponível.</p>
+              ) : (
+                businessDomains.map((domain) => {
+                  const ids = domain.availableActionIds ?? domain.actionIds
+                  const enabledCount = ids.filter((actionId) => {
+                    const def = workspaceToolDefs.find(
+                      (toolDef) =>
+                        toolDef.kind === "internal_action" &&
+                        toolDef.enabled &&
+                        toolDef.config?.actionId === actionId &&
+                        customToolDefinitionIds.includes(toolDef.id),
+                    )
+                    return Boolean(def)
+                  }).length
+                  const fullyEnabled = ids.length > 0 && enabledCount === ids.length
+                  return (
+                    <div key={domain.id} className="rounded-lg border border-border p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{domain.label}</p>
+                            {fullyEnabled ? <Badge variant="secondary">habilitado</Badge> : null}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{domain.description}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={fullyEnabled ? "outline" : "default"}
+                          disabled={readOnly || domainBusy === domain.id}
+                          onClick={() => enableDomainForAgent(domain.id)}
+                        >
+                          {fullyEnabled ? "Reaplicar" : "Habilitar"}
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="outline">{ids.length} actions</Badge>
+                        {(domain.dependsOnDomainIds ?? []).map((dep) => (
+                          <Badge key={dep} variant="outline">depende de {dep}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitleWithInfo title="Ferramentas do catalogo" infoAriaLabel="Ajuda sobre ferramentas do catálogo">

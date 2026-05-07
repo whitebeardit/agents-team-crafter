@@ -27,7 +27,7 @@ import {
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { toast } from "sonner"
-import type { Agent, Channel, ChannelType, Team } from "@/lib/types"
+import type { Agent, BusinessActionDomain, Channel, ChannelType, Team } from "@/lib/types"
 import { formatCategoryLabel } from "@/lib/utils/agent-category"
 
 const steps = [
@@ -49,6 +49,8 @@ export function TeamWizard() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
+  const [businessDomains, setBusinessDomains] = useState<BusinessActionDomain[]>([])
+  const [agentDomainIds, setAgentDomainIds] = useState<Record<string, string[]>>({})
   const [workspaceChannels, setWorkspaceChannels] = useState<Channel[]>([])
   const { token, refreshToken, currentWorkspace, wizardData, wizardStep, setWizardStep, updateWizardData, resetWizard } =
     useWorkspaceStore()
@@ -67,8 +69,12 @@ export function TeamWizard() {
     if (!api) return
     void (async () => {
       try {
-        const res = await api.get<Agent[]>("/agents?page=1&perPage=100")
+        const [res, domainRes] = await Promise.all([
+          api.get<Agent[]>("/agents?page=1&perPage=100"),
+          api.get<BusinessActionDomain[]>("/business-actions/domains").catch(() => ({ data: [] as BusinessActionDomain[], meta: {} })),
+        ])
         setAgents(res.data)
+        setBusinessDomains(domainRes.data)
       } catch {
         toast.error("Falha ao carregar agentes")
       }
@@ -131,6 +137,7 @@ export function TeamWizard() {
         agentIds: wizardData.specialistIds,
         channelIds: wizardData.channelIds,
         primaryChannel: wizardData.primaryChannel || undefined,
+        agentDomainIds,
       })
       toast.success("Time criado com sucesso")
       resetWizard()
@@ -145,6 +152,16 @@ export function TeamWizard() {
   const handleCancel = () => {
     resetWizard()
     router.push("/teams")
+  }
+
+  const toggleAgentDomain = (agentId: string, domainId: string, checked: boolean) => {
+    setAgentDomainIds((prev) => {
+      const current = prev[agentId] ?? []
+      const next = checked
+        ? current.includes(domainId) ? current : [...current, domainId]
+        : current.filter((id) => id !== domainId)
+      return { ...prev, [agentId]: next }
+    })
   }
 
   const selectedCoordinator = agents.find(
@@ -350,6 +367,11 @@ export function TeamWizard() {
                               (id) => id !== agent.id
                             ),
                           })
+                          setAgentDomainIds((prev) => {
+                            const next = { ...prev }
+                            delete next[agent.id]
+                            return next
+                          })
                         }
                       }}
                       className="mt-1"
@@ -372,6 +394,30 @@ export function TeamWizard() {
                           </Badge>
                         ))}
                       </div>
+                      {wizardData.specialistIds.includes(agent.id) && businessDomains.length > 0 ? (
+                        <div className="mt-3 rounded-md border border-border bg-background/60 p-3">
+                          <p className="text-xs font-medium mb-2">Domínios habilitados</p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {businessDomains.map((domain) => {
+                              const checked = (agentDomainIds[agent.id] ?? []).includes(domain.id)
+                              return (
+                                <label key={domain.id} className="flex items-start gap-2 text-xs cursor-pointer">
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(value) => toggleAgentDomain(agent.id, domain.id, value === true)}
+                                  />
+                                  <span>
+                                    <span className="font-medium block">{domain.label}</span>
+                                    <span className="text-muted-foreground">
+                                      {(domain.availableActionCount ?? domain.actionIds.length)} actions
+                                    </span>
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </Label>
                 ))}

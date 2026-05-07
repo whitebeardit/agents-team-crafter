@@ -40,6 +40,7 @@ import {
   type TBusinessCatalogItem,
   type ToolDefinitionRow,
 } from "@/lib/tool-definitions-display"
+import type { BusinessActionDomain } from "@/lib/types"
 import {
   Select,
   SelectContent,
@@ -61,9 +62,11 @@ export default function ToolDefinitionsPage() {
   const [kind, setKind] = useState<ToolKindCreate>("http_webhook")
   const [url, setUrl] = useState("")
   const [catalog, setCatalog] = useState<TBusinessCatalogItem[]>([])
+  const [domains, setDomains] = useState<BusinessActionDomain[]>([])
   const [catalogLoading, setCatalogLoading] = useState(false)
   /** actionIds disponíveis escolhidos para criação em lote (Loop 61). */
   const [selectedInternalActionIds, setSelectedInternalActionIds] = useState<string[]>([])
+  const [selectedDomainIds, setSelectedDomainIds] = useState<string[]>([])
   const [bulkSubmitting, setBulkSubmitting] = useState(false)
 
   /** Referência estável: sem isso, cada render recria o client e o efeito de `loadCatalog` volta a correr em loop. */
@@ -112,12 +115,17 @@ export default function ToolDefinitionsPage() {
     if (!api) return
     setCatalogLoading(true)
     try {
-      const r = await api.get<TBusinessCatalogItem[]>("/business-actions/catalog")
+      const [r, domainRes] = await Promise.all([
+        api.get<TBusinessCatalogItem[]>("/business-actions/catalog"),
+        api.get<BusinessActionDomain[]>("/business-actions/domains"),
+      ])
       setCatalog(r.data)
+      setDomains(domainRes.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Falha ao carregar catalogo de acoes"
       toast.error(msg)
       setCatalog([])
+      setDomains([])
     } finally {
       setCatalogLoading(false)
     }
@@ -134,6 +142,7 @@ export default function ToolDefinitionsPage() {
     setUrl("")
     setKind("http_webhook")
     setSelectedInternalActionIds([])
+    setSelectedDomainIds([])
   }
 
   const availableCatalog = useMemo(
@@ -157,6 +166,14 @@ export default function ToolDefinitionsPage() {
 
   const clearInternalSelection = () => {
     setSelectedInternalActionIds([])
+    setSelectedDomainIds([])
+  }
+
+  const toggleDomainId = (domainId: string, checked: boolean) => {
+    setSelectedDomainIds((prev) => {
+      if (checked) return prev.includes(domainId) ? prev : [...prev, domainId]
+      return prev.filter((id) => id !== domainId)
+    })
   }
 
   const handleCreate = async () => {
@@ -164,7 +181,7 @@ export default function ToolDefinitionsPage() {
     try {
       if (kind === "internal_action") {
         const toCreate = selectedInternalActionIds.filter((id) => !usedInternalActionIds.has(id))
-        if (toCreate.length === 0) {
+        if (toCreate.length === 0 && selectedDomainIds.length === 0) {
           toast.error("Selecione pelo menos uma acao ainda nao definida neste workspace")
           return
         }
@@ -174,9 +191,14 @@ export default function ToolDefinitionsPage() {
           skipped: { actionId: string; reason: string }[]
           errors: { actionId: string; message: string }[]
         }
-        const r = await api.post<TBulkRes>("/tool-definitions/bulk-internal-actions", {
-          actionIds: toCreate,
-        })
+        const r =
+          selectedDomainIds.length > 0
+            ? await api.post<TBulkRes>("/tool-definitions/bulk-internal-action-domains", {
+                domainIds: selectedDomainIds,
+              })
+            : await api.post<TBulkRes>("/tool-definitions/bulk-internal-actions", {
+                actionIds: toCreate,
+              })
         const { created, skipped, errors } = r.data
         const parts: string[] = []
         if (created.length) parts.push(`${created.length} criada(s)`)
@@ -227,7 +249,7 @@ export default function ToolDefinitionsPage() {
 
   const canSubmitCreate =
     kind === "internal_action"
-      ? internalSelectedToCreateCount > 0 && !catalogLoading && !bulkSubmitting
+      ? (internalSelectedToCreateCount > 0 || selectedDomainIds.length > 0) && !catalogLoading && !bulkSubmitting
       : Boolean(name.trim() && slug.trim()) && (kind === "http_webhook" ? Boolean(url.trim()) : true)
 
   const catalogByActionId = useMemo(() => {
@@ -335,8 +357,41 @@ export default function ToolDefinitionsPage() {
               </div>
               {kind === "internal_action" ? (
                 <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Domínios de negócio</Label>
+                    <div className="rounded-md border border-border p-2 space-y-2 max-h-52 overflow-y-auto">
+                      {domains.length === 0 ? (
+                        <p className="text-sm text-muted-foreground px-1">Nenhum domínio disponível.</p>
+                      ) : (
+                        domains.map((domain) => {
+                          const checked = selectedDomainIds.includes(domain.id)
+                          return (
+                            <label
+                              key={domain.id}
+                              className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer"
+                            >
+                              <Checkbox checked={checked} onCheckedChange={(v) => toggleDomainId(domain.id, v === true)} className="mt-0.5" />
+                              <span className="min-w-0 flex-1">
+                                <span className="font-medium text-sm block">{domain.label}</span>
+                                <span className="text-xs text-muted-foreground line-clamp-2">{domain.description}</span>
+                                <span className="text-[10px] text-muted-foreground block mt-0.5">
+                                  {(domain.availableActionCount ?? domain.actionIds.length)} actions
+                                  {(domain.dependsOnDomainIds ?? []).length > 0
+                                    ? ` · depende de ${(domain.dependsOnDomainIds ?? []).join(", ")}`
+                                    : ""}
+                                </span>
+                              </span>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Ao selecionar domínio, o backend cria também as actions de dependência.
+                    </p>
+                  </div>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Label>Accoes da plataforma</Label>
+                    <Label>Accoes da plataforma (avançado)</Label>
                     <div className="flex gap-2">
                       <Button
                         type="button"

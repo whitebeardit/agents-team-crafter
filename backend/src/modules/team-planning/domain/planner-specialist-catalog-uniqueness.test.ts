@@ -38,12 +38,21 @@ describe('assertSpecialistsExclusiveCatalogTools', () => {
 describe('getSpecialistsCatalogToolConflicts', () => {
   it('retorna colisoes com nomes dos especialistas', () => {
     const c = getSpecialistsCatalogToolConflicts([
-      { role: 'specialist', name: 'A', catalogTools: ['internal_actions'] },
-      { role: 'specialist', name: 'B', catalogTools: ['internal_actions'] },
+      { role: 'specialist', name: 'A', catalogTools: ['calendar_access'] },
+      { role: 'specialist', name: 'B', catalogTools: ['calendar_access'] },
     ]);
     expect(c).toHaveLength(1);
-    expect(c[0]?.toolId).toBe('internal_actions');
+    expect(c[0]?.toolId).toBe('calendar_access');
     expect(c[0]?.specialistNames.sort()).toEqual(['A', 'B'].sort());
+  });
+
+  it('permite internal_actions em especialistas diferentes quando dominios usam actions de negocio', () => {
+    expect(
+      getSpecialistsCatalogToolConflicts([
+        { role: 'specialist', name: 'CRM', catalogTools: ['internal_actions'] },
+        { role: 'specialist', name: 'Financeiro', catalogTools: ['internal_actions'] },
+      ]),
+    ).toHaveLength(0);
   });
 
   it('retorna vazio quando conjuntos sao disjuntos', () => {

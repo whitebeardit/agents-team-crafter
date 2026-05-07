@@ -420,7 +420,7 @@ UI: primária para financeiro.
 
 O pack `clinic_ops` representa o conjunto completo de workflows clínicos disponíveis no produto, mas **não significa que todas essas tools devem ser associadas à Coordenadora**.
 
-Adicionar em `planner-pack-presets.ts`:
+Definir em [`domain-capability-registry.ts`](../../backend/src/modules/business-tools/application/domain-capability-registry.ts) no domínio `clinic_ops` (o preset `PLANNER_PACK_TO_ACTION_IDS` deriva daí); espelhar handlers em packs de registo e metadados em `business-action-presets.ts`. Referência: [`docs/contributing-business-tools-and-domains.md`](../contributing-business-tools-and-domains.md). Exemplo histórico de lista em `planner-pack-presets.ts`:
 
 ```ts
 clinic_ops: [

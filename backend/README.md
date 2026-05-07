@@ -44,11 +44,12 @@ Jest em `npm test`. Ficheiros em `[src/__tests__/](./src/__tests__/)` — sobret
 
 O campo `requiredPacks` na saída JSON do planner usa identificadores **estáveis** mapeados para `actionIds` do `BusinessToolRegistry`.
 
-- **Fonte canónica:** `[src/modules/team-planning/application/planner-pack-presets.ts](./src/modules/team-planning/application/planner-pack-presets.ts)` — objeto `PLANNER_PACK_TO_ACTION_IDS` e lista `PLANNER_PACK_IDS`.
+- **Fonte canónica dos packs:** `[src/modules/business-tools/application/domain-capability-registry.ts](./src/modules/business-tools/application/domain-capability-registry.ts)` — `DOMAIN_CAPABILITY_DEFINITIONS` define domínios habilitáveis e listas de `actionIds` coerentes com os presets.
+- **Derivação para o planner:** `[src/modules/team-planning/application/planner-pack-presets.ts](./src/modules/team-planning/application/planner-pack-presets.ts)` — `PLANNER_PACK_TO_ACTION_IDS` e `PLANNER_PACK_IDS` são **derivados** do registry; `collectPlannerActionIds` expande packs via `resolveDomainCapabilitySelection` (dependências transitivas entre domínios).
 - **Prompt do modelo:** `[src/modules/team-planning/application/team-plan-planner-prompt.ts](./src/modules/team-planning/application/team-plan-planner-prompt.ts)` — injeta a lista de packs permitidos no system prompt.
 - **Bind automático** (agentes novos no execute): política `TEAM_PLAN_AUTO_BIND_TOOLS` e fluxo em `team-plan.service.ts` (ver ADR em `../docs/adr/ADR-2026-04-team-plan-auto-bind-tools.md`).
 
-Para cada pack, as tools expandidas são as chaves listadas no preset (todas registadas como `internal_action` via bind). Novos packs: adicionar actionIds ao preset, ao registry e alinhar o frontend (`v0-team-ai-crafter/lib/planner-pack-labels.ts`) se usar rótulos amigáveis.
+Novos domínios ou packs: primeiro **`domain-capability-registry.ts`** (lista de `actionIds` alinhada a `business-action-presets.ts` e handlers registados), depois garantir handlers + presets; por último `planner-pack-labels.ts` no frontend se existir **novo** id de domínio/pack. Guia completo: [`../docs/contributing-business-tools-and-domains.md`](../docs/contributing-business-tools-and-domains.md).
 
 ## Scheduling API (Loop 36)
 

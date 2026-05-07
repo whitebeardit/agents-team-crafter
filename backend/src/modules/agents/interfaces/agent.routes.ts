@@ -23,6 +23,7 @@ import { ensureCoordinatorSecondBrainPolicy } from '../application/coordinator-s
 import { EOpenAiWorkspaceChatModel } from '../../../shared/kernel/openai-workspace-chat-models.js';
 import { buildAgentExportPayload } from '../application/build-agent-export.js';
 import { normalizeAgentCapabilities } from '../application/agent-capabilities.js';
+import { applyAgentDomainCapabilities } from '../application/agent-domain-capabilities.js';
 
 const agentRuntimeModelInputSchema = z.union([
   z.nativeEnum(EOpenAiWorkspaceChatModel),
@@ -76,6 +77,10 @@ const updateAgentSchema = z.object({
   allowConflictOverride: z.boolean().optional(),
   openaiRuntimeModel: z.union([agentRuntimeModelInputSchema, z.literal('')]).optional(),
   imageGenerationModel: z.union([z.string().min(3).max(200), z.literal('')]).optional(),
+});
+
+const enableAgentDomainsSchema = z.object({
+  domainIds: z.array(z.string().min(1)).min(1).max(32),
 });
 
 function asRec(a: unknown): Record<string, unknown> {
@@ -564,6 +569,26 @@ export async function registerAgentRoutes(app: FastifyInstance, deps: IAppDeps) 
       capabilities,
     });
     return reply.send(successEnvelope(capabilities));
+  });
+
+  app.put('/agents/:id/domains', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = (req.params as { id: string }).id;
+    const cur = await loadAgent(deps, ws, id);
+    assertCompany(cur);
+    const body = enableAgentDomainsSchema.parse(req.body ?? {});
+    const data = await applyAgentDomainCapabilities(
+      {
+        agentRepo: deps.agentRepo,
+        workspaceToolDefinitionRepo: deps.workspaceToolDefinitionRepo,
+        hasBusinessAction: (actionId) => deps.businessToolRegistry.has(actionId),
+      },
+      ws,
+      id,
+      body.domainIds,
+    );
+    if (!data) throw new AppError('NOT_FOUND', 'Agente nao encontrado', 404);
+    return reply.send(successEnvelope(data));
   });
 
   /**

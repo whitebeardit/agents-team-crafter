@@ -88,7 +88,7 @@ describe('Loop 83 — bind per agent', () => {
     expect(u.perAgentActionIds[0]).toEqual(u.perAgentActionIds[1]);
   });
 
-  it('modo per-agent: especialistas com packs distintos geram candidatos disjuntos', () => {
+  it('modo per-agent: packs distintos incluem dependencias de dominio quando necessario', () => {
     const agents = [
       { role: 'coordinator' as const, requiredBusinessActionIds: [], requiredPackIds: [] },
       { role: 'specialist' as const, requiredBusinessActionIds: [], requiredPackIds: ['crm'] },
@@ -100,9 +100,9 @@ describe('Loop 83 — bind per agent', () => {
     expect(u.perAgentActionIds[1]).toContain('crm_create_party');
     expect(u.perAgentActionIds[1]!.some((id) => id.startsWith('schedule_'))).toBe(false);
     expect(u.perAgentActionIds[2]?.some((id) => id.startsWith('schedule_'))).toBe(true);
-    expect(u.perAgentActionIds[2]?.some((id) => id.startsWith('crm_'))).toBe(false);
+    expect(u.perAgentActionIds[2]?.some((id) => id.startsWith('crm_'))).toBe(true);
     const union = new Set([...u.perAgentActionIds[1]!, ...u.perAgentActionIds[2]!]);
-    expect(union.size).toBe(u.perAgentActionIds[1]!.length + u.perAgentActionIds[2]!.length);
+    expect(union.size).toBeLessThan(u.perAgentActionIds[1]!.length + u.perAgentActionIds[2]!.length);
   });
 
   it('collectAgentBindActionCandidates em modo per-agent ignora globais', () => {

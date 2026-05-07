@@ -25,6 +25,7 @@ import type {
   TeamPlanBindOverrides,
   TeamPlanBindPreview,
   TeamPlanBindPreviewAgent,
+  TeamPlanBindPreviewDomain,
   TeamPlanBindPreviewPack,
   TeamPlanAgentDraft,
   TeamPlanBindPreviewDefinition,
@@ -1424,6 +1425,24 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
     </div>
   )
 
+  const renderSuggestedDomainCard = (domain: TeamPlanBindPreviewDomain) => (
+    <div key={domain.domainId} className="rounded-lg border p-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" title={domain.domainId}>
+          {domain.label}
+        </Badge>
+        <Badge variant="outline">actions {domain.actionIds.length}</Badge>
+        <Badge variant="outline">final {domain.selectedActionIds.length}</Badge>
+        {domain.dependencyDomainIds.length > 0 ? (
+          <Badge variant="outline">dependência</Badge>
+        ) : null}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {domain.actionIds.map((actionId) => `\`${actionId}\``).join(", ")}
+      </p>
+    </div>
+  )
+
   const renderAgentActionCheckboxRow = (agent: TeamPlanBindPreviewAgent, actionId: string) => {
     const checked = agent.actionIdsToLink.includes(actionId)
     const blockedByInactiveDefinition = agent.actionIdsBlockedByDisabledDefinitions.includes(actionId)
@@ -2139,7 +2158,13 @@ export function TeamAiBuilder({ embedded = false }: { embedded?: boolean }) {
                       </div>
                       {bindPreview.suggestedPacks.length > 0 ? (
                         <div className="space-y-2">
-                          <p className="text-sm font-medium">Acoes em lote por pack sugerido</p>
+                          <p className="text-sm font-medium">Domínios habilitados pelo plano</p>
+                          {(bindPreview.suggestedDomains ?? []).length > 0 ? (
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {(bindPreview.suggestedDomains ?? []).map((domain) => renderSuggestedDomainCard(domain))}
+                            </div>
+                          ) : null}
+                          <p className="text-sm font-medium text-muted-foreground">Detalhe avançado por pack</p>
                           {clinicBindLayersActive ? (
                             <div className="space-y-4">
                               {suggestedPacksByLayer.gold.length > 0 ? (
