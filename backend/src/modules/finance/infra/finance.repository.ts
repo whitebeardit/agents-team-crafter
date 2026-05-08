@@ -19,6 +19,8 @@ export class FinanceRepository {
       correlationId?: string;
       actorAgentId?: string;
       actorRole?: 'coordinator' | 'specialist';
+      sourceEntity?: string;
+      sourceId?: string;
     },
   ) {
     const origin = resolveRecordOrigin({
@@ -28,6 +30,11 @@ export class FinanceRepository {
       correlationId: input.correlationId,
       fallbackSlug: 'finance_receivable',
     });
+    const sourceEntity = typeof input.sourceEntity === 'string' && input.sourceEntity.trim() ? input.sourceEntity.trim() : undefined;
+    const sourceId =
+      sourceEntity && typeof input.sourceId === 'string' && input.sourceId.trim()
+        ? new Types.ObjectId(input.sourceId.trim())
+        : undefined;
     const doc = await ReceivableModel.create({
       workspaceId: new Types.ObjectId(workspaceId),
       partyId: new Types.ObjectId(input.partyId),
@@ -37,6 +44,7 @@ export class FinanceRepository {
       paid: false,
       description: input.description ?? '',
       origin,
+      ...(sourceEntity && sourceId ? { sourceEntity, sourceId } : {}),
     });
     return { id: doc._id.toString(), kind: 'receivable' as const };
   }
@@ -76,13 +84,16 @@ export class FinanceRepository {
     return { id: doc._id.toString(), kind: 'payable' as const };
   }
 
-  async markReceivablePaid(workspaceId: string, id: string) {
+  async markReceivablePaid(workspaceId: string, id: string, options?: { paymentNote?: string }) {
+    const paidAt = new Date();
+    const $set: Record<string, unknown> = { paid: true, paidAt };
+    if (options?.paymentNote !== undefined) $set.paymentNote = options.paymentNote;
     const doc = await ReceivableModel.findOneAndUpdate(
       { _id: id, workspaceId: new Types.ObjectId(workspaceId) },
-      { $set: { paid: true } },
+      { $set },
       { new: true },
     ).exec();
-    return doc ? { id: doc._id.toString(), paid: true } : null;
+    return doc ? this.pubReceivable(doc) : null;
   }
 
   async markPayablePaid(workspaceId: string, id: string) {
@@ -220,22 +231,99 @@ export class FinanceRepository {
     return agg.map((a) => ({ partyId: a._id.toString(), totalOpen: a.total }));
   }
 
+  async findReceivableByAppointmentId(workspaceId: string, appointmentId: string) {
+    const doc = await ReceivableModel.findOne({
+      workspaceId: new Types.ObjectId(workspaceId),
+      sourceEntity: 'Appointment',
+      sourceId: new Types.ObjectId(appointmentId),
+    }).exec();
+    return doc ? this.pubReceivable(doc) : null;
+  }
+
+  async listReceivablesByParty(
+    workspaceId: string,
+    partyId: string,
+    input: { paid?: boolean; limit?: number } = {},
+  ) {
+    const cap = Math.min(Math.max(1, input.limit ?? 200), 500);
+    const docs = await ReceivableModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+      partyId: new Types.ObjectId(partyId),
+      ...(typeof input.paid === 'boolean' ? { paid: input.paid } : {}),
+    })
+      .sort({ dueDate: -1, createdAt: -1 })
+      .limit(cap)
+      .exec();
+    return docs.map((d) => this.pubReceivable(d));
+  }
+
+  async partyReceivableTotals(workspaceId: string, partyId: string) {
+    const ws = new Types.ObjectId(workspaceId);
+    const pid = new Types.ObjectId(partyId);
+    const agg = await ReceivableModel.aggregate<{ _id: boolean; total: number; count: number }>([
+      { $match: { workspaceId: ws, partyId: pid } },
+      { $group: { _id: '$paid', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+    ]);
+    let totalOpen = 0;
+    let totalPaid = 0;
+    let countOpen = 0;
+    let countPaid = 0;
+    for (const row of agg) {
+      if (row._id === true) {
+        totalPaid = row.total;
+        countPaid = row.count;
+      } else {
+        totalOpen = row.total;
+        countOpen = row.count;
+      }
+    }
+    return { totalOpen, totalPaid, countOpen, countPaid };
+  }
+
+  async sumReceivablesReceivedInPeriod(workspaceId: string, startDate: string, endDate: string) {
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+    const ws = new Types.ObjectId(workspaceId);
+    const agg = await ReceivableModel.aggregate<{ total: number; count: number }>([
+      {
+        $match: {
+          workspaceId: ws,
+          paid: true,
+          $or: [
+            { paidAt: { $gte: start, $lte: end } },
+            { paidAt: { $exists: false }, updatedAt: { $gte: start, $lte: end } },
+          ],
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
+    ]);
+    return { totalReceived: agg[0]?.total ?? 0, count: agg[0]?.count ?? 0 };
+  }
+
   async customerFinancialSummary(workspaceId: string, partyId: string) {
     const ws = new Types.ObjectId(workspaceId);
     const pid = new Types.ObjectId(partyId);
-    const [recv, pay] = await Promise.all([
+    const [recvOpen, recvPaid, pay, totals] = await Promise.all([
       ReceivableModel.aggregate<{ total: number }>([
         { $match: { workspaceId: ws, partyId: pid, paid: false } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      ReceivableModel.aggregate<{ total: number }>([
+        { $match: { workspaceId: ws, partyId: pid, paid: true } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       PayableModel.aggregate<{ total: number }>([
         { $match: { workspaceId: ws, destinationPartyId: pid, paid: false } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
+      this.partyReceivableTotals(workspaceId, partyId),
     ]);
     return {
-      openReceivables: recv[0]?.total ?? 0,
+      openReceivables: recvOpen[0]?.total ?? 0,
+      paidReceivables: recvPaid[0]?.total ?? 0,
       openPayables: pay[0]?.total ?? 0,
+      receivableCountOpen: totals.countOpen,
+      receivableCountPaid: totals.countPaid,
     };
   }
 
@@ -300,6 +388,8 @@ export class FinanceRepository {
     currency?: string;
     dueDate: Date;
     paid: boolean;
+    paidAt?: Date;
+    paymentNote?: string;
     description?: string;
     origin: TRecordOrigin;
     sourceEntity?: string;
@@ -314,6 +404,8 @@ export class FinanceRepository {
       currency: doc.currency ?? 'BRL',
       dueDate: doc.dueDate.toISOString(),
       paid: Boolean(doc.paid),
+      paidAt: doc.paidAt?.toISOString(),
+      paymentNote: doc.paymentNote ?? '',
       description: doc.description ?? '',
       origin: doc.origin,
       sourceEntity: doc.sourceEntity,

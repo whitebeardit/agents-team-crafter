@@ -10,6 +10,7 @@
 - [Visão geral](#visão-geral)
 - [Stack](#stack)
 - [Registo de rotas](#registo-de-rotas)
+- [Agenda e financeiro (HTTP)](#agenda-e-financeiro-http)
 - [Export de configuração (JSON)](#export-de-configuração-json)
 - [Autenticação e tenant](#autenticação-e-tenant)
 - [Módulos de domínio](#módulos-de-domínio)
@@ -58,6 +59,19 @@ Ordem lógica de registo (todas com prefixo `/api/v1`):
 13. `registerBusinessActionRoutes` — catálogo e domínios de capabilities; ver [Business actions e domínios](#business-actions-e-domínios)
 14. `registerTeamPlanRoutes` — `/team-plans` (criar, obter, atualizar, `execute`, `execute/stream` SSE)
 15. `registerChatWebhookRoutes` — webhooks públicos Chat SDK (path sob o mesmo prefixo; ver [chat-sdk.md](./chat-sdk.md))
+
+A lista acima é **resumida**; a ordem real e a lista completa de handlers estão em [`routes.ts`](../../backend/src/app/routes.ts) (inclui, entre outros, `registerSchedulingRoutes`, `registerPackagesRoutes`, `registerFinanceRoutes`, `registerPartyRoutes`, `registerObservabilityRoutes`, `registerPlatformRoutes`, `registerTeamVaultRoutes`, `registerPlatformTemplateRoutes`).
+
+### Agenda e financeiro (HTTP)
+
+Módulos HTTP alinhados aos packs de negócio **scheduling** e **finance** (UI em `/schedule` e `/finance`).
+
+| Módulo | Ficheiro | Conteúdo (resumo) |
+|--------|----------|-------------------|
+| Agenda | [`scheduling.routes.ts`](../../backend/src/modules/scheduling/interfaces/scheduling.routes.ts) | `GET /schedule/agenda`, `/schedule/appointments`, `/schedule/gold-gate`; `POST /schedule/availability`, `/schedule/appointments`; mutações `reschedule`, `confirm`, `cancel`, `no-show`, `complete`; `DELETE /schedule/appointments/:id` (admin). **Criar compromisso:** body opcional `expectedAmount`, `createSessionReceivable` — cria recebível ligado ao compromisso quando aplicável (sem duplicar cobrança em pacote pré-pago salvo override). **Concluir:** body opcional `paymentReceived`, `receivableId`, `paymentNote` — baixa no recebível associado. |
+| Financeiro | [`finance.routes.ts`](../../backend/src/modules/finance/interfaces/finance.routes.ts) | `GET /finance/receivables`, `/finance/payables` (intervalo `dueDate`, máx. 90 dias); `GET /finance/parties/:partyId/receivables` e `.../summary`; `GET /finance/received-summary`; `POST /finance/receivables/:id/mark-paid`; `DELETE` recebível/pagável (admin, com travas se houver vínculo). |
+
+Documentação corrida com exemplos de path: [README do backend](../../backend/README.md) (secções Scheduling e Finance API).
 
 Execução por time: **`POST /teams/:id/run`** em `registerTeamRoutes` (`invokeTeam` / `team-runtime`).
 

@@ -150,7 +150,7 @@ ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 
 ## Rotas da Aplicacao
 
-Superficies de **negócio** com página dedicada (ex.: `/crm`, `/schedule`) coexistem com o núcleo do produto (times, agentes, canais). Outras verticais do BFF (care, finance, clinical, …) podem ganhar rota equivalente quando houver UI — até lá operam via **runtime de tools** e canais. Itens da barra lateral: `[components/layout/app-navigation.tsx](./components/layout/app-navigation.tsx)`.
+Superficies de **negócio** com página dedicada (ex.: `/crm`, `/schedule`, `/finance`) coexistem com o núcleo do produto (times, agentes, canais). Outras verticais do BFF (care, clinical, packages, …) podem ser usadas na UI ou via **runtime de tools** e canais, conforme módulo. Itens da barra lateral: `[components/layout/app-navigation.tsx](./components/layout/app-navigation.tsx)`.
 
 
 | Rota                  | Descricao                                                                          |
@@ -175,7 +175,8 @@ Superficies de **negócio** com página dedicada (ex.: `/crm`, `/schedule`) coex
 | `/teams/[id]/gallery` | Galeria associada ao time                                                          |
 | `/templates`          | Galeria de templates                                                               |
 | `/channels`           | Gestao de canais                                                                   |
-| `/schedule`           | Agenda (scheduling)                                                                |
+| `/schedule`           | Agenda (scheduling); criar compromisso com valor a receber; concluir com baixa financeira opcional |
+| `/finance`            | Financeiro — listagem por período, extrato por paciente (party), marcar recebível pago |
 | `/crm`                | CRM — clientes/parties do workspace                                                |
 | `/observability`      | Observabilidade operacional                                                        |
 | `/settings`           | Configuracoes do workspace e perfil                                                |
@@ -2874,6 +2875,8 @@ Alem dos recursos documentados nas secoes anteriores, o BFF expoe modulos regist
 | **agent-plans**      | `/agent-plans`, `/agent-plans/:id`, `POST .../execute` — `[agent-plan.routes.ts](../backend/src/modules/agent-planning/interfaces/agent-plan.routes.ts)` | Planos por agente                                                                                 |
 | **agent-governance** | `GET/POST /agent-overlap-reviews` — `[agent-governance.routes.ts](../backend/src/modules/agent-governance/interfaces/agent-governance.routes.ts)`        | Revisao de sobreposicao de dominio entre agentes                                                  |
 | **platform-agents**  | `GET /platform/agent-teams/catalog` — `[platform-agent.routes.ts](../backend/src/modules/platform-agents/interfaces/platform-agent.routes.ts)`           | Catálogo de equipas de agentes de plataforma                                                      |
+| **schedule**         | `/schedule/*` — `[scheduling.routes.ts](../backend/src/modules/scheduling/interfaces/scheduling.routes.ts)` | Agenda HTTP (`agenda`, `appointments`, `gold-gate`, disponibilidade, compromissos). Ver [Scheduling API no README do backend](../backend/README.md#scheduling-api-loop-36). |
+| **finance**          | `/finance/*` — `[finance.routes.ts](../backend/src/modules/finance/interfaces/finance.routes.ts)` | Recebíveis/pagáveis, extrato e totais por party, resumo recebido, `mark-paid`. Ver [Finance API no README do backend](../backend/README.md#finance-api). |
 
 
 As secoes seguintes detalham **audit**, **tool-definitions** e **team-plans**. Todas as rotas autenticadas tipicas exigem `Authorization`, `X-Workspace-Id` e envelope padrao. Detalhes de validacao: schemas Zod nos ficheiros indicados.

@@ -20,6 +20,16 @@ function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd;
 }
 
+function parsePositiveAmountFromInput(data: Record<string, unknown>): number | undefined {
+  const exp = data.expectedAmount;
+  if (typeof exp === 'number' && Number.isFinite(exp) && exp > 0) return exp;
+  if (typeof exp === 'string' && exp.trim()) {
+    const n = Number(exp.trim());
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return undefined;
+}
+
 export function registerSchedulingPack(
   registry: BusinessToolRegistry,
   appointments: AppointmentRepository,
@@ -113,7 +123,7 @@ export function registerSchedulingPack(
       reminderId = reminder.id;
     }
 
-    return appointments.create(workspaceId, {
+    const created = await appointments.create(workspaceId, {
       partyId,
       title,
       startsAt,
@@ -129,6 +139,41 @@ export function registerSchedulingPack(
       actorAgentId,
       actorRole,
     });
+
+    const createSessionReceivable = data.createSessionReceivable === true;
+    if (!(packageSaleId && !createSessionReceivable)) {
+      let sessionAmount = parsePositiveAmountFromInput(data);
+      if (sessionAmount === undefined && serviceOrderId) {
+        const order = await serviceOrders.findById(workspaceId, serviceOrderId);
+        if (order?.lines?.length) {
+          const t = order.lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
+          if (t > 0) sessionAmount = t;
+        }
+      }
+      if (sessionAmount !== undefined && sessionAmount > 0) {
+        const financeCreate = registry.get('finance_create_receivable');
+        if (financeCreate) {
+          const dueDay = created.startsAt.slice(0, 10);
+          await financeCreate({
+            workspaceId,
+            input: {
+              partyId,
+              amount: sessionAmount,
+              dueDate: dueDay,
+              description: `Sessão: ${title.trim()} — compromisso ${created.id}`,
+              sourceEntity: 'Appointment',
+              sourceId: created.id,
+            },
+            teamContext,
+            correlationId,
+            actorAgentId,
+            actorRole,
+          });
+        }
+      }
+    }
+
+    return created;
   });
 
   registry.register('schedule_reschedule_appointment', async ({ workspaceId, input }) => {
@@ -246,6 +291,33 @@ export function registerSchedulingPack(
       notes: typeof data.notes === 'string' ? data.notes : current.notes,
     });
     if (!next) throw new Error('appointment nao encontrado');
+
+    const paymentReceived = data.paymentReceived === true;
+    if (paymentReceived) {
+      const markPaid = registry.get('finance_mark_receivable_paid');
+      const findRecv = registry.get('finance_find_receivable_by_appointment');
+      const receivableIdRaw = typeof data.receivableId === 'string' ? data.receivableId.trim() : '';
+      const paymentNote = typeof data.paymentNote === 'string' ? data.paymentNote : undefined;
+      if (markPaid && findRecv) {
+        let receivableId = receivableIdRaw;
+        if (!receivableId) {
+          const row = (await findRecv({
+            workspaceId,
+            input: { appointmentId },
+            correlationId,
+          })) as { id?: string } | null;
+          receivableId = typeof row?.id === 'string' ? row.id : '';
+        }
+        if (receivableId) {
+          await markPaid({
+            workspaceId,
+            input: { receivableId, ...(paymentNote !== undefined ? { paymentNote } : {}) },
+            correlationId,
+          });
+        }
+      }
+    }
+
     return { ...next, encounterId: encounter.id };
   });
 

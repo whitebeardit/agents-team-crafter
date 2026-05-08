@@ -28,7 +28,7 @@ Após o seed, credenciais de login no app: **[admin@whitebeard.dev](mailto:admin
 
 ## Rotas principais (`/api/v1`)
 
-Auth, workspaces, agents (incl. config e `mcp-bindings`), teams e grafo, templates, canais, MCPs, knowledge-sources, dashboard, settings (perfil, workspace, API keys, avatar), **audit-logs** (admin), **tool-definitions** (CRUD; mutações admin), **team-plans** (planner: `POST /team-plans`; materialização: `POST /team-plans/:id/execute` e SSE `.../execute/stream`; atalho `**POST /team-plans/create-and-execute`** faz plano + execute no mesmo pedido com o mesmo body que o create). **Nota:** `POST /teams` apenas associa `coordinatorId` e `agentIds` já existentes — não gera o plano nem os agentes. **agent-plans** (planeamento por agente), **agent-governance** (revisão/sobreposição de domínio entre agentes), **runs** (histórico de execuções de equipas), **platform-agents** (catálogo de agentes de plataforma), **governance** (analytics, operações, auditoria agregada; alguns endpoints com rate limit — ver `governance.routes.ts`), **parties** (`GET`/`POST /parties`, `GET`/`PUT /parties/:id` — CRM para pickers, cadastro e edição rápida na UI; em `PUT`, `email`/`phone`/`notes` vazios após trim removem o campo no documento via `$unset`), **schedule** (agenda operacional HTTP sobre o pack `scheduling`) e webhooks públicos **Chat SDK** em `/webhooks/chat/...`. Lista canónica de registo: `[src/app/routes.ts](./src/app/routes.ts)`.
+Auth, workspaces, agents (incl. config e `mcp-bindings`), teams e grafo, templates, canais, MCPs, knowledge-sources, dashboard, settings (perfil, workspace, API keys, avatar), **audit-logs** (admin), **tool-definitions** (CRUD; mutações admin), **team-plans** (planner: `POST /team-plans`; materialização: `POST /team-plans/:id/execute` e SSE `.../execute/stream`; atalho `**POST /team-plans/create-and-execute`** faz plano + execute no mesmo pedido com o mesmo body que o create). **Nota:** `POST /teams` apenas associa `coordinatorId` e `agentIds` já existentes — não gera o plano nem os agentes. **agent-plans** (planeamento por agente), **agent-governance** (revisão/sobreposição de domínio entre agentes), **runs** (histórico de execuções de equipas), **platform-agents** (catálogo de agentes de plataforma), **governance** (analytics, operações, auditoria agregada; alguns endpoints com rate limit — ver `governance.routes.ts`), **parties** (`GET`/`POST /parties`, `GET`/`PUT /parties/:id` — CRM para pickers, cadastro e edição rápida na UI; em `PUT`, `email`/`phone`/`notes` vazios após trim removem o campo no documento via `$unset`), **schedule** (agenda operacional HTTP sobre o pack `scheduling`), **finance** (recebíveis/pagáveis e extrato por party — ver secção *Finance API* abaixo), **packages** (pacotes/sessões) e webhooks públicos **Chat SDK** em `/webhooks/chat/...`. Lista canónica de registo: `[src/app/routes.ts](./src/app/routes.ts)`.
 
 ## Observabilidade
 
@@ -53,12 +53,24 @@ Novos domínios ou packs: primeiro **`domain-capability-registry.ts`** (lista de
 
 ## Scheduling API (Loop 36)
 
-Rotas autenticadas (`Bearer` + `x-workspace-id`) para usar a agenda operacional sem passar pelo runtime de agentes:
+Rotas autenticadas (`Bearer` + `X-Workspace-Id`) para usar a agenda operacional sem passar pelo runtime de agentes. Implementação: [`src/modules/scheduling/interfaces/scheduling.routes.ts`](./src/modules/scheduling/interfaces/scheduling.routes.ts). Testes: [`src/__tests__/scheduling-api.integration.test.ts`](./src/__tests__/scheduling-api.integration.test.ts).
 
-- `GET /api/v1/schedule/agenda?date=YYYY-MM-DD` — retorna `slots`, `appointments` e `availability`.
-- `GET /api/v1/schedule/appointments?date=YYYY-MM-DD` — lista apenas appointments do dia.
+- `GET /api/v1/schedule/gold-gate?date=YYYY-MM-DD` — critérios GOLD do dia (agenda + disponibilidade).
+- `GET /api/v1/schedule/agenda?date=YYYY-MM-DD&includeCancelled=true|false` — `slots`, `appointments`, `availability`.
+- `GET /api/v1/schedule/appointments?date=YYYY-MM-DD` — compromissos do dia.
 - `POST /api/v1/schedule/availability` — cria janela de disponibilidade.
-- `POST /api/v1/schedule/appointments` — cria appointment e reminder opcional.
-- `POST /api/v1/schedule/appointments/:id/reschedule|confirm|cancel|no-show|complete` — mutações operacionais do compromisso.
+- `POST /api/v1/schedule/appointments` — cria compromisso; corpo pode incluir `remindAt`, `packageSaleId`, `serviceOrderId`, `careSubjectId`, `notes`, **`expectedAmount`** (opcional, > 0) e **`createSessionReceivable`** (opcional). Se existir `expectedAmount` ou valor derivável do `serviceOrderId`, o pack de negócio pode criar um **recebível** ligado ao compromisso (`sourceEntity: Appointment`). Com **`packageSaleId`** pré-pago, **não** cria recebível por defeito; use **`createSessionReceivable: true`** para forçar.
+- `POST /api/v1/schedule/appointments/:id/reschedule|confirm|cancel|no-show|complete` — mutações. No **complete**, o corpo pode incluir **`paymentReceived`** (boolean), **`receivableId`** (opcional) e **`paymentNote`**; com `paymentReceived: true`, dá baixa no recebível associado ao compromisso quando existir.
+- `DELETE /api/v1/schedule/appointments/:id` — remoção definitiva (apenas estados cancelado / falta; **admin**).
 
-Implementação em `[src/modules/scheduling/interfaces/scheduling.routes.ts](./src/modules/scheduling/interfaces/scheduling.routes.ts)` e cobertura em `[src/__tests__/scheduling-api.integration.test.ts](./src/__tests__/scheduling-api.integration.test.ts)`.
+## Finance API
+
+Rotas sob `/api/v1/finance/...` (prefixo completo abaixo). Implementação: [`src/modules/finance/interfaces/finance.routes.ts`](./src/modules/finance/interfaces/finance.routes.ts).
+
+- `GET /api/v1/finance/receivables?startDate&endDate&paid&q&limit` — listagem por intervalo de **vencimento** (`dueDate`), máx. 90 dias.
+- `GET /api/v1/finance/payables` — idem para pagáveis.
+- `GET /api/v1/finance/parties/:partyId/receivables/summary` — totais a receber / já recebidos e contagens por party.
+- `GET /api/v1/finance/parties/:partyId/receivables?paid&limit` — extrato de recebíveis da party.
+- `GET /api/v1/finance/received-summary?startDate&endDate` — total recebido no período (liquidações com `paidAt` ou registos antigos pagos sem `paidAt`, via `updatedAt`).
+- `POST /api/v1/finance/receivables/:id/mark-paid` — corpo opcional `{ paymentNote }`; define `paid`, `paidAt`.
+- `DELETE /api/v1/finance/receivables/:id` e `DELETE /api/v1/finance/payables/:id` — **admin**; recebíveis ligados a origem (`sourceEntity`/`sourceId`) podem ser bloqueados (409).

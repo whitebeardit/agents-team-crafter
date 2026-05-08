@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState, type ReactNode } from "react"
-import { ChevronDown, LifeBuoy, ShieldCheck, Sparkles, Users } from "lucide-react"
+import { BookmarkCheck, ChevronDown, LifeBuoy, Link2, ShieldCheck, Sparkles, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +22,17 @@ type AgentFirstVerticalStandardProps = {
   starterPrompts: string[]
   fallbackGuidance: string
   troubleshootingItems?: string[]
+  /** Texto curto quando o utilizador definiu um time principal da operação (preferência persistida). */
+  primaryTeamHint?: string
+  /** Ligações secundárias (ex.: consola do time, escritório) — mesmo time, outras superfícies. */
+  auxiliaryLinks?: { label: string; href: string }[]
+  /** Fixar ou soltar o time actual como “principal da operação” para este workspace. */
+  pinPrimaryTeam?: {
+    isPinned: boolean
+    disabled?: boolean
+    onPin: () => void
+    onUnpin: () => void
+  }
 }
 
 export function AgentFirstVerticalStandard({
@@ -38,6 +49,9 @@ export function AgentFirstVerticalStandard({
   starterPrompts,
   fallbackGuidance,
   troubleshootingItems = [],
+  primaryTeamHint,
+  auxiliaryLinks = [],
+  pinPrimaryTeam,
 }: AgentFirstVerticalStandardProps) {
   const [troubleshootingOpen, setTroubleshootingOpen] = useState(false)
 
@@ -79,9 +93,15 @@ export function AgentFirstVerticalStandard({
             <p className="text-sm font-medium leading-snug">{specialistName}</p>
             <p className="mt-3 mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Users className="h-3.5 w-3.5" />
-              Time recomendado
+              Time para esta vertical
             </p>
             <p className="text-sm font-medium leading-snug">{teamRecommendation}</p>
+            {primaryTeamHint ? (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+                <BookmarkCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                <span>{primaryTeamHint}</span>
+              </p>
+            ) : null}
           </div>
 
           <div className="rounded-lg border bg-background/80 p-3 sm:p-4 sm:col-span-2 xl:col-span-1">
@@ -92,6 +112,47 @@ export function AgentFirstVerticalStandard({
             <Button asChild size="sm" className="mt-3 w-full sm:w-auto">
               <Link href={ctaHref}>{ctaLabel}</Link>
             </Button>
+            {auxiliaryLinks.length > 0 ? (
+              <div className="mt-3 flex flex-col gap-1.5">
+                {auxiliaryLinks.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Link2 className="h-3 w-3" />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+            {pinPrimaryTeam ? (
+              <div className="mt-3">
+                {pinPrimaryTeam.isPinned ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    disabled={pinPrimaryTeam.disabled}
+                    onClick={pinPrimaryTeam.onUnpin}
+                  >
+                    Deixar de usar este time como principal
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    disabled={pinPrimaryTeam.disabled}
+                    onClick={pinPrimaryTeam.onPin}
+                  >
+                    Usar este time como principal em todas as verticais
+                  </Button>
+                )}
+              </div>
+            ) : null}
           </div>
         </section>
 

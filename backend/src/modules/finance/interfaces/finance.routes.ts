@@ -16,6 +16,23 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(1000).optional(),
 });
 
+const partyReceivablesQuerySchema = z.object({
+  paid: z
+    .string()
+    .transform((v) => (v === 'true' ? true : v === 'false' ? false : undefined))
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+const financeReceivedSummaryQuerySchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const markReceivablePaidBodySchema = z.object({
+  paymentNote: z.string().optional(),
+});
+
 function daysBetweenInclusive(startDate: string, endDate: string): number {
   const s = new Date(`${startDate}T00:00:00.000Z`).getTime();
   const e = new Date(`${endDate}T00:00:00.000Z`).getTime();
@@ -139,6 +156,68 @@ export async function registerFinanceRoutes(app: FastifyInstance, deps: IAppDeps
         total: filtered.length,
       }),
     );
+  });
+
+  app.get('/finance/parties/:partyId/receivables/summary', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const partyId = z.object({ partyId: z.string().min(1) }).parse(req.params).partyId;
+    const totals = await financeRepo.partyReceivableTotals(ws, partyId);
+    const party = await deps.partyRepo.findById(ws, partyId);
+    return reply.send(
+      successEnvelope({
+        partyId,
+        party: party
+          ? { id: party.id, displayName: party.displayName, email: party.email, phone: party.phone }
+          : null,
+        totals,
+      }),
+    );
+  });
+
+  app.get('/finance/parties/:partyId/receivables', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const partyId = z.object({ partyId: z.string().min(1) }).parse(req.params).partyId;
+    const query = partyReceivablesQuerySchema.parse(req.query);
+    const rows = await financeRepo.listReceivablesByParty(ws, partyId, {
+      paid: query.paid,
+      limit: query.limit ?? 200,
+    });
+    const party = await deps.partyRepo.findById(ws, partyId);
+    return reply.send(
+      successEnvelope({
+        partyId,
+        party: party
+          ? { id: party.id, displayName: party.displayName, email: party.email, phone: party.phone }
+          : null,
+        receivables: rows,
+        total: rows.length,
+      }),
+    );
+  });
+
+  app.get('/finance/received-summary', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const query = financeReceivedSummaryQuerySchema.parse(req.query);
+    if (query.startDate > query.endDate) {
+      throw new AppError('VALIDATION_ERROR', 'A data inicial deve ser menor ou igual à data final.', 400);
+    }
+    const days = daysBetweenInclusive(query.startDate, query.endDate);
+    if (days > 90) {
+      throw new AppError('VALIDATION_ERROR', 'Intervalo máximo permitido: 90 dias.', 400);
+    }
+    const agg = await financeRepo.sumReceivablesReceivedInPeriod(ws, query.startDate, query.endDate);
+    return reply.send(successEnvelope({ ...agg, range: { startDate: query.startDate, endDate: query.endDate, days } }));
+  });
+
+  app.post('/finance/receivables/:id/mark-paid', { preHandler: tenant }, async (req, reply) => {
+    const ws = req.workspaceId!;
+    const id = z.object({ id: z.string().min(1) }).parse(req.params).id;
+    const body = markReceivablePaidBodySchema.parse(req.body ?? {});
+    const row = await financeRepo.markReceivablePaid(ws, id, {
+      paymentNote: body.paymentNote,
+    });
+    if (!row) throw new AppError('NOT_FOUND', 'Recebível não encontrado', 404);
+    return reply.send(successEnvelope(row));
   });
 
   app.delete('/finance/receivables/:id', { preHandler: [...tenant, requireAdmin()] }, async (req, reply) => {

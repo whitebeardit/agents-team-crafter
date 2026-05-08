@@ -37,6 +37,8 @@ const createAppointmentBodySchema = z.object({
   encounterId: z.string().min(1).optional(),
   remindAt: z.string().min(1).optional(),
   notes: z.string().optional(),
+  expectedAmount: z.coerce.number().positive().optional(),
+  createSessionReceivable: z.boolean().optional(),
 });
 
 const rescheduleAppointmentBodySchema = z.object({
@@ -49,6 +51,9 @@ const rescheduleAppointmentBodySchema = z.object({
 const completeAppointmentBodySchema = z.object({
   notes: z.string().optional(),
   durationMinutes: z.coerce.number().int().min(0).optional(),
+  paymentReceived: z.boolean().optional(),
+  receivableId: z.string().min(1).optional(),
+  paymentNote: z.string().optional(),
 });
 
 function mapBusinessActionError(error: unknown): never {

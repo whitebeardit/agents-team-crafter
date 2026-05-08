@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Clipboard, HeartPulse, Loader2, RefreshCw, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
+import { useOperationTeamResolution } from "@/lib/agent-first/use-operation-team-resolution"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -106,9 +107,10 @@ function statusLabel(status: string): string {
 }
 
 export default function CarePage() {
-  const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, setPrimaryOperationTeamForWorkspace } = useWorkspaceStore()
   const [loading, setLoading] = useState(false)
-  const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
+  const [teamCandidates, setTeamCandidates] = useState<Team[]>([])
+  const { operationTeam, usesPinnedPrimary } = useOperationTeamResolution(teamCandidates)
   const [startDate, setStartDate] = useState(addDays(todayDateString(), -30))
   const [endDate, setEndDate] = useState(todayDateString)
   const [searchQuery, setSearchQuery] = useState("")
@@ -133,12 +135,12 @@ export default function CarePage() {
     if (!token || !currentWorkspace) return
     setLoading(true)
     try {
-      const teamRes = await api.get<Team[]>("/teams?status=active&page=1&perPage=1")
-      setRecommendedTeam(teamRes.data[0] ?? null)
+      const teamRes = await api.get<Team[]>("/teams?status=active&page=1&perPage=100")
+      setTeamCandidates(teamRes.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar o time recomendado para Care."
       toast.error(msg)
-      setRecommendedTeam(null)
+      setTeamCandidates([])
     } finally {
       setLoading(false)
     }
@@ -218,7 +220,13 @@ export default function CarePage() {
     void loadCareCases()
   }, [loadCareCases])
 
-  const operationHref = recommendedTeam ? `/teams/${recommendedTeam.id}?tab=debug` : "/teams/create"
+  const operationHref = operationTeam ? `/teams/${operationTeam.id}?tab=debug` : "/teams/create"
+  const auxiliaryTeamLinks = operationTeam
+    ? [
+        { label: "Consola do time", href: `/teams/${operationTeam.id}` },
+        { label: "Escritório virtual", href: `/teams/${operationTeam.id}/office` },
+      ]
+    : []
 
   const starterPrompts = [
     "Liste os casos de cuidado ativos da paciente X e próximos passos.",
@@ -309,14 +317,35 @@ export default function CarePage() {
           </p>
         }
         specialistName="Especialista de Care"
-        teamRecommendation="Mesmo time operacional com especialistas clínicos e de atendimento"
+        teamRecommendation="Um time por negócio; Care partilha Party (CRM) e careSubjectId com Clinical e agenda."
         ctaHref={operationHref}
-        ctaLabel={recommendedTeam ? `Abrir operação no time "${recommendedTeam.name}"` : "Criar time operacional"}
+        ctaLabel={operationTeam ? `Abrir operação no time "${operationTeam.name}"` : "Criar time operacional"}
         starterPrompts={starterPrompts}
         fallbackGuidance="Use esta tela para inspeção manual de casos, triagem de inconsistências e suporte ao troubleshooting da operação agent-first."
+        primaryTeamHint={
+          usesPinnedPrimary && operationTeam
+            ? `Time principal da operação: «${operationTeam.name}». As outras verticais abrem o mesmo time por defeito.`
+            : undefined
+        }
+        auxiliaryLinks={auxiliaryTeamLinks}
+        pinPrimaryTeam={
+          operationTeam && currentWorkspace
+            ? {
+                isPinned: usesPinnedPrimary,
+                onPin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, operationTeam.id)
+                  toast.success(`«${operationTeam.name}» é agora o time principal em todas as verticais.`)
+                },
+                onUnpin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, null)
+                  toast.success("Preferência de time principal removida.")
+                },
+              }
+            : undefined
+        }
         troubleshootingItems={[
-          "Confirme se há time ativo recomendado antes de operar via especialista.",
-          "Priorize casos com no-show e baixa taxa de conclusão no período.",
+          "Confirme se há time ativo antes de operar via especialista.",
+          "Defina um time principal se existirem vários times ativos.",
           "Antes de excluir, valide possíveis dependências clínicas e operacionais.",
         ]}
       />
@@ -419,10 +448,16 @@ export default function CarePage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm">
               <Link href={operationHref}>
-                {recommendedTeam ? `Operar no time "${recommendedTeam.name}"` : "Criar time para operar Care"}
+                {operationTeam ? `Operar no time "${operationTeam.name}"` : "Criar time para operar Care"}
               </Link>
             </Button>
-            <span className="text-xs text-muted-foreground">Entrada padrão da vertical: operação via time + especialista.</span>
+            <span className="text-xs text-muted-foreground">
+              {operationTeam
+                ? usesPinnedPrimary
+                  ? "Time principal definido: verticais sugerem este time."
+                  : "Entrada padrão da vertical: operação via time + especialista."
+                : "Sem time ativo: crie um time para operar em modo agent-first."}
+            </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {starterPrompts.map((prompt) => (

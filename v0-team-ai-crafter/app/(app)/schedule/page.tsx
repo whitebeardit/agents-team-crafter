@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { CalendarDays, CheckCircle2, ChevronsUpDown, Clipboard, Loader2, RefreshCw } from "lucide-react"
+import { CalendarDays, CheckCircle2, Clipboard, Loader2, RefreshCw } from "lucide-react"
 import { ApiError, createApiClient } from "@/lib/api/client"
 import { formatRecordOrigin } from "@/lib/format-record-origin"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
@@ -32,19 +32,13 @@ import {
 } from "@/components/ui/table"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { ResponsiveTableScroll } from "@/components/ui/responsive-table"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { PartySearchCombo } from "@/components/schedule/party-search-combo"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import { CreatePartyDialog } from "@/components/schedule/create-party-dialog"
 import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
+import { useOperationTeamResolution } from "@/lib/agent-first/use-operation-team-resolution"
 type ScheduleGoldGate = {
   approved: boolean
   evaluatedAt: string
@@ -96,15 +90,97 @@ function statusBadgeClass(status: string) {
   }
 }
 
+function CompleteAppointmentDialog({
+  appointment,
+  api,
+  onDone,
+}: {
+  appointment: ScheduleAppointment
+  api: ReturnType<typeof createApiClient>
+  onDone: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [paymentReceived, setPaymentReceived] = useState(true)
+  const [paymentNote, setPaymentNote] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  async function submit() {
+    setSaving(true)
+    try {
+      await api.post(`/schedule/appointments/${appointment.id}/complete`, {
+        paymentReceived,
+        ...(paymentNote.trim() ? { paymentNote: paymentNote.trim() } : {}),
+      })
+      toast.success("Compromisso concluído")
+      setOpen(false)
+      setPaymentNote("")
+      onDone()
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Falha ao concluir")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="secondary" size="sm">
+          Concluir
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Concluir compromisso</DialogTitle>
+          <DialogDescription>
+            Regista o encontro como realizado. Se existir recebível ligado ao compromisso, pode marcá-lo como pago.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          <p className="text-sm text-muted-foreground">{appointment.title}</p>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="pay-received"
+              checked={paymentReceived}
+              onCheckedChange={(v) => setPaymentReceived(v === true)}
+            />
+            <Label htmlFor="pay-received" className="text-sm font-normal leading-none">
+              Pagamento recebido (dar baixa no recebível associado)
+            </Label>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pay-note">Nota de pagamento (opcional)</Label>
+            <Input
+              id="pay-note"
+              value={paymentNote}
+              onChange={(e) => setPaymentNote(e.target.value)}
+              placeholder="Ex.: PIX, dinheiro, NF…"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={() => void submit()} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function SchedulePage() {
-  const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, setPrimaryOperationTeamForWorkspace } = useWorkspaceStore()
   const [date, setDate] = useState(todayDateString)
   const [showCancelled, setShowCancelled] = useState(true)
   const [loading, setLoading] = useState(false)
   const [agenda, setAgenda] = useState<ScheduleAgendaResponse | null>(null)
   const [goldGate, setGoldGate] = useState<ScheduleGoldGate | null>(null)
   const [partiesById, setPartiesById] = useState<Record<string, CrmParty>>({})
-  const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
+  const [teamCandidates, setTeamCandidates] = useState<Team[]>([])
+  const { operationTeam, usesPinnedPrimary } = useOperationTeamResolution(teamCandidates)
 
   const api = useMemo(
     () =>
@@ -128,11 +204,11 @@ export default function SchedulePage() {
       const [res, gate, teamRes] = await Promise.all([
         api.get<ScheduleAgendaResponse>(`/schedule/agenda?${qs.toString()}`),
         api.get<ScheduleGoldGate>(`/schedule/gold-gate?date=${encodeURIComponent(date)}`),
-        api.get<Team[]>("/teams?status=active&page=1&perPage=1"),
+        api.get<Team[]>("/teams?status=active&page=1&perPage=100"),
       ])
       setAgenda(res.data)
       setGoldGate(gate.data)
-      setRecommendedTeam(teamRes.data[0] ?? null)
+      setTeamCandidates(teamRes.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar a agenda."
       toast.error(msg)
@@ -169,7 +245,13 @@ export default function SchedulePage() {
     }
   }, [agenda?.appointments, api, token, currentWorkspace])
 
-  const operationHref = recommendedTeam ? `/teams/${recommendedTeam.id}?tab=debug` : "/teams/create"
+  const operationHref = operationTeam ? `/teams/${operationTeam.id}?tab=debug` : "/teams/create"
+  const auxiliaryTeamLinks = operationTeam
+    ? [
+        { label: "Consola do time", href: `/teams/${operationTeam.id}` },
+        { label: "Escritório virtual", href: `/teams/${operationTeam.id}/office` },
+      ]
+    : []
 
   const starterPrompts = [
     "Mostre os próximos horários livres para o cliente X esta semana.",
@@ -243,14 +325,35 @@ export default function SchedulePage() {
           </p>
         }
         specialistName="Especialista de Agenda"
-        teamRecommendation="Mesmo time operacional do negócio com foco em scheduling"
+        teamRecommendation="Um time por negócio; agenda, CRM e financeiro devem partilhar o mesmo time na operação diária."
         ctaHref={operationHref}
-        ctaLabel={recommendedTeam ? `Abrir operação no time "${recommendedTeam.name}"` : "Criar time operacional"}
+        ctaLabel={operationTeam ? `Abrir operação no time "${operationTeam.name}"` : "Criar time operacional"}
         starterPrompts={starterPrompts}
         fallbackGuidance="Use esta tela para auditar compromissos, confirmar estado operacional e apoiar troubleshooting quando o fluxo agent-first precisar de validação manual."
+        primaryTeamHint={
+          usesPinnedPrimary && operationTeam
+            ? `Time principal da operação: «${operationTeam.name}». As outras verticais abrem o mesmo time por defeito.`
+            : undefined
+        }
+        auxiliaryLinks={auxiliaryTeamLinks}
+        pinPrimaryTeam={
+          operationTeam && currentWorkspace
+            ? {
+                isPinned: usesPinnedPrimary,
+                onPin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, operationTeam.id)
+                  toast.success(`«${operationTeam.name}» é agora o time principal em todas as verticais.`)
+                },
+                onUnpin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, null)
+                  toast.success("Preferência de time principal removida.")
+                },
+              }
+            : undefined
+        }
         troubleshootingItems={[
           "Confira se o gate GOLD do dia está pendente por volume de cancelamentos/no-shows.",
-          "Valide se o time recomendado está ativo antes de operar via especialista.",
+          "Defina um time principal se existirem vários times ativos — mantém a agenda alinhada ao CRM e ao financeiro.",
           "Use tabela manual para auditar horários e estados antes de reexecutar no runtime.",
         ]}
       />
@@ -279,12 +382,14 @@ export default function SchedulePage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm">
               <Link href={operationHref}>
-                {recommendedTeam ? `Operar no time "${recommendedTeam.name}"` : "Criar time para operar agenda"}
+                {operationTeam ? `Operar no time "${operationTeam.name}"` : "Criar time para operar agenda"}
               </Link>
             </Button>
             <span className="text-xs text-muted-foreground">
-              {recommendedTeam
-                ? "Entrada padrão da agenda: operação via time + especialista."
+              {operationTeam
+                ? usesPinnedPrimary
+                  ? "Time principal definido: verticais sugerem este time."
+                  : "Entrada padrão da agenda: operação via time + especialista."
                 : "Sem time ativo detectado: crie um time para iniciar a operação agent-first."}
             </span>
           </div>
@@ -335,8 +440,8 @@ export default function SchedulePage() {
 
       <Card>
         <CardContent className="pt-6 text-sm text-muted-foreground">
-          Este ecrã é exclusivo para <strong>auditoria manual</strong> do que os especialistas fizeram.
-          Para criar/editar/cancelar/reagendar compromissos, utilize um time com especialista de agenda em <strong>/teams</strong>.
+          Pode criar compromissos, definir valor a receber e concluir atendimentos com baixa no recebível. Fluxos
+          mais ricos e orquestração continuam nos times em <strong>/teams</strong>.
         </CardContent>
       </Card>
 
@@ -345,7 +450,8 @@ export default function SchedulePage() {
           <CardHeader>
             <CardTitle>Compromissos</CardTitle>
             <CardDescription>
-              Horários e estado operacional do dia para auditoria humana (sem mutações diretas por esta tela).
+              Horários e estado operacional do dia. Pode concluir compromissos agendados ou confirmados e registar o
+              pagamento quando aplicável.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -359,7 +465,7 @@ export default function SchedulePage() {
                       <TableHead>Horário</TableHead>
                       <TableHead>Título</TableHead>
                       <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Auditoria</TableHead>
+                      <TableHead className="text-right">Acções</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -396,8 +502,12 @@ export default function SchedulePage() {
                             {STATUS_PT[a.status] ?? a.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">
-                          Operar via especialista
+                        <TableCell className="text-right">
+                          {a.status === "scheduled" || a.status === "confirmed" ? (
+                            <CompleteAppointmentDialog appointment={a} api={api} onDone={() => void loadAgenda()} />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -465,118 +575,6 @@ export default function SchedulePage() {
   )
 }
 
-function PartySearchCombo({
-  api,
-  partyId,
-  partyDisplayName,
-  onSelect,
-}: {
-  api: ReturnType<typeof createApiClient>
-  partyId: string
-  partyDisplayName: string
-  onSelect: (id: string, displayName: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [parties, setParties] = useState<CrmParty[]>([])
-  const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState("")
-
-  const load = useCallback(
-    async (q: string) => {
-      setLoading(true)
-      try {
-        const path = q.trim() ? `/parties?q=${encodeURIComponent(q.trim())}&limit=40` : "/parties?limit=40"
-        const res = await api.get<CrmParty[]>(path)
-        setParties(Array.isArray(res.data) ? res.data : [])
-      } catch {
-        setParties([])
-      } finally {
-        setLoading(false)
-      }
-    },
-    [api],
-  )
-
-  useEffect(() => {
-    if (!open) return
-    const t = setTimeout(() => void load(search), 280)
-    return () => clearTimeout(t)
-  }, [open, search, load])
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v)
-        if (v) {
-          setSearch("")
-          void load("")
-        }
-      }}
-    >
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between font-normal"
-        >
-          <span className="truncate text-left">
-            {partyDisplayName ? (
-              <>
-                <span className="font-medium">{partyDisplayName}</span>
-                <span className="ml-1 font-mono text-xs text-muted-foreground">({partyId.slice(-8)})</span>
-              </>
-            ) : (
-              <span className="text-muted-foreground">Pesquisar contato…</span>
-            )}
-          </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput placeholder="Nome do contato…" value={search} onValueChange={setSearch} />
-          <CommandList>
-            {loading ? (
-              <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                A carregar…
-              </div>
-            ) : (
-              <>
-                <CommandEmpty>Nenhum contato encontrado.</CommandEmpty>
-                <CommandGroup>
-                  {parties.map((p) => (
-                    <CommandItem
-                      key={p.id}
-                      value={p.id}
-                      onSelect={() => {
-                        onSelect(p.id, p.displayName)
-                        setOpen(false)
-                      }}
-                    >
-                      <div className="flex flex-col gap-0.5">
-                        <span>{p.displayName}</span>
-                        {(p.email || p.phone) && (
-                          <span className="text-xs text-muted-foreground">
-                            {[p.email, p.phone].filter(Boolean).join(" · ")}
-                          </span>
-                        )}
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 function NewAppointmentDialog({
   date,
   onCreated,
@@ -594,6 +592,8 @@ function NewAppointmentDialog({
   const [startLocal, setStartLocal] = useState(`${date}T09:00`)
   const [endLocal, setEndLocal] = useState(`${date}T10:00`)
   const [remindLocal, setRemindLocal] = useState("")
+  const [expectedAmountStr, setExpectedAmountStr] = useState("")
+  const [forcePackageReceivable, setForcePackageReceivable] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -618,13 +618,18 @@ function NewAppointmentDialog({
         setSaving(false)
         return
       }
-      await api.post("/schedule/appointments", {
+      const body: Record<string, unknown> = {
         partyId: effectivePartyId,
         title: title.trim(),
         startsAt,
         endsAt,
         ...(remindLocal ? { remindAt: new Date(remindLocal).toISOString() } : {}),
-      })
+      }
+      const normalized = expectedAmountStr.trim().replace(",", ".")
+      const amt = normalized ? Number(normalized) : NaN
+      if (Number.isFinite(amt) && amt > 0) body.expectedAmount = amt
+      if (forcePackageReceivable) body.createSessionReceivable = true
+      await api.post("/schedule/appointments", body)
       toast.success("Compromisso criado")
       setOpen(false)
       setPartyId("")
@@ -632,6 +637,8 @@ function NewAppointmentDialog({
       setManualPartyId("")
       setTitle("")
       setRemindLocal("")
+      setExpectedAmountStr("")
+      setForcePackageReceivable(false)
       onCreated()
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Falha ao criar"
@@ -716,6 +723,28 @@ function NewAppointmentDialog({
               <Label htmlFor="ap-end">Fim</Label>
               <Input id="ap-end" type="datetime-local" value={endLocal} onChange={(e) => setEndLocal(e.target.value)} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ap-amount">Valor da sessão a receber (opcional)</Label>
+            <Input
+              id="ap-amount"
+              inputMode="decimal"
+              value={expectedAmountStr}
+              onChange={(e) => setExpectedAmountStr(e.target.value)}
+              placeholder="Ex.: 150 — cria recebível ligado ao compromisso"
+            />
+            <p className="text-xs text-muted-foreground">
+              Com pacote pré-pago, não cria cobrança extra salvo a opção abaixo.
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="ap-force-rec" className="text-sm font-medium">
+                Cobrar mesmo com pacote
+              </Label>
+              <p className="text-xs text-muted-foreground">Cria recebível quando há packageSaleId e valor definido.</p>
+            </div>
+            <Switch id="ap-force-rec" checked={forcePackageReceivable} onCheckedChange={setForcePackageReceivable} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="ap-remind">Lembrete (opcional)</Label>

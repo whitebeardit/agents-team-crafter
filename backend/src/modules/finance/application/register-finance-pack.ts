@@ -19,6 +19,8 @@ export function registerFinancePack(
     const amount = Number(data.amount);
     const dueDate = typeof data.dueDate === 'string' ? data.dueDate : '';
     if (!partyId || Number.isNaN(amount) || !dueDate) throw new Error('partyId ou phone, amount e dueDate obrigatorios');
+    const sourceEntity = typeof data.sourceEntity === 'string' ? data.sourceEntity.trim() : undefined;
+    const sourceId = typeof data.sourceId === 'string' ? data.sourceId.trim() : undefined;
     return finance.createReceivable(workspaceId, {
       partyId,
       amount,
@@ -29,6 +31,7 @@ export function registerFinancePack(
       correlationId,
       actorAgentId,
       actorRole,
+      ...(sourceEntity && sourceId ? { sourceEntity, sourceId } : {}),
     });
   });
 
@@ -58,7 +61,8 @@ export function registerFinancePack(
     const data = input as Record<string, unknown>;
     const id = typeof data.receivableId === 'string' ? data.receivableId : '';
     if (!id) throw new Error('receivableId obrigatorio');
-    const r = await finance.markReceivablePaid(workspaceId, id);
+    const paymentNote = typeof data.paymentNote === 'string' ? data.paymentNote : undefined;
+    const r = await finance.markReceivablePaid(workspaceId, id, { paymentNote });
     if (!r) throw new Error('Recebivel nao encontrado');
     return r;
   });
@@ -87,6 +91,13 @@ export function registerFinancePack(
   registry.register('finance_total_payable_by_destination', async ({ workspaceId }) => ({
     totals: await finance.totalPayableByDestination(workspaceId),
   }));
+
+  registry.register('finance_find_receivable_by_appointment', async ({ workspaceId, input }) => {
+    const data = input as Record<string, unknown>;
+    const appointmentId = typeof data.appointmentId === 'string' ? data.appointmentId.trim() : '';
+    if (!appointmentId) throw new Error('appointmentId obrigatorio');
+    return finance.findReceivableByAppointmentId(workspaceId, appointmentId);
+  });
 
   registry.register('finance_customer_financial_summary', async ({ workspaceId, input }) => {
     const data = input as Record<string, unknown>;

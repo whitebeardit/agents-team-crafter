@@ -16,12 +16,13 @@ import {
   AlertCircle,
   Gavel,
   History,
+  BookmarkCheck,
 } from "lucide-react"
 import { AgentWhitebeardIcon } from "@/components/brand/agent-whitebeard-icon"
 import { ContextualTourHost, ContextualTourManualTrigger } from "@/components/onboarding/contextual-tour"
 import { createApiClient } from "@/lib/api/client"
 import { useWorkspaceStore } from "@/lib/store/workspace-store"
-import type { GovernanceOpsSummary } from "@/lib/types"
+import type { GovernanceOpsSummary, Team } from "@/lib/types"
 
 type Metrics = {
   activeTeams: number
@@ -93,12 +94,13 @@ const statusLabels = {
 }
 
 export default function DashboardPage() {
-  const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, primaryOperationTeamByWorkspace } = useWorkspaceStore()
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [recentTeams, setRecentTeams] = useState<RecentTeam[]>([])
   const [alerts, setAlerts] = useState<DashboardAlert[]>([])
   const [govOps, setGovOps] = useState<GovernanceOpsSummary | null>(null)
   const [govOpsLoaded, setGovOpsLoaded] = useState(false)
+  const [primaryPinTeam, setPrimaryPinTeam] = useState<Pick<Team, "id" | "name"> | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -132,6 +134,32 @@ export default function DashboardPage() {
       }
     })()
   }, [token, refreshToken, currentWorkspace])
+
+  useEffect(() => {
+    if (!token || !currentWorkspace) {
+      setPrimaryPinTeam(null)
+      return
+    }
+    const pinnedId = primaryOperationTeamByWorkspace[currentWorkspace.id]
+    if (!pinnedId) {
+      setPrimaryPinTeam(null)
+      return
+    }
+    const api = createApiClient({
+      getAuth: () => ({ token, refreshToken }),
+      setAuth: () => {},
+      clearAuth: () => {},
+      getWorkspaceId: () => currentWorkspace.id,
+    })
+    void (async () => {
+      try {
+        const res = await api.get<Team>(`/teams/${pinnedId}`)
+        setPrimaryPinTeam({ id: res.data.id, name: res.data.name })
+      } catch {
+        setPrimaryPinTeam(null)
+      }
+    })()
+  }, [token, refreshToken, currentWorkspace, primaryOperationTeamByWorkspace])
 
   const metricCards: {
     title: string
@@ -216,6 +244,47 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {primaryPinTeam ? (
+        <Card className="border-primary/25 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BookmarkCheck className="w-5 h-5 text-primary" />
+              Time principal da operação
+            </CardTitle>
+            <CardDescription>
+              Um time por negócio: as verticais usam este time nos atalhos agent-first deste workspace.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-medium text-foreground">{primaryPinTeam.name}</p>
+            <Button size="sm" variant="secondary" asChild>
+              <Link href={`/teams/${primaryPinTeam.id}`}>Consola do time</Link>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/teams/${primaryPinTeam.id}?tab=debug`}>Operar (chat / debug)</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-dashed border-muted-foreground/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BookmarkCheck className="w-5 h-5 text-muted-foreground" />
+              Time principal da operação
+            </CardTitle>
+            <CardDescription>Alinhe CRM, agenda e clínico ao mesmo time (modelo recomendado para clínicas).</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Nenhum time definido. No console de um time ativo, use «Definir como time principal» no cockpit operacional.
+            </p>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/teams">Ver times</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Governança (resumo) */}
       <Card className="border-border bg-card border-primary/20">

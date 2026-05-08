@@ -1292,13 +1292,15 @@ export interface FinanceReceivableListItem {
   currency: string
   dueDate: string
   paid: boolean
+  paidAt?: string
+  paymentNote?: string
   description?: string
   sourceEntity?: string
   sourceId?: string
   origin?: RecordOrigin
   createdAt?: string
   updatedAt?: string
-  party: FinancePartySummary | null
+  party?: FinancePartySummary | null
 }
 
 export interface FinancePayableListItem {
@@ -1327,6 +1329,30 @@ export interface FinancePayablesListResponse {
   payables: FinancePayableListItem[]
   range: { startDate: string; endDate: string; days: number }
   total: number
+}
+
+export interface FinancePartyReceivablesResponse {
+  partyId: string
+  party: FinancePartySummary | null
+  receivables: FinanceReceivableListItem[]
+  total: number
+}
+
+export interface FinancePartyReceivableTotalsResponse {
+  partyId: string
+  party: FinancePartySummary | null
+  totals: {
+    totalOpen: number
+    totalPaid: number
+    countOpen: number
+    countPaid: number
+  }
+}
+
+export interface FinanceReceivedSummaryResponse {
+  totalReceived: number
+  count: number
+  range: { startDate: string; endDate: string; days: number }
 }
 
 /** KPIs derivados no BFF a partir das séries `agents_team_crafter_*`. */

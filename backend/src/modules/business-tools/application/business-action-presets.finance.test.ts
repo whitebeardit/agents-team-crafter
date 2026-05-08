@@ -7,6 +7,8 @@ describe('business-action-presets finance (Loop 100)', () => {
     const markPayablePaid = getBusinessActionPreset('finance_mark_payable_paid');
 
     expect((markReceivablePaid?.inputSchema as { required?: string[] }).required).toEqual(['receivableId']);
+    const findByAppt = getBusinessActionPreset('finance_find_receivable_by_appointment');
+    expect((findByAppt?.inputSchema as { required?: string[] }).required).toEqual(['appointmentId']);
     expect((markPayablePaid?.inputSchema as { required?: string[] }).required).toEqual(['payableId']);
   });
 

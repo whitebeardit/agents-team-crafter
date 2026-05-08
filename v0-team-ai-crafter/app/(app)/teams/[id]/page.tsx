@@ -152,7 +152,8 @@ export default function TeamDetailsPage({
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = params.id
-  const { token, refreshToken, currentWorkspace, user } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, user, primaryOperationTeamByWorkspace, setPrimaryOperationTeamForWorkspace } =
+    useWorkspaceStore()
   const [team, setTeam] = useState<(Team & { coordinator?: Partial<Agent>; agents?: Agent[]; channels?: Channel[] }) | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editName, setEditName] = useState("")
@@ -879,6 +880,44 @@ export default function TeamDetailsPage({
                   )}
                 </div>
               </div>
+
+              {team.status === "active" && currentWorkspace ? (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-3 sm:px-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Time principal nas verticais</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {primaryOperationTeamByWorkspace[currentWorkspace.id] === team.id
+                      ? "CRM, agenda, Care, Clinical e outras verticais sugerem este time nos atalhos agent-first do mesmo workspace."
+                      : "Modelo recomendado: um time por negócio (ex.: clínica psicológica). Defina aqui o time usado por defeito ao abrir verticais."}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {primaryOperationTeamByWorkspace[currentWorkspace.id] === team.id ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPrimaryOperationTeamForWorkspace(currentWorkspace.id, null)
+                          toast.success("Time principal removido. As verticais voltam ao primeiro time ativo da lista.")
+                        }}
+                      >
+                        Remover como principal
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setPrimaryOperationTeamForWorkspace(currentWorkspace.id, team.id)
+                          toast.success(`«${team.name}» é o time principal neste workspace.`)
+                        }}
+                      >
+                        Definir como time principal
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               {(cockpitPriorities.length > 0 || !coordinator) && (
                 <div>

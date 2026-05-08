@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Clipboard, Loader2, NotebookPen, RefreshCw, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
+import { useOperationTeamResolution } from "@/lib/agent-first/use-operation-team-resolution"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -103,9 +104,10 @@ function statusLabel(status: string): string {
 }
 
 export default function ClinicalPage() {
-  const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, setPrimaryOperationTeamForWorkspace } = useWorkspaceStore()
   const [loading, setLoading] = useState(false)
-  const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
+  const [teamCandidates, setTeamCandidates] = useState<Team[]>([])
+  const { operationTeam, usesPinnedPrimary } = useOperationTeamResolution(teamCandidates)
   const [startDate, setStartDate] = useState(addDays(todayDateString(), -30))
   const [endDate, setEndDate] = useState(todayDateString)
   const [searchQuery, setSearchQuery] = useState("")
@@ -130,12 +132,12 @@ export default function ClinicalPage() {
     if (!token || !currentWorkspace) return
     setLoading(true)
     try {
-      const teamRes = await api.get<Team[]>("/teams?status=active&page=1&perPage=1")
-      setRecommendedTeam(teamRes.data[0] ?? null)
+      const teamRes = await api.get<Team[]>("/teams?status=active&page=1&perPage=100")
+      setTeamCandidates(teamRes.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar o time recomendado para Clinical."
       toast.error(msg)
-      setRecommendedTeam(null)
+      setTeamCandidates([])
     } finally {
       setLoading(false)
     }
@@ -217,7 +219,13 @@ export default function ClinicalPage() {
     void loadClinicalSessions()
   }, [loadClinicalSessions])
 
-  const operationHref = recommendedTeam ? `/teams/${recommendedTeam.id}?tab=debug` : "/teams/create"
+  const operationHref = operationTeam ? `/teams/${operationTeam.id}?tab=debug` : "/teams/create"
+  const auxiliaryTeamLinks = operationTeam
+    ? [
+        { label: "Consola do time", href: `/teams/${operationTeam.id}` },
+        { label: "Escritório virtual", href: `/teams/${operationTeam.id}/office` },
+      ]
+    : []
 
   const starterPrompts = [
     "Resuma evolução clínica recente da paciente X com foco em riscos e próximos passos.",
@@ -308,14 +316,35 @@ export default function ClinicalPage() {
           </p>
         }
         specialistName="Especialista Clínico"
-        teamRecommendation="Mesmo time operacional com especialistas de care, agenda e atendimento"
+        teamRecommendation="Um time por negócio; Clinical exige careSubjectId (Care) e Party (CRM) — evite vocabular misto na conversa."
         ctaHref={operationHref}
-        ctaLabel={recommendedTeam ? `Abrir operação no time "${recommendedTeam.name}"` : "Criar time operacional"}
+        ctaLabel={operationTeam ? `Abrir operação no time "${operationTeam.name}"` : "Criar time operacional"}
         starterPrompts={starterPrompts}
         fallbackGuidance="Use este espaço para revisar sessões, cobertura de notas e consistência do contexto clínico em casos priorizados."
+        primaryTeamHint={
+          usesPinnedPrimary && operationTeam
+            ? `Time principal da operação: «${operationTeam.name}». As outras verticais abrem o mesmo time por defeito.`
+            : undefined
+        }
+        auxiliaryLinks={auxiliaryTeamLinks}
+        pinPrimaryTeam={
+          operationTeam && currentWorkspace
+            ? {
+                isPinned: usesPinnedPrimary,
+                onPin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, operationTeam.id)
+                  toast.success(`«${operationTeam.name}» é agora o time principal em todas as verticais.`)
+                },
+                onUnpin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, null)
+                  toast.success("Preferência de time principal removida.")
+                },
+              }
+            : undefined
+        }
         troubleshootingItems={[
           "Verifique se as sessões possuem careSubjectId e notas mínimas.",
-          "Priorize revisão de no-show e sessões pendentes de documentação.",
+          "Defina um time principal se existirem vários times ativos.",
           "Antes de excluir, valide impactos em histórico clínico e financeiro.",
         ]}
       />
@@ -419,10 +448,16 @@ export default function ClinicalPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm">
               <Link href={operationHref}>
-                {recommendedTeam ? `Operar no time "${recommendedTeam.name}"` : "Criar time para operar Clinical"}
+                {operationTeam ? `Operar no time "${operationTeam.name}"` : "Criar time para operar Clinical"}
               </Link>
             </Button>
-            <span className="text-xs text-muted-foreground">Entrada padrão da vertical: operação via time + especialista.</span>
+            <span className="text-xs text-muted-foreground">
+              {operationTeam
+                ? usesPinnedPrimary
+                  ? "Time principal definido: verticais sugerem este time."
+                  : "Entrada padrão da vertical: operação via time + especialista."
+                : "Sem time ativo: crie um time após publicar o template clínico."}
+            </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {starterPrompts.map((prompt) => (

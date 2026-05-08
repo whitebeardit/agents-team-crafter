@@ -9,6 +9,8 @@ const ReceivableSchema = new Schema(
     currency: { type: String, default: 'BRL' },
     dueDate: { type: Date, required: true, index: true },
     paid: { type: Boolean, default: false, index: true },
+    paidAt: { type: Date, index: true },
+    paymentNote: { type: String, default: '' },
     description: { type: String, default: '' },
     origin: {
       type: RecordOriginSubschema,
@@ -20,6 +22,9 @@ const ReceivableSchema = new Schema(
   },
   { timestamps: true },
 );
+
+ReceivableSchema.index({ workspaceId: 1, partyId: 1, paid: 1 });
+ReceivableSchema.index({ workspaceId: 1, sourceEntity: 1, sourceId: 1 });
 
 export const ReceivableModel =
   mongoose.models.Receivable || mongoose.model('Receivable', ReceivableSchema);

@@ -24,9 +24,13 @@ import type {
   FinanceDeleteBlocker,
   FinancePayableListItem,
   FinancePayablesListResponse,
+  FinancePartyReceivableTotalsResponse,
+  FinancePartyReceivablesResponse,
+  FinanceReceivedSummaryResponse,
   FinanceReceivableListItem,
   FinanceReceivablesListResponse,
 } from "@/lib/types"
+import { PartySearchCombo } from "@/components/schedule/party-search-combo"
 
 type DeleteTarget =
   | { kind: "receivable"; item: FinanceReceivableListItem }
@@ -80,6 +84,13 @@ export default function FinancePage() {
   const [payables, setPayables] = useState<FinancePayableListItem[]>([])
   const [pendingDelete, setPendingDelete] = useState<DeleteTarget | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [partyLedgerId, setPartyLedgerId] = useState("")
+  const [partyLedgerName, setPartyLedgerName] = useState("")
+  const [partyReceivables, setPartyReceivables] = useState<FinanceReceivableListItem[]>([])
+  const [partyTotals, setPartyTotals] = useState<FinancePartyReceivableTotalsResponse["totals"] | null>(null)
+  const [partyLedgerLoading, setPartyLedgerLoading] = useState(false)
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
+  const [receivedSummary, setReceivedSummary] = useState<FinanceReceivedSummaryResponse | null>(null)
 
   const api = useMemo(
     () =>
@@ -123,6 +134,14 @@ export default function FinancePage() {
       ])
       setReceivables(Array.isArray(receivablesRes.data?.receivables) ? receivablesRes.data.receivables : [])
       setPayables(Array.isArray(payablesRes.data?.payables) ? payablesRes.data.payables : [])
+      try {
+        const receivedRes = await api.get<FinanceReceivedSummaryResponse>(
+          `/finance/received-summary?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+        )
+        setReceivedSummary(receivedRes.data ?? null)
+      } catch {
+        setReceivedSummary(null)
+      }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar os dados financeiros."
       toast.error(msg)
@@ -164,6 +183,50 @@ export default function FinancePage() {
     }
   }, [api, pendingDelete, loadFinance])
 
+  const loadPartyLedger = useCallback(async () => {
+    if (!token || !currentWorkspace) return
+    const pid = partyLedgerId.trim()
+    if (!pid) {
+      toast.error("Escolha um contato para carregar o extrato.")
+      return
+    }
+    setPartyLedgerLoading(true)
+    try {
+      const [listRes, sumRes] = await Promise.all([
+        api.get<FinancePartyReceivablesResponse>(`/finance/parties/${encodeURIComponent(pid)}/receivables?limit=200`),
+        api.get<FinancePartyReceivableTotalsResponse>(
+          `/finance/parties/${encodeURIComponent(pid)}/receivables/summary`,
+        ),
+      ])
+      setPartyReceivables(Array.isArray(listRes.data?.receivables) ? listRes.data.receivables : [])
+      setPartyTotals(sumRes.data?.totals ?? null)
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Não foi possível carregar o extrato."
+      toast.error(msg)
+      setPartyReceivables([])
+      setPartyTotals(null)
+    } finally {
+      setPartyLedgerLoading(false)
+    }
+  }, [api, token, currentWorkspace, partyLedgerId])
+
+  const markPartyReceivablePaid = useCallback(
+    async (receivableId: string) => {
+      setMarkingPaidId(receivableId)
+      try {
+        await api.post(`/finance/receivables/${encodeURIComponent(receivableId)}/mark-paid`, {})
+        toast.success("Recebível marcado como pago.")
+        await loadPartyLedger()
+        await loadFinance()
+      } catch (e) {
+        toast.error(e instanceof ApiError ? e.message : "Não foi possível dar baixa.")
+      } finally {
+        setMarkingPaidId(null)
+      }
+    },
+    [api, loadPartyLedger, loadFinance],
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -188,6 +251,15 @@ export default function FinancePage() {
           <CardDescription>Intervalo máximo de 90 dias e busca textual para recebíveis/pagáveis.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {receivedSummary ? (
+            <p className="text-sm text-muted-foreground">
+              Recebido no período (baixas):{" "}
+              <strong className="text-foreground tabular-nums">
+                {formatMoney(receivedSummary.totalReceived, "BRL")}
+              </strong>
+              <span className="text-muted-foreground"> · {receivedSummary.count} liquidação(ões)</span>
+            </p>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="finance-start-date">Início</Label>
@@ -222,6 +294,86 @@ export default function FinancePage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Extrato por paciente</CardTitle>
+          <CardDescription>Totais a receber e já recebidos, com linhas de recebíveis por contato.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Contato</Label>
+            <PartySearchCombo
+              api={api}
+              partyId={partyLedgerId}
+              partyDisplayName={partyLedgerName}
+              onSelect={(id, name) => {
+                setPartyLedgerId(id)
+                setPartyLedgerName(name)
+              }}
+            />
+          </div>
+          <Button type="button" variant="outline" onClick={() => void loadPartyLedger()} disabled={partyLedgerLoading || !token}>
+            {partyLedgerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <span className="ml-2">Carregar extrato</span>
+          </Button>
+          {partyTotals ? (
+            <div className="grid gap-2 sm:grid-cols-2 text-sm">
+              <div className="rounded-md border p-3">
+                <p className="text-muted-foreground">A receber (aberto)</p>
+                <p className="text-lg font-semibold tabular-nums">{formatMoney(partyTotals.totalOpen, "BRL")}</p>
+                <p className="text-xs text-muted-foreground">{partyTotals.countOpen} título(s)</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-muted-foreground">Já recebido</p>
+                <p className="text-lg font-semibold tabular-nums">{formatMoney(partyTotals.totalPaid, "BRL")}</p>
+                <p className="text-xs text-muted-foreground">{partyTotals.countPaid} título(s)</p>
+              </div>
+            </div>
+          ) : null}
+          <div className="space-y-3">
+            {partyReceivables.map((item) => (
+              <div key={item.id} className="rounded-lg border p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{formatMoney(item.amount, item.currency)}</p>
+                      <Badge variant={item.paid ? "secondary" : "default"}>{item.paid ? "Pago" : "Aberto"}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono">{item.id}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Venc.: {formatDate(item.dueDate)}
+                      {item.paid && item.paidAt ? ` · Pago em ${formatDate(item.paidAt)}` : ""}
+                    </p>
+                    {item.description ? <p className="text-sm">{item.description}</p> : null}
+                    {item.sourceEntity ? (
+                      <p className="text-xs text-muted-foreground">
+                        Origem: {item.sourceEntity}
+                        {item.sourceId ? ` ${item.sourceId.slice(-8)}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  {!item.paid ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={markingPaidId === item.id}
+                      onClick={() => void markPartyReceivablePaid(item.id)}
+                    >
+                      {markingPaidId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      <span className={markingPaidId === item.id ? "ml-2" : ""}>Marcar pago</span>
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            {!partyLedgerLoading && partyLedgerId && partyReceivables.length === 0 && partyTotals ? (
+              <p className="text-sm text-muted-foreground">Nenhum recebível para este contato.</p>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Contas a receber</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -241,6 +393,7 @@ export default function FinancePage() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Vencimento: {formatDate(item.dueDate)}
+                    {item.paid && item.paidAt ? ` · Pago em ${formatDate(item.paidAt)}` : ""}
                     {item.description ? ` • ${item.description}` : ""}
                   </p>
                   <p className="text-xs text-muted-foreground">{formatRecordOrigin(item.origin)}</p>

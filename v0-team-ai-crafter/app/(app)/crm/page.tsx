@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
+import { useOperationTeamResolution } from "@/lib/agent-first/use-operation-team-resolution"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -64,7 +65,7 @@ function statusBadgeVariant(status: string | undefined): "default" | "secondary"
 }
 
 export default function CrmPage() {
-  const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, setPrimaryOperationTeamForWorkspace } = useWorkspaceStore()
   const [loading, setLoading] = useState(false)
   const [parties, setParties] = useState<CrmParty[]>([])
   const [query, setQuery] = useState("")
@@ -73,7 +74,8 @@ export default function CrmPage() {
   const [statusFilter, setStatusFilter] = useState<PartyStatusFilter>("all")
   const [readiness, setReadiness] = useState<CrmReadiness | null>(null)
   const [goldGate, setGoldGate] = useState<CrmGoldGate | null>(null)
-  const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
+  const [teamCandidates, setTeamCandidates] = useState<Team[]>([])
+  const { operationTeam, usesPinnedPrimary } = useOperationTeamResolution(teamCandidates)
   const [partyPendingDelete, setPartyPendingDelete] = useState<CrmParty | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -103,12 +105,12 @@ export default function CrmPage() {
         api.get<CrmParty[]>(path),
         api.get<CrmReadiness>("/parties/readiness"),
         api.get<CrmGoldGate>("/parties/gold-gate"),
-        api.get<Team[]>("/teams?status=active&page=1&perPage=1"),
+        api.get<Team[]>("/teams?status=active&page=1&perPage=100"),
       ])
       setParties(res.data)
       setReadiness(readinessRes.data)
       setGoldGate(goldGateRes.data)
-      setRecommendedTeam(teamRes.data[0] ?? null)
+      setTeamCandidates(teamRes.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar os contatos"
       toast.error(msg)
@@ -121,7 +123,13 @@ export default function CrmPage() {
     void loadParties()
   }, [loadParties])
 
-  const operationHref = recommendedTeam ? `/teams/${recommendedTeam.id}?tab=debug` : "/teams/create"
+  const operationHref = operationTeam ? `/teams/${operationTeam.id}?tab=debug` : "/teams/create"
+  const auxiliaryTeamLinks = operationTeam
+    ? [
+        { label: "Consola do time", href: `/teams/${operationTeam.id}` },
+        { label: "Escritório virtual", href: `/teams/${operationTeam.id}/office` },
+      ]
+    : []
 
   const starterPrompts = [
     "Liste meus contatos ativos com maior prioridade comercial.",
@@ -202,14 +210,35 @@ export default function CrmPage() {
           </p>
         }
         specialistName="Especialista CRM"
-        teamRecommendation="Mesmo time operacional do negócio (coordenador + domínios)"
+        teamRecommendation="Um time por negócio (ex.: clínica); o mesmo time deve cobrir CRM, agenda, care e financeiro na conversa."
         ctaHref={operationHref}
-        ctaLabel={recommendedTeam ? `Abrir operação no time "${recommendedTeam.name}"` : "Criar time operacional"}
+        ctaLabel={operationTeam ? `Abrir operação no time "${operationTeam.name}"` : "Criar time operacional"}
         starterPrompts={starterPrompts}
         fallbackGuidance="Use esta tela para auditoria manual de dados e health checks quando precisar validar execução, investigar inconsistências ou apoiar troubleshooting."
+        primaryTeamHint={
+          usesPinnedPrimary && operationTeam
+            ? `Time principal da operação: «${operationTeam.name}». As outras verticais abrem o mesmo time por defeito.`
+            : undefined
+        }
+        auxiliaryLinks={auxiliaryTeamLinks}
+        pinPrimaryTeam={
+          operationTeam && currentWorkspace
+            ? {
+                isPinned: usesPinnedPrimary,
+                onPin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, operationTeam.id)
+                  toast.success(`«${operationTeam.name}» é agora o time principal em todas as verticais.`)
+                },
+                onUnpin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, null)
+                  toast.success("Preferência de time principal removida.")
+                },
+              }
+            : undefined
+        }
         troubleshootingItems={[
           "Verifique checks de readiness com status attention/critical.",
-          "Confirme se o time ativo recomendado está correto para a operação.",
+          "Defina um time principal se tiver vários times ativos — evita CTAs inconsistentes entre verticais.",
           "Use a listagem manual para validar duplicidade de contato antes de corrigir no runtime.",
         ]}
       />
@@ -238,12 +267,14 @@ export default function CrmPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm">
               <Link href={operationHref}>
-                {recommendedTeam ? `Operar no time "${recommendedTeam.name}"` : "Criar time para operar CRM"}
+                {operationTeam ? `Operar no time "${operationTeam.name}"` : "Criar time para operar CRM"}
               </Link>
             </Button>
             <span className="text-xs text-muted-foreground">
-              {recommendedTeam
-                ? "Entrada padrão do CRM: operação via time + especialista."
+              {operationTeam
+                ? usesPinnedPrimary
+                  ? "Time principal definido: todas as verticais sugerem este time."
+                  : "Entrada padrão do CRM: operação via time + especialista."
                 : "Sem time ativo detectado: crie um time para iniciar a operação agent-first."}
             </span>
           </div>

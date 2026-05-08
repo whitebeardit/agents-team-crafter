@@ -5,6 +5,7 @@ import Link from "next/link"
 import { BellRing, Clipboard, Loader2, RefreshCw, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { AgentFirstVerticalStandard } from "@/components/verticals/agent-first-vertical-standard"
+import { useOperationTeamResolution } from "@/lib/agent-first/use-operation-team-resolution"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -105,9 +106,10 @@ function statusLabel(status: string): string {
 }
 
 export default function RemindersPage() {
-  const { token, refreshToken, currentWorkspace } = useWorkspaceStore()
+  const { token, refreshToken, currentWorkspace, setPrimaryOperationTeamForWorkspace } = useWorkspaceStore()
   const [loading, setLoading] = useState(false)
-  const [recommendedTeam, setRecommendedTeam] = useState<Team | null>(null)
+  const [teamCandidates, setTeamCandidates] = useState<Team[]>([])
+  const { operationTeam, usesPinnedPrimary } = useOperationTeamResolution(teamCandidates)
   const [startDate, setStartDate] = useState(addDays(todayDateString(), -30))
   const [endDate, setEndDate] = useState(todayDateString)
   const [searchQuery, setSearchQuery] = useState("")
@@ -132,12 +134,12 @@ export default function RemindersPage() {
     if (!token || !currentWorkspace) return
     setLoading(true)
     try {
-      const teamRes = await api.get<Team[]>("/teams?status=active&page=1&perPage=1")
-      setRecommendedTeam(teamRes.data[0] ?? null)
+      const teamRes = await api.get<Team[]>("/teams?status=active&page=1&perPage=100")
+      setTeamCandidates(teamRes.data)
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Não foi possível carregar o time recomendado para Lembretes."
       toast.error(msg)
-      setRecommendedTeam(null)
+      setTeamCandidates([])
     } finally {
       setLoading(false)
     }
@@ -219,7 +221,13 @@ export default function RemindersPage() {
     void loadReminders()
   }, [loadReminders])
 
-  const operationHref = recommendedTeam ? `/teams/${recommendedTeam.id}?tab=debug` : "/teams/create"
+  const operationHref = operationTeam ? `/teams/${operationTeam.id}?tab=debug` : "/teams/create"
+  const auxiliaryTeamLinks = operationTeam
+    ? [
+        { label: "Consola do time", href: `/teams/${operationTeam.id}` },
+        { label: "Escritório virtual", href: `/teams/${operationTeam.id}/office` },
+      ]
+    : []
 
   const starterPrompts = [
     "Liste lembretes pendentes de hoje e priorize os mais críticos.",
@@ -310,14 +318,35 @@ export default function RemindersPage() {
           </p>
         }
         specialistName="Especialista de Lembretes"
-        teamRecommendation="Mesmo time operacional com especialistas de agenda, care e atendimento"
+        teamRecommendation="Um time por negócio; lembretes ligam agenda e, quando aplicável, careSubjectId."
         ctaHref={operationHref}
-        ctaLabel={recommendedTeam ? `Abrir operação no time "${recommendedTeam.name}"` : "Criar time operacional"}
+        ctaLabel={operationTeam ? `Abrir operação no time "${operationTeam.name}"` : "Criar time operacional"}
         starterPrompts={starterPrompts}
         fallbackGuidance="Use esta tela para monitorar volume, estados e consistência dos lembretes quando for necessário troubleshooting manual."
+        primaryTeamHint={
+          usesPinnedPrimary && operationTeam
+            ? `Time principal da operação: «${operationTeam.name}». As outras verticais abrem o mesmo time por defeito.`
+            : undefined
+        }
+        auxiliaryLinks={auxiliaryTeamLinks}
+        pinPrimaryTeam={
+          operationTeam && currentWorkspace
+            ? {
+                isPinned: usesPinnedPrimary,
+                onPin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, operationTeam.id)
+                  toast.success(`«${operationTeam.name}» é agora o time principal em todas as verticais.`)
+                },
+                onUnpin: () => {
+                  setPrimaryOperationTeamForWorkspace(currentWorkspace.id, null)
+                  toast.success("Preferência de time principal removida.")
+                },
+              }
+            : undefined
+        }
         troubleshootingItems={[
           "Verifique concentração de lembretes cancelados/no-show no período.",
-          "Confirme se há time ativo para operação agent-first.",
+          "Defina um time principal se existirem vários times ativos.",
           "Antes de excluir, valide impacto em fluxos clínicos e agenda.",
         ]}
       />
@@ -421,10 +450,16 @@ export default function RemindersPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm">
               <Link href={operationHref}>
-                {recommendedTeam ? `Operar no time "${recommendedTeam.name}"` : "Criar time para operar Lembretes"}
+                {operationTeam ? `Operar no time "${operationTeam.name}"` : "Criar time para operar Lembretes"}
               </Link>
             </Button>
-            <span className="text-xs text-muted-foreground">Entrada padrão da vertical: operação via time + especialista.</span>
+            <span className="text-xs text-muted-foreground">
+              {operationTeam
+                ? usesPinnedPrimary
+                  ? "Time principal definido: verticais sugerem este time."
+                  : "Entrada padrão da vertical: operação via time + especialista."
+                : "Sem time ativo detectado: crie um time para operação agent-first."}
+            </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {starterPrompts.map((prompt) => (

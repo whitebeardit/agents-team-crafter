@@ -113,6 +113,7 @@ export const DOMAIN_CAPABILITY_DEFINITIONS: readonly IDomainCapabilityDefinition
       'finance_create_receivable',
       'finance_create_payable',
       'finance_mark_receivable_paid',
+      'finance_find_receivable_by_appointment',
       'finance_list_overdue_receivables',
     ],
     dependsOnDomainIds: ['crm'],

@@ -23,6 +23,11 @@ interface WorkspaceState {
   // Workspace state
   currentWorkspace: Workspace | null
   workspaces: Workspace[]
+  /**
+   * Time preferido para operação agent-first por workspace (ex.: clínica = um time por negócio).
+   * Persistido localmente; limpo no logout.
+   */
+  primaryOperationTeamByWorkspace: Record<string, string>
   
   // Team wizard state
   wizardData: TeamWizardData
@@ -38,6 +43,8 @@ interface WorkspaceState {
   logout: () => Promise<void>
   bootstrap: () => Promise<void>
   setCurrentWorkspace: (workspace: Workspace) => void
+  /** Define ou remove o time principal da operação para um workspace (rotas verticais e CTAs agent-first). */
+  setPrimaryOperationTeamForWorkspace: (workspaceId: string, teamId: string | null) => void
   refreshSessionUser: () => Promise<void>
   createWorkspace: (input: {
     name: string
@@ -92,6 +99,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       refreshToken: null,
       currentWorkspace: null,
       workspaces: [],
+      primaryOperationTeamByWorkspace: {},
       wizardData: initialWizardData,
       wizardStep: 1,
       
@@ -176,6 +184,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           refreshToken: null,
           currentWorkspace: null,
           workspaces: [],
+          primaryOperationTeamByWorkspace: {},
         })
       },
 
@@ -216,6 +225,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       
       setCurrentWorkspace: (workspace: Workspace) => {
         set({ currentWorkspace: workspace })
+      },
+
+      setPrimaryOperationTeamForWorkspace: (workspaceId, teamId) => {
+        set((state) => {
+          const next = { ...state.primaryOperationTeamByWorkspace }
+          if (teamId === null) {
+            delete next[workspaceId]
+          } else {
+            next[workspaceId] = teamId
+          }
+          return { primaryOperationTeamByWorkspace: next }
+        })
       },
 
       refreshSessionUser: async () => {
@@ -272,6 +293,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         })
         await api.del<{ ok: boolean }>(`/workspaces/${workspaceId}`, { tenant: false })
         const prevCurrentId = get().currentWorkspace?.id
+        set((state) => {
+          const nextPins = { ...state.primaryOperationTeamByWorkspace }
+          delete nextPins[workspaceId]
+          return { primaryOperationTeamByWorkspace: nextPins }
+        })
         await get().bootstrap()
         if (prevCurrentId === workspaceId) {
           const fallback = get().workspaces[0] ?? null
@@ -411,6 +437,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         currentWorkspace: state.currentWorkspace,
         token: state.token,
         refreshToken: state.refreshToken,
+        primaryOperationTeamByWorkspace: state.primaryOperationTeamByWorkspace,
       }),
     }
   )

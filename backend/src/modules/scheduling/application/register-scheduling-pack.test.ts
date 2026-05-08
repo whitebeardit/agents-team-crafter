@@ -12,6 +12,8 @@ import { ServiceOrderRepository } from '../../services-sales/infra/service-order
 import { PackageSaleRepository } from '../../packages-encounters/infra/package-sale.repository.js';
 import { ReminderRepository } from '../../reminders/infra/reminder.repository.js';
 import { EncounterRepository } from '../../packages-encounters/infra/encounter.repository.js';
+import { registerFinancePack } from '../../finance/application/register-finance-pack.js';
+import { FinanceRepository } from '../../finance/infra/finance.repository.js';
 
 describe('registerSchedulingPack', () => {
   let mongo: MongoMemoryServer;
@@ -522,6 +524,139 @@ describe('registerSchedulingPack', () => {
     expect(overview.packageSummary.withBalance).toBe(1);
     expect(overview.packageSales[0]?.remaining).toBe(2);
     expect(overview.appointments.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('creates receivable when expectedAmount set without package and marks paid on complete', async () => {
+    const registry = new BusinessToolRegistry();
+    const appointments = new AppointmentRepository();
+    const availability = new AvailabilitySlotRepository();
+    const parties = new PartyRepository();
+    const careSubjects = new CareSubjectRepository();
+    const serviceOrders = new ServiceOrderRepository();
+    const packageSales = new PackageSaleRepository();
+    const reminders = new ReminderRepository();
+    const encounters = new EncounterRepository();
+    const finance = new FinanceRepository();
+
+    registerFinancePack(registry, finance, parties);
+    registerSchedulingPack(
+      registry,
+      appointments,
+      availability,
+      parties,
+      careSubjects,
+      serviceOrders,
+      packageSales,
+      reminders,
+      encounters,
+    );
+
+    const party = await parties.create(workspaceId, { displayName: 'Cliente Fin' });
+    const subject = await careSubjects.create(workspaceId, {
+      partyId: party.id,
+      name: 'Paciente Fin',
+      subjectKind: 'human',
+    });
+
+    const created = (await registry.get('schedule_create_appointment')!({
+      workspaceId,
+      input: {
+        partyId: party.id,
+        careSubjectId: subject.id,
+        title: 'Consulta paga',
+        startsAt: '2026-06-01T14:00:00.000Z',
+        endsAt: '2026-06-01T15:00:00.000Z',
+        expectedAmount: 200,
+      },
+    })) as { id: string };
+
+    const recv = await finance.findReceivableByAppointmentId(workspaceId, created.id);
+    expect(recv).toBeTruthy();
+    expect(recv?.amount).toBe(200);
+    expect(recv?.paid).toBe(false);
+
+    await registry.get('schedule_complete_appointment')!({
+      workspaceId,
+      input: {
+        appointmentId: created.id,
+        paymentReceived: true,
+        durationMinutes: 60,
+      },
+    });
+
+    const paid = await finance.findReceivableByAppointmentId(workspaceId, created.id);
+    expect(paid?.paid).toBe(true);
+    expect(paid?.paidAt).toBeTruthy();
+  });
+
+  it('skips receivable for package appointment unless createSessionReceivable', async () => {
+    const registry = new BusinessToolRegistry();
+    const appointments = new AppointmentRepository();
+    const availability = new AvailabilitySlotRepository();
+    const parties = new PartyRepository();
+    const careSubjects = new CareSubjectRepository();
+    const serviceOrders = new ServiceOrderRepository();
+    const packageSales = new PackageSaleRepository();
+    const reminders = new ReminderRepository();
+    const encounters = new EncounterRepository();
+    const finance = new FinanceRepository();
+
+    registerFinancePack(registry, finance, parties);
+    registerSchedulingPack(
+      registry,
+      appointments,
+      availability,
+      parties,
+      careSubjects,
+      serviceOrders,
+      packageSales,
+      reminders,
+      encounters,
+    );
+
+    const party = await parties.create(workspaceId, { displayName: 'Cliente Pacote' });
+    const subject = await careSubjects.create(workspaceId, {
+      partyId: party.id,
+      name: 'Paciente Pacote',
+      subjectKind: 'human',
+    });
+    const sale = await packageSales.create(workspaceId, {
+      partyId: party.id,
+      packageName: 'Pacote Teste',
+      unitsTotal: 3,
+    });
+
+    const appt1 = (await registry.get('schedule_create_appointment')!({
+      workspaceId,
+      input: {
+        partyId: party.id,
+        careSubjectId: subject.id,
+        packageSaleId: sale.id,
+        title: 'Sessao pacote',
+        startsAt: '2026-06-02T10:00:00.000Z',
+        endsAt: '2026-06-02T11:00:00.000Z',
+        expectedAmount: 300,
+      },
+    })) as { id: string };
+
+    expect(await finance.findReceivableByAppointmentId(workspaceId, appt1.id)).toBeNull();
+
+    const appt2 = (await registry.get('schedule_create_appointment')!({
+      workspaceId,
+      input: {
+        partyId: party.id,
+        careSubjectId: subject.id,
+        packageSaleId: sale.id,
+        title: 'Sessao pacote cobrada',
+        startsAt: '2026-06-03T10:00:00.000Z',
+        endsAt: '2026-06-03T11:00:00.000Z',
+        expectedAmount: 300,
+        createSessionReceivable: true,
+      },
+    })) as { id: string };
+
+    const r2 = await finance.findReceivableByAppointmentId(workspaceId, appt2.id);
+    expect(r2?.amount).toBe(300);
   });
 
   it('lists appointments by local date (timezone-aware) without shifting day for clinic users', async () => {

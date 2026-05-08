@@ -711,6 +711,8 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
         dueDate: { type: 'string', description: 'Data de vencimento (ISO YYYY-MM-DD).' },
         description: { type: 'string', description: 'Descrição opcional.' },
         currency: { type: 'string', description: 'Moeda (ex.: BRL, EUR).' },
+        sourceEntity: { type: 'string', description: 'Origem opcional (ex.: Appointment).' },
+        sourceId: { type: 'string', description: 'ID da entidade de origem (ex.: compromisso).' },
       },
       required: ['partyId', 'amount', 'dueDate'],
     },
@@ -745,10 +747,24 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
       type: 'object',
       properties: {
         receivableId: { type: 'string', description: 'ID do recebível a liquidar.' },
+        paymentNote: { type: 'string', description: 'Nota opcional da liquidação.' },
       },
       required: ['receivableId'],
     },
     requiredFieldLabels: ['Recebível (receivableId)'],
+  },
+  'finance_find_receivable_by_appointment': {
+    title: 'Financeiro — Recebível do compromisso',
+    description: 'Obtém o recebível ligado a um compromisso (Appointment), se existir.',
+    packId: 'finance',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appointmentId: { type: 'string', description: 'ID do compromisso na agenda.' },
+      },
+      required: ['appointmentId'],
+    },
+    requiredFieldLabels: ['Compromisso (appointmentId)'],
   },
   'finance_mark_payable_paid': {
     title: 'Financeiro — Marcar pagável pago',
@@ -1017,6 +1033,14 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
         encounterId: { type: 'string' },
         remindAt: { type: 'string', description: 'ISO opcional para gerar lembrete automático.' },
         notes: { type: 'string' },
+        expectedAmount: {
+          type: 'number',
+          description: 'Valor da sessão a receber; cria recebível ligado ao compromisso (omitir se pacote pré-pago sem cobrança extra).',
+        },
+        createSessionReceivable: {
+          type: 'boolean',
+          description: 'Quando true com pacote, força criação de recebível mesmo com packageSaleId.',
+        },
       },
       required: ['partyId', 'title', 'startsAt', 'endsAt'],
     },
@@ -1103,6 +1127,12 @@ const PRESETS: Readonly<Record<string, TBusinessActionPreset>> = {
         appointmentId: { type: 'string', description: 'ID do compromisso.' },
         notes: { type: 'string', description: 'Notas finais opcionais.' },
         durationMinutes: { type: 'number', description: 'Duração em minutos para encounter criado.' },
+        paymentReceived: {
+          type: 'boolean',
+          description: 'Se true, marca como pago o recebível ligado ao compromisso (se existir).',
+        },
+        receivableId: { type: 'string', description: 'ID explícito do recebível a liquidar (opcional).' },
+        paymentNote: { type: 'string', description: 'Nota opcional na baixa.' },
       },
       required: ['appointmentId'],
     },
