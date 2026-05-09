@@ -20,4 +20,4 @@ O ficheiro [`docs/teams/team-so-clinic-psy.json`](../../teams/team-so-clinic-psy
 
 ## Commit
 
-Hash local: `298a5a8` (branch `next`).
+Hash local: `6035209` (branch `next`).
