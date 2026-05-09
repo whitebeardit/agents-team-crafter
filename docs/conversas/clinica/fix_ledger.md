@@ -18,6 +18,6 @@ O ficheiro [`docs/teams/team-so-clinic-psy.json`](../../teams/team-so-clinic-psy
 
 - `backend`: `npx jest src/__tests__/clinic-conversational-flow.integration.test.ts` — **PASS** (2026-05-09).
 
-## Commit
+## Versionamento Git
 
-Commits em `next`: alteração principal `6035209`; actualização do ledger `ebfee26`.
+Rastreio no branch `next`: `git log --oneline -5 -- docs/conversas/clinica docs/teams/team-so-clinic-psy.json`
