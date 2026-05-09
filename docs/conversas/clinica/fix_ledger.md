@@ -20,4 +20,4 @@ O ficheiro [`docs/teams/team-so-clinic-psy.json`](../../teams/team-so-clinic-psy
 
 ## Commit
 
-Hash local: `6035209` (branch `next`).
+Commits em `next`: alteração principal `6035209`; actualização do ledger `ebfee26`.
