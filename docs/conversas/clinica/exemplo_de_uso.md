@@ -4,6 +4,7 @@
 **Ambiente alvo:** produção — `https://myteams.whitebeard.dev`  
 **Time:** SO Clínica Conversacional (`69f25e827342cb4bd0dc7ba3`)  
 **Data do roteiro:** 2026-05-09  
+**Reexecução do plano (sessão de teste 2):** 2026-05-09 — mesmo roteiro; evidências no final deste ficheiro e em [`gaps_de_uso.md`](./gaps_de_uso.md).  
 **Persona:** Psicóloga dona da clínica, usuária casual, fala com o agente como se fosse a secretária (sem termos técnicos nem IDs internos).
 
 **Paciente fictícia:** Helena Moura — telefone **(11) 97777-8899** (formato humano; o sistema normaliza).  
@@ -108,3 +109,22 @@
 - Não informar IDs internos ao agente; só nome e telefone quando precisar relembrar qual paciente.
 - Se o Console usar **outra data “hoje”** que a do mundo real, ajustar as expressões (“amanhã”, “daqui a três dias”) para o equivalente no calendário de teste.
 - Evitar conflito de horário na agenda do workspace (outros agendamentos no mesmo slot).
+
+---
+
+## Registo da segunda execução (Debug Console, produção)
+
+_Preenchido ao correr novamente o plano completo — ver sessão abaixo._
+
+### Turnos executados (resumo)
+
+1. **Abertura** — Mensagem completa do roteiro (dona da clínica, Telegram). Resposta: estrutura de onboarding + menu numerado. Narrativa técnica com `second_brain_recall` (GAP003).
+2. **Cadastro** — «Cadastra Helena Moura, telefone 11 97777-8899.» Paciente registado; telefone normalizado. Texto «cadastrado» com nome feminino (GAP002).
+3. **Venda de pacote** — «Vende pacote padrao com 3 sessoes para esse telefone 11 977778899.» **Falhou** com erro do coordenador:  
+   `Erro ao executar coordenador: Tool specialist_69f3d7aa7ae722d6caf4df72.json not found in agent Coordinator:69f3d7aa7ae722d6caf4df59.`  
+   Sessão de conversa após «Nova conversa»: `cb4c279c…` · `viewId: 9e802f`.
+
+### Observações
+
+- Bloqueio documentado como **GAP008** (sufixo `.json` no nome da tool do especialista Pacotes); correção no backend via alias de registo — **retestar venda de pacote em produção após deploy**.
+- GAP004/GAP005 (prompt CRM vs Pacotes) ficaram **sem validação completa** nesta sessão porque o fluxo parou no coordenador.

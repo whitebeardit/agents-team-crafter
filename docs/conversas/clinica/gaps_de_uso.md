@@ -4,19 +4,21 @@
 **Conta:** admin seed (login de desenvolvimento na página).  
 **Paciente de teste:** Helena Moura · telefone 11 97777-8899.
 
-Os itens abaixo foram observados ao seguir o roteiro em [`exemplo_de_uso.md`](./exemplo_de_uso.md). Estado no ledger: ver [`fix_ledger.md`](./fix_ledger.md).
+Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./exemplo_de_uso.md)`. Estado no ledger: ver `[fix_ledger.md](./fix_ledger.md)`.
 
 ---
 
 ## GAP001 — Menu numerado parece cortado na árvore de acessibilidade
 
-| Campo | Detalhe |
-| --- | --- |
-| **Severidade** | Baixa (provável artefacto do snapshot a11y; texto pode estar completo na área visual). |
-| **Sintoma** | No snapshot do browser MCP, linhas que começam com `Posso seguir com:` aparecem truncadas (ex.: termina em `4️⃣ Combinar duas ou m`). |
-| **Reprodução** | [`exemplo_de_uso.md`](./exemplo_de_uso.md) — turnos iniciais; inspecionar mensagens longas no Console. |
-| **Hipótese** | Limite de comprimento no nome exposto à API de acessibilidade do Chromium, não necessariamente truncagem CSS da app. |
-| **Área provável** | Frontend [`v0-team-ai-crafter/components/teams/team-debug-console.tsx`](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx) (validar visualmente; opcional `title`/`aria` para mensagens longas). |
+
+| Campo             | Detalhe                                                                                                                                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Severidade**    | Baixa (provável artefacto do snapshot a11y; texto pode estar completo na área visual).                                                                                                                          |
+| **Sintoma**       | No snapshot do browser MCP, linhas que começam com `Posso seguir com:` aparecem truncadas (ex.: termina em `4️⃣ Combinar duas ou m`).                                                                           |
+| **Reprodução**    | `[exemplo_de_uso.md](./exemplo_de_uso.md)` — turnos iniciais; inspecionar mensagens longas no Console.                                                                                                          |
+| **Hipótese**      | Limite de comprimento no nome exposto à API de acessibilidade do Chromium, não necessariamente truncagem CSS da app.                                                                                            |
+| **Área provável** | Frontend `[v0-team-ai-crafter/components/teams/team-debug-console.tsx](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx)` (validar visualmente; opcional `title`/`aria` para mensagens longas). |
+
 
 **Estado:** Encerrado sem alteração obrigatória — aceite como limitação de snapshot; validação visual humana.
 
@@ -24,13 +26,15 @@ Os itens abaixo foram observados ao seguir o roteiro em [`exemplo_de_uso.md`](./
 
 ## GAP002 — Concordância gramatical no cadastro (gênero)
 
-| Campo | Detalhe |
-| --- | --- |
-| **Severidade** | Baixa (UX linguística). |
-| **Sintoma** | Resposta: «Paciente Helena Moura **foi cadastrado**» — paciente feminino, esperado «cadastrada». |
-| **Reprodução** | Após `clinic_create_patient` / delegação ao Especialista Paciente/CRM com nome feminino. |
-| **Hipótese** | Texto gerado pelo modelo ou template fixo sem flexão de género. |
-| **Área provável** | Prompt do coordenador/especialista CRM + camada de consolidação. |
+
+| Campo             | Detalhe                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| **Severidade**    | Baixa (UX linguística).                                                                          |
+| **Sintoma**       | Resposta: «Paciente Helena Moura **foi cadastrado**» — paciente feminino, esperado «cadastrada». |
+| **Reprodução**    | Após `clinic_create_patient` / delegação ao Especialista Paciente/CRM com nome feminino.         |
+| **Hipótese**      | Texto gerado pelo modelo ou template fixo sem flexão de género.                                  |
+| **Área provável** | Prompt do coordenador/especialista CRM + camada de consolidação.                                 |
+
 
 **Estado:** Aberto para melhoria contínua no prompt (sem mudança de contrato de API).
 
@@ -38,13 +42,15 @@ Os itens abaixo foram observados ao seguir o roteiro em [`exemplo_de_uso.md`](./
 
 ## GAP003 — Ferramenta «second brain» em mensagem operacional
 
-| Campo | Detalhe |
-| --- | --- |
-| **Severidade** | Média (ruído e latência). |
-| **Sintoma** | Na narrativa técnica aparece `Tool second_brain_recall: concluída` em pedidos puramente clínicos. |
-| **Reprodução** | Primeira mensagem do roteiro de boas-vindas. |
-| **Hipótese** | Coordenadora ou preset do workspace associa recall ao turno inicial. |
-| **Área provável** | Configuração do agente coordenador / política de tools no workspace. |
+
+| Campo             | Detalhe                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| **Severidade**    | Média (ruído e latência).                                                                         |
+| **Sintoma**       | Na narrativa técnica aparece `Tool second_brain_recall: concluída` em pedidos puramente clínicos. |
+| **Reprodução**    | Primeira mensagem do roteiro de boas-vindas.                                                      |
+| **Hipótese**      | Coordenadora ou preset do workspace associa recall ao turno inicial.                              |
+| **Área provável** | Configuração do agente coordenador / política de tools no workspace.                              |
+
 
 **Estado:** Documentado; correção depende de política de produto (desactivar recall para canal debug ou SO Clínica).
 
@@ -52,13 +58,15 @@ Os itens abaixo foram observados ao seguir o roteiro em [`exemplo_de_uso.md`](./
 
 ## GAP004 — Especialista Pacotes pede nome completo apesar do telefone
 
-| Campo | Detalhe |
-| --- | --- |
-| **Severidade** | Média (fricção; contradiz «telefone como chave»). |
-| **Sintoma** | Narrativa: «Para vender o pacote padrão para a Helena, preciso criar o cliente no sistema primeiro. Você pode me confirmar o nome completo dela?» quando telefone e nome já foram dados na conversa. |
-| **Reprodução** | Mensagem de venda de pacote após cadastro com nome + telefone. |
-| **Hipótese** | Prompt do especialista pacotes não obriga `clinic_find_or_create_patient_by_phone` antes de pedir dados. |
-| **Área provável** | [`docs/teams/team-so-clinic-psy.json`](../../teams/team-so-clinic-psy.json) — Especialista Pacotes `systemInstruction`. |
+
+| Campo             | Detalhe                                                                                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Severidade**    | Média (fricção; contradiz «telefone como chave»).                                                                                                                                                    |
+| **Sintoma**       | Narrativa: «Para vender o pacote padrão para a Helena, preciso criar o cliente no sistema primeiro. Você pode me confirmar o nome completo dela?» quando telefone e nome já foram dados na conversa. |
+| **Reprodução**    | Mensagem de venda de pacote após cadastro com nome + telefone.                                                                                                                                       |
+| **Hipótese**      | Prompt do especialista pacotes não obriga `clinic_find_or_create_patient_by_phone` antes de pedir dados.                                                                                             |
+| **Área provável** | `[docs/teams/team-so-clinic-psy.json](../../teams/team-so-clinic-psy.json)` — Especialista Pacotes `systemInstruction`.                                                                              |
+
 
 **Estado:** Corrigido no repo (prompt).
 
@@ -66,13 +74,15 @@ Os itens abaixo foram observados ao seguir o roteiro em [`exemplo_de_uso.md`](./
 
 ## GAP005 — Chamada de tool de pacotes no agente CRM → erro técnico
 
-| Campo | Detalhe |
-| --- | --- |
-| **Severidade** | **Alta** (bloqueia venda de pacote na jornada). |
-| **Sintoma** | Erro exposto na timeline: `Tool ws_ba_clinic_sell_default_package not found in agent Agent:69f3d7aa7ae722d6caf4df66` (Especialista Paciente/CRM). Utilizadora vê falha genérica na venda do pacote. |
-| **Reprodução** | Após pedido «Vende pacote padrão com 3 sessões» para Helena (telefone já cadastrado). |
-| **Hipótese** | O modelo do CRM tentou executar `clinic_sell_default_package`, que **não** está na lista de tools do Especialista Paciente/CRM (correcto por desenho); o encaminhamento da Coordenadora ou o segundo passo colocou instrução que levou o CRM a invocar tool de outro domínio. |
-| **Área provável** | Prompt do Especialista Paciente/CRM + política de handoff do coordenador. |
+
+| Campo             | Detalhe                                                                                                                                                                                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Severidade**    | **Alta** (bloqueia venda de pacote na jornada).                                                                                                                                                                                                                               |
+| **Sintoma**       | Erro exposto na timeline: `Tool ws_ba_clinic_sell_default_package not found in agent Agent:69f3d7aa7ae722d6caf4df66` (Especialista Paciente/CRM). Utilizadora vê falha genérica na venda do pacote.                                                                           |
+| **Reprodução**    | Após pedido «Vende pacote padrão com 3 sessões» para Helena (telefone já cadastrado).                                                                                                                                                                                         |
+| **Hipótese**      | O modelo do CRM tentou executar `clinic_sell_default_package`, que **não** está na lista de tools do Especialista Paciente/CRM (correcto por desenho); o encaminhamento da Coordenadora ou o segundo passo colocou instrução que levou o CRM a invocar tool de outro domínio. |
+| **Área provável** | Prompt do Especialista Paciente/CRM + política de handoff do coordenador.                                                                                                                                                                                                     |
+
 
 **Estado:** Corrigido no repo (prompt explícito: **proibido** invocar tools de pacotes no CRM; apenas Pacotes ou devolver à Coordenadora).
 
@@ -80,13 +90,15 @@ Os itens abaixo foram observados ao seguir o roteiro em [`exemplo_de_uso.md`](./
 
 ## GAP006 — Mensagem ao utilizador pouco acionável quando há falha interna
 
-| Campo | Detalhe |
-| --- | --- |
-| **Severidade** | Média. |
-| **Sintoma** | «Desculpe, não consegui concluir a venda do pacote…» sem sugerir confirmação de telefone ou reenvio simples, apesar da causa ser erro de agente/tool. |
-| **Reprodução** | Mesmo fluxo da GAP005. |
-| **Hipótese** | Camada de consolidação do coordenador mascara o erro técnico mas não oferece próximo passo concreto (`retry` / delegação única ao Pacotes). |
-| **Área provável** | [`backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts`](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts) (futuro: sanitização + retry); curto prazo: prompts. |
+
+| Campo             | Detalhe                                                                                                                                                                                                                           |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Severidade**    | Média.                                                                                                                                                                                                                            |
+| **Sintoma**       | «Desculpe, não consegui concluir a venda do pacote…» sem sugerir confirmação de telefone ou reenvio simples, apesar da causa ser erro de agente/tool.                                                                             |
+| **Reprodução**    | Mesmo fluxo da GAP005.                                                                                                                                                                                                            |
+| **Hipótese**      | Camada de consolidação do coordenador mascara o erro técnico mas não oferece próximo passo concreto (`retry` / delegação única ao Pacotes).                                                                                       |
+| **Área provável** | `[backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts)` (futuro: sanitização + retry); curto prazo: prompts. |
+
 
 **Estado:** Parcialmente endereçado via GAP004/GAP005 (evitar estado de erro); melhorias adicionais opcionais no orchestrator.
 
@@ -94,15 +106,33 @@ Os itens abaixo foram observados ao seguir o roteiro em [`exemplo_de_uso.md`](./
 
 ## GAP007 — Execução demorada sem feedback intermédio
 
-| Campo | Detalhe |
-| --- | --- |
-| **Severidade** | Média. |
-| **Sintoma** | Botão «A executar…» por mais de 60s durante handoffs multi-especialista. |
-| **Reprodução** | Mensagem de venda de pacote com várias delegações. |
-| **Hipótese** | Vários `runStep` sequenciais + recall + modelo lento. |
-| **Área provável** | UI [`team-debug-console.tsx`](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx); backend timeouts. |
+
+| Campo             | Detalhe                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Severidade**    | Média.                                                                                                             |
+| **Sintoma**       | Botão «A executar…» por mais de 60s durante handoffs multi-especialista.                                           |
+| **Reprodução**    | Mensagem de venda de pacote com várias delegações.                                                                 |
+| **Hipótese**      | Vários `runStep` sequenciais + recall + modelo lento.                                                              |
+| **Área provável** | UI `[team-debug-console.tsx](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx)`; backend timeouts. |
+
 
 **Estado:** Documentado; não bloqueante para esta sprint.
+
+---
+
+## GAP008 — Coordenador: tool `specialist_<id>.json` não registada
+
+
+| Campo             | Detalhe                                                                                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Severidade**    | **Alta** (bloqueia delegação ao especialista quando o modelo usa o sufixo `.json`).                                                                                                                      |
+| **Sintoma**       | Erro na timeline: `Tool specialist_69f3d7aa7ae722d6caf4df72.json not found in agent Coordinator:69f3d7aa7ae722d6caf4df59` ao pedir venda de pacote após cadastro.                                       |
+| **Reprodução**    | Segunda execução do plano em [`exemplo_de_uso.md`](./exemplo_de_uso.md): turnos 1–2 OK; turno 3 (venda pacote padrão, 3 sessões, telefone).                                                               |
+| **Hipótese**      | O modelo devolve o nome da function tool com sufixo `.json` (artefacto comum); o SDK só tinha registado `specialist_<id>` sem sufixo.                                                                   |
+| **Área provável** | [`backend/src/modules/team-runtime/infra/registries/specialist-registry.ts`](../../backend/src/modules/team-runtime/infra/registries/specialist-registry.ts) — registo de tools do coordenador.          |
+
+
+**Estado:** Corrigido no backend (alias `.json` por especialista). Reteste em produção após deploy.
 
 ---
 

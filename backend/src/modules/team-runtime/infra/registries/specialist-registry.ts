@@ -6,6 +6,21 @@ export function specialistToolName(agentId: string): string {
   return `specialist_${safe}`.slice(0, 64);
 }
 
+/**
+ * OpenAI models sometimes emit function names with a spurious `.json` suffix.
+ * The Agents SDK matches tools by exact name, so we register both the canonical
+ * name and the `.json` alias when they differ after the 64-char cap.
+ */
+export function specialistToolNamesForRegistration(agentId: string): string[] {
+  const safe = agentId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const primary = specialistToolName(agentId);
+  const rawBase = `specialist_${safe}`;
+  const withJson = `${rawBase}.json`.slice(0, 64);
+  const names = new Set<string>([primary]);
+  if (withJson !== primary) names.add(withJson);
+  return [...names];
+}
+
 export function normalizeSpecialistToolName(raw: string): string {
   return raw
     .replace(/<\|channel\|>[a-zA-Z0-9_-]+/g, '')
@@ -64,15 +79,25 @@ export class SpecialistRegistry {
     executeSpecialist: TExecuteSpecialistFn;
   }): unknown[] {
     if (args.specialists.length === 0) return [];
-    return args.specialists.map((s) =>
-      tool({
-        name: specialistToolName(s.id),
-        description: buildSpecialistToolDescription(s),
-        parameters: z.object({
-          instruction: z.string().min(1).describe('Clear task for the specialist'),
-        }),
-        execute: async ({ instruction }) => args.executeSpecialist(s.id, instruction),
-      }),
-    );
+    const out: unknown[] = [];
+    for (const s of args.specialists) {
+      const description = buildSpecialistToolDescription(s);
+      const execute = async ({ instruction }: { instruction: string }) =>
+        args.executeSpecialist(s.id, instruction);
+      const params = z.object({
+        instruction: z.string().min(1).describe('Clear task for the specialist'),
+      });
+      for (const name of specialistToolNamesForRegistration(s.id)) {
+        out.push(
+          tool({
+            name,
+            description,
+            parameters: params,
+            execute,
+          }),
+        );
+      }
+    }
+    return out;
   }
 }
