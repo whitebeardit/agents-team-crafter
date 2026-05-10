@@ -116,7 +116,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | UI `[team-debug-console.tsx](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx)`; backend timeouts. |
 
 
-**Estado:** Mitigado — segundos decorridos + **última fase/detail do SSE** (`onAgentStatus`) no rótulo do botão quando `useStreamRun`; HTTP continua só com tempo.
+**Estado:** Corrigido — `POST /teams/:id/run` publica os mesmos eventos de progresso que o stream (SSE via `GET /teams/:id/live`) e devolve `progress` no JSON; o Debug Console em modo HTTP abre o live SSE antes do POST (~75 ms) para actualizar o botão em tempo real.
 
 ---
 

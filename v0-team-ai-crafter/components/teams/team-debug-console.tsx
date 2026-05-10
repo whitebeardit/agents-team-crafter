@@ -33,6 +33,9 @@ import type {
 } from "@/lib/types"
 import { toast } from "sonner"
 import { buildTeamRunNarrativeLines } from "@/components/teams/team-debug-narrative"
+
+/** GET /teams/:id/live abre antes do POST /run para receber `agentStatus` durante execução HTTP. */
+const HTTP_RUN_LIVE_LEAD_MS = 75
 import {
   ImagePreviewDialog,
   type ImagePreviewItem,
@@ -637,6 +640,20 @@ export function TeamDebugConsole({
     }
 
     if (useHttpRun) {
+      const liveAbort = new AbortController()
+      const liveTask = api.streamTeamLive(
+        teamId,
+        {
+          onAgentStatus: (e) => {
+            const parts = [e.phase, e.detail]
+              .filter((x): x is string => typeof x === "string" && Boolean(x.trim()))
+              .join(" · ")
+            setRunProgressLabel(parts.length > 0 ? parts : null)
+          },
+        },
+        liveAbort.signal,
+      )
+      await new Promise<void>((resolve) => setTimeout(resolve, HTTP_RUN_LIVE_LEAD_MS))
       try {
         const res = await api.post<TeamRunResponse>(`/teams/${teamId}/run`, {
           message,
@@ -663,6 +680,8 @@ export function TeamDebugConsole({
           { role: "assistant", content: `Erro: ${err.message ?? "desconhecido"}` },
         ])
       } finally {
+        liveAbort.abort()
+        await liveTask.catch(() => {})
         setBusy(false)
         setRunProgressLabel(null)
       }

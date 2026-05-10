@@ -186,6 +186,8 @@ export interface TeamRunResponse {
   externalResponse: TeamRunExternalResponse
   specialistResults: TeamRunSpecialistResult[]
   events: TeamRunExecutionEvent[]
+  /** Passos de progresso do mesmo run (paridade com SSE por `GET /teams/:id/live`). */
+  progress?: TeamRunProgressEvent[]
   /** Presente em `GET /teams/:id/live` (`runComplete`) para distinguir inbound vs consola. */
   source?: "inbound" | "manual"
 }

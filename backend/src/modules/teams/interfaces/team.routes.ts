@@ -28,6 +28,7 @@ import {
   type ITeamRunBody,
 } from '../../team-runtime/infra/registries/trigger-mapper-registry.js';
 import type { ITeamInvocation } from '../../team-runtime/domain/team-invocation.js';
+import type { ITeamProgressEvent } from '../../team-runtime/domain/team-progress-event.js';
 import {
   buildThinkingSummaryFromProgress,
   inferKindFromExecutionEvent,
@@ -882,7 +883,13 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
       },
     );
     try {
-      const result = await invokeTeam(deps.coordinatorOrchestrator, invocation);
+      const progressEvents: ITeamProgressEvent[] = [];
+      const result = await invokeTeam(deps.coordinatorOrchestrator, invocation, {
+        onProgress: (e) => {
+          progressEvents.push(e);
+          deps.teamLiveBroadcaster.publishAgentStatus(ws, teamId, 'manual', e);
+        },
+      });
       /** Paridade com POST /teams/:id/run/stream: timeline + SSE para GET /teams/:id/live e replay. */
       await appendTimelineItem({
         deps,
@@ -984,6 +991,7 @@ function decodeDestructiveAuditCursor(token: string): { conversationId: string; 
           externalResponse: result.externalResponse,
           specialistResults: result.specialistResults,
           events: result.events,
+          progress: progressEvents,
         }),
       );
     } catch (err) {
