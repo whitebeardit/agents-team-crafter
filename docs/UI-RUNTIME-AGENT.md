@@ -4,6 +4,8 @@
 
 **Runtime de produção:** `POST /api/v1/teams/:id/run` → [`CoordinatorOrchestratorService`](../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts) → [`OpenAIAgentsRuntimeProvider`](../backend/src/modules/runtime/infra/openai-agents-runtime.provider.ts).
 
+**Resposta HTTP síncrona:** além de `externalResponse` / `events`, o JSON pode incluir **`progress`** (historial de `agentStatus` do mesmo run) e os mesmos eventos são **broadcast** para `GET /teams/:id/live`. Detalhes em [TEAM_RUN_HTTP_AND_PROGRESS.md](./TEAM_RUN_HTTP_AND_PROGRESS.md).
+
 **Pipeline do coordenador:** continua descrito em [`v0-team-ai-crafter/docs/agents-and-handoff.md`](../v0-team-ai-crafter/docs/agents-and-handoff.md).
 
 ---
@@ -55,6 +57,7 @@
 
 ## Ver também
 
+- [TEAM_RUN_HTTP_AND_PROGRESS](./TEAM_RUN_HTTP_AND_PROGRESS.md) — `POST /run` síncrono, campo `progress`, SSE live.
 - [ADR-0001 — runtime e handoff](./ADR-0001-agents-runtime-handoff-deterministico.md)
 - [CHAT_SDK_TEAM_TRIGGER](./CHAT_SDK_TEAM_TRIGGER.md)
 - [TOOL_SANDBOX.md](./TOOL_SANDBOX.md)

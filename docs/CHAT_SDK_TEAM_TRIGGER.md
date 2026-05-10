@@ -242,6 +242,12 @@ Todas usam webhook `POST .../:workspaceId/:platform/:channelId`, exceto Slack (a
 - O editor de grafo (`/teams/[id]/graph`, modo Live) subscreve este GET para o grafo e, na mesma ligação, alimenta o **espelho** no painel “Console em tempo real” (mensagem inbound + resposta quando `source === 'inbound'`).
 - Cada `agentStatus` inclui `runId` para correlacionar com `runComplete`.
 
+### `POST /api/v1/teams/:id/run` (síncrono) e progresso
+
+- Durante um run iniciado por **`POST .../run`** (sem streaming), o backend emite os mesmos **`agentStatus`** para o bus (`TeamLiveBroadcaster`) que alimenta este GET — em paridade com **`POST .../run/stream`**.
+- A resposta JSON final de `POST .../run` inclui **`progress`**: lista dos eventos de progresso (`runId`, `agentId`, `status`, `phase`, `detail?`), útil para auditoria ou clientes sem SSE.
+- A consola de debug em modo HTTP subscreve temporariamente `GET .../live` antes do POST para actualizar o estado visível (fase no botão). Ver [TEAM_RUN_HTTP_AND_PROGRESS.md](./TEAM_RUN_HTTP_AND_PROGRESS.md).
+
 ### Telegram: indicador "a escrever"
 
 - Enquanto o coordenador e os especialistas processam, o adaptador Telegram renova `sendChatAction` com `action=typing` (via `startTyping` do `@chat-adapter/telegram`) até a resposta final ser enviada.

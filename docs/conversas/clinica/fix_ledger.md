@@ -17,6 +17,10 @@
 
 O ficheiro `[docs/teams/team-so-clinic-psy.json](../../teams/team-so-clinic-psy.json)` é um **export**. Após merge, **importar/atualizar** o time na instância (`PUT /teams/:id/import` ou import pela UI com o mesmo `team.id`) para que Madu e especialistas recebam os novos `systemInstruction`.
 
+## Contrato técnico do runtime (actualizações recentes)
+
+Resumo transversal (HTTP `/run`, `progress`, SSE live, consola): [`TEAM_RUN_HTTP_AND_PROGRESS.md`](../TEAM_RUN_HTTP_AND_PROGRESS.md).
+
 ## Testes automatizados
 
 - `backend`: `npx jest src/__tests__/clinic-conversational-flow.integration.test.ts`, `src/modules/team-runtime/infra/registries/specialist-registry.tool-name.test.ts`, `src/modules/team-runtime/application/response-composer.service.test.ts` — **PASS** (2026-05-09).
