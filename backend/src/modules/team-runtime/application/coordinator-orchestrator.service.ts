@@ -57,6 +57,11 @@ import { SecondBrainRecallService } from '../../team-vault/application/second-br
 import { SecondBrainCuratorService } from '../../team-vault/application/second-brain-curator.service.js';
 import { buildSecondBrainCoordinatorTools } from '../../team-vault/application/second-brain-coordinator-tools.js';
 import { renderLearningsAppendixForAgent } from '../../team-vault/application/render-learnings-appendix.js';
+import {
+  coordinatorSecondBrainToolsDisabled,
+  stripCoordinatorSecondBrainDisableMarker,
+  stripCoordinatorSecondBrainPolicySection,
+} from '../../agents/application/coordinator-second-brain-policy.js';
 
 const ACTIVITY_MAX = 200;
 type TPendingDestructiveConfirmation = {
@@ -113,6 +118,7 @@ Para leituras simples, evita confirmações redundantes e executa direto quando 
 Para ações **não destrutivas** (ex.: criação/edição administrativa), evita ritual de "responda confirmo"; se a intenção estiver clara e os obrigatórios completos, executa diretamente.
 Para cadastro CRM com \`crm_create_party\`: tendo \`name\` e \`phone\`, aciona a tool imediatamente; \`email\` e \`notes\` são opcionais e nunca devem bloquear o cadastro nem gerar uma segunda confirmação.
 Ao delegar para especialista de CRM, inclui na \`instruction\` os campos já coletados em formato chave/valor (\`name\`, \`phone\`, \`email\`, \`notes\`) para evitar nova coleta do que já foi informado.
+Ao consolidares a resposta final após cadastro/registo CRM (PT-BR): prefere frases neutras («Cadastro concluído», «Registo feito para [nome]») ou concordância pelo nome (ex.: Helena → «cadastrada»); evita «foi cadastrado» para nomes tipicamente femininos.
 No fluxo clínico com pacotes, após uma operação de criação/escrita de pacote, executa validação imediata de leitura para o mesmo paciente (\`partyId\` ou \`phone\` / celular no CRM) (\`read-after-write\`) antes de liberar agendamento.
 O utilizador identifica pacientes pelo **telefone/celular** na conversa sempre que possível; nas ações internas que pedem \`partyId\`, também pode enviar \`phone\` quando o número corresponder a um único cadastro CRM — preserva e reenvia esses dados nas instruções aos especialistas para não voltar a pedir IDs internos.
 Regra de UX: evite pedir IDs internos (\`appointmentId\`, \`packageSaleId\`, \`careSubjectId\`, \`partyId\`) no fluxo normal; prefira telefone + contexto operacional da conversa.
@@ -1064,10 +1070,14 @@ export class CoordinatorOrchestratorService {
       ws,
       typeof crow['openaiRuntimeModel'] === 'string' ? crow['openaiRuntimeModel'] : null,
     );
-    const baseCoordinatorSystem = (crow['systemInstruction'] as string | undefined)?.trim();
-    const coordinatorCore = baseCoordinatorSystem?.length
-      ? baseCoordinatorSystem
+    const baseCoordinatorSystemRaw = (crow['systemInstruction'] as string | undefined)?.trim();
+    const disableSecondBrainTools = coordinatorSecondBrainToolsDisabled(baseCoordinatorSystemRaw);
+    let coordinatorCore = baseCoordinatorSystemRaw?.length
+      ? stripCoordinatorSecondBrainDisableMarker(baseCoordinatorSystemRaw)
       : 'Voce e o coordenador do time de agentes.';
+    if (disableSecondBrainTools) {
+      coordinatorCore = stripCoordinatorSecondBrainPolicySection(coordinatorCore);
+    }
     const conversationId =
       typeof invocation.metadata?.conversationId === 'string' && invocation.metadata.conversationId.trim()
         ? invocation.metadata.conversationId.trim()
@@ -1085,7 +1095,7 @@ export class CoordinatorOrchestratorService {
       typeof clinicContext?.currentPatient?.partyId === 'string' && clinicContext.currentPatient.partyId.trim()
         ? clinicContext.currentPatient.partyId.trim()
         : undefined;
-    const secondBrainTools = !isLibrarianCoord
+    const secondBrainTools = !isLibrarianCoord && !disableSecondBrainTools
       ? buildSecondBrainCoordinatorTools({
           env: this.env,
           recallService: this.secondBrainRecall,

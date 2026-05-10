@@ -51,6 +51,15 @@ describe('OpenAIAgentsRuntimeProvider max-turns fallback', () => {
     const out = formatRuntimeErrorWithFallback('Erro ao executar modelo', 'upstream timeout');
     expect(out).toBe('Erro ao executar modelo: upstream timeout');
   });
+
+  it('returns actionable fallback when tool name not found on agent', () => {
+    const out = formatRuntimeErrorWithFallback(
+      'Erro ao executar coordenador',
+      'Tool ws_ba_x not found in agent Coordinator:abc',
+    );
+    expect(out).toContain('telefone da paciente');
+    expect(out).toContain('Detalhe tecnico');
+  });
 });
 
 describe('multimodal runner input builders', () => {

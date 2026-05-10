@@ -36,7 +36,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | Prompt do coordenador/especialista CRM + camada de consolidação.                                 |
 
 
-**Estado:** Aberto para melhoria contínua no prompt (sem mudança de contrato de API).
+**Estado:** Mitigado — instrução explícita na Coordenadora (`COORDINATOR_SPECIALIST_TOOL_GUIDANCE`) + lembrete no Especialista Paciente/CRM no export.
 
 ---
 
@@ -52,7 +52,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | Configuração do agente coordenador / política de tools no workspace.                              |
 
 
-**Estado:** Documentado; correção depende de política de produto (desactivar recall para canal debug ou SO Clínica).
+**Estado:** Corrigido — `[COORDINATOR_DISABLE_SECOND_BRAIN_TOOLS]` no `systemInstruction` da Madu no export + runtime omite `second_brain_*` quando o marcador está presente.
 
 ---
 
@@ -100,7 +100,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | `[backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts)` (futuro: sanitização + retry); curto prazo: prompts. |
 
 
-**Estado:** Parcialmente endereçado via GAP004/GAP005 (evitar estado de erro); melhorias adicionais opcionais no orchestrator.
+**Estado:** Mitigado — `formatRuntimeErrorWithFallback` detecta «tool … not found … agent» e acrescenta passos concretos (telefone, um pedido por turno).
 
 ---
 
@@ -116,20 +116,20 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | UI `[team-debug-console.tsx](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx)`; backend timeouts. |
 
 
-**Estado:** Documentado; não bloqueante para esta sprint.
+**Estado:** Parcial — botão «Enviar» mostra segundos decorridos durante `busy` (Debug Console); streaming já existe quando activo.
 
 ---
 
 ## GAP008 — Coordenador: tool `specialist_<id>.json` não registada
 
 
-| Campo             | Detalhe                                                                                                                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Severidade**    | **Alta** (bloqueia delegação ao especialista quando o modelo usa o sufixo `.json`).                                                                                                                      |
-| **Sintoma**       | Erro na timeline: `Tool specialist_69f3d7aa7ae722d6caf4df72.json not found in agent Coordinator:69f3d7aa7ae722d6caf4df59` ao pedir venda de pacote após cadastro.                                       |
-| **Reprodução**    | Segunda execução do plano em [`exemplo_de_uso.md`](./exemplo_de_uso.md): turnos 1–2 OK; turno 3 (venda pacote padrão, 3 sessões, telefone).                                                               |
-| **Hipótese**      | O modelo devolve o nome da function tool com sufixo `.json` (artefacto comum); o SDK só tinha registado `specialist_<id>` sem sufixo.                                                                   |
-| **Área provável** | [`backend/src/modules/team-runtime/infra/registries/specialist-registry.ts`](../../backend/src/modules/team-runtime/infra/registries/specialist-registry.ts) — registo de tools do coordenador.          |
+| Campo             | Detalhe                                                                                                                                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Severidade**    | **Alta** (bloqueia delegação ao especialista quando o modelo usa o sufixo `.json`).                                                                                                             |
+| **Sintoma**       | Erro na timeline: `Tool specialist_69f3d7aa7ae722d6caf4df72.json not found in agent Coordinator:69f3d7aa7ae722d6caf4df59` ao pedir venda de pacote após cadastro.                               |
+| **Reprodução**    | Segunda execução do plano em `[exemplo_de_uso.md](./exemplo_de_uso.md)`: turnos 1–2 OK; turno 3 (venda pacote padrão, 3 sessões, telefone).                                                     |
+| **Hipótese**      | O modelo devolve o nome da function tool com sufixo `.json` (artefacto comum); o SDK só tinha registado `specialist_<id>` sem sufixo.                                                           |
+| **Área provável** | `[backend/src/modules/team-runtime/infra/registries/specialist-registry.ts](../../backend/src/modules/team-runtime/infra/registries/specialist-registry.ts)` — registo de tools do coordenador. |
 
 
 **Estado:** Corrigido no backend (alias `.json` por especialista). Reteste em produção após deploy.

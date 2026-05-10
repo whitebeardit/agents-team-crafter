@@ -122,6 +122,16 @@ export function formatRuntimeErrorWithFallback(prefix: string, msg: string): str
       `Detalhe tecnico: ${prefix}: ${msg}`,
     ].join('\n');
   }
+  const isToolNotFound =
+    lower.includes('tool ') && lower.includes('not found') && lower.includes('agent');
+  if (isToolNotFound) {
+    return [
+      'Ocorreu um erro interno ao invocar uma ferramenta (nome nao reconhecido neste agente).',
+      'Tente repetir o pedido numa unica mensagem com o telefone da paciente em formato claro (ex.: +55 11 977778899).',
+      'Se era venda de pacote ou agenda, peca so esse passo — sem misturar outras acoes no mesmo turno.',
+      `Detalhe tecnico: ${prefix}: ${msg}`,
+    ].join('\n');
+  }
   if (!isMaxTurns) return `${prefix}: ${msg}`;
   return [
     'Nao consegui concluir este fluxo dentro do limite de interacoes do modelo.',

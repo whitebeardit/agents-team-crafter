@@ -407,6 +407,7 @@ export function TeamDebugConsole({
   const [lines, setLines] = useState<ChatLine[]>([])
   const [lastRaw, setLastRaw] = useState<TeamRunResponse | null>(null)
   const [busy, setBusy] = useState(false)
+  const [busyElapsedSec, setBusyElapsedSec] = useState(0)
   const [rawOpen, setRawOpen] = useState(false)
   const [narrativeOpen, setNarrativeOpen] = useState(true)
   const [sessions, setSessions] = useState<TeamDebugSessionSummary[]>([])
@@ -464,6 +465,18 @@ export function TeamDebugConsole({
   useEffect(() => {
     void refreshSessions()
   }, [refreshSessions])
+
+  useEffect(() => {
+    if (!busy) {
+      setBusyElapsedSec(0)
+      return
+    }
+    const t0 = Date.now()
+    const id = window.setInterval(() => {
+      setBusyElapsedSec(Math.floor((Date.now() - t0) / 1000))
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [busy])
 
   const applyTurnsFromServer = useCallback((turns: TeamDebugSessionTurn[]) => {
     setLines(
@@ -911,7 +924,7 @@ export function TeamDebugConsole({
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" className="gap-2" disabled={busy || !input.trim()} onClick={() => void send()}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {busy ? "A executar..." : "Enviar"}
+            {busy ? (busyElapsedSec > 0 ? `A executar… ${busyElapsedSec}s` : "A executar…") : "Enviar"}
           </Button>
           <Button
             type="button"
