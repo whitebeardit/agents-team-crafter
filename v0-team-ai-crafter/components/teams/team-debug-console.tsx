@@ -408,6 +408,8 @@ export function TeamDebugConsole({
   const [lastRaw, setLastRaw] = useState<TeamRunResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [busyElapsedSec, setBusyElapsedSec] = useState(0)
+  /** Última fase/detalhe do runtime (ex.: SSE progress) — GAP007 */
+  const [runProgressLabel, setRunProgressLabel] = useState<string | null>(null)
   const [rawOpen, setRawOpen] = useState(false)
   const [narrativeOpen, setNarrativeOpen] = useState(true)
   const [sessions, setSessions] = useState<TeamDebugSessionSummary[]>([])
@@ -559,6 +561,7 @@ export function TeamDebugConsole({
     if (!message || busy) return
     setInput("")
     setLastRaw(null)
+    setRunProgressLabel(null)
     setLines((prev) => [...prev, { role: "user", content: message }])
     setBusy(true)
 
@@ -571,6 +574,8 @@ export function TeamDebugConsole({
         { message, channel: "debug", conversationId },
         {
           onAgentStatus: (e) => {
+            const parts = [e.phase, e.detail].filter((x): x is string => Boolean(x?.trim()))
+            setRunProgressLabel(parts.length ? parts.join(" · ") : null)
             onLiveAgentStatus?.(e.agentId, {
               status: e.status,
               phase: e.phase,
@@ -626,6 +631,7 @@ export function TeamDebugConsole({
         },
       )
       setBusy(false)
+      setRunProgressLabel(null)
       onStreamFinished?.()
       return
     }
@@ -658,6 +664,7 @@ export function TeamDebugConsole({
         ])
       } finally {
         setBusy(false)
+        setRunProgressLabel(null)
       }
     }
   }, [
@@ -858,6 +865,7 @@ export function TeamDebugConsole({
           lines.map((line, idx) => (
             <div
               key={`${idx}-${line.role}`}
+              title={line.content.length > 80 ? line.content : undefined}
               className={cn(
                 "text-sm rounded-lg px-3 py-2 max-w-[95%]",
                 line.role === "user"
@@ -894,6 +902,7 @@ export function TeamDebugConsole({
                 {narrativeLines.map((nl, i) => (
                   <li
                     key={`nar-${i}`}
+                    title={nl.text.length > 60 ? nl.text : undefined}
                     className={cn(
                       "pl-1 marker:text-muted-foreground",
                       nl.kind === "summary" && "text-muted-foreground list-[circle]",
@@ -924,7 +933,13 @@ export function TeamDebugConsole({
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" className="gap-2" disabled={busy || !input.trim()} onClick={() => void send()}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {busy ? (busyElapsedSec > 0 ? `A executar… ${busyElapsedSec}s` : "A executar…") : "Enviar"}
+            {busy
+              ? busyElapsedSec > 0
+                ? `A executar… ${busyElapsedSec}s${runProgressLabel ? ` · ${runProgressLabel}` : ""}`
+                : runProgressLabel
+                  ? `A executar… · ${runProgressLabel}`
+                  : "A executar…"
+              : "Enviar"}
           </Button>
           <Button
             type="button"

@@ -20,7 +20,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | Frontend `[v0-team-ai-crafter/components/teams/team-debug-console.tsx](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx)` (validar visualmente; opcional `title`/`aria` para mensagens longas). |
 
 
-**Estado:** Encerrado sem alteração obrigatória — aceite como limitação de snapshot; validação visual humana.
+**Estado:** Melhorado — `title` com texto completo em mensagens longas (>80 chars) e na narrativa (>60 chars) no Debug Console para hover/leitores que expõem `title`.
 
 ---
 
@@ -36,7 +36,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | Prompt do coordenador/especialista CRM + camada de consolidação.                                 |
 
 
-**Estado:** Mitigado — instrução explícita na Coordenadora (`COORDINATOR_SPECIALIST_TOOL_GUIDANCE`) + lembrete no Especialista Paciente/CRM no export.
+**Estado:** Corrigido — `neutralizePatientCadastroPhrasing` em [`response-composer.service.ts`](../../backend/src/modules/team-runtime/application/response-composer.service.ts) transforma «Paciente X foi cadastrado» em «Cadastro de X concluído» na resposta externa; prompts mantêm-se como reforço.
 
 ---
 
@@ -100,7 +100,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | `[backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts](../../backend/src/modules/team-runtime/application/coordinator-orchestrator.service.ts)` (futuro: sanitização + retry); curto prazo: prompts. |
 
 
-**Estado:** Mitigado — `formatRuntimeErrorWithFallback` detecta «tool … not found … agent» e acrescenta passos concretos (telefone, um pedido por turno).
+**Estado:** Corrigido — fallback técnico legível no runtime + linha nova em `COORDINATOR_SPECIALIST_TOOL_GUIDANCE` para não encerrar só com desculpas quando há telefone/pedido claro.
 
 ---
 
@@ -116,7 +116,7 @@ Os itens abaixo foram observados ao seguir o roteiro em `[exemplo_de_uso.md](./e
 | **Área provável** | UI `[team-debug-console.tsx](../../v0-team-ai-crafter/components/teams/team-debug-console.tsx)`; backend timeouts. |
 
 
-**Estado:** Parcial — botão «Enviar» mostra segundos decorridos durante `busy` (Debug Console); streaming já existe quando activo.
+**Estado:** Mitigado — segundos decorridos + **última fase/detail do SSE** (`onAgentStatus`) no rótulo do botão quando `useStreamRun`; HTTP continua só com tempo.
 
 ---
 

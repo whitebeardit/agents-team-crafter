@@ -1,5 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
-import { composeClinicSafeUserText, composeExternalResponseFromModelText } from './response-composer.service.js';
+import {
+  composeClinicSafeUserText,
+  composeExternalResponseFromModelText,
+  neutralizePatientCadastroPhrasing,
+} from './response-composer.service.js';
 
 describe('composeExternalResponseFromModelText', () => {
   it('returns plain text without attachments for simple strings', () => {
@@ -22,6 +26,20 @@ describe('composeExternalResponseFromModelText', () => {
     const r = composeExternalResponseFromModelText('**note**');
     expect(r.format).toBe('markdown');
     expect(r.attachments).toBeUndefined();
+  });
+
+  it('neutralizes «Paciente … foi cadastrado» for PT-BR gender mismatch', () => {
+    const r = composeExternalResponseFromModelText('Paciente Helena Moura foi cadastrado com sucesso.');
+    expect(r.text).toContain('Cadastro de Helena Moura concluído');
+    expect(r.text).not.toContain('foi cadastrado');
+  });
+});
+
+describe('neutralizePatientCadastroPhrasing', () => {
+  it('is case-insensitive on Paciente', () => {
+    expect(neutralizePatientCadastroPhrasing('paciente Ana foi cadastrado.')).toContain(
+      'Cadastro de Ana concluído',
+    );
   });
 });
 

@@ -6,6 +6,14 @@ import {
 } from '../domain/coordinator-publish-context.js';
 import { extractImageUrlsFromText } from './image-url-extractor.js';
 
+/**
+ * PT-BR: substitui confirmações do tipo «Paciente X foi cadastrado» por formulário neutro,
+ * evitando erro de concordância com nomes femininos (GAP002).
+ */
+export function neutralizePatientCadastroPhrasing(text: string): string {
+  return text.replace(/\bPaciente\s+([^.\n]+?)\s+foi\s+cadastrado\b/gi, 'Cadastro de $1 concluído');
+}
+
 function looksLikeMarkdown(text: string): boolean {
   if (/!\[[^\]]*\]\(https?:\/\//.test(text)) return true;
   if (/\*\*[^*]+\*\*/.test(text)) return true;
@@ -18,14 +26,15 @@ function looksLikeMarkdown(text: string): boolean {
 
 /** Builds the single external response for an invocation (coordinator-only). */
 export function composeExternalResponseFromModelText(text: string): IExternalResponse {
-  const urls = extractImageUrlsFromText(text);
+  const normalized = neutralizePatientCadastroPhrasing(text);
+  const urls = extractImageUrlsFromText(normalized);
   const attachments: IExternalImageAttachment[] = urls.map((url) => ({ type: 'image', url }));
   const format: IExternalResponse['format'] =
-    attachments.length > 0 || looksLikeMarkdown(text) ? 'markdown' : 'plain';
+    attachments.length > 0 || looksLikeMarkdown(normalized) ? 'markdown' : 'plain';
   if (attachments.length === 0) {
-    return { text, format };
+    return { text: normalized, format };
   }
-  return { text, format, attachments };
+  return { text: normalized, format, attachments };
 }
 
 export function composeClinicSafeUserText(input: {
