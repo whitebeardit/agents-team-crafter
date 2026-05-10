@@ -168,6 +168,9 @@ export default function TeamDetailsPage({
   const [recentRunsForCockpit, setRecentRunsForCockpit] = useState<TeamRunRecord[]>([])
   const [readiness, setReadiness] = useState<TeamReadinessResult | null>(null)
   const [readinessLoading, setReadinessLoading] = useState(false)
+  /** GET /teams/:id falhou com 404 ou outro erro antes de termos `team`. */
+  const [teamNotFound, setTeamNotFound] = useState(false)
+  const [teamLoadError, setTeamLoadError] = useState(false)
   const [mainTab, setMainTab] = useState("overview")
   const [exportTeamJsonBusy, setExportTeamJsonBusy] = useState(false)
   const [importTeamJsonBusy, setImportTeamJsonBusy] = useState(false)
@@ -200,6 +203,11 @@ export default function TeamDetailsPage({
 
   useEffect(() => {
     if (!token || !currentWorkspace) return
+    setTeamNotFound(false)
+    setTeamLoadError(false)
+    setTeam(null)
+    setRecentRunsForCockpit([])
+    setReadiness(null)
     const api = createApiClient({
       getAuth: () => ({ token, refreshToken }),
       setAuth: () => {},
@@ -207,18 +215,32 @@ export default function TeamDetailsPage({
       getWorkspaceId: () => currentWorkspace.id,
     })
     void (async () => {
-      const res = await api.get<any>(`/teams/${id}`)
-      setTeam(res.data)
-      const runsRes = await api.get<TeamRunRecord[]>(`/teams/${id}/runs?limit=15`)
-      setRecentRunsForCockpit(runsRes.data ?? [])
-      setReadinessLoading(true)
       try {
-        const rd = await api.get<TeamReadinessResult>(`/teams/${id}/readiness`)
-        setReadiness(rd.data)
-      } catch {
-        setReadiness(null)
-      } finally {
+        const res = await api.get<any>(`/teams/${id}`)
+        setTeam(res.data)
+        const runsRes = await api.get<TeamRunRecord[]>(`/teams/${id}/runs?limit=15`)
+        setRecentRunsForCockpit(runsRes.data ?? [])
+        setReadinessLoading(true)
+        try {
+          const rd = await api.get<TeamReadinessResult>(`/teams/${id}/readiness`)
+          setReadiness(rd.data)
+        } catch {
+          setReadiness(null)
+        } finally {
+          setReadinessLoading(false)
+        }
+      } catch (e) {
         setReadinessLoading(false)
+        setReadiness(null)
+        setRecentRunsForCockpit([])
+        setTeam(null)
+        if (e instanceof ApiError && (e.status === 404 || e.code === "NOT_FOUND")) {
+          setTeamNotFound(true)
+        } else {
+          setTeamLoadError(true)
+          const msg = e instanceof ApiError ? e.message : "Falha ao carregar o time"
+          toast.error(msg)
+        }
       }
     })()
   }, [token, refreshToken, currentWorkspace, id])
@@ -305,6 +327,63 @@ export default function TeamDetailsPage({
       .sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9))
       .slice(0, 4)
   }, [readiness])
+
+  if (!token || !currentWorkspace) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    )
+  }
+
+  if (teamNotFound) {
+    return (
+      <div className="mx-auto max-w-lg py-16 px-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Time não encontrado</CardTitle>
+            <CardDescription>
+              Este time não existe neste workspace ou foi removido. Confirme o URL ou volte à lista de times.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button asChild variant="default">
+              <Link href="/teams">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Ver times
+              </Link>
+            </Button>
+            <Button type="button" variant="outline" onClick={() => router.refresh()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (teamLoadError) {
+    return (
+      <div className="mx-auto max-w-lg py-16 px-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Não foi possível carregar o time</CardTitle>
+            <CardDescription>
+              Ocorreu um erro ao pedir os dados ao servidor. Pode ser rede temporária ou permissões.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button type="button" variant="default" onClick={() => router.refresh()}>
+              Tentar novamente
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/teams">Ver times</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (!team) {
     return (
