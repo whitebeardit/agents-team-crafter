@@ -1,19 +1,20 @@
 # TeamAgents: AI Team Crafter
 
 <p align="center">
-  <strong>Uma plataforma para desenhar, operar e governar times de agentes de IA como produto.</strong><br />
-  Monte equipes digitais, conecte canais reais, acompanhe execuções, organize conhecimento e dê visibilidade ao trabalho dos agentes em um workspace multi-tenant.
+  <strong>Não gerencie prompts. Governe times digitais.</strong><br />
+  A primeira plataforma completa para desenhar, operar e governar times de agentes de IA como produto em um workspace multi-tenant.
 </p>
 
 <p align="center">
-  <a href="#manual-da-plataforma">Manual da Plataforma</a> |
-  <a href="#principais-funcionalidades">Funcionalidades</a> |
-  <a href="#guia-rapido-de-uso">Guia de Uso</a> |
-  <a href="#apendice-tecnico">Apêndice Técnico</a>
+  <a href="#por-que-existe">Por que existe</a> |
+  <a href="#o-que-e-o-teamagents">O que é</a> |
+  <a href="#jornada-operacional">Jornada operacional</a> |
+  <a href="#principais-modulos">Módulos</a> |
+  <a href="#rodando-localmente">Rodando localmente</a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard da plataforma TeamAgents" width="240" />
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard da plataforma TeamAgents" width="720" />
 </p>
 
 <p align="center">
@@ -76,209 +77,291 @@
   <strong>License</strong><br />
   <a href="./LICENSE">
     <img
-      alt="APLv2"
-      src="https://img.shields.io/badge/license-APLv2-blue.svg"
+      alt="Whitebeard Non-Commercial Open Source License v1.0"
+      src="https://img.shields.io/badge/license-Whitebeard_NC_OSL_v1.0-blue.svg"
     />
   </a>
 </p>
 
+---
+
+## Por que existe
+
+A IA atual é poderosa, mas muitas empresas ainda tentam operar inteligência artificial como se tudo fosse apenas um prompt bem escrito.
+
+Isso cria três problemas recorrentes:
+
+| Problema | Impacto na operação |
+| --- | --- |
+| **Prompts isolados** | Não escalam para fluxos complexos, times maiores ou processos contínuos. |
+| **Caixa preta** | Ninguém sabe exatamente quem executou, quando executou, qual decisão foi tomada e por quê. |
+| **Conhecimento disperso** | A IA depende de improviso, memória individual e documentos desconectados da operação. |
+
+O TeamAgents nasce para resolver isso: transformar agentes de IA em **times operacionais estruturados**, com papéis claros, ferramentas, canais, memória institucional, execução auditável, governança e observabilidade.
 
 ---
 
-## Manual da Plataforma
+## O que é o TeamAgents
 
-O TeamAgents foi criado para transformar agentes de IA em **times operacionais**. Em vez de prompts isolados, a plataforma oferece um ambiente completo para criar equipes, definir papéis, conectar ferramentas, receber demandas por canais reais e acompanhar tudo com governança e observabilidade.
+O **TeamAgents: AI Team Crafter** é uma plataforma para empresas, builders e líderes de operação que querem sair da fase de experimentos com prompts e avançar para uma operação real com times digitais.
 
-Este README funciona como um manual visual de usuário: percorra as seções na ordem para entender a jornada completa, ou use os atalhos abaixo para ir direto ao módulo que interessa.
+Em vez de criar apenas um chatbot, você desenha uma equipe: agentes especialistas, responsabilidades, ferramentas, canais de entrada, grafo de colaboração, trilhas de execução, templates reutilizáveis e conhecimento corporativo conectado.
 
-**Para quem é:** líderes de operação, builders de IA, equipes de atendimento, squads de produto e organizações que querem colocar agentes em produção com controle, memória e rastreabilidade.
+> **Da era do prompt para a era da operação.**
+>
+> O futuro da IA corporativa não é apenas gerar respostas. É operar processos com visibilidade, controle e responsabilidade.
 
-**O que a plataforma entrega:** criação de times, grafo de orquestração, escritório virtual, catálogo de agentes, ferramentas conectáveis, canais, templates, execuções, governança, observabilidade e Second Brain.
+### Para quem é
 
----
+- **Líderes de operação** que precisam colocar IA em produção com segurança e rastreabilidade.
+- **Builders de IA** que querem criar times digitais reutilizáveis e conectados a ferramentas reais.
+- **Squads de produto e engenharia** que precisam modelar fluxos com agentes, integrações, canais e observabilidade.
+- **Empresas multiárea ou multicliente** que precisam separar workspaces, equipes, permissões, templates e conhecimento.
 
-## Principais Funcionalidades
+### O que a plataforma entrega
 
-### Cockpit Executivo
-
-O dashboard reúne o estado do workspace e dá acesso rápido às áreas mais importantes. É a tela para começar o dia, identificar o que está ativo e navegar para a próxima ação sem perder contexto.
-
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Visão geral do dashboard" width="240" />
-</p>
-
-### Console do Time
-
-Cada time possui uma área dedicada para operar como uma unidade de trabalho: missão, membros, capacidades, sinais de execução e atalhos para grafo, escritório e integrações.
-
-<p align="center">
-  <img src="docs/screenshots/team-console.png" alt="Console operacional de um time de agentes" width="240" />
-</p>
-
-### Catálogo de Times
-
-O módulo de times permite visualizar, comparar e escolher as equipes digitais disponíveis no workspace. Ele funciona como uma vitrine interna das operações que a empresa já consegue automatizar ou assistir com IA.
-
-<p align="center">
-  <img src="docs/screenshots/teams.png" alt="Catálogo de times de agentes" width="240" />
-</p>
-
-### Orquestração em Grafo
-
-O grafo torna a colaboração entre agentes explícita. Você enxerga como as responsabilidades se conectam, quem coordena o fluxo e quais caminhos a execução pode seguir.
-
-<p align="center">
-  <img src="docs/screenshots/team-graph.png" alt="Grafo de orquestração de um time" width="240" />
-</p>
-
-### Escritório Virtual
-
-O escritório virtual transforma a execução em uma experiência observável. Em vez de uma caixa preta, o usuário acompanha o time trabalhando, com contexto, timeline e sinais visuais.
-
-<p align="center">
-  <img src="docs/screenshots/team-office.png" alt="Escritório virtual do time de agentes" width="240" />
-</p>
-
-### Agentes com Papéis Claros
-
-O catálogo de agentes organiza os especialistas digitais do workspace. Cada agente pode representar uma função, uma competência ou um papel dentro de uma operação maior.
-
-<p align="center">
-  <img src="docs/screenshots/agents.png" alt="Catálogo de agentes disponíveis" width="240" />
-</p>
-
-### Ferramentas e Integrações Operacionais
-
-As tools dão ação aos agentes: consultar sistemas, executar tarefas, acionar APIs e transformar uma conversa em operação real.
-
-<p align="center">
-  <img src="docs/screenshots/tools.png" alt="Catálogo de ferramentas conectáveis aos agentes" width="240" />
-</p>
-
-### Canais de Atendimento e Entrada
-
-Os canais conectam o mundo externo ao time de agentes. A plataforma centraliza o status das conexões e prepara o workspace para receber demandas de onde o usuário já trabalha.
-
-<p align="center">
-  <img src="docs/screenshots/channels.png" alt="Canais conectados à plataforma" width="240" />
-</p>
-
-### Execuções Auditáveis
-
-O histórico de execuções mostra o que foi rodado, quando aconteceu e qual foi o resultado. É a base para troubleshooting, melhoria contínua e prestação de contas.
-
-<p align="center">
-  <img src="docs/screenshots/executions.png" alt="Histórico de execuções dos agentes" width="240" />
-</p>
-
-### Governança para Produção
-
-Governança é o painel para regras, limites, trilhas e evidências. Ele ajuda a colocar IA em produção com responsabilidade, especialmente em ambientes que exigem controle e auditoria.
-
-<p align="center">
-  <img src="docs/screenshots/governance.png" alt="Painel de governança da plataforma" width="240" />
-</p>
-
-### Observabilidade
-
-Observabilidade dá visibilidade à saúde da operação. Com métricas e sinais agregados, a equipe entende tendências, gargalos e comportamento do sistema ao longo do tempo.
-
-<p align="center">
-  <img src="docs/screenshots/observability.png" alt="Painel de observabilidade operacional" width="240" />
-</p>
-
-### Templates para Escalar o que Funciona
-
-Templates aceleram a criação de novos times e playbooks. Quando uma operação dá certo, ela pode virar modelo reutilizável para outros contextos, clientes ou verticais.
-
-<p align="center">
-  <img src="docs/screenshots/templates.png" alt="Galeria de templates da plataforma" width="240" />
-</p>
-
-### Second Brain do Workspace
-
-O Second Brain aproxima operação e conhecimento. A plataforma conversa com um modelo de organização inspirado em Obsidian, mantendo documentação, contexto e memória institucional ao lado dos agentes.
-
-<p align="center">
-  <img src="docs/screenshots/workspace-second-brain.png" alt="Second Brain do workspace" width="240" />
-</p>
-
-### Integrações do Workspace
-
-Integrações centralizam as conexões que tornam os agentes úteis no fluxo real de trabalho: canais, APIs, sistemas internos e serviços externos.
-
-<p align="center">
-  <img src="docs/screenshots/workspace-integrations.png" alt="Integrações configuráveis do workspace" width="240" />
-</p>
-
-### Configurações, Times e Convites
-
-O workspace possui áreas administrativas para ajustar configurações, gerenciar times e convidar pessoas. É o ponto de controle para escalar a operação com organização.
-
-<p align="center">
-  <img src="docs/screenshots/workspace-settings-teams-invites.png" alt="Configurações, times e convites do workspace" width="240" />
-</p>
+| Capacidade | O que resolve |
+| --- | --- |
+| **AI Team Crafter** | Cria times de agentes a partir de um objetivo de negócio. |
+| **Catálogo de agentes** | Organiza especialistas digitais por função, competência e papel operacional. |
+| **Catálogo de times** | Permite visualizar e reutilizar equipes digitais prontas para diferentes demandas. |
+| **Orquestração em grafo** | Mostra como responsabilidades, coordenação e validação se conectam. |
+| **Tools integradas** | Dá mãos e ação aos agentes para consultar APIs, sistemas e bancos de dados. |
+| **Canais de entrada** | Conecta WhatsApp/SMS, e-mail, Slack/Teams e sistemas web à operação. |
+| **Escritório virtual** | Permite acompanhar o trabalho dos agentes em tempo real, sem caixa preta. |
+| **Execuções auditáveis** | Mantém histórico do que foi rodado, por quem, quando e com qual resultado. |
+| **Governança** | Define regras, limites, aprovações, trilhas e evidências. |
+| **Observabilidade** | Acompanha saúde da operação, métricas, gargalos e tendências. |
+| **Second Brain** | Conecta documentação, políticas, contexto e memória institucional aos agentes. |
+| **Templates** | Transforma operações bem-sucedidas em modelos escaláveis e reutilizáveis. |
 
 ---
 
-<h2 id="guia-rapido-de-uso">Guia Rápido de Uso</h2>
+## A grande mudança: de prompt solto para time governado
 
-### 1. Comece pelo Dashboard
-
-Use o dashboard para entender a situação atual do workspace. Veja quais módulos já estão configurados e escolha se deseja criar um time, revisar execuções, conectar canais ou explorar templates.
-
-### 2. Escolha ou Crie um Time
-
-Entre no catálogo de times e selecione a operação que deseja melhorar. Um time pode representar atendimento, vendas, suporte técnico, análise documental, backoffice ou qualquer fluxo que se beneficie de agentes especializados.
-
-### 3. Modele a Orquestração
-
-Abra o grafo para visualizar a coordenação entre agentes. Ajuste papéis, responsabilidades e sequência de colaboração até que o fluxo represente a operação desejada.
-
-### 4. Conecte Agentes e Tools
-
-Revise o catálogo de agentes e as ferramentas disponíveis. O agente define o papel; a tool define o que ele consegue fazer no mundo real.
-
-### 5. Publique em Canais Reais
-
-Configure canais para receber demandas. A plataforma foi desenhada para aproximar os times de IA dos pontos onde clientes, operadores e equipes já interagem.
-
-### 6. Acompanhe Execuções
-
-Use o histórico de execuções, governança e observabilidade para entender comportamento, corrigir gargalos e evoluir o time com dados.
-
-### 7. Transforme o que Funcionou em Template
-
-Quando um time estiver maduro, salve a lógica como template. Assim a organização deixa de depender de configurações artesanais e passa a escalar padrões comprovados.
+| Ontem: era do prompt | Hoje: padrão TeamAgents |
+| --- | --- |
+| Prompts soltos e isolados | Times operacionais estruturados |
+| Execução em caixas pretas | Visibilidade total do raciocínio e da execução |
+| Improviso e tentativa/erro | Fluxos modelados, revisáveis e auditáveis |
+| Conhecimento disperso | Second Brain como memória viva da corporação |
+| Chatbot genérico | Especialistas digitais com papéis, ferramentas e missão |
+| Automação frágil | Operação com governança, métricas e melhoria contínua |
 
 ---
 
-## Experiência que a Plataforma Vende
+## Jornada operacional
 
-**Menos prompt solto, mais operação.** O TeamAgents trata agentes como membros de times, com papéis, ferramentas, canais e métricas.
+O TeamAgents organiza o ciclo completo de adoção de IA operacional em cinco etapas:
 
-**Menos caixa preta, mais visibilidade.** Grafo, escritório virtual, execuções e observabilidade ajudam o usuário a entender o que a IA está fazendo.
+```mermaid
+flowchart LR
+  A[1. Comece<br/>Dashboard & Crafter] --> B[2. Modele<br/>Grafo & Templates]
+  B --> C[3. Conecte<br/>Tools & Canais]
+  C --> D[4. Opere<br/>Escritório Virtual & Second Brain]
+  D --> E[5. Governe<br/>Governança & Observabilidade]
+```
 
-**Menos improviso, mais governança.** A plataforma oferece trilhas, controles e organização para ambientes que precisam operar IA com responsabilidade.
-
-**Menos conhecimento espalhado, mais memória.** O Second Brain aproxima documentação, contexto e tomada de decisão.
+1. **Comece** descrevendo o objetivo de negócio e entendendo o estado atual do workspace.
+2. **Modele** responsabilidades, coordenação, validação e caminhos de execução no grafo.
+3. **Conecte** agentes a tools, APIs, sistemas internos e canais reais de entrada.
+4. **Opere** acompanhando execuções no escritório virtual e mantendo contexto no Second Brain.
+5. **Governe** com métricas, regras, limites, evidências e observabilidade.
 
 ---
 
-<h2 id="apendice-tecnico">Apêndice Técnico</h2>
+## Principais módulos
 
-O repositório é um monorepo com backend BFF e frontend web:
+### Cockpit central de operações
 
-- `backend/`: API BFF com rotas, persistência e integrações.
-- `v0-team-ai-crafter/`: aplicação web Next.js da plataforma.
+O dashboard reúne times, canais, execuções e conhecimento em uma única tela. É o ponto de partida para líderes e builders entenderem o que está ativo, o que precisa de atenção e quais módulos devem ser acessados.
 
-Para rodar em desenvolvimento:
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Visão geral do dashboard" width="720" />
+</p>
+
+### AI Team Crafter
+
+Não comece do zero. Descreva a necessidade da empresa e deixe o Crafter sugerir uma estrutura inicial de agentes, papéis, responsabilidades e colaboração.
+
+Exemplo:
+
+> “Preciso de um time de suporte técnico que faça triagem, resolva dúvidas recorrentes e escale incidentes críticos.”
+
+A plataforma pode transformar esse objetivo em uma equipe com agente de triagem, agente de resolução, agente de qualidade, agente coordenador e tools adequadas.
+
+### Catálogo de agentes
+
+Abandone chatbots genéricos. Organize especialistas digitais com função clara, escopo definido, competências, tools e papel dentro da operação.
+
+<p align="center">
+  <img src="docs/screenshots/agents.png" alt="Catálogo de agentes disponíveis" width="720" />
+</p>
+
+### Catálogo de times
+
+Visualize e compare equipes digitais prontas para diferentes áreas: backoffice, vendas, atendimento, análise documental, suporte, jurídico, financeiro ou qualquer fluxo corporativo.
+
+<p align="center">
+  <img src="docs/screenshots/teams.png" alt="Catálogo de times de agentes" width="720" />
+</p>
+
+### Console do time
+
+Cada time possui uma área operacional própria, com missão, membros, capacidades, sinais de execução e atalhos para grafo, escritório virtual, ferramentas e integrações.
+
+<p align="center">
+  <img src="docs/screenshots/team-console.png" alt="Console operacional de um time de agentes" width="720" />
+</p>
+
+### Orquestração em grafo
+
+Chega de achismos. O grafo mostra como os agentes colaboram, quem coordena, quem executa, quem valida e quais caminhos a execução pode seguir.
+
+<p align="center">
+  <img src="docs/screenshots/team-graph.png" alt="Grafo de orquestração de um time" width="720" />
+</p>
+
+### Tools e integrações operacionais
+
+As tools dão ação aos agentes. Elas permitem consultar sistemas, acessar dados, chamar APIs, registrar informações, executar tarefas e integrar a IA à infraestrutura real da empresa.
+
+<p align="center">
+  <img src="docs/screenshots/tools.png" alt="Catálogo de ferramentas conectáveis aos agentes" width="720" />
+</p>
+
+### Canais onde o negócio já acontece
+
+Clientes e operadores não precisam aprender um sistema novo para cada processo. O TeamAgents centraliza canais de entrada e prepara o workspace para atuar onde a empresa já trabalha.
+
+<p align="center">
+  <img src="docs/screenshots/channels.png" alt="Canais conectados à plataforma" width="720" />
+</p>
+
+### Escritório virtual
+
+O escritório virtual desfaz a caixa preta da IA. Ele permite acompanhar o time digital trabalhando, com timeline, status, contexto e sinais visuais de progresso.
+
+<p align="center">
+  <img src="docs/screenshots/team-office.png" alt="Escritório virtual do time de agentes" width="720" />
+</p>
+
+### Execuções auditáveis
+
+A plataforma registra o histórico de execuções para responder o que foi executado, quando aconteceu, quais agentes participaram, qual caminho lógico foi seguido e qual foi o resultado.
+
+<p align="center">
+  <img src="docs/screenshots/executions.png" alt="Histórico de execuções dos agentes" width="720" />
+</p>
+
+### Governança para produção
+
+Colocar IA em produção exige responsabilidade. O módulo de governança centraliza regras, limites, controles, trilhas e evidências para ambientes corporativos.
+
+<p align="center">
+  <img src="docs/screenshots/governance.png" alt="Painel de governança da plataforma" width="720" />
+</p>
+
+### Observabilidade constante
+
+A operação precisa ser medida. O módulo de observabilidade ajuda a acompanhar saúde, métricas, tendências, gargalos e comportamento dos times digitais ao longo do tempo.
+
+<p align="center">
+  <img src="docs/screenshots/observability.png" alt="Painel de observabilidade operacional" width="720" />
+</p>
+
+### Second Brain: memória viva da corporação
+
+O Second Brain mantém documentação, políticas, contexto e conhecimento próximos dos agentes. O objetivo é reduzir improviso e aproximar operação, documentação e tomada de decisão.
+
+<p align="center">
+  <img src="docs/screenshots/workspace-second-brain.png" alt="Second Brain do workspace" width="720" />
+</p>
+
+### Templates para escalar o que funciona
+
+Quando uma operação atinge maturidade, ela pode virar template. Assim, times, grafos, playbooks e modelos de execução podem ser reutilizados em novos contextos, departamentos, clientes ou verticais.
+
+<p align="center">
+  <img src="docs/screenshots/templates.png" alt="Galeria de templates da plataforma" width="720" />
+</p>
+
+### Administração do workspace
+
+O workspace inclui áreas para configurações, times, convites e integrações. Isso permite escalar o uso da plataforma com organização, separação de responsabilidades e controle operacional.
+
+<p align="center">
+  <img src="docs/screenshots/workspace-settings-teams-invites.png" alt="Configurações, times e convites do workspace" width="720" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/workspace-integrations.png" alt="Integrações configuráveis do workspace" width="720" />
+</p>
+
+---
+
+## Casos de uso
+
+| Caso de uso | Exemplo de time digital |
+| --- | --- |
+| **Suporte técnico** | Triagem, resolução, validação de qualidade e escalonamento. |
+| **Backoffice operacional** | Conferência, enriquecimento de dados, análise de exceções e registro em sistemas. |
+| **Atendimento comercial** | Qualificação, proposta, follow-up e passagem para humano. |
+| **Análise documental** | Extração, validação, classificação, risco e emissão de parecer. |
+| **Governança de IA** | Revisão de execuções, auditoria, limites, políticas e evidências. |
+| **Operações multi-cliente** | Workspaces separados, templates reutilizáveis e acompanhamento centralizado. |
+
+---
+
+## Diferenciais
+
+### IA criando IA
+
+O módulo Crafter ajuda a sair de uma intenção de negócio para uma estrutura inicial de time digital, reduzindo o tempo entre ideia e operação.
+
+### Operação visível
+
+Grafo, escritório virtual e execuções auditáveis tornam o trabalho dos agentes visível, revisável e gerenciável.
+
+### Governança desde o início
+
+A plataforma trata regras, evidências, limites, histórico e observabilidade como parte do produto, não como uma camada adicionada depois.
+
+### Memória institucional conectada
+
+O Second Brain reduz dependência de conhecimento espalhado e aproxima os agentes das políticas, documentos e aprendizados da empresa.
+
+### Escala por templates
+
+Quando algo funciona, vira modelo. A empresa deixa de depender de configuração artesanal e passa a escalar padrões comprovados.
+
+---
+
+## Estrutura do repositório
+
+Este repositório é um monorepo com backend BFF e frontend web.
+
+```text
+.
+├── backend/              # API BFF, rotas, persistência e integrações
+├── v0-team-ai-crafter/   # Aplicação web Next.js da plataforma
+├── docs/                 # Imagens e materiais de documentação
+└── docker-compose.yml    # Serviços de apoio para desenvolvimento local
+```
+
+---
+
+## Rodando localmente
+
+### Backend
 
 ```bash
 cd backend
 npm install
 npm run dev
 ```
+
+### Frontend
 
 ```bash
 cd v0-team-ai-crafter
@@ -288,32 +371,56 @@ npm run dev
 
 Também existe suporte a Docker Compose na raiz do repositório para subir serviços de apoio, backend e frontend conforme as variáveis de ambiente do projeto.
 
+---
+
+## Roadmap conceitual
+
+- Evoluir o Crafter para gerar times cada vez mais aderentes ao objetivo de negócio.
+- Fortalecer a orquestração em grafo como camada visual e operacional do time.
+- Ampliar conectores de canais e ferramentas.
+- Aprimorar histórico de execuções, governança e observabilidade.
+- Expandir Second Brain e templates para acelerar adoção multiárea e multicliente.
+
+---
+
 ## Versão
 
 Primeira versão publicada no repositório: **v1**.
 
 ---
 
-## Licença e Uso
+## Licença e uso
 
 Este projeto é **código aberto** e está licenciado sob a **Whitebeard Non-Commercial Open Source License v1.0** (arquivo [`LICENSE`](./LICENSE)).
 
 - Uso permitido para fins **não comerciais** e **pessoais**.
-- Qualquer uso, modificação ou redistribuição deve **referenciar o projeto original**, a **Whitebeard** (propriedade intelectual) e o autor **almerindo (GitHub)**.
+- Qualquer uso, modificação ou redistribuição deve **referenciar o projeto original**, a **Whitebeard** como proprietária intelectual e o autor **almerindo** no GitHub.
 - Uso comercial **não é permitido** sem autorização prévia por escrito.
-- Em caso de interesse comercial, é obrigatório entrar em contato com o projeto/empresa abrindo uma Issue neste repositório.
+- Em caso de interesse comercial, abra uma Issue neste repositório para iniciar o contato com o projeto/empresa.
 
-## Contribuições da Comunidade
+---
 
-Qualquer pessoa pode contribuir com este projeto público:
-
-- Abrindo **Issues** para reportar problemas, sugerir melhorias e discutir ideias.
-- Enviando **Pull Requests (PRs)** com correções e evoluções.
+## Contribuições da comunidade
 
 Contribuições são bem-vindas para fortalecer e evoluir o projeto.
 
-## Apoie o Projeto
+Você pode contribuir:
+
+- abrindo **Issues** para reportar problemas, sugerir melhorias ou discutir ideias;
+- enviando **Pull Requests** com correções, documentação e evoluções;
+- propondo novos templates, agentes, tools, canais ou melhorias de governança.
+
+---
+
+## Apoie o projeto
 
 Se este projeto te ajuda e você quiser apoiar sua continuidade, considere uma doação:
 
 👉 https://buymeacoffee.com/almerindo
+
+---
+
+<p align="center">
+  <strong>Construa o futuro operacional da sua empresa hoje.</strong><br />
+  Crie, opere e governe times de inteligência artificial com clareza, rastreabilidade e escala.
+</p>
