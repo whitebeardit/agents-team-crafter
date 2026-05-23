@@ -20,31 +20,68 @@
   <em>O cockpit central para acompanhar times, agentes, canais, execuções e conhecimento em um só lugar.</em>
 </p>
 
+<!-- Support -->
 <p align="center">
   <a href="https://www.buymeacoffee.com/almerindo" target="_blank">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="45" />
+    <img
+      src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+      alt="Buy Me A Coffee"
+      height="45"
+    />
   </a>
 </p>
 
+<!-- Core stack -->
 <p align="center">
+  <strong>Core Stack</strong><br />
   <a href="https://www.typescriptlang.org/">
-    <img alt="TypeScript version" src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript&logoColor=white" />
+    <img
+      alt="TypeScript version"
+      src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript&logoColor=white"
+    />
   </a>
   <a href="https://nodejs.org/">
-    <img alt="Node.js version" src="https://img.shields.io/badge/Node.js-22.x-339933?logo=node.js&logoColor=white" />
+    <img
+      alt="Node.js version"
+      src="https://img.shields.io/badge/Node.js-22.x-339933?logo=node.js&logoColor=white"
+    />
   </a>
-  <a href="./LICENSE">
-    <img alt="APLv2" src="https://img.shields.io/badge/license-APLv2-blue.svg" />
+  <a href="https://nextjs.org/">
+    <img
+      alt="Next.js"
+      src="https://img.shields.io/badge/Next.js-16.2.0-000000?logo=nextdotjs&logoColor=white"
+    />
   </a>
 </p>
 
+<!-- AI / Agents -->
 <p align="center">
-  <img alt="OpenRouter" src="https://img.shields.io/badge/OpenRouter-Integrado-6f42c1?logo=openai&logoColor=white" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript&logoColor=white" />
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.2.0-000000?logo=nextdotjs&logoColor=white" />
-  <img alt="OpenAI Agents SDK" src="https://img.shields.io/badge/OpenAI_Agents_SDK-0.8.5-412991?logo=openai&logoColor=white" />
-  <img alt="Chat SDK" src="https://img.shields.io/badge/Chat_SDK-4.23.0-0ea5e9" />
+  <strong>AI / Agents</strong><br />
+  <img
+    alt="OpenRouter"
+    src="https://img.shields.io/badge/OpenRouter-Integrado-6f42c1?logo=openai&logoColor=white"
+  />
+  <img
+    alt="OpenAI Agents SDK"
+    src="https://img.shields.io/badge/OpenAI_Agents_SDK-0.8.5-412991?logo=openai&logoColor=white"
+  />
+  <img
+    alt="Chat SDK"
+    src="https://img.shields.io/badge/Chat_SDK-4.23.0-0ea5e9"
+  />
 </p>
+
+<!-- License -->
+<p align="center">
+  <strong>License</strong><br />
+  <a href="./LICENSE">
+    <img
+      alt="APLv2"
+      src="https://img.shields.io/badge/license-APLv2-blue.svg"
+    />
+  </a>
+</p>
+
 
 ---
 
