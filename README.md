@@ -21,6 +21,24 @@
 </p>
 
 <p align="center">
+  <a href="https://www.buymeacoffee.com/almerindo" target="_blank">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="45" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.typescriptlang.org/">
+    <img alt="TypeScript version" src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript&logoColor=white" />
+  </a>
+  <a href="https://nodejs.org/">
+    <img alt="Node.js version" src="https://img.shields.io/badge/Node.js-22.x-339933?logo=node.js&logoColor=white" />
+  </a>
+  <a href="./LICENSE">
+    <img alt="APLv2" src="https://img.shields.io/badge/license-APLv2-blue.svg" />
+  </a>
+</p>
+
+<p align="center">
   <img alt="OpenRouter" src="https://img.shields.io/badge/OpenRouter-Integrado-6f42c1?logo=openai&logoColor=white" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript&logoColor=white" />
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.2.0-000000?logo=nextdotjs&logoColor=white" />
