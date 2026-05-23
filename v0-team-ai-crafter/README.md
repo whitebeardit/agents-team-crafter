@@ -2,6 +2,34 @@
 
 Plataforma SaaS para criacao e gerenciamento de times de agentes de IA com editor visual de grafo.
 
+> ## 🚀 Demo online (rodando agora)
+>
+> **Acesse:** **https://myteams.whitebeard.dev**
+>
+> Ambiente publico para explorar o produto em execução e validar os fluxos principais ponta a ponta.
+
+## 🌟 Hero docs (visão rápida do produto)
+
+Este README agora funciona como uma documentação **Hero**: uma visão clara, objetiva e navegável para entender o valor do produto em poucos minutos e depois aprofundar por módulo.
+
+### O que você consegue fazer na plataforma
+
+- **Criar agentes especializados** com instruções, capacidades e configurações versionadas por workspace.
+- **Montar times multiagente** com coordenador + especialistas e orquestração por runtime.
+- **Modelar fluxos visualmente** no editor de grafo (`/teams/[id]/graph`).
+- **Executar operações reais** em canais externos (Slack/Telegram e outros adapters via Chat SDK).
+- **Operar em modo SaaS multi-tenant** com isolamento por `workspaceId` e segredos cifrados.
+- **Governar e auditar** execuções, métricas e configurações de forma centralizada.
+- **Escalar com templates** para replicar padrões de times e acelerar onboarding.
+
+### Jornada recomendada (5 minutos)
+
+1. Entre no **demo online**: https://myteams.whitebeard.dev
+2. Abra **Dashboard** para visão de métricas e estado operacional.
+3. Explore **Agents** e **Teams** para entender composição coordenador/especialistas.
+4. Visite o **Graph Editor** para ver a modelagem visual dos fluxos.
+5. Revise **Channels** e **Settings** para integração e governança multi-tenant.
+
 **Arquitetura (wiki):** visão multi-tenant, diagramas e documentação por camada em [docs/AGENTS.md](./docs/AGENTS.md).
 
 **Visão geral do produto (screenshots, Telegram, tour da UI):** ver o [README na raiz do monorepo](../README.md).
@@ -3024,4 +3052,3 @@ Para duvidas ou problemas, entre em contato:
 
 - Email: [suporte@teamagentsaicrafter.com](mailto:suporte@teamagentsaicrafter.com)
 - Documentacao: [https://docs.teamagentsaicrafter.com](https://docs.teamagentsaicrafter.com)
-
