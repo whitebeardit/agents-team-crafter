@@ -20,6 +20,14 @@
   <em>O cockpit central para acompanhar times, agentes, canais, execuções e conhecimento em um só lugar.</em>
 </p>
 
+<p align="center">
+  <img alt="OpenRouter" src="https://img.shields.io/badge/OpenRouter-Integrado-6f42c1?logo=openai&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript&logoColor=white" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16.2.0-000000?logo=nextdotjs&logoColor=white" />
+  <img alt="OpenAI Agents SDK" src="https://img.shields.io/badge/OpenAI_Agents_SDK-0.8.5-412991?logo=openai&logoColor=white" />
+  <img alt="Chat SDK" src="https://img.shields.io/badge/Chat_SDK-4.23.0-0ea5e9" />
+</p>
+
 ---
 
 ## Manual da Plataforma
@@ -228,3 +236,29 @@ Também existe suporte a Docker Compose na raiz do repositório para subir servi
 ## Versão
 
 Primeira versão publicada no repositório: **v1**.
+
+---
+
+## Licença e Uso
+
+Este projeto é **código aberto** e está licenciado sob a **Whitebeard Non-Commercial Open Source License v1.0** (arquivo [`LICENSE`](./LICENSE)).
+
+- Uso permitido para fins **não comerciais** e **pessoais**.
+- Qualquer uso, modificação ou redistribuição deve **referenciar o projeto original**, a **Whitebeard** (propriedade intelectual) e o autor **almerindo (GitHub)**.
+- Uso comercial **não é permitido** sem autorização prévia por escrito.
+- Em caso de interesse comercial, é obrigatório entrar em contato com o projeto/empresa abrindo uma Issue neste repositório.
+
+## Contribuições da Comunidade
+
+Qualquer pessoa pode contribuir com este projeto público:
+
+- Abrindo **Issues** para reportar problemas, sugerir melhorias e discutir ideias.
+- Enviando **Pull Requests (PRs)** com correções e evoluções.
+
+Contribuições são bem-vindas para fortalecer e evoluir o projeto.
+
+## Apoie o Projeto
+
+Se este projeto te ajuda e você quiser apoiar sua continuidade, considere uma doação:
+
+👉 https://buymeacoffee.com/almerindo
