@@ -96,7 +96,7 @@
   <a href="./LICENSE">
     <img
       alt="Whitebeard Non-Commercial Open Source License v1.0"
-      src="https://img.shields.io/badge/license-Whitebeard_NC_OSL_v1.0-blue.svg"
+      src="https://img.shields.io/badge/license-Whitebeard_Non--Commercial-blue.svg"
     />
   </a>
 </p>
