@@ -8,8 +8,10 @@
 <p align="center">
   <a href="#por-que-existe">Por que existe</a> |
   <a href="#o-que-e-o-teamagents">O que é</a> |
+  <a href="#como-um-time-digital-opera">Como opera</a> |
   <a href="#jornada-operacional">Jornada operacional</a> |
   <a href="#principais-modulos">Módulos</a> |
+  <a href="#arquitetura-tecnica-do-projeto">Arquitetura técnica</a> |
   <a href="#rodando-localmente">Rodando localmente</a>
 </p>
 
@@ -53,6 +55,12 @@
       src="https://img.shields.io/badge/Next.js-16.2.0-000000?logo=nextdotjs&logoColor=white"
     />
   </a>
+  <a href="https://fastify.dev/">
+    <img
+      alt="Fastify"
+      src="https://img.shields.io/badge/Fastify-5.1.0-000000?logo=fastify&logoColor=white"
+    />
+  </a>
 </p>
 
 <!-- AI / Agents -->
@@ -66,10 +74,20 @@
     alt="OpenAI Agents SDK"
     src="https://img.shields.io/badge/OpenAI_Agents_SDK-0.8.5-412991?logo=openai&logoColor=white"
   />
-  <img
-    alt="Chat SDK"
-    src="https://img.shields.io/badge/Chat_SDK-4.23.0-0ea5e9"
-  />
+</p>
+
+<!-- Channels / Adapters -->
+<p align="center">
+  <strong>Channels / Adapters</strong><br />
+  <img alt="Chat SDK" src="https://img.shields.io/badge/Chat_SDK-4.23.0-0ea5e9" />
+  <img alt="WhatsApp" src="https://img.shields.io/badge/WhatsApp-Adapter-25D366?logo=whatsapp&logoColor=white" />
+  <img alt="Telegram" src="https://img.shields.io/badge/Telegram-Adapter-26A5E4?logo=telegram&logoColor=white" />
+  <img alt="Slack" src="https://img.shields.io/badge/Slack-Adapter-4A154B?logo=slack&logoColor=white" />
+  <img alt="Microsoft Teams" src="https://img.shields.io/badge/Teams-Adapter-6264A7?logo=microsoftteams&logoColor=white" />
+  <img alt="Discord" src="https://img.shields.io/badge/Discord-Adapter-5865F2?logo=discord&logoColor=white" />
+  <img alt="Google Chat" src="https://img.shields.io/badge/Google_Chat-Adapter-34A853?logo=googlechat&logoColor=white" />
+  <img alt="GitHub" src="https://img.shields.io/badge/GitHub-Adapter-181717?logo=github&logoColor=white" />
+  <img alt="Linear" src="https://img.shields.io/badge/Linear-Adapter-5E6AD2?logo=linear&logoColor=white" />
 </p>
 
 <!-- License -->
@@ -147,6 +165,38 @@ Em vez de criar apenas um chatbot, você desenha uma equipe: agentes especialist
 | Conhecimento disperso | Second Brain como memória viva da corporação |
 | Chatbot genérico | Especialistas digitais com papéis, ferramentas e missão |
 | Automação frágil | Operação com governança, métricas e melhoria contínua |
+
+---
+
+## Como um time digital opera
+
+Um time digital recebe demandas por canais reais, passa por um agente coordenador e distribui o trabalho para especialistas com papéis claros. Cada execução pode consultar tools, usar conhecimento do Second Brain, registrar evidências e alimentar governança e observabilidade.
+
+```mermaid
+flowchart LR
+  subgraph Channels["Canais de entrada"]
+    WHATSAPP["WhatsApp"]
+    TELEGRAM["Telegram"]
+    SLACK["Slack / Teams"]
+    EMAIL["E-mail"]
+    WEB["Web / Sistemas internos"]
+  end
+
+  Channels --> COORDINATOR["Agente Coordenador"]
+
+  COORDINATOR --> TRIAGE["Especialista de Triagem"]
+  COORDINATOR --> DOMAIN["Especialista de Domínio"]
+  COORDINATOR --> QUALITY["Especialista de Qualidade"]
+  COORDINATOR --> ACTION["Especialista de Ação"]
+
+  TRIAGE --> TOOLS["Tools / APIs"]
+  DOMAIN --> BRAIN["Second Brain"]
+  QUALITY --> GOVERNANCE["Governança"]
+  ACTION --> SYSTEMS["Sistemas corporativos"]
+
+  COORDINATOR --> EXECUTIONS["Execuções auditáveis"]
+  EXECUTIONS --> OBSERVABILITY["Observabilidade"]
+```
 
 ---
 
@@ -233,6 +283,17 @@ As tools dão ação aos agentes. Elas permitem consultar sistemas, acessar dado
 ### Canais onde o negócio já acontece
 
 Clientes e operadores não precisam aprender um sistema novo para cada processo. O TeamAgents centraliza canais de entrada e prepara o workspace para atuar onde a empresa já trabalha.
+
+<p align="center">
+  <img alt="WhatsApp" src="https://img.shields.io/badge/WhatsApp-Canal-25D366?logo=whatsapp&logoColor=white" />
+  <img alt="Telegram" src="https://img.shields.io/badge/Telegram-Canal-26A5E4?logo=telegram&logoColor=white" />
+  <img alt="Slack" src="https://img.shields.io/badge/Slack-Canal-4A154B?logo=slack&logoColor=white" />
+  <img alt="Microsoft Teams" src="https://img.shields.io/badge/Teams-Canal-6264A7?logo=microsoftteams&logoColor=white" />
+  <img alt="Discord" src="https://img.shields.io/badge/Discord-Canal-5865F2?logo=discord&logoColor=white" />
+  <img alt="Google Chat" src="https://img.shields.io/badge/Google_Chat-Canal-34A853?logo=googlechat&logoColor=white" />
+  <img alt="GitHub" src="https://img.shields.io/badge/GitHub-Canal-181717?logo=github&logoColor=white" />
+  <img alt="Linear" src="https://img.shields.io/badge/Linear-Canal-5E6AD2?logo=linear&logoColor=white" />
+</p>
 
 <p align="center">
   <img src="docs/screenshots/channels.png" alt="Canais conectados à plataforma" width="720" />
@@ -337,13 +398,78 @@ Quando algo funciona, vira modelo. A empresa deixa de depender de configuração
 
 ---
 
+## Arquitetura técnica do projeto
+
+O TeamAgents combina uma aplicação web em Next.js com um backend/BFF em Fastify. O frontend entrega a experiência de operação, enquanto o BFF centraliza autenticação, workspace, orquestração de agentes, integrações, canais, persistência e exposição de APIs.
+
+```mermaid
+flowchart TB
+  USER["Usuário / Operador"]
+
+  subgraph FRONTEND["Frontend"]
+    NEXT["Next.js Web App"]
+  end
+
+  subgraph BACKEND["Backend / BFF"]
+    FASTIFY["Fastify API"]
+    AUTH["Auth / Workspace / Tenancy"]
+    ORCHESTRATION["Agent Orchestration"]
+  end
+
+  subgraph AI["AI Runtime"]
+    AGENTS["OpenAI Agents SDK"]
+    ROUTER["OpenRouter"]
+  end
+
+  subgraph CHANNELS["Channels / Adapters"]
+    CHATSDK["Chat SDK"]
+    WHATSAPP["WhatsApp"]
+    TELEGRAM["Telegram"]
+    SLACK["Slack"]
+    TEAMS["Teams"]
+    DISCORD["Discord"]
+    GCHAT["Google Chat"]
+    GITHUB["GitHub"]
+    LINEAR["Linear"]
+  end
+
+  subgraph DATA["Data & Knowledge"]
+    MONGO["MongoDB"]
+    POSTGRES["PostgreSQL"]
+    REDIS["Redis"]
+    BRAIN["Second Brain"]
+  end
+
+  USER --> NEXT
+  NEXT --> FASTIFY
+  FASTIFY --> AUTH
+  FASTIFY --> ORCHESTRATION
+  ORCHESTRATION --> AGENTS
+  AGENTS --> ROUTER
+  ORCHESTRATION --> CHATSDK
+  CHATSDK --> WHATSAPP
+  CHATSDK --> TELEGRAM
+  CHATSDK --> SLACK
+  CHATSDK --> TEAMS
+  CHATSDK --> DISCORD
+  CHATSDK --> GCHAT
+  CHATSDK --> GITHUB
+  CHATSDK --> LINEAR
+  FASTIFY --> MONGO
+  FASTIFY --> POSTGRES
+  FASTIFY --> REDIS
+  ORCHESTRATION --> BRAIN
+```
+
+---
+
 ## Estrutura do repositório
 
-Este repositório é um monorepo com backend BFF e frontend web.
+Este repositório é um monorepo com backend BFF em Fastify e frontend web em Next.js.
 
 ```text
 .
-├── backend/              # API BFF, rotas, persistência e integrações
+├── backend/              # API BFF Fastify, rotas, persistência e integrações
 ├── v0-team-ai-crafter/   # Aplicação web Next.js da plataforma
 ├── docs/                 # Imagens e materiais de documentação
 └── docker-compose.yml    # Serviços de apoio para desenvolvimento local
