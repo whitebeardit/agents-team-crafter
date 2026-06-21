@@ -86,6 +86,25 @@ Variáveis opcionais: `SETUP_LLM_API_KEY`, `SETUP_TELEGRAM_BOT_TOKEN`, `SETUP_TE
 | `.env` | Variáveis geradas (não commitar) |
 | `.setup-complete` | Marca fim da instalação |
 
+## O que o seed inclui (e o que não inclui)
+
+O wizard **corre o seed** no passo final (após backend e frontend healthy), usando `SEED_SCRIPT=seed-demo.ts` definido no `.env` gerado. Se o wizard falhar antes desse passo (ex.: backend unhealthy), o Mongo pode ficar vazio ou parcial — verifique se existe `.setup-complete` e os logs do serviço `seed`.
+
+**Incluído pelo `seed-demo.ts`:**
+
+- Utilizador admin: `admin@whitebeard.dev` / `Admin123!`
+- Workspaces, agentes e time demo **Atendimento WhatsApp**
+- Canais, templates e ligações MCP de exemplo
+- Integrações LLM (OpenRouter/OpenAI) aplicadas via `post-setup.mjs` quando configurou chaves no wizard
+
+**Não incluído pelo seed:**
+
+- **Tool definitions de negócio** (`/tool-definitions`) — ficam vazias após instalação limpa; crie via UI, planner ou bulk internal-action quando precisar de ações CRM/clínica
+- Tools de catálogo operacional listadas em **Configurações → Integrações** (`web_search`, `web_fetch`, `image_generation`) aparecem quando há chave OpenRouter/OpenAI — não são registos em `/tool-definitions`
+- Tools do coordenador em runtime (second-brain, specialists) — injectadas pelo backend durante execução, não aparecem na lista de definitions
+
+**Validar instalação:** login demo → time **Atendimento WhatsApp** → Debug com mensagem simples; o coordenador deve responder sem erro 400.
+
 ## Limitações
 
 - Primeiro `docker compose up --build` pode demorar (download de imagens base).
