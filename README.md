@@ -5,6 +5,8 @@
   A primeira plataforma completa para desenhar, operar e governar times de agentes de IA como produto em um workspace multi-tenant.
 </p>
 
+> *Destaque: com `EMBEDDINGS_ENABLED=1`, o Second Brain recupera conhecimento por significado, melhora o contexto dos agentes e encontra notas úteis mesmo quando as palavras não batem exatamente.*
+
 <p align="center">
   <a href="#por-que-existe">Por que existe</a> |
   <a href="#o-que-e-o-teamagents">O que é</a> |
@@ -334,6 +336,16 @@ A operação precisa ser medida. O módulo de observabilidade ajuda a acompanhar
 ### Second Brain: memória viva da corporação
 
 O Second Brain mantém documentação, políticas, contexto e conhecimento próximos dos agentes. O objetivo é reduzir improviso e aproximar operação, documentação e tomada de decisão.
+
+Quando `EMBEDDINGS_ENABLED=1`, essa camada ganha *busca semântica* de verdade: o backend gera embeddings com OpenAI, cruza isso com a busca textual e encontra notas relevantes mesmo quando as palavras são diferentes.
+
+**O que você ganha na prática:**
+- recupera memórias do vault por significado, não só por palavra-chave
+- melhora o contexto entregue aos agentes em perguntas ambíguas ou incompletas
+- reduz o risco de perder uma nota útil só porque o texto não bateu exatamente
+- re-embeda automaticamente notas alteradas para manter o índice atualizado
+
+Com `EMBEDDINGS_ENABLED=0`, o sistema continua funcionando, mas o recall fica apenas textual.
 
 <p align="center">
   <img src="docs/screenshots/workspace-second-brain.png" alt="Second Brain do workspace" height="550" />
