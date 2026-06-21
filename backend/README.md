@@ -36,6 +36,17 @@ Auth, workspaces, agents (incl. config e `mcp-bindings`), teams e grafo, templat
 - `GET /metrics` — endpoint Prometheus (`prom-client`) com métricas default do Node.js e métricas de `team-plan execute` / auto-bind.
 - `GET /api/v1/observability/metrics-summary` — JSON filtrado (`agents_team_crafter_`*) com campo `kpis` agregado (execuções, duração, auto-bind) e `metrics` bruto; **admin do workspace** (ver `observability.routes.ts` e `team-plan-metrics-kpis.ts`).
 
+## Second Brain / embeddings
+
+O backend usa embeddings apenas na camada de *Second Brain* (vault de conhecimento). Quando `EMBEDDINGS_ENABLED=1` e há `OPENAI_API_KEY`, o sistema:
+
+- gera embeddings para notas do vault
+- faz busca semântica por similaridade de significado
+- mistura resultados semânticos com a busca textual
+- recalcula embeddings quando uma nota muda
+
+Com `EMBEDDINGS_ENABLED=0` o backend continua funcionando, mas o recall fica só textual.
+
 ## Testes
 
 Jest em `npm test`. Ficheiros em `[src/__tests__/](./src/__tests__/)` — sobretudo `*.integration.test.ts` (API + `mongodb-memory-server`), mais testes unitários pontuais (`*.unit.test.ts`, `parse-platform-admin-emails.test.ts`). Exemplos: `auth.integration.test.ts`, `runs.integration.test.ts`, `governance-analytics.integration.test.ts`, `agent-governance.integration.test.ts`, `agent-plans.integration.test.ts`, `team-plans.integration.test.ts`, `team-plans-overlap.integration.test.ts`, `runtime-run.integration.test.ts`, entre outros.
