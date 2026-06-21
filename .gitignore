@@ -6,6 +6,7 @@ backend/dist/
 backend/.env
 backend/*.log
 backend/bun.lock
+backend/data/
 
 # Frontend (Next.js)
 v0-team-ai-crafter/.next/

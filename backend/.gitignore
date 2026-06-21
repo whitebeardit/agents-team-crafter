@@ -3,4 +3,5 @@ dist/
 .env
 *.log
 bun.lock
-data/gallery/
+# Dados locais em runtime (galeria, team vault / second brain por workspace)
+data/
