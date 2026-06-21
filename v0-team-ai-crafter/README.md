@@ -66,6 +66,9 @@ Este README agora funciona como uma documentação **Hero**: uma visão clara, o
 
 ## Instalacao
 
+> Para instalar e testar o projeto completo pela primeira vez, use o guia da raiz: [docs/rodando-localmente.md](../docs/rodando-localmente.md).
+> Ele detalha backend, frontend, MongoDB, Redis, seed, variáveis de ambiente, provedores de IA e modelos de imagem.
+
 No **monorepo** `[agents-team-crafter](../README.md)`, a app Next.js fica em `v0-team-ai-crafter/`:
 
 ```bash
