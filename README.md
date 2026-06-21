@@ -479,6 +479,9 @@ Este repositório é um monorepo com backend BFF em Fastify e frontend web em Ne
 
 ## Rodando localmente
 
+> Guia completo de primeira instalação: [docs/rodando-localmente.md](./docs/rodando-localmente.md).
+> Ele cobre pré-requisitos, arquivos `.env`, MongoDB/Redis, seed, IA, modelos de imagem e testes locais.
+
 ### Backend
 
 ```bash
