@@ -91,6 +91,7 @@ Variáveis opcionais: `SETUP_LLM_API_KEY`, `SETUP_TELEGRAM_BOT_TOKEN`, `SETUP_TE
 - Primeiro `docker compose up --build` pode demorar (download de imagens base).
 - Rootless Docker exige pacotes user-level (`dockerd-rootless.sh`, `rootlesskit`, `slirp4netns`).
 - **Clone em NTFS/exFAT:** imagens Docker em `~/.atc-d/<hash>` (ext4, só este projeto); `data/` permanece no disco do clone.
+- **Path do clone muito longo:** se o caminho absoluto do repositório exceder o limite de socket Unix do containerd (~104 chars), o estado Docker (imagens/camadas) vai para `~/.atc-d/<hash>`; `data/` permanece no clone.
 - **Telegram webhook** não funciona em localhost sem túnel/domínio — wizard avisa e permite pular.
 - Produção/Coolify continua a usar [`docker-compose.yaml`](docker-compose.yaml) com Atlas — **não** use `docker-compose.setup.yaml` em produção.
 
@@ -99,6 +100,15 @@ Variáveis opcionais: `SETUP_LLM_API_KEY`, `SETUP_TELEGRAM_BOT_TOKEN`, `SETUP_TE
 ### "Docker rootless não disponível"
 
 Instale rootless Docker (link acima) e garanta `dockerd-rootless.sh` no `PATH`.
+
+### "timeout ao iniciar dockerd-rootless" / `unix socket path too long`
+
+O containerd rootless exige paths curtos para sockets Unix. O wizard escolhe automaticamente `~/.atc-d/<hash>` quando o clone está num path longo. Para forçar um local específico:
+
+```bash
+export TEAMAGENTS_DOCKER_STATE="$HOME/.atc-d/meu-projeto"
+./setup.sh
+```
 
 ### Portas 3001 / 3002 / 27017 / 6379 ocupadas
 

@@ -31,6 +31,17 @@ project_hash() {
   printf '%s' "$PROJECT_ROOT" | md5sum | awk '{print $1}' | cut -c1-12
 }
 
+# containerd rootless falha se containerd-debug.sock exceder ~104 chars.
+containerd_debug_sock() {
+  echo "$1/run/docker/containerd/containerd-debug.sock"
+}
+
+docker_dir_socket_ok() {
+  local probe
+  probe="$(containerd_debug_sock "$1")"
+  ((${#probe} <= 90))
+}
+
 resolve_docker_dir() {
   if [[ -n "${TEAMAGENTS_DOCKER_STATE:-}" ]]; then
     echo "$TEAMAGENTS_DOCKER_STATE"
@@ -41,13 +52,19 @@ resolve_docker_dir() {
     echo "$HOME/.atc-d/$hash"
     return
   fi
-  local candidate="$PROJECT_ROOT/.docker"
-  local probe="$candidate/run/docker/containerd/containerd-debug.sock"
-  if ((${#probe} <= 90)); then
-    echo "$candidate"
-    return
-  fi
-  echo "$(dirname "$PROJECT_ROOT")/.atc-d/$hash"
+  local candidates=(
+    "$PROJECT_ROOT/.docker"
+    "$(dirname "$PROJECT_ROOT")/.atc-d/$hash"
+    "$HOME/.atc-d/$hash"
+  )
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if docker_dir_socket_ok "$candidate"; then
+      echo "$candidate"
+      return
+    fi
+  done
+  echo "$HOME/.atc-d/$hash"
 }
 
 DOCKER_DIR="$(resolve_docker_dir)"
@@ -100,6 +117,10 @@ prepare_dirs() {
     if is_non_native_docker_fs; then
       printf '%s\n' "$DOCKER_DIR" >"$PROJECT_ROOT/.docker-location"
       echo "Nota: clone em $(project_fs_type) — imagens Docker em $DOCKER_DIR (ext4); dados da app em $PROJECT_ROOT/data/"
+    elif [[ "$DOCKER_DIR" == "$HOME/.atc-d/"* ]]; then
+      printf '%s\n' "$DOCKER_DIR" >"$PROJECT_ROOT/.docker-location"
+      echo "Nota: estado Docker em ~/.atc-d (limite de socket Unix): $DOCKER_DIR"
+      echo "  Dados da app continuam em $PROJECT_ROOT/data/"
     else
       mkdir -p "$(dirname "$PROJECT_ROOT/.docker")"
       ln -sfn "$DOCKER_DIR" "$PROJECT_ROOT/.docker"
