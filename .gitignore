@@ -31,3 +31,13 @@ yarn-error.log*
 
 # Galeria local de imagens (backend MEDIA_GALLERY_ROOT default)
 data/gallery/
+
+# Wizard de instalação (gerado localmente)
+.setup-complete
+.setup/
+.docker/
+.docker-location
+__DATA_ROOT__/
+data/mongo/
+data/redis/
+scripts/setup/node_modules/

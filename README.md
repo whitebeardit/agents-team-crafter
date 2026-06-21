@@ -479,7 +479,9 @@ Este repositório é um monorepo com backend BFF em Fastify e frontend web em Ne
 
 ## Rodando localmente
 
-> Guia completo de primeira instalação: [docs/rodando-localmente.md](./docs/rodando-localmente.md).
+> **Instalação guiada (recomendada para primeira vez):** [docs/setup-wizard.md](./docs/setup-wizard.md) — execute `./setup.sh` num clone limpo (Docker Compose + Mongo local, dados só nesta pasta).
+>
+> Guia manual completo: [docs/rodando-localmente.md](./docs/rodando-localmente.md).
 > Ele cobre pré-requisitos, arquivos `.env`, MongoDB/Redis, seed, IA, modelos de imagem e testes locais.
 
 ### Backend
