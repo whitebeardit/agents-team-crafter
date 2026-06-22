@@ -10,12 +10,15 @@ export const PROJECT_ROOT = join(__dirname, '../../..');
 /** Time SO Clínica Conversacional — export v2 bundled com o wizard. */
 export const SO_TEAM_EXPORT_PATH = join(SETUP_DIR, 'data/team-so-clinica-conversacional.json');
 
+export const SO_DEMO_SITE_URL =
+  process.env.SETUP_DEMO_SITE_URL || 'https://myteams.whitebeard.dev';
+
 export const SO_DEMO_TEAM_URL =
   process.env.SETUP_DEMO_TEAM_URL ||
   'https://myteams.whitebeard.dev/teams/69ffdf3bc6d1b9ca5d782a34';
 
 export const SO_DEMO_SITE_PROBE_URL =
-  process.env.SETUP_DEMO_PROBE_URL || 'https://myteams.whitebeard.dev/';
+  process.env.SETUP_DEMO_PROBE_URL || `${SO_DEMO_SITE_URL}/`;
 
 export const SO_TEAM_VALIDATION_PROMPT = 'Cadastre um paciente';
 

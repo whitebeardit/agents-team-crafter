@@ -1,4 +1,5 @@
 import {
+  SO_DEMO_SITE_URL,
   SO_DEMO_TEAM_URL,
   SO_TEAM_EXPORT_PATH,
   SO_TEAM_VALIDATION_PROMPT,
@@ -22,8 +23,9 @@ export function printSoDemoManualGuide({ demoReachable }) {
     console.log('  Ou execute o wizard de novo e escolha «JSON incluído no assistente».');
     console.log('');
   }
-  console.log('1. Abra o demo (login se necessário):');
-  console.log(`   ${SO_DEMO_TEAM_URL}`);
+  console.log('1. Abra o site demo (login se necessário):');
+  console.log(`   Site: ${SO_DEMO_SITE_URL}`);
+  console.log(`   Time: ${SO_DEMO_TEAM_URL}`);
   console.log('');
   console.log('2. Na página do time, clique em «Exportar JSON» (export v2).');
   console.log('');

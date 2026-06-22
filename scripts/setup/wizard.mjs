@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import {
   PROJECT_ROOT,
   SETUP_DIR,
+  SO_DEMO_SITE_URL,
   SO_DEMO_TEAM_URL,
   SO_TEAM_VALIDATION_PROMPT,
   assertCleanInstall,
@@ -278,7 +279,8 @@ async function main() {
       printSoTeamSharingHintBrief();
     } else if (setupResult?.soTeamSource === 'demo-manual') {
       console.log('  Próximo passo: exportar o time SO do demo e importar na UI local.');
-      console.log('  Demo:     ' + SO_DEMO_TEAM_URL);
+      console.log('  Site demo: ' + SO_DEMO_SITE_URL);
+      console.log('  Time SO:   ' + SO_DEMO_TEAM_URL);
       console.log('  Debug:    prompt «' + SO_TEAM_VALIDATION_PROMPT + '»');
       printSoTeamSharingHintBrief();
     }
