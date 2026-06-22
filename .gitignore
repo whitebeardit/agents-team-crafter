@@ -36,8 +36,10 @@ data/gallery/
 # Wizard de instalação (gerado localmente)
 .setup-complete
 .setup/
+.docker
 .docker/
 .docker-location
+scripts/setup/package-lock.json
 __DATA_ROOT__/
 data/mongo/
 data/redis/
