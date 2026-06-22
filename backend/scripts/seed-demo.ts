@@ -79,134 +79,7 @@ async function main() {
     { workspaceId: w2._id, userId: u._id, role: 'admin', joinedAt: new Date() },
   ]);
 
-  const mkAgent = (w: typeof w1, data: Record<string, unknown>) =>
-    AgentModel.create({ ...data, workspaceId: w._id });
-
-  const a1 = await mkAgent(w1, {
-    name: 'Atlas Coordinator',
-    description: 'Coordenador',
-    role: 'coordinator',
-    origin: 'whitebeard',
-    skills: ['Orquestracao'],
-    version: '2.1.0',
-    category: 'coordenacao',
-    channels: ['whatsapp', 'slack'],
-    status: 'active',
-  });
-
-  await mkAgent(w1, {
-    name: 'Nova Assistant',
-    description: 'Especialista',
-    role: 'specialist',
-    origin: 'whitebeard',
-    skills: ['Atendimento'],
-    version: '1.0.0',
-    category: 'atendimento',
-    channels: [],
-    status: 'active',
-  });
-
-  await mkAgent(w1, {
-    name: 'Monitor Bot',
-    description: 'Monitoramento',
-    role: 'specialist',
-    origin: 'whitebeard',
-    skills: ['Monitoramento'],
-    version: '1.0.0',
-    category: 'monitoramento',
-    channels: [],
-    status: 'active',
-  });
-
-  await mkAgent(w1, {
-    name: 'Company Agent One',
-    description: 'Custom',
-    role: 'specialist',
-    origin: 'company',
-    skills: ['CRM'],
-    version: '1.0.0',
-    category: 'vendas',
-    channels: [],
-    status: 'active',
-  });
-
-  await mkAgent(w1, {
-    name: 'Company Agent Two',
-    description: 'Custom 2',
-    role: 'specialist',
-    origin: 'company',
-    skills: ['Suporte'],
-    version: '1.0.0',
-    category: 'suporte',
-    channels: [],
-    status: 'active',
-  });
-
-  const psychSpecialist = await mkAgent(w1, {
-    name: 'Especialista Saude Mental',
-    description: 'Triagem e encaminhamento em contexto clinico (demo seed).',
-    role: 'specialist',
-    origin: 'company',
-    skills: ['escuta', 'triage'],
-    version: '1.0.0',
-    category: 'saude',
-    channels: [],
-    status: 'active',
-  });
-  void psychSpecialist;
-
-  const c1 = await ChannelModel.create({
-    workspaceId: w1._id,
-    type: 'whatsapp',
-    name: 'WhatsApp Business',
-    status: 'connected',
-    config: { phoneNumber: '+55 11 99999-9999' },
-  });
-
-  const c2 = await ChannelModel.create({
-    workspaceId: w1._id,
-    type: 'slack',
-    provider: 'chat_sdk',
-    platform: 'slack',
-    name: 'Slack Suporte',
-    status: 'pending',
-    config: { workspace: 'techcorp', slackTeamId: 'T_EXEMPLO_SEED' },
-  });
-  void c2;
-
-  const team = await TeamModel.create({
-    workspaceId: w1._id,
-    name: 'Atendimento WhatsApp',
-    description: 'Time principal',
-    status: 'active',
-    coordinatorId: a1._id,
-    agentIds: [],
-    channelIds: [c1._id],
-    primaryChannel: 'whatsapp',
-  });
-
-  const coordIdStr = a1._id.toString();
-  const channelIdStr = c1._id.toString();
-  await TeamGraphModel.create({
-    workspaceId: w1._id,
-    teamId: team._id,
-    nodes: [
-      {
-        id: coordIdStr,
-        type: 'coordinator',
-        data: { label: 'Atlas', agentId: coordIdStr },
-        position: { x: 400, y: 50 },
-      },
-      {
-        id: channelIdStr,
-        type: 'channel',
-        data: { label: 'WhatsApp', channelId: channelIdStr },
-        position: { x: 400, y: 350 },
-      },
-    ],
-    edges: [{ id: 'edge-1', source: channelIdStr, target: coordIdStr, type: 'smoothstep' }],
-  });
-
+  // Workspace Alpha fica sem agentes/times até o wizard importar SO Clínica Gold (ou o utilizador criar conteúdo).
   await TemplateModel.create([
     {
       workspaceId: w1._id,
@@ -240,18 +113,8 @@ async function main() {
         name: 'Atendimento Omnichannel',
         description: 'Time de atendimento multicanal',
       },
-      graph: {
-        nodes: [
-          {
-            id: coordIdStr,
-            type: 'coordinator',
-            data: { label: 'Coord', agentId: coordIdStr },
-            position: { x: 0, y: 0 },
-          },
-        ],
-        edges: [],
-      },
-      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+      graph: { nodes: [], edges: [] },
+      agentsSnapshot: [{ name: 'Atlas Coordinator', role: 'coordinator' }],
     },
     {
       workspaceId: w1._id,
@@ -287,7 +150,7 @@ async function main() {
       },
       graph: { nodes: [], edges: [] },
       agentsSnapshot: [
-        { id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' },
+        { name: 'Atlas Coordinator', role: 'coordinator' },
         { name: 'Especialista Saude Mental', role: 'specialist' },
       ],
     },
@@ -324,7 +187,7 @@ async function main() {
       },
       graph: { nodes: [], edges: [] },
       agentsSnapshot: [
-        { id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' },
+        { name: 'Atlas Coordinator', role: 'coordinator' },
         { name: 'Especialista Saude Mental', role: 'specialist' },
       ],
     },
@@ -360,7 +223,7 @@ async function main() {
         description: 'CRM + agenda + financeiro para execução diária',
       },
       graph: { nodes: [], edges: [] },
-      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+      agentsSnapshot: [{ name: 'Atlas Coordinator', role: 'coordinator' }],
     },
     {
       workspaceId: w1._id,
@@ -394,7 +257,7 @@ async function main() {
         description: 'Leads + agenda + cobrança',
       },
       graph: { nodes: [], edges: [] },
-      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+      agentsSnapshot: [{ name: 'Atlas Coordinator', role: 'coordinator' }],
     },
     {
       workspaceId: w1._id,
@@ -427,7 +290,7 @@ async function main() {
         description: 'Lembretes + follow-up operacional',
       },
       graph: { nodes: [], edges: [] },
-      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+      agentsSnapshot: [{ name: 'Atlas Coordinator', role: 'coordinator' }],
     },
     {
       workspaceId: w1._id,
@@ -460,29 +323,7 @@ async function main() {
         description: 'Incidentes + backlog + deploy',
       },
       graph: { nodes: [], edges: [] },
-      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
-    },
-    {
-      workspaceId: w1._id,
-      origin: 'company',
-      name: 'Template do time Atendimento WhatsApp',
-      description:
-        'Template guardado a partir do time seed `Atendimento WhatsApp` (mesma estrutura de agentes/canais do demo).',
-      version: '1.0.0',
-      category: 'geral',
-      vertical: 'atendimento',
-      agentCount: 1,
-      prerequisites: ['Mesmos agentes e nomes que no momento em que o template foi gravado.'],
-      applyBehavior: 'Equivalente aos outros templates de empresa: reaproveita agentes por nome.',
-      validationSteps: [
-        'Confirme que os nomes dos agentes no workspace ainda coincidem com o modelo.',
-        'Aplique e abra o Debug para validar uma mensagem simples.',
-      ],
-      goldenPrompts: ['Teste de mensagem após aplicar template da empresa.'],
-      expectedOutcome: 'Time criado em rascunho com grafo e agentes associados por nome quando existirem.',
-      teamConfig: { name: team.name, description: team.description },
-      graph: { nodes: [], edges: [] },
-      agentsSnapshot: [{ id: a1._id.toString(), name: 'Atlas Coordinator', role: 'coordinator' }],
+      agentsSnapshot: [{ name: 'Atlas Coordinator', role: 'coordinator' }],
     },
   ]);
 
@@ -507,20 +348,7 @@ async function main() {
     config: { endpoint: 'https://salesforce.com/api' },
   });
 
-  const companyAgent = await AgentModel.findOne({
-    workspaceId: w1._id,
-    name: 'Company Agent One',
-  });
-
-  if (companyAgent) {
-    await AgentMcpBindingModel.create({
-      workspaceId: w1._id,
-      agentId: companyAgent._id,
-      mcpConnectionId: mcpCrm._id,
-      allowedTools: [],
-      requiresApproval: true,
-    });
-  }
+  void mcpCrm;
 
   await KnowledgeSourceModel.create([
     {

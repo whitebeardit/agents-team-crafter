@@ -6,6 +6,7 @@ backend/dist/
 backend/.env
 backend/*.log
 backend/bun.lock
+backend/data/
 
 # Frontend (Next.js)
 v0-team-ai-crafter/.next/
@@ -31,3 +32,15 @@ yarn-error.log*
 
 # Galeria local de imagens (backend MEDIA_GALLERY_ROOT default)
 data/gallery/
+
+# Wizard de instalação (gerado localmente)
+.setup-complete
+.setup/
+.docker
+.docker/
+.docker-location
+scripts/setup/package-lock.json
+__DATA_ROOT__/
+data/mongo/
+data/redis/
+scripts/setup/node_modules/

@@ -82,13 +82,47 @@ export function buildSecondBrainCoordinatorTools(ctx: {
     confidence: z.number().min(0).max(1).optional(),
   });
 
+  /** JSON Schema (strict: false) — Zod + strict=true falha no OpenRouter com campos opcionais. */
+  const recallParameters = {
+    type: 'object',
+    properties: {
+      topic: { type: 'string', description: 'Topico curto para procurar na memoria do time' },
+      intent: { type: 'string', description: 'Intencao do utilizador neste turno' },
+      agentId: { type: 'string', description: 'Filtrar aprendizados de um especialista (ObjectId)' },
+      partyId: { type: 'string', description: 'Filtrar aprendizados do cliente/party (ObjectId CRM)' },
+      kind: { type: 'string', enum: ['do', 'dont', 'preference', 'correction', 'fact'] },
+      limit: { type: 'number' },
+    },
+    required: ['topic', 'intent'],
+    additionalProperties: false,
+  };
+
+  const proposeParameters = {
+    type: 'object',
+    properties: {
+      topic: { type: 'string' },
+      kind: { type: 'string', enum: ['do', 'dont', 'preference', 'correction', 'fact'] },
+      content: { type: 'string', description: 'Regra ou preferencia a persistir como proposta' },
+      evidenceQuote: { type: 'string', description: 'Trecho da conversa que sustenta a regra' },
+      agentId: { type: 'string', description: 'Especialista alvo (ObjectId)' },
+      partyId: { type: 'string', description: 'Cliente/party CRM (ObjectId) — nota em parties/<id>/' },
+      confidence: { type: 'number' },
+    },
+    required: ['topic', 'kind', 'content', 'evidenceQuote', 'agentId'],
+    additionalProperties: false,
+  };
+
+  // strict: false — parâmetros opcionais; OpenRouter rejeita strict=true quando required não lista todas as properties.
+  // Paridade com build-workspace-custom-tools.ts (internal_action).
   return [
     tool({
       name: 'second_brain_recall',
       description:
         'Consulta a memoria persistente do time (second-brain). Usar antes de delegar a um especialista. Devolve notas active relevantes em JSON.',
-      parameters: recallSchema,
-      execute: async (input) => {
+      parameters: recallParameters as never,
+      strict: false,
+      execute: async (raw) => {
+        const input = recallSchema.parse(raw);
         if (isBreakerOpen(ctx.workspaceId)) {
           ctx.emitProgress?.({
             agentId: ctx.coordinatorAgentId,
@@ -156,8 +190,10 @@ export function buildSecondBrainCoordinatorTools(ctx: {
       name: 'second_brain_propose_learning',
       description:
         'Propoe um aprendizado para revisao humana no second-brain (nao ativa ate aprovacao). Usar quando o utilizador corrigir comportamento ou der regra persistente com evidencia.',
-      parameters: proposeSchema,
-      execute: async (input) => {
+      parameters: proposeParameters as never,
+      strict: false,
+      execute: async (raw) => {
+        const input = proposeSchema.parse(raw);
         if (isBreakerOpen(ctx.workspaceId)) {
           ctx.emitProgress?.({
             agentId: ctx.coordinatorAgentId,

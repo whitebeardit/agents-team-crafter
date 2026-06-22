@@ -1,5 +1,7 @@
 # TeamAgentsAICrafter
 
+> *Destaque: com `EMBEDDINGS_ENABLED=1`, o Second Brain passa a recuperar conhecimento por significado, melhorar o contexto dos agentes e achar notas úteis mesmo quando o texto não bate literalmente.*
+
 Plataforma SaaS para criacao e gerenciamento de times de agentes de IA com editor visual de grafo.
 
 > ## 🚀 Demo online (rodando agora)
@@ -126,9 +128,15 @@ MONGODB_URI=mongodb://localhost:27017/teamagents
 JWT_SECRET=your-super-secret-jwt-key-min-32-chars
 JWT_EXPIRES_IN=7d
 ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-# opcional: Redis (Chat SDK)
-# REDIS_URL=redis://localhost:6379
 ```
+
+**Second Brain / embeddings** — opcional, mas útil quando você quer que o sistema recupere conhecimento por *significado* e não só por palavra:
+
+- `EMBEDDINGS_ENABLED=1` ativa busca semântica no vault
+- `OPENAI_API_KEY` passa a ser necessário para gerar embeddings
+- ganho prático: melhores memórias recuperadas, contexto mais relevante para os agentes e menos dependência de correspondência literal
+- com isso ligado, o sistema também re-embeda notas quando o conteúdo muda
+
 
 **Fallback apenas para demo local** (quando o workspace ainda nao tem chave na UI): `OPENAI_API_KEY`, `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN`. Nao usar para producao multi-tenant. Detalhes em `backend/.env.example`.
 

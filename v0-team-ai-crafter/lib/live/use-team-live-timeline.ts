@@ -266,7 +266,7 @@ export function useTeamLiveTimeline(input: {
                 setLiveMirrorStreamText((prev) => prev + payload.text)
               },
               onAgentStatus: (e: TeamRunProgressEvent) => {
-                if (requireConversationSelectionForAgentState && !(selectedConversationId?.trim()?.length > 0)) {
+                if (requireConversationSelectionForAgentState && (selectedConversationId?.trim()?.length ?? 0) <= 0) {
                   return
                 }
                 setLiveAgentBaseState((prev) => ({

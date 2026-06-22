@@ -1,0 +1,40 @@
+# Overlay usado exclusivamente pelo wizard de instalação (./setup.sh).
+# Não usar em produção/Coolify — mantém Mongo local e bind mounts no disco do projeto.
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - ./data/mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  redis:
+    volumes:
+      - ./data/redis:/data
+
+  backend:
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/teamagents}
+    volumes:
+      - ./data/gallery:/app/data/gallery
+
+  seed:
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/teamagents}
+    command: sh -c "npm ci && npx tsx scripts/${SEED_SCRIPT:-seed-demo.ts}"

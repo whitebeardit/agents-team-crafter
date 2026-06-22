@@ -1,0 +1,8 @@
+{
+  "name": "agents-team-crafter-setup",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@inquirer/prompts": "^7.5.3"
+  }
+}

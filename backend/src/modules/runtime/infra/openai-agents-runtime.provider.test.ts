@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   buildRunnerInputFromAgentInput,
   buildRunnerInputFromCoordinatorParams,
+  extractProviderErrorDetail,
   formatRuntimeErrorWithFallback,
   mapNewItemsToEvents,
 } from './openai-agents-runtime.provider.js';
@@ -50,6 +51,28 @@ describe('OpenAIAgentsRuntimeProvider max-turns fallback', () => {
   it('keeps original format for non-max-turns errors', () => {
     const out = formatRuntimeErrorWithFallback('Erro ao executar modelo', 'upstream timeout');
     expect(out).toBe('Erro ao executar modelo: upstream timeout');
+  });
+
+  it('appends OpenRouter invalid_function_parameters detail when SDK wraps provider error', () => {
+    const cause = {
+      error: {
+        message: 'Provider returned error',
+        code: 400,
+        metadata: {
+          raw: JSON.stringify({
+            error: {
+              message:
+                "Invalid schema for function 'second_brain_recall': Missing 'agentId' in required.",
+              code: 'invalid_function_parameters',
+            },
+          }),
+        },
+      },
+    };
+    expect(extractProviderErrorDetail(cause)).toContain('Invalid schema for function');
+    const out = formatRuntimeErrorWithFallback('Erro ao executar coordenador', '400 Provider returned error', cause);
+    expect(out).toContain('Erro ao executar coordenador: 400 Provider returned error');
+    expect(out).toContain('Detalhe: Invalid schema for function');
   });
 });
 

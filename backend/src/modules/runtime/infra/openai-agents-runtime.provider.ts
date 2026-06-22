@@ -108,27 +108,57 @@ function buildAgentModelOptions(
   };
 }
 
-export function formatRuntimeErrorWithFallback(prefix: string, msg: string): string {
+/** Extrai mensagem legível de erros OpenRouter/OpenAI embutidos no objeto do SDK (metadata.raw). */
+export function extractProviderErrorDetail(cause: unknown): string | undefined {
+  if (!cause || typeof cause !== 'object') return undefined;
+  const root = cause as Record<string, unknown>;
+  const candidates: unknown[] = [root.error, root.cause, root];
+  for (const nested of candidates) {
+    if (!nested || typeof nested !== 'object') continue;
+    const obj = nested as Record<string, unknown>;
+    const metadata = obj.metadata;
+    if (metadata && typeof metadata === 'object') {
+      const raw = (metadata as Record<string, unknown>).raw;
+      if (typeof raw === 'string' && raw.trim()) {
+        try {
+          const parsed = JSON.parse(raw) as { error?: { message?: string } };
+          const inner = parsed.error?.message?.trim();
+          if (inner) return inner;
+        } catch {
+          return raw.trim().slice(0, 500);
+        }
+      }
+    }
+    const nestedMsg = typeof obj.message === 'string' ? obj.message.trim() : '';
+    if (nestedMsg && nestedMsg !== 'Provider returned error') return nestedMsg;
+  }
+  return undefined;
+}
+
+export function formatRuntimeErrorWithFallback(prefix: string, msg: string, cause?: unknown): string {
   const lower = msg.toLowerCase();
   const isMaxTurns = lower.includes('max turns') && lower.includes('exceeded');
   const isContaminatedToolName =
     lower.includes('tool ') &&
     lower.includes('not found') &&
     (msg.includes('<|channel|>') || msg.includes('<|'));
+  const providerDetail =
+    lower.includes('provider returned error') ? extractProviderErrorDetail(cause) : undefined;
+  const baseLine = providerDetail ? `${prefix}: ${msg}\nDetalhe: ${providerDetail}` : `${prefix}: ${msg}`;
   if (isContaminatedToolName) {
     return [
       'Nao consegui concluir porque o modelo devolveu uma chamada de tool com marcador interno de canal.',
       'O runtime remove esses marcadores da entrada; tente reenviar a ultima confirmacao se a conversa antiga ainda continha esse marcador.',
-      `Detalhe tecnico: ${prefix}: ${msg}`,
+      `Detalhe tecnico: ${baseLine}`,
     ].join('\n');
   }
-  if (!isMaxTurns) return `${prefix}: ${msg}`;
+  if (!isMaxTurns) return baseLine;
   return [
     'Nao consegui concluir este fluxo dentro do limite de interacoes do modelo.',
     'Para CRM, tente uma instrucao direta como:',
     '- "Liste todos os clientes cadastrados".',
     '- "Busque cliente pelo email pessoa@dominio.com".',
-    `Detalhe tecnico: ${prefix}: ${msg}`,
+    `Detalhe tecnico: ${baseLine}`,
   ].join('\n');
 }
 
@@ -294,7 +324,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
       const events: IAgentRunResult['events'] = [];
       if (input.taskType) events.push({ type: 'taskType', value: input.taskType });
       return {
-        finalOutput: formatRuntimeErrorWithFallback('Erro ao executar modelo', msg),
+        finalOutput: formatRuntimeErrorWithFallback('Erro ao executar modelo', msg, e),
         events,
       };
     }
@@ -349,7 +379,7 @@ export class OpenAIAgentsRuntimeProvider implements IAgentRuntimeProvider {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return {
-        finalOutput: formatRuntimeErrorWithFallback('Erro ao executar coordenador', msg),
+        finalOutput: formatRuntimeErrorWithFallback('Erro ao executar coordenador', msg, e),
         events: [],
       };
     }
