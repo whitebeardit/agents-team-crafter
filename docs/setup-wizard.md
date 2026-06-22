@@ -4,6 +4,8 @@ Guia para instalar o **TeamAgents / agents-team-crafter** numa máquina nova, se
 
 O wizard usa **Docker Compose** com **MongoDB local**, **Redis**, backend e frontend. Dados da aplicação (`data/`) ficam no clone; o daemon Docker rootless é **isolado por projeto** e não altera o Docker system-wide.
 
+No arranque, o assistente exibe o **logo ASCII Whitebeard** no terminal (arte completa com ≥ 84 colunas; versão compacta entre 60–83). Para desactivar a arte: `SETUP_NO_BANNER=1`. Respeita `NO_COLOR` nas linhas de subtítulo.
+
 ## Pré-requisitos
 
 1. **Node.js 20+** e **npm**

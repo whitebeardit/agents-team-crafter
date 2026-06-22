@@ -31,6 +31,7 @@ import {
   printSoTeamSharingHintBrief,
   soTeamConfirmPrompt,
 } from './lib/so-team-copy.mjs';
+import { printOpeningBanner, printSection } from './lib/ui.mjs';
 
 const NONINTERACTIVE = process.env.SETUP_NONINTERACTIVE === '1';
 
@@ -54,16 +55,6 @@ async function promptPassword(message) {
   return password({ message, mask: '*' });
 }
 
-function printBanner() {
-  console.log('');
-  console.log('=== TeamAgents — Assistente de instalação ===');
-  console.log('');
-  console.log('Este wizard configura uma instalação limpa via Docker Compose.');
-  console.log('Os dados ficam nesta pasta (.docker/ e data/).');
-  console.log('O Docker da sua máquina (outros projetos) não é alterado.');
-  console.log('');
-}
-
 async function checkDiskSpace() {
   try {
     const out = run('df', ['-h', PROJECT_ROOT], { inherit: false });
@@ -78,7 +69,7 @@ async function collectConfig() {
   const jwtSecret = opensslHex(32);
   const encryptionMasterKey = opensslHex(32);
 
-  console.log('\n--- Configuração base ---');
+  printSection('Configuração base');
   console.log('Secrets gerados automaticamente (JWT + ENCRYPTION_MASTER_KEY).');
 
   const configureLlm = await promptConfirm(
@@ -124,7 +115,7 @@ async function collectConfig() {
     );
   }
 
-  console.log('\n--- SO · Clínica Gold ---');
+  printSection('SO · Clínica Gold');
   printSoTeamIntro();
   printSoTeamSharingHint();
   console.log('');
@@ -163,7 +154,7 @@ async function collectConfig() {
         );
   }
 
-  console.log('\n--- Canais opcionais ---');
+  printSection('Canais opcionais');
 
   let slackSigningSecret;
   let slackBotToken;
@@ -179,7 +170,7 @@ async function collectConfig() {
     githubToken = await promptPassword('GitHub token');
   }
 
-  console.log('\n--- Telegram (recomendado) ---');
+  printSection('Telegram (recomendado)');
   console.log('Telegram permite receber mensagens no seu time de agentes.');
   console.log('Em localhost o webhook só funciona depois de expor a API (domínio ou túnel).');
 
@@ -228,7 +219,7 @@ async function collectConfig() {
 }
 
 async function main() {
-  printBanner();
+  printOpeningBanner();
   assertCleanInstall();
   await checkDiskSpace();
 
@@ -251,22 +242,22 @@ async function main() {
     github: config.githubToken ? { configured: true } : null,
   });
 
-  console.log('\n--- A iniciar Docker do projeto ---');
+  printSection('A iniciar Docker do projeto');
   run(join(SETUP_DIR, 'docker-project.sh'), ['start'], { inherit: true });
 
-  console.log('\n--- A construir e subir serviços (pode demorar na primeira vez) ---');
+  printSection('A construir e subir serviços (pode demorar na primeira vez)');
   run(join(SETUP_DIR, 'run-compose.sh'), ['up', '-d', '--build'], { inherit: true });
 
-  console.log('\n--- A aguardar serviços ---');
+  printSection('A aguardar serviços');
   await waitForHealth('http://127.0.0.1:3001/health', 'Backend');
   await waitForHealth('http://127.0.0.1:3002/', 'Frontend');
 
-  console.log('\n--- A popular base de dados (seed demo) ---');
+  printSection('A popular base de dados (seed demo)');
   run(join(SETUP_DIR, 'run-compose.sh'), ['--profile', 'seed', 'run', '--rm', 'seed'], {
     inherit: true,
   });
 
-  console.log('\n--- A aplicar integrações opcionais ---');
+  printSection('A aplicar integrações opcionais');
   run('node', [join(SETUP_DIR, 'post-setup.mjs')], { inherit: true });
 
   markComplete();
