@@ -1,3 +1,5 @@
+> **Documentação legada** — Bootstrap histórico; não reflecte o produto actual. Use [docs/README.md](./README.md) e [getting-started.md](./getting-started.md).
+
 # Fase 2 — Auth e tenant
 
 ## Objetivo

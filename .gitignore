@@ -28,6 +28,7 @@ yarn-error.log*
 # Root-level env (if any)
 .env
 .env.local
+resultado.md
 .env.*.local
 
 # Galeria local de imagens (backend MEDIA_GALLERY_ROOT default)

@@ -5,7 +5,18 @@
   A primeira plataforma completa para desenhar, operar e governar times de agentes de IA como produto em um workspace multi-tenant.
 </p>
 
+> **Não quer ler tudo agora?** Pergunte à IA como usar ou como funciona este projeto —
+> instalação, features, arquitetura, APIs e troubleshooting em linguagem natural.
+>
+> [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/whitebeardit/agents-team-crafter)
+
 > *Destaque: com `EMBEDDINGS_ENABLED=1`, o Second Brain recupera conhecimento por significado, melhora o contexto dos agentes e encontra notas úteis mesmo quando as palavras não batem exatamente.*
+
+<p align="center">
+  <strong>Demo online:</strong> <a href="https://myteams.whitebeard.dev">myteams.whitebeard.dev</a>
+  &nbsp;·&nbsp;
+  <strong>Documentação:</strong> <a href="./docs/README.md">docs/README.md</a>
+</p>
 
 <p align="center">
   <a href="#por-que-existe">Por que existe</a> |
@@ -286,6 +297,8 @@ As tools dão ação aos agentes. Elas permitem consultar sistemas, acessar dado
 
 Clientes e operadores não precisam aprender um sistema novo para cada processo. O TeamAgents centraliza canais de entrada e prepara o workspace para atuar onde a empresa já trabalha.
 
+> **Nota:** Slack, Telegram, Discord, Teams, GitHub, Linear e WhatsApp **operacionais** usam o **Chat SDK** (webhooks + segredos por workspace). A conexão nativa WhatsApp na UI é **preview/mock** — para WhatsApp em produção, configure via Chat SDK. E-mail como canal inbound completo está em evolução; veja [docs/maturidade.md](./docs/maturidade.md).
+
 <p align="center">
   <img alt="WhatsApp" src="https://img.shields.io/badge/WhatsApp-Canal-25D366?logo=whatsapp&logoColor=white" />
   <img alt="Telegram" src="https://img.shields.io/badge/Telegram-Canal-26A5E4?logo=telegram&logoColor=white" />
@@ -446,10 +459,9 @@ flowchart TB
   end
 
   subgraph DATA["Data & Knowledge"]
-    MONGO["MongoDB"]
-    POSTGRES["PostgreSQL"]
-    REDIS["Redis"]
-    BRAIN["Second Brain"]
+    MONGO["MongoDB — fonte de verdade"]
+    REDIS["Redis — opcional"]
+    BRAIN["Second Brain / Vault"]
   end
 
   USER --> NEXT
@@ -468,7 +480,6 @@ flowchart TB
   CHATSDK --> GITHUB
   CHATSDK --> LINEAR
   FASTIFY --> MONGO
-  FASTIFY --> POSTGRES
   FASTIFY --> REDIS
   ORCHESTRATION --> BRAIN
 ```
@@ -481,10 +492,12 @@ Este repositório é um monorepo com backend BFF em Fastify e frontend web em Ne
 
 ```text
 .
-├── backend/              # API BFF Fastify, rotas, persistência e integrações
-├── v0-team-ai-crafter/   # Aplicação web Next.js da plataforma
-├── docs/                 # Imagens e materiais de documentação
-└── docker-compose.yml    # Serviços de apoio para desenvolvimento local
+├── backend/                  # API BFF Fastify, rotas, persistência e integrações
+├── v0-team-ai-crafter/       # Aplicação web Next.js da plataforma
+├── docs/                     # Documentação (índice em docs/README.md)
+├── docker-compose.yaml       # Produção / Coolify (Atlas + Redis)
+├── docker-compose.setup.yaml # Wizard ./setup.sh (Mongo local)
+└── setup.sh                  # Instalação guiada (recomendado na primeira vez)
 ```
 
 ---
@@ -495,8 +508,25 @@ Este repositório é um monorepo com backend BFF em Fastify e frontend web em Ne
 >
 > **Primeira instalação (recomendado):** execute `./setup.sh` num clone limpo e siga o [Guia rápido em setup-wizard.md](./docs/setup-wizard.md#guia-rápido--primeira-instalação-para-testar) (Docker Compose + Mongo local; dados só nesta pasta).
 >
+> **Guia de 15 minutos:** [docs/getting-started.md](./docs/getting-started.md) — do clone ao primeiro run no Debug.
+>
 > Guia manual completo: [docs/rodando-localmente.md](./docs/rodando-localmente.md).
 > Ele cobre pré-requisitos, arquivos `.env`, MongoDB/Redis, seed, IA, modelos de imagem e testes locais.
+
+### Portas por modo de execução
+
+| Modo | Frontend | Backend / API | Notas |
+| --- | --- | --- | --- |
+| **Wizard** (`./setup.sh`) | `http://localhost:3002` | `http://localhost:3001` / `/api/v1` | Usa `docker-compose.setup.yaml` |
+| **Dev manual** (`npm run dev`) | `http://localhost:3000` | `http://localhost:3001` / `/api/v1` | Mongo/Redis à parte; ver [rodando-localmente.md](./docs/rodando-localmente.md) |
+| **Compose raiz** (`docker compose up`) | conforme `.env` | conforme `.env` | `docker-compose.yaml` — não inclui Mongo local |
+
+### Qual Docker Compose usar
+
+| Ficheiro | Quando usar |
+| --- | --- |
+| `docker-compose.setup.yaml` | Primeira instalação via `./setup.sh` (Mongo local em `data/mongo/`) |
+| `docker-compose.yaml` | Produção / Coolify com MongoDB Atlas |
 
 ### Backend
 
@@ -547,7 +577,7 @@ Este projeto é **código aberto** e está licenciado sob a **Whitebeard Non-Com
 
 ## Contribuições da comunidade
 
-Contribuições são bem-vindas para fortalecer e evoluir o projeto.
+Contribuições são bem-vindas para fortalecer e evoluir o projeto. Ver [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 Você pode contribuir:
 
