@@ -29,6 +29,8 @@ O assistente pergunta:
 
 Secrets base (`JWT`, `ENCRYPTION_MASTER_KEY`) são gerados automaticamente.
 
+**Chave de IA:** cole **apenas o valor** (ex.: `sk-or-v1-...`), **sem** `OPENROUTER_API_KEY=` ou `OPENAI_API_KEY=`. O wizard valida a chave com o provider antes de concluir; se colar a linha completa do `.env`, a autenticação falha com `401 Missing Authentication header` na consola do time.
+
 ## Depois da instalação
 
 | Item | Valor |
@@ -103,7 +105,11 @@ O wizard **corre o seed** no passo final (após backend e frontend healthy), usa
 - Tools de catálogo operacional listadas em **Configurações → Integrações** (`web_search`, `web_fetch`, `image_generation`) aparecem quando há chave OpenRouter/OpenAI — não são registos em `/tool-definitions`
 - Tools do coordenador em runtime (second-brain, specialists) — injectadas pelo backend durante execução, não aparecem na lista de definitions
 
-**Validar instalação:** login demo → time **Atendimento WhatsApp** → Debug com mensagem simples; o coordenador deve responder sem erro 400.
+**Validar instalação:** login demo → time **Atendimento WhatsApp** → Debug com mensagem simples; o coordenador deve responder sem erro 400/401.
+
+### "401 Missing Authentication header" na consola do time
+
+Quase sempre a chave OpenRouter/OpenAI no `.env` ou em **Configurações → Integrações** foi colada com o prefixo da variável (ex.: `OPENROUTER_API_KEY=sk-or-...` em vez de só `sk-or-...`). Corrija o `.env`, recrie o backend (`run-compose.sh up -d --force-recreate backend`) e execute `node scripts/setup/post-setup.mjs` para regravar integrações no workspace.
 
 ## Limitações
 

@@ -25,6 +25,54 @@ export function opensslHex(bytes = 32) {
   return execSync(`openssl rand -hex ${bytes}`, { encoding: 'utf8' }).trim();
 }
 
+/**
+ * Normaliza input colado pelo utilizador (ex.: `OPENROUTER_API_KEY=sk-or-...` em vez de só `sk-or-...`).
+ */
+export function normalizeSecretInput(raw, varName) {
+  if (raw == null || typeof raw !== 'string') return '';
+  let value = raw.trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1).trim();
+  }
+  const prefix = `${varName}=`;
+  while (value.startsWith(prefix)) {
+    value = value.slice(prefix.length).trim();
+  }
+  return value;
+}
+
+/** @param {'openai' | 'openrouter'} provider */
+export async function verifyLlmApiKey(provider, apiKey) {
+  const key = apiKey?.trim();
+  if (!key) return;
+
+  if (provider === 'openrouter') {
+    const res = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) {
+      throw new Error(
+        `Chave OpenRouter inválida (${res.status}). Cole apenas o valor (ex.: sk-or-v1-...), sem OPENROUTER_API_KEY=.`,
+      );
+    }
+    return;
+  }
+
+  if (provider === 'openai') {
+    const res = await fetch('https://api.openai.com/v1/models', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) {
+      throw new Error(
+        `Chave OpenAI inválida (${res.status}). Cole apenas o valor (ex.: sk-...), sem OPENAI_API_KEY=.`,
+      );
+    }
+  }
+}
+
 export function dirHasFiles(path) {
   if (!existsSync(path)) return false;
   try {
@@ -90,11 +138,14 @@ export function writeEnv(config) {
   if (config.llmProvider) {
     lines.push(`LLM_PROVIDER=${config.llmProvider}`);
   }
-  if (config.openaiApiKey) {
-    lines.push(`OPENAI_API_KEY=${config.openaiApiKey}`);
+  const openaiApiKey = normalizeSecretInput(config.openaiApiKey, 'OPENAI_API_KEY');
+  const openrouterApiKey = normalizeSecretInput(config.openrouterApiKey, 'OPENROUTER_API_KEY');
+
+  if (openaiApiKey) {
+    lines.push(`OPENAI_API_KEY=${openaiApiKey}`);
   }
-  if (config.openrouterApiKey) {
-    lines.push(`OPENROUTER_API_KEY=${config.openrouterApiKey}`);
+  if (openrouterApiKey) {
+    lines.push(`OPENROUTER_API_KEY=${openrouterApiKey}`);
     lines.push(`OPENROUTER_HTTP_REFERER=${config.openrouterHttpReferer}`);
     lines.push(`OPENROUTER_APP_TITLE=${config.openrouterAppTitle}`);
     lines.push(`OPENROUTER_ATTRIBUTION_APP=${config.openrouterAttributionApp}`);
@@ -156,6 +207,12 @@ export function parseEnvFile(path = join(PROJECT_ROOT, '.env')) {
 
 export function loadProjectEnv() {
   const parsed = parseEnvFile();
+  if (parsed.OPENAI_API_KEY) {
+    parsed.OPENAI_API_KEY = normalizeSecretInput(parsed.OPENAI_API_KEY, 'OPENAI_API_KEY');
+  }
+  if (parsed.OPENROUTER_API_KEY) {
+    parsed.OPENROUTER_API_KEY = normalizeSecretInput(parsed.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY');
+  }
   for (const [k, v] of Object.entries(parsed)) {
     if (process.env[k] === undefined) process.env[k] = v;
   }

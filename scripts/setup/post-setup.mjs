@@ -2,7 +2,7 @@
 /**
  * Pós-setup: login, integrações LLM no workspace, canal Telegram (sem register-webhook).
  */
-import { loadProjectEnv, readSetupManifest } from './lib/utils.mjs';
+import { loadProjectEnv, normalizeSecretInput, readSetupManifest, verifyLlmApiKey } from './lib/utils.mjs';
 
 const API_BASE = process.env.SETUP_API_URL || 'http://127.0.0.1:3001/api/v1';
 const ADMIN_EMAIL = 'admin@whitebeard.dev';
@@ -53,13 +53,18 @@ async function main() {
 
   const integrationsBody = {};
   const llmProvider = env.LLM_PROVIDER || manifest.llmProvider;
-  if (llmProvider === 'openai' && env.OPENAI_API_KEY) {
+  const openaiKey = normalizeSecretInput(env.OPENAI_API_KEY, 'OPENAI_API_KEY');
+  const openrouterKey = normalizeSecretInput(env.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY');
+
+  if (llmProvider === 'openai' && openaiKey) {
+    await verifyLlmApiKey('openai', openaiKey);
     integrationsBody.llmProvider = 'openai';
-    integrationsBody.openaiApiKey = env.OPENAI_API_KEY;
+    integrationsBody.openaiApiKey = openaiKey;
   }
-  if (llmProvider === 'openrouter' && env.OPENROUTER_API_KEY) {
+  if (llmProvider === 'openrouter' && openrouterKey) {
+    await verifyLlmApiKey('openrouter', openrouterKey);
     integrationsBody.llmProvider = 'openrouter';
-    integrationsBody.openrouterApiKey = env.OPENROUTER_API_KEY;
+    integrationsBody.openrouterApiKey = openrouterKey;
   }
 
   if (Object.keys(integrationsBody).length > 0) {

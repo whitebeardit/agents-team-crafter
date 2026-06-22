@@ -10,8 +10,10 @@ import {
   assertCleanInstall,
   ensureDataDirs,
   markComplete,
+  normalizeSecretInput,
   opensslHex,
   run,
+  verifyLlmApiKey,
   waitForHealth,
   writeEnv,
   writeSetupManifest,
@@ -84,13 +86,24 @@ async function collectConfig() {
       ],
       'openrouter',
     );
-    const key = await promptPassword(`Chave API (${llmProvider})`);
+    const rawKey = await promptPassword(`Chave API (${llmProvider}) — cole só o valor, sem ${llmProvider === 'openai' ? 'OPENAI_API_KEY=' : 'OPENROUTER_API_KEY='}`);
+    const key = normalizeSecretInput(
+      rawKey,
+      llmProvider === 'openai' ? 'OPENAI_API_KEY' : 'OPENROUTER_API_KEY',
+    );
     if (!key) {
       console.log('  Aviso: nenhuma chave informada — configure depois em Settings > Integrations.');
-    } else if (llmProvider === 'openai') {
-      openaiApiKey = key;
     } else {
-      openrouterApiKey = key;
+      if (process.env.SETUP_SKIP_LLM_VERIFY !== '1') {
+        console.log('  A validar chave com o provider...');
+        await verifyLlmApiKey(llmProvider, key);
+        console.log('  Chave OK.');
+      }
+      if (llmProvider === 'openai') {
+        openaiApiKey = key;
+      } else {
+        openrouterApiKey = key;
+      }
     }
   } else {
     console.log(
