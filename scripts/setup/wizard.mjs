@@ -7,11 +7,17 @@ import { join } from 'node:path';
 import {
   PROJECT_ROOT,
   SETUP_DIR,
+  SO_DEMO_TEAM_URL,
+  SO_TEAM_VALIDATION_PROMPT,
   assertCleanInstall,
   ensureDataDirs,
+  isDemoSiteReachable,
+  isSoClinicEnabledFromEnv,
   markComplete,
   normalizeSecretInput,
   opensslHex,
+  readSetupResult,
+  resolveSoTeamSourceFromEnv,
   run,
   verifyLlmApiKey,
   waitForHealth,
@@ -111,6 +117,49 @@ async function collectConfig() {
     );
   }
 
+  console.log('\n--- SO · Clínica Gold ---');
+  console.log('');
+  console.log('O time «SO Clínica Conversacional» usa o domínio Clínica Gold (clinic_ops):');
+  console.log('7 agentes (coordenadora + especialistas), internal actions clinic_*.');
+  console.log('');
+
+  const enableSoClinicGold = NONINTERACTIVE
+    ? isSoClinicEnabledFromEnv()
+    : await promptConfirm(
+        'Instalar / configurar este time após a instalação?',
+        true,
+      );
+
+  let soTeamSource;
+  if (enableSoClinicGold) {
+    if (!NONINTERACTIVE) {
+      const demoReachable = await isDemoSiteReachable();
+      if (!demoReachable) {
+        console.log('');
+        console.log('  Aviso: o site demo parece indisponível neste momento.');
+        console.log('  A opção «JSON incluído» não depende do demo.');
+        console.log('');
+      }
+    }
+
+    soTeamSource = NONINTERACTIVE
+      ? resolveSoTeamSourceFromEnv()
+      : await promptSelect(
+          'Como deseja obter o time «SO Clínica Conversacional»?',
+          [
+            {
+              name: `Exportar do site demo (${SO_DEMO_TEAM_URL}) e importar na UI local`,
+              value: 'demo-manual',
+            },
+            {
+              name: 'Importar directamente do JSON incluído no assistente (recomendado se o demo estiver offline)',
+              value: 'bundled',
+            },
+          ],
+          'bundled',
+        );
+  }
+
   console.log('\n--- Canais opcionais ---');
 
   let slackSigningSecret;
@@ -170,6 +219,8 @@ async function collectConfig() {
     githubToken,
     telegramBotToken,
     telegramSecretToken,
+    enableSoClinicGold,
+    soTeamSource,
   };
 }
 
@@ -188,6 +239,8 @@ async function main() {
     llmProvider: config.llmProvider,
     hasOpenAiKey: Boolean(config.openaiApiKey),
     hasOpenRouterKey: Boolean(config.openrouterApiKey),
+    enableSoClinicGold: Boolean(config.enableSoClinicGold),
+    soTeamSource: config.soTeamSource ?? null,
     telegram: config.telegramBotToken
       ? { botToken: config.telegramBotToken, secretToken: config.telegramSecretToken }
       : null,
@@ -215,12 +268,27 @@ async function main() {
 
   markComplete();
 
+  const setupResult = readSetupResult();
+
   console.log('\n=== Instalação concluída ===\n');
   console.log('  App:      http://localhost:3002');
   console.log('  API:      http://localhost:3001/api/v1');
   console.log('  Login:    admin@whitebeard.dev');
   console.log('  Senha:    Admin123!');
   console.log('');
+
+  if (config.enableSoClinicGold) {
+    if (setupResult?.soTeamSource === 'bundled' && setupResult?.soTeamId) {
+      console.log('  Time SO:  http://localhost:3002/teams/' + setupResult.soTeamId);
+      console.log('  Debug:    prompt «' + SO_TEAM_VALIDATION_PROMPT + '»');
+    } else if (setupResult?.soTeamSource === 'demo-manual') {
+      console.log('  Próximo passo: exportar o time SO do demo e importar na UI local.');
+      console.log('  Demo:     ' + SO_DEMO_TEAM_URL);
+      console.log('  Debug:    prompt «' + SO_TEAM_VALIDATION_PROMPT + '»');
+    }
+    console.log('');
+  }
+
   console.log('Parar:  scripts/setup/run-compose.sh down');
   console.log('Docs:   docs/setup-wizard.md');
   console.log('');

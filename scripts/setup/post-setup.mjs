@@ -1,8 +1,19 @@
 #!/usr/bin/env node
 /**
- * Pós-setup: login, integrações LLM no workspace, canal Telegram (sem register-webhook).
+ * Pós-setup: login, integrações LLM, canal Telegram, import SO Clínica Gold (opcional).
  */
-import { loadProjectEnv, normalizeSecretInput, readSetupManifest, verifyLlmApiKey } from './lib/utils.mjs';
+import { readFileSync } from 'node:fs';
+import {
+  SO_TEAM_EXPORT_PATH,
+  assertSoTeamExportShape,
+  isDemoSiteReachable,
+  loadProjectEnv,
+  normalizeSecretInput,
+  readSetupManifest,
+  verifyLlmApiKey,
+  writeSetupResult,
+} from './lib/utils.mjs';
+import { printSoBundledSuccess, printSoDemoManualGuide } from './lib/so-team-guide.mjs';
 
 const API_BASE = process.env.SETUP_API_URL || 'http://127.0.0.1:3001/api/v1';
 const ADMIN_EMAIL = 'admin@whitebeard.dev';
@@ -24,6 +35,27 @@ async function api(path, opts = {}) {
     throw new Error(`${opts.method || 'GET'} ${path}: ${msg}`);
   }
   return json?.data ?? json;
+}
+
+async function importBundledSoTeam(tenantHeaders) {
+  const payload = JSON.parse(readFileSync(SO_TEAM_EXPORT_PATH, 'utf8'));
+  assertSoTeamExportShape(payload);
+  console.log('  A importar time SO Clínica Conversacional (JSON bundled)...');
+  const result = await api('/teams/import', {
+    method: 'POST',
+    headers: tenantHeaders,
+    body: { payload, forceCreate: true },
+  });
+  const teamId = result.teamId;
+  if (!teamId) throw new Error('Import SO OK mas teamId em falta na resposta');
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  writeSetupResult({
+    soTeamId: teamId,
+    soTeamSource: 'bundled',
+    importWarnings: warnings,
+  });
+  printSoBundledSuccess({ teamId, warnings });
+  return teamId;
 }
 
 async function main() {
@@ -109,10 +141,27 @@ async function main() {
     console.log('  Webhook NÃO registado — configure URL pública depois (docs/setup-wizard.md).');
   }
 
+  if (manifest.enableSoClinicGold) {
+    if (manifest.soTeamSource === 'bundled') {
+      await importBundledSoTeam(tenantHeaders);
+    } else {
+      const demoReachable = await isDemoSiteReachable();
+      writeSetupResult({
+        soTeamSource: 'demo-manual',
+        demoReachable,
+      });
+      printSoDemoManualGuide({ demoReachable });
+    }
+  }
+
   console.log('  Pós-setup concluído.');
 }
 
-main().catch((err) => {
-  console.error('  Erro no pós-setup:', err.message || err);
-  process.exit(1);
-});
+export { main as runPostSetup };
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    console.error('  Erro no pós-setup:', err.message || err);
+    process.exit(1);
+  });
+}

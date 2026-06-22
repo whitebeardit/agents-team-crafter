@@ -24,12 +24,40 @@ cd /media/whitebeard/OS/DEV/agents-team-crafter
 O assistente pergunta:
 
 - Se quer configurar **IA** (OpenRouter ou OpenAI) — opcional
+- Se quer instalar o time **SO Clínica Conversacional** (Clínica Gold) — recomendado
+  - **Exportar do site demo** e importar na UI local, ou
+  - **Importar do JSON incluído** no assistente (offline / mais rápido)
 - **Slack** e **GitHub** — opcionais
 - **Telegram** — **recomendado**, mas pode **pular**
 
 Secrets base (`JWT`, `ENCRYPTION_MASTER_KEY`) são gerados automaticamente.
 
 **Chave de IA:** cole **apenas o valor** (ex.: `sk-or-v1-...`), **sem** `OPENROUTER_API_KEY=` ou `OPENAI_API_KEY=`. O wizard valida a chave com o provider antes de concluir; se colar a linha completa do `.env`, a autenticação falha com `401 Missing Authentication header` na consola do time.
+
+## SO · Clínica Gold (time demo)
+
+O wizard pergunta se deseja configurar o time **SO Clínica Conversacional** (domínio **Clínica Gold**, 7 agentes, internal actions `clinic_*`).
+
+| Opção no wizard | Manifest | Pós-setup |
+|-----------------|----------|-----------|
+| Exportar do [site demo](https://myteams.whitebeard.dev/teams/69ffdf3bc6d1b9ca5d782a34) e importar na UI | `soTeamSource: demo-manual` | Guia passo a passo (sem auto-import) |
+| Importar do JSON incluído no assistente | `soTeamSource: bundled` | `POST /api/v1/teams/import` automático |
+
+JSON bundled (versionado): `scripts/setup/data/team-so-clinica-conversacional.json`
+
+**Validar instalação:** abra o time SO → aba **Debug** → envie:
+
+```
+Cadastre um paciente
+```
+
+### Variáveis (CI / não interactivo)
+
+| Variável | Efeito |
+|----------|--------|
+| `SETUP_ENABLE_SO_CLINIC=0` | Pula a secção SO |
+| `SETUP_SO_TEAM_SOURCE=demo` | Origem demo (`demo-manual`) |
+| `SETUP_SO_TEAM_SOURCE=bundled` | Import automático do JSON bundled (default CI) |
 
 ## Depois da instalação
 
@@ -75,7 +103,7 @@ Manutenção (cuidado): `SETUP_FORCE=1 ./setup.sh`
 SETUP_NONINTERACTIVE=1 ./setup.sh
 ```
 
-Variáveis opcionais: `SETUP_LLM_API_KEY`, `SETUP_TELEGRAM_BOT_TOKEN`, `SETUP_TELEGRAM_SECRET_TOKEN`.
+Variáveis opcionais: `SETUP_LLM_API_KEY`, `SETUP_TELEGRAM_BOT_TOKEN`, `SETUP_TELEGRAM_SECRET_TOKEN`, `SETUP_ENABLE_SO_CLINIC`, `SETUP_SO_TEAM_SOURCE`.
 
 ## O que fica onde
 
@@ -95,17 +123,19 @@ O wizard **corre o seed** no passo final (após backend e frontend healthy), usa
 **Incluído pelo `seed-demo.ts`:**
 
 - Utilizador admin: `admin@whitebeard.dev` / `Admin123!`
-- Workspaces, agentes e time demo **Atendimento WhatsApp**
-- Canais, templates e ligações MCP de exemplo
+- Workspaces demo (Workspace Alpha **enterprise**, sem agentes/times pré-criados)
+- Templates de exemplo, ligações MCP e bases de conhecimento
 - Integrações LLM (OpenRouter/OpenAI) aplicadas via `post-setup.mjs` quando configurou chaves no wizard
+- Time **SO Clínica Conversacional** quando escolheu import bundled no wizard (via `POST /teams/import`)
 
-**Não incluído pelo seed:**
+**Não incluído pelo seed (instalação limpa):**
 
-- **Tool definitions de negócio** (`/tool-definitions`) — ficam vazias após instalação limpa; crie via UI, planner ou bulk internal-action quando precisar de ações CRM/clínica
+- Agentes e times no workspace — excepto se o wizard importou o SO bundled
+- **Tool definitions de negócio** (`/tool-definitions`) — o import SO cria definitions `clinic_*` via internal actions; caso contrário ficam vazias
 - Tools de catálogo operacional listadas em **Configurações → Integrações** (`web_search`, `web_fetch`, `image_generation`) aparecem quando há chave OpenRouter/OpenAI — não são registos em `/tool-definitions`
 - Tools do coordenador em runtime (second-brain, specialists) — injectadas pelo backend durante execução, não aparecem na lista de definitions
 
-**Validar instalação:** login demo → time **Atendimento WhatsApp** → Debug com mensagem simples; o coordenador deve responder sem erro 400/401.
+**Validar instalação:** login demo → time **SO Clínica Conversacional** (se import bundled ou import manual) → Debug com `Cadastre um paciente`; o coordenador deve responder sem erro 400/401.
 
 ### "401 Missing Authentication header" na consola do time
 

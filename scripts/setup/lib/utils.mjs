@@ -7,6 +7,82 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export const SETUP_DIR = join(__dirname, '..');
 export const PROJECT_ROOT = join(__dirname, '../../..');
 
+/** Time SO Clínica Conversacional — export v2 bundled com o wizard. */
+export const SO_TEAM_EXPORT_PATH = join(SETUP_DIR, 'data/team-so-clinica-conversacional.json');
+
+export const SO_DEMO_TEAM_URL =
+  process.env.SETUP_DEMO_TEAM_URL ||
+  'https://myteams.whitebeard.dev/teams/69ffdf3bc6d1b9ca5d782a34';
+
+export const SO_DEMO_SITE_PROBE_URL =
+  process.env.SETUP_DEMO_PROBE_URL || 'https://myteams.whitebeard.dev/';
+
+export const SO_TEAM_VALIDATION_PROMPT = 'Cadastre um paciente';
+
+/** @returns {'demo-manual' | 'bundled'} */
+export function resolveSoTeamSourceFromEnv() {
+  const raw = (process.env.SETUP_SO_TEAM_SOURCE || 'bundled').trim().toLowerCase();
+  if (raw === 'demo' || raw === 'demo-manual') return 'demo-manual';
+  return 'bundled';
+}
+
+export function isSoClinicEnabledFromEnv() {
+  return process.env.SETUP_ENABLE_SO_CLINIC !== '0';
+}
+
+export function readSoTeamExportPayload() {
+  if (!existsSync(SO_TEAM_EXPORT_PATH)) {
+    throw new Error(`Export SO em falta: ${SO_TEAM_EXPORT_PATH}`);
+  }
+  return JSON.parse(readFileSync(SO_TEAM_EXPORT_PATH, 'utf8'));
+}
+
+/** Valida estrutura mínima do export SO (7 agentes, export v2). */
+export function assertSoTeamExportShape(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Export SO: payload inválido');
+  }
+  if (payload.exportKind !== 'team' || payload.exportVersion !== '2') {
+    throw new Error('Export SO: exportKind team v2 esperado');
+  }
+  const agents = payload.agents;
+  if (!Array.isArray(agents) || agents.length !== 7) {
+    throw new Error(`Export SO: esperados 7 agentes, recebidos ${agents?.length ?? 0}`);
+  }
+  const teamName = payload.team?.name;
+  if (teamName !== 'SO Clínica Conversacional') {
+    throw new Error(`Export SO: nome inesperado "${teamName}"`);
+  }
+}
+
+export async function isDemoSiteReachable(timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(SO_DEMO_SITE_PROBE_URL, {
+      method: 'HEAD',
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+    return res.ok || res.status === 401 || res.status === 403;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function writeSetupResult(result) {
+  mkdirSync(join(PROJECT_ROOT, '.setup'), { recursive: true });
+  writeFileSync(join(PROJECT_ROOT, '.setup/result.json'), JSON.stringify(result, null, 2), 'utf8');
+}
+
+export function readSetupResult() {
+  const p = join(PROJECT_ROOT, '.setup/result.json');
+  if (!existsSync(p)) return null;
+  return JSON.parse(readFileSync(p, 'utf8'));
+}
+
 export function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, {
     cwd: PROJECT_ROOT,
