@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard da plataforma TeamAgents" width="720" />
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard da plataforma TeamAgents" height="550" />
 </p>
 
 <p align="center">
@@ -227,7 +227,7 @@ flowchart LR
 O dashboard reúne times, canais, execuções e conhecimento em uma única tela. É o ponto de partida para líderes e builders entenderem o que está ativo, o que precisa de atenção e quais módulos devem ser acessados.
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Visão geral do dashboard" width="720" />
+  <img src="docs/screenshots/dashboard.png" alt="Visão geral do dashboard" height="550" />
 </p>
 
 ### AI Team Crafter
@@ -245,7 +245,7 @@ A plataforma pode transformar esse objetivo em uma equipe com agente de triagem,
 Abandone chatbots genéricos. Organize especialistas digitais com função clara, escopo definido, competências, tools e papel dentro da operação.
 
 <p align="center">
-  <img src="docs/screenshots/agents.png" alt="Catálogo de agentes disponíveis" width="720" />
+  <img src="docs/screenshots/agents.png" alt="Catálogo de agentes disponíveis" height="550" />
 </p>
 
 ### Catálogo de times
@@ -253,7 +253,7 @@ Abandone chatbots genéricos. Organize especialistas digitais com função clara
 Visualize e compare equipes digitais prontas para diferentes áreas: backoffice, vendas, atendimento, análise documental, suporte, jurídico, financeiro ou qualquer fluxo corporativo.
 
 <p align="center">
-  <img src="docs/screenshots/teams.png" alt="Catálogo de times de agentes" width="720" />
+  <img src="docs/screenshots/teams.png" alt="Catálogo de times de agentes" height="550" />
 </p>
 
 ### Console do time
@@ -261,7 +261,7 @@ Visualize e compare equipes digitais prontas para diferentes áreas: backoffice,
 Cada time possui uma área operacional própria, com missão, membros, capacidades, sinais de execução e atalhos para grafo, escritório virtual, ferramentas e integrações.
 
 <p align="center">
-  <img src="docs/screenshots/team-console.png" alt="Console operacional de um time de agentes" width="720" />
+  <img src="docs/screenshots/team-console.png" alt="Console operacional de um time de agentes" height="550" />
 </p>
 
 ### Orquestração em grafo
@@ -269,7 +269,7 @@ Cada time possui uma área operacional própria, com missão, membros, capacidad
 Chega de achismos. O grafo mostra como os agentes colaboram, quem coordena, quem executa, quem valida e quais caminhos a execução pode seguir.
 
 <p align="center">
-  <img src="docs/screenshots/team-graph.png" alt="Grafo de orquestração de um time" width="720" />
+  <img src="docs/screenshots/team-graph.png" alt="Grafo de orquestração de um time" height="550" />
 </p>
 
 ### Tools e integrações operacionais
@@ -277,7 +277,7 @@ Chega de achismos. O grafo mostra como os agentes colaboram, quem coordena, quem
 As tools dão ação aos agentes. Elas permitem consultar sistemas, acessar dados, chamar APIs, registrar informações, executar tarefas e integrar a IA à infraestrutura real da empresa.
 
 <p align="center">
-  <img src="docs/screenshots/tools.png" alt="Catálogo de ferramentas conectáveis aos agentes" width="720" />
+  <img src="docs/screenshots/tools.png" alt="Catálogo de ferramentas conectáveis aos agentes" height="550" />
 </p>
 
 ### Canais onde o negócio já acontece
@@ -296,7 +296,7 @@ Clientes e operadores não precisam aprender um sistema novo para cada processo.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/channels.png" alt="Canais conectados à plataforma" width="720" />
+  <img src="docs/screenshots/channels.png" alt="Canais conectados à plataforma" height="550" />
 </p>
 
 ### Escritório virtual
@@ -304,7 +304,7 @@ Clientes e operadores não precisam aprender um sistema novo para cada processo.
 O escritório virtual desfaz a caixa preta da IA. Ele permite acompanhar o time digital trabalhando, com timeline, status, contexto e sinais visuais de progresso.
 
 <p align="center">
-  <img src="docs/screenshots/team-office.png" alt="Escritório virtual do time de agentes" width="720" />
+  <img src="docs/screenshots/team-office.png" alt="Escritório virtual do time de agentes" height="550" />
 </p>
 
 ### Execuções auditáveis
@@ -312,7 +312,7 @@ O escritório virtual desfaz a caixa preta da IA. Ele permite acompanhar o time 
 A plataforma registra o histórico de execuções para responder o que foi executado, quando aconteceu, quais agentes participaram, qual caminho lógico foi seguido e qual foi o resultado.
 
 <p align="center">
-  <img src="docs/screenshots/executions.png" alt="Histórico de execuções dos agentes" width="720" />
+  <img src="docs/screenshots/executions.png" alt="Histórico de execuções dos agentes" height="550" />
 </p>
 
 ### Governança para produção
@@ -320,7 +320,7 @@ A plataforma registra o histórico de execuções para responder o que foi execu
 Colocar IA em produção exige responsabilidade. O módulo de governança centraliza regras, limites, controles, trilhas e evidências para ambientes corporativos.
 
 <p align="center">
-  <img src="docs/screenshots/governance.png" alt="Painel de governança da plataforma" width="720" />
+  <img src="docs/screenshots/governance.png" alt="Painel de governança da plataforma" height="550" />
 </p>
 
 ### Observabilidade constante
@@ -328,7 +328,7 @@ Colocar IA em produção exige responsabilidade. O módulo de governança centra
 A operação precisa ser medida. O módulo de observabilidade ajuda a acompanhar saúde, métricas, tendências, gargalos e comportamento dos times digitais ao longo do tempo.
 
 <p align="center">
-  <img src="docs/screenshots/observability.png" alt="Painel de observabilidade operacional" width="720" />
+  <img src="docs/screenshots/observability.png" alt="Painel de observabilidade operacional" height="550" />
 </p>
 
 ### Second Brain: memória viva da corporação
@@ -336,7 +336,7 @@ A operação precisa ser medida. O módulo de observabilidade ajuda a acompanhar
 O Second Brain mantém documentação, políticas, contexto e conhecimento próximos dos agentes. O objetivo é reduzir improviso e aproximar operação, documentação e tomada de decisão.
 
 <p align="center">
-  <img src="docs/screenshots/workspace-second-brain.png" alt="Second Brain do workspace" width="720" />
+  <img src="docs/screenshots/workspace-second-brain.png" alt="Second Brain do workspace" height="550" />
 </p>
 
 ### Templates para escalar o que funciona
@@ -344,7 +344,7 @@ O Second Brain mantém documentação, políticas, contexto e conhecimento próx
 Quando uma operação atinge maturidade, ela pode virar template. Assim, times, grafos, playbooks e modelos de execução podem ser reutilizados em novos contextos, departamentos, clientes ou verticais.
 
 <p align="center">
-  <img src="docs/screenshots/templates.png" alt="Galeria de templates da plataforma" width="720" />
+  <img src="docs/screenshots/templates.png" alt="Galeria de templates da plataforma" height="550" />
 </p>
 
 ### Administração do workspace
@@ -352,11 +352,11 @@ Quando uma operação atinge maturidade, ela pode virar template. Assim, times, 
 O workspace inclui áreas para configurações, times, convites e integrações. Isso permite escalar o uso da plataforma com organização, separação de responsabilidades e controle operacional.
 
 <p align="center">
-  <img src="docs/screenshots/workspace-settings-teams-invites.png" alt="Configurações, times e convites do workspace" width="720" />
+  <img src="docs/screenshots/workspace-settings-teams-invites.png" alt="Configurações, times e convites do workspace" height="550" />
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/workspace-integrations.png" alt="Integrações configuráveis do workspace" width="720" />
+  <img src="docs/screenshots/workspace-integrations.png" alt="Integrações configuráveis do workspace" height="550" />
 </p>
 
 ---
