@@ -591,7 +591,15 @@ Você pode contribuir:
 
 Se este projeto te ajuda e você quiser apoiar sua continuidade, considere uma doação:
 
-👉 https://buymeacoffee.com/almerindo
+<p align="center">
+  <a href="https://www.buymeacoffee.com/almerindo" target="_blank">
+    <img
+      src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+      alt="Buy Me A Coffee"
+      height="45"
+    />
+  </a>
+</p>
 
 ---
 
