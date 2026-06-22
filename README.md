@@ -479,7 +479,9 @@ Este repositório é um monorepo com backend BFF em Fastify e frontend web em Ne
 
 ## Rodando localmente
 
-> **Instalação guiada (recomendada para primeira vez):** [docs/setup-wizard.md](./docs/setup-wizard.md) — execute `./setup.sh` num clone limpo (Docker Compose + Mongo local, dados só nesta pasta).
+> **Demo online:** [https://myteams.whitebeard.dev](https://myteams.whitebeard.dev) — explore a plataforma antes de instalar.
+>
+> **Primeira instalação (recomendado):** execute `./setup.sh` num clone limpo e siga o [Guia rápido em setup-wizard.md](./docs/setup-wizard.md#guia-rápido--primeira-instalação-para-testar) (Docker Compose + Mongo local; dados só nesta pasta).
 >
 > Guia manual completo: [docs/rodando-localmente.md](./docs/rodando-localmente.md).
 > Ele cobre pré-requisitos, arquivos `.env`, MongoDB/Redis, seed, IA, modelos de imagem e testes locais.
