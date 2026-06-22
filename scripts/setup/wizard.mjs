@@ -24,6 +24,13 @@ import {
   writeEnv,
   writeSetupManifest,
 } from './lib/utils.mjs';
+import {
+  SO_TEAM_NAME,
+  printSoTeamIntro,
+  printSoTeamSharingHint,
+  printSoTeamSharingHintBrief,
+  soTeamConfirmPrompt,
+} from './lib/so-team-copy.mjs';
 
 const NONINTERACTIVE = process.env.SETUP_NONINTERACTIVE === '1';
 
@@ -118,17 +125,13 @@ async function collectConfig() {
   }
 
   console.log('\n--- SO · Clínica Gold ---');
-  console.log('');
-  console.log('O time «SO Clínica Conversacional» usa o domínio Clínica Gold (clinic_ops):');
-  console.log('7 agentes (coordenadora + especialistas), internal actions clinic_*.');
+  printSoTeamIntro();
+  printSoTeamSharingHint();
   console.log('');
 
   const enableSoClinicGold = NONINTERACTIVE
     ? isSoClinicEnabledFromEnv()
-    : await promptConfirm(
-        'Instalar / configurar este time após a instalação?',
-        true,
-      );
+    : await promptConfirm(soTeamConfirmPrompt(), true);
 
   let soTeamSource;
   if (enableSoClinicGold) {
@@ -145,14 +148,14 @@ async function collectConfig() {
     soTeamSource = NONINTERACTIVE
       ? resolveSoTeamSourceFromEnv()
       : await promptSelect(
-          'Como deseja obter o time «SO Clínica Conversacional»?',
+          `Como deseja obter o time «${SO_TEAM_NAME}»?`,
           [
             {
-              name: `Exportar do site demo (${SO_DEMO_TEAM_URL}) e importar na UI local`,
+              name: 'Exportar do site demo e importar na UI local (Times → Importar JSON)',
               value: 'demo-manual',
             },
             {
-              name: 'Importar directamente do JSON incluído no assistente (recomendado se o demo estiver offline)',
+              name: 'Importar do JSON incluído no assistente (mais rápido / offline)',
               value: 'bundled',
             },
           ],
@@ -281,10 +284,12 @@ async function main() {
     if (setupResult?.soTeamSource === 'bundled' && setupResult?.soTeamId) {
       console.log('  Time SO:  http://localhost:3002/teams/' + setupResult.soTeamId);
       console.log('  Debug:    prompt «' + SO_TEAM_VALIDATION_PROMPT + '»');
+      printSoTeamSharingHintBrief();
     } else if (setupResult?.soTeamSource === 'demo-manual') {
       console.log('  Próximo passo: exportar o time SO do demo e importar na UI local.');
       console.log('  Demo:     ' + SO_DEMO_TEAM_URL);
       console.log('  Debug:    prompt «' + SO_TEAM_VALIDATION_PROMPT + '»');
+      printSoTeamSharingHintBrief();
     }
     console.log('');
   }

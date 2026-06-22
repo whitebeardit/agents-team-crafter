@@ -3,10 +3,18 @@ import {
   SO_TEAM_EXPORT_PATH,
   SO_TEAM_VALIDATION_PROMPT,
 } from './utils.mjs';
+import {
+  SO_TEAM_NAME,
+  printSoTeamSharingHint,
+  printSoTeamValueBrief,
+} from './so-team-copy.mjs';
 
 export function printSoDemoManualGuide({ demoReachable }) {
   console.log('');
   console.log('=== Próximo passo: time SO · Clínica Gold ===');
+  console.log('');
+  printSoTeamValueBrief();
+  printSoTeamSharingHint();
   console.log('');
   if (demoReachable === false) {
     console.log('  Aviso: o site demo parece indisponível.');
@@ -23,7 +31,7 @@ export function printSoDemoManualGuide({ demoReachable }) {
   console.log('   - Login: admin@whitebeard.dev / Admin123!');
   console.log('   - Menu Times → «Importar JSON»');
   console.log('');
-  console.log('4. Abra o time «SO Clínica Conversacional» → aba Debug.');
+  console.log(`4. Abra o time «${SO_TEAM_NAME}» → aba Debug.`);
   console.log('');
   console.log('5. Prompt de validação:');
   console.log(`   ${SO_TEAM_VALIDATION_PROMPT}`);
@@ -34,6 +42,8 @@ export function printSoBundledSuccess({ teamId, warnings = [] }) {
   console.log('');
   console.log('=== Time SO · Clínica Gold importado ===');
   console.log('');
+  printSoTeamValueBrief();
+  console.log('');
   console.log(`  Time:    http://localhost:3002/teams/${teamId}`);
   console.log(`  Origem:  ${SO_TEAM_EXPORT_PATH}`);
   if (warnings.length > 0) {
@@ -43,5 +53,7 @@ export function printSoBundledSuccess({ teamId, warnings = [] }) {
   console.log('');
   console.log('  Abra a aba Debug e envie:');
   console.log(`  ${SO_TEAM_VALIDATION_PROMPT}`);
+  console.log('');
+  printSoTeamSharingHint();
   console.log('');
 }

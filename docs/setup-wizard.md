@@ -24,9 +24,10 @@ cd /media/whitebeard/OS/DEV/agents-team-crafter
 O assistente pergunta:
 
 - Se quer configurar **IA** (OpenRouter ou OpenAI) — opcional
-- Se quer instalar o time **SO Clínica Conversacional** (Clínica Gold) — recomendado
+- Se quer instalar o time demo **SO Clínica Conversacional** (7 agentes, internal actions) — **recomendado** para ver a plataforma com tools reais
   - **Exportar do site demo** e importar na UI local, ou
   - **Importar do JSON incluído** no assistente (offline / mais rápido)
+  - Depois pode criar o seu time e partilhá-lo via Exportar/Importar JSON entre workspaces ou instalações
 - **Slack** e **GitHub** — opcionais
 - **Telegram** — **recomendado**, mas pode **pular**
 
@@ -36,7 +37,9 @@ Secrets base (`JWT`, `ENCRYPTION_MASTER_KEY`) são gerados automaticamente.
 
 ## SO · Clínica Gold (time demo)
 
-O wizard pergunta se deseja configurar o time **SO Clínica Conversacional** (domínio **Clínica Gold**, 7 agentes, internal actions `clinic_*`).
+Recomendamos importar um **time de demonstração com 7 agentes** (coordenadora + especialistas) para ver a plataforma em acção. O time **SO Clínica Conversacional** (domínio Clínica Gold) inclui **internal actions** (`clinic_*`) — ferramentas de negócio reais que demonstram orquestração, contexto clínico e delegação entre especialistas (ex.: cadastro de paciente, agenda, CRM clínico).
+
+Depois pode **criar o seu próprio time** na UI, **exportar JSON** (detalhe do time → «Exportar JSON») e **importar** noutro workspace ou noutra instalação TeamAgents.
 
 | Opção no wizard | Manifest | Pós-setup |
 |-----------------|----------|-----------|
