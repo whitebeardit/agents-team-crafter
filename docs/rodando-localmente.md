@@ -14,7 +14,8 @@ O repositório é um monorepo com:
 
 - `backend/`: BFF/API Fastify.
 - `v0-team-ai-crafter/`: frontend Next.js.
-- `docker-compose.yml`: Redis, backend, frontend e seed.
+- `docker-compose.yaml`: Redis, backend, frontend e seed (produção/dev com Atlas).
+- `docker-compose.setup.yaml`: wizard `./setup.sh` com Mongo local.
 - `docs/rodando-localmente.md`: este guia.
 
 Arquivos de ambiente usados no desenvolvimento local:
@@ -23,13 +24,15 @@ Arquivos de ambiente usados no desenvolvimento local:
 - `backend/.env`: usado pelo BFF Fastify e pelo seed local.
 - `v0-team-ai-crafter/.env.local`: usado pelo Next.js.
 
-Portas padrão:
+Portas padrão (dev manual com `npm run dev`):
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:3001`
 - API: `http://localhost:3001/api/v1`
 - Redis local: `redis://localhost:6379`
 - Mongo local: `mongodb://127.0.0.1:27017/teamagents`
+
+> **Wizard (`./setup.sh`):** o frontend fica em `http://localhost:3002`. Ver [getting-started.md](./getting-started.md) e [setup-wizard.md](./setup-wizard.md).
 
 ## 1) Pré-requisitos
 
@@ -50,7 +53,7 @@ Instale antes de começar:
 
 ## 2) MongoDB rápido para desenvolvimento
 
-O `docker-compose.yml` do projeto sobe Redis, backend, frontend e seed, mas **não** sobe MongoDB. Você precisa usar Atlas ou subir um Mongo local.
+O `docker-compose.yaml` do projeto sobe Redis, backend, frontend e seed, mas **não** sobe MongoDB. Você precisa usar Atlas ou subir um Mongo local. Para Mongo local integrado, use o wizard `./setup.sh` (`docker-compose.setup.yaml`).
 
 Opção local simples:
 

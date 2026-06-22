@@ -123,8 +123,8 @@ Documentação aprofundada que **não** duplicamos aqui — use como referência
 | [MULTI_TENANT.md](../../docs/MULTI_TENANT.md) | Princípios multi-tenant, segredos, APIs de integrações. |
 | [BACKEND_STACK.md](../../docs/BACKEND_STACK.md) | Fastify, variáveis de ambiente do BFF. |
 | [CHAT_SDK_TEAM_TRIGGER.md](../../docs/CHAT_SDK_TEAM_TRIGGER.md) | URLs de webhook por plataforma, segredos Slack, fluxo de disparo. |
-| [HANDOFF_DSL.md](../../docs/HANDOFF_DSL.md) | DSL de regras e evolução PolicyEngine. |
-| [ADR-0001-agents-runtime-handoff-deterministico.md](../../docs/ADR-0001-agents-runtime-handoff-deterministico.md) | Decisão arquitetural: handoff no backend, SDK como motor de linguagem. |
+| [HANDOFF_DSL.md](../../docs/HANDOFF_DSL.md) | **Legado — removido.** Motor actual: coordenador + especialistas como tools; ver [agents-and-handoff.md](./agents-and-handoff.md). |
+| [ADR-0001-agents-runtime-handoff-deterministico.md](../../docs/ADR-0001-agents-runtime-handoff-deterministico.md) | ADR histórico; runtime actual em [agents-and-handoff.md](./agents-and-handoff.md). |
 
 ---
 

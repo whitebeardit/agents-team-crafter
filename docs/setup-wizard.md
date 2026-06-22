@@ -33,6 +33,8 @@ Percurso mínimo para validar a plataforma no seu clone, do zero ao primeiro pro
 
 Abra **[https://myteams.whitebeard.dev](https://myteams.whitebeard.dev)** — mesma aplicação, dados de demonstração, sem instalar nada. Útil para ver times, agentes e internal actions antes de correr o wizard.
 
+**Dúvidas durante a instalação?** Pergunte à IA no [DeepWiki](https://deepwiki.com/whitebeardit/agents-team-crafter) ou consulte [getting-started.md](./getting-started.md).
+
 **1. Clone e execute o wizard**
 
 ```bash
