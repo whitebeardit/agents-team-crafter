@@ -1,4 +1,5 @@
 import { execSync, spawnSync } from 'node:child_process';
+import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -161,6 +162,35 @@ export function dirHasFiles(path) {
   }
 }
 
+/** Verifica se uma porta TCP no host está livre para bind. */
+export function isTcpPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.unref();
+    server.once('error', () => resolve(false));
+    server.listen({ port, host: '0.0.0.0' }, () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+/** Escolhe a primeira porta livre numa lista de candidatos. */
+export async function pickAvailablePort(candidates) {
+  for (const port of candidates) {
+    if (await isTcpPortAvailable(port)) return port;
+  }
+  throw new Error(`Portas ocupadas: ${candidates.join(', ')}`);
+}
+
+/** Portas do wizard — evita conflito com Redis/Mongo locais ou outros projetos. */
+export async function resolveSetupPorts() {
+  const redisPort = await pickAvailablePort([6379, 6380, 6381, 16379]);
+  const mongoPort = await pickAvailablePort([27017, 27018, 27019, 37017]);
+  const backendPort = await pickAvailablePort([3001, 3011, 3101]);
+  const frontendPort = await pickAvailablePort([3002, 3012, 3102]);
+  return { redisPort, mongoPort, backendPort, frontendPort };
+}
+
 export function ensureDataDirs() {
   for (const d of ['data/mongo', 'data/redis', 'data/gallery']) {
     mkdirSync(join(PROJECT_ROOT, d), { recursive: true });
@@ -190,6 +220,8 @@ export function assertCleanInstall() {
 }
 
 export function writeEnv(config) {
+  const backendPort = config.backendPort ?? 3001;
+  const frontendPort = config.frontendPort ?? 3002;
   const lines = [
     '# Gerado pelo wizard de instalação — não commitar',
     `MONGODB_URI=${config.mongodbUri}`,
@@ -199,16 +231,16 @@ export function writeEnv(config) {
     '',
     '# URLs locais (Docker Compose setup)',
     'ALLOW_LOCALHOST_API=true',
-    'CORS_ORIGIN=http://localhost:3002,http://127.0.0.1:3002',
-    'PUBLIC_API_BASE_URL=http://localhost:3001',
-    'NEXT_PUBLIC_APP_URL=http://localhost:3002',
-    'NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1',
+    `CORS_ORIGIN=http://localhost:${frontendPort},http://127.0.0.1:${frontendPort}`,
+    `PUBLIC_API_BASE_URL=http://localhost:${backendPort}`,
+    `NEXT_PUBLIC_APP_URL=http://localhost:${frontendPort}`,
+    `NEXT_PUBLIC_API_URL=http://localhost:${backendPort}/api/v1`,
     'NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS=false',
-    'FRONTEND_PORT=3002',
-    'BACKEND_PORT=3001',
-    'PORT=3001',
-    'REDIS_PORT=6379',
-    'MONGO_PORT=27017',
+    `FRONTEND_PORT=${frontendPort}`,
+    `BACKEND_PORT=${backendPort}`,
+    `PORT=${backendPort}`,
+    `REDIS_PORT=${config.redisPort ?? 6379}`,
+    `MONGO_PORT=${config.mongoPort ?? 27017}`,
     'SEED_SCRIPT=seed-demo.ts',
     'OPENAI_AGENTS_DISABLE_TRACING=1',
     '',
