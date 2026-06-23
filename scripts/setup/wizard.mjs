@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Wizard de primeira instalação — Docker Compose com Mongo local e daemon rootless isolado.
+ * Wizard de primeira instalação — Docker Compose com Mongo local (rootless Linux ou Docker Desktop).
  */
 import { confirm, input, password, select } from '@inquirer/prompts';
 import { join } from 'node:path';
@@ -18,6 +18,7 @@ import {
   normalizeSecretInput,
   opensslHex,
   readSetupResult,
+  resolveSetupPorts,
   resolveSoTeamSourceFromEnv,
   run,
   verifyLlmApiKey,
@@ -224,12 +225,30 @@ async function main() {
   assertCleanInstall();
   await checkDiskSpace();
 
-  console.log('A verificar Docker rootless...');
+  console.log('A verificar Docker...');
   run(join(SETUP_DIR, 'docker-project.sh'), ['check'], { inherit: true });
 
   const config = await collectConfig();
   ensureDataDirs();
-  writeEnv(config);
+
+  const ports = await resolveSetupPorts();
+  if (ports.redisPort !== 6379 || ports.mongoPort !== 27017) {
+    console.log(
+      `  Nota: portas alternativas — Redis ${ports.redisPort}, Mongo ${ports.mongoPort}` +
+        (ports.backendPort !== 3001 || ports.frontendPort !== 3002
+          ? `, API ${ports.backendPort}, App ${ports.frontendPort}`
+          : ''),
+    );
+  }
+
+  writeEnv({
+    ...config,
+    redisPort: ports.redisPort,
+    mongoPort: ports.mongoPort,
+    backendPort: ports.backendPort,
+    frontendPort: ports.frontendPort,
+    openrouterHttpReferer: `http://localhost:${ports.frontendPort}`,
+  });
   writeSetupManifest({
     llmProvider: config.llmProvider,
     hasOpenAiKey: Boolean(config.openaiApiKey),
@@ -247,11 +266,16 @@ async function main() {
   run(join(SETUP_DIR, 'docker-project.sh'), ['start'], { inherit: true });
 
   printSection('A construir e subir serviços (pode demorar na primeira vez)');
+  try {
+    run(join(SETUP_DIR, 'run-compose.sh'), ['down', '--remove-orphans'], { inherit: false });
+  } catch {
+    /* primeira instalação — nada a limpar */
+  }
   run(join(SETUP_DIR, 'run-compose.sh'), ['up', '-d', '--build'], { inherit: true });
 
   printSection('A aguardar serviços');
-  await waitForHealth('http://127.0.0.1:3001/health', 'Backend');
-  await waitForHealth('http://127.0.0.1:3002/', 'Frontend');
+  await waitForHealth(`http://127.0.0.1:${ports.backendPort}/health`, 'Backend');
+  await waitForHealth(`http://127.0.0.1:${ports.frontendPort}/`, 'Frontend');
 
   printSection('A popular base de dados (seed demo)');
   run(join(SETUP_DIR, 'run-compose.sh'), ['--profile', 'seed', 'run', '--rm', 'seed'], {
@@ -266,15 +290,15 @@ async function main() {
   const setupResult = readSetupResult();
 
   console.log('\n=== Instalação concluída ===\n');
-  console.log('  App:      http://localhost:3002');
-  console.log('  API:      http://localhost:3001/api/v1');
+  console.log(`  App:      http://localhost:${ports.frontendPort}`);
+  console.log(`  API:      http://localhost:${ports.backendPort}/api/v1`);
   console.log('  Login:    admin@whitebeard.dev');
   console.log('  Senha:    Admin123!');
   console.log('');
 
   if (config.enableSoClinicGold) {
     if (setupResult?.soTeamSource === 'bundled' && setupResult?.soTeamId) {
-      console.log('  Time SO:  http://localhost:3002/teams/' + setupResult.soTeamId);
+      console.log('  Time SO:  http://localhost:' + ports.frontendPort + '/teams/' + setupResult.soTeamId);
       console.log('  Debug:    prompt «' + SO_TEAM_VALIDATION_PROMPT + '»');
       printSoTeamSharingHintBrief();
     } else if (setupResult?.soTeamSource === 'demo-manual') {
