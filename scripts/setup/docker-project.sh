@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Daemon Docker rootless escopado a este repositório (data-root em ./.docker/data).
-# Não altera /etc/docker/daemon.json nem o Docker system-wide.
+# Docker do projeto: rootless isolado (Linux) ou Docker system (macOS / fallback).
+# Rootless: data-root em ./.docker/data — não altera /etc/docker/daemon.json.
+# System: usa Docker Desktop ou daemon instalado no SO (dados da app em data/).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,6 +76,10 @@ LOG_FILE="$DOCKER_DIR/dockerd-rootless.log"
 DAEMON_JSON="$DOCKER_DIR/daemon.json"
 TEMPLATE="$SCRIPT_DIR/docker/daemon.json.template"
 
+is_macos() {
+  [[ "$(uname -s)" == "Darwin" ]]
+}
+
 find_rootless_dockerd() {
   if command -v dockerd-rootless.sh >/dev/null 2>&1; then
     command -v dockerd-rootless.sh
@@ -91,12 +96,82 @@ find_rootless_dockerd() {
   return 1
 }
 
-check_prerequisites() {
+rootless_available() {
+  find_rootless_dockerd >/dev/null 2>&1 \
+    && command -v rootlesskit >/dev/null 2>&1 \
+    && { command -v slirp4netns >/dev/null 2>&1 || command -v vpnkit >/dev/null 2>&1; }
+}
+
+resolve_docker_mode() {
+  case "${TEAMAGENTS_DOCKER_MODE:-}" in
+    rootless) echo rootless ;;
+    system) echo system ;;
+    *)
+      if rootless_available; then
+        echo rootless
+      else
+        echo system
+      fi
+      ;;
+  esac
+}
+
+DOCKER_MODE="$(resolve_docker_mode)"
+
+docker_info_ok() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 5 docker info >/dev/null 2>&1
+  else
+    docker info >/dev/null 2>&1
+  fi
+}
+
+compose_available() {
+  docker compose version >/dev/null 2>&1
+}
+
+mode_label() {
+  case "$DOCKER_MODE" in
+    rootless) echo "rootless (daemon isolado do projeto)" ;;
+    system)
+      if is_macos; then
+        echo "system (Docker Desktop / daemon do SO)"
+      else
+        echo "system (Docker do SO)"
+      fi
+      ;;
+  esac
+}
+
+check_system_docker() {
+  local missing=()
+  command -v docker >/dev/null 2>&1 || missing+=("docker CLI")
+  compose_available || missing+=("docker compose")
+  if ((${#missing[@]} > 0)); then
+    echo "Erro: Docker não disponível. Faltam: ${missing[*]}" >&2
+    echo "" >&2
+    if is_macos; then
+      echo "macOS: instale e abra o Docker Desktop:" >&2
+      echo "  https://docs.docker.com/desktop/setup/install/mac-install/" >&2
+    else
+      echo "Linux: instale Docker Engine + Compose plugin:" >&2
+      echo "  https://docs.docker.com/engine/install/" >&2
+      echo "" >&2
+      echo "Ou instale Docker rootless (daemon isolado por projeto):" >&2
+      echo "  curl -fsSL https://get.docker.com/rootless | sh" >&2
+      echo "  export PATH=\$HOME/bin:\$PATH" >&2
+    fi
+    return 1
+  fi
+}
+
+check_rootless_prerequisites() {
   local missing=()
   find_rootless_dockerd >/dev/null || missing+=("dockerd-rootless.sh")
   command -v rootlesskit >/dev/null 2>&1 || missing+=("rootlesskit")
   command -v slirp4netns >/dev/null 2>&1 || command -v vpnkit >/dev/null 2>&1 || missing+=("slirp4netns ou vpnkit")
   command -v docker >/dev/null 2>&1 || missing+=("docker CLI")
+  compose_available || missing+=("docker compose")
   if ((${#missing[@]} > 0)); then
     echo "Erro: Docker rootless não disponível. Faltam: ${missing[*]}" >&2
     echo "" >&2
@@ -106,11 +181,22 @@ check_prerequisites() {
     echo "Debian/Ubuntu (exemplo):" >&2
     echo "  curl -fsSL https://get.docker.com/rootless | sh" >&2
     echo "  export PATH=\$HOME/bin:\$PATH" >&2
+    echo "" >&2
+    echo "Ou force modo system: export TEAMAGENTS_DOCKER_MODE=system" >&2
     return 1
   fi
 }
 
-prepare_dirs() {
+check_prerequisites() {
+  if [[ "$DOCKER_MODE" == "rootless" ]]; then
+    check_rootless_prerequisites
+  else
+    check_system_docker
+  fi
+  echo "Docker OK — modo: $(mode_label)"
+}
+
+prepare_rootless_dirs() {
   mkdir -p "$RUN_DIR" "$DATA_DIR"
   sed "s|__DATA_ROOT__|$DATA_DIR|g" "$TEMPLATE" > "$DAEMON_JSON"
   if [[ "$DOCKER_DIR" != "$PROJECT_ROOT/.docker" ]]; then
@@ -134,31 +220,50 @@ export_project_docker_env() {
   export DOCKER_HOST="unix://$RUN_DIR/docker.sock"
 }
 
-is_running() {
+rootless_is_running() {
   export_project_docker_env
-  if [[ -S "$RUN_DIR/docker.sock" ]] && timeout 5 docker info >/dev/null 2>&1; then
+  if [[ -S "$RUN_DIR/docker.sock" ]] && docker_info_ok; then
     return 0
   fi
   return 1
 }
 
-cmd_start() {
-  check_prerequisites
-  prepare_dirs
-  if is_running; then
+try_start_docker_desktop() {
+  if ! is_macos; then
+    return 1
+  fi
+  if [[ ! -d "/Applications/Docker.app" ]]; then
+    return 1
+  fi
+  echo "A iniciar Docker Desktop..."
+  open -a Docker
+  local i
+  for i in $(seq 1 90); do
+    if docker_info_ok; then
+      echo "Docker Desktop está activo."
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+cmd_start_rootless() {
+  check_rootless_prerequisites
+  prepare_rootless_dirs
+  if rootless_is_running; then
     echo "Docker do projeto já está activo (DOCKER_HOST=$DOCKER_HOST)"
     return 0
   fi
   local dockerd_rootless
   dockerd_rootless="$(find_rootless_dockerd)"
   export_project_docker_env
-  # Evita herdar DOCKER_HOST do ambiente externo durante o arranque
   unset DOCKER_CONTEXT || true
   nohup "$dockerd_rootless" --config-file "$DAEMON_JSON" >>"$LOG_FILE" 2>&1 &
   echo $! >"$PID_FILE"
   local i
   for i in $(seq 1 60); do
-    if is_running; then
+    if rootless_is_running; then
       echo "Docker rootless do projeto iniciado."
       echo "  DOCKER_HOST=$DOCKER_HOST"
       echo "  data-root=$DATA_DIR"
@@ -170,7 +275,32 @@ cmd_start() {
   return 1
 }
 
-cmd_stop() {
+cmd_start_system() {
+  check_system_docker
+  if docker_info_ok; then
+    echo "Docker system disponível ($(docker context show 2>/dev/null || echo default))."
+    return 0
+  fi
+  if try_start_docker_desktop; then
+    return 0
+  fi
+  echo "Erro: o daemon Docker não está a correr." >&2
+  if is_macos; then
+    echo "Abra o Docker Desktop e execute novamente ./setup.sh" >&2
+  else
+    echo "Inicie o serviço Docker (ex.: sudo systemctl start docker) e tente de novo." >&2
+  fi
+  return 1
+}
+
+cmd_start() {
+  case "$DOCKER_MODE" in
+    rootless) cmd_start_rootless ;;
+    system) cmd_start_system ;;
+  esac
+}
+
+cmd_stop_rootless() {
   if [[ -f "$PID_FILE" ]]; then
     local pid
     pid="$(cat "$PID_FILE")"
@@ -185,9 +315,21 @@ cmd_stop() {
   echo "Docker rootless do projeto parado."
 }
 
-cmd_status() {
-  if is_running; then
-    echo "running"
+cmd_stop_system() {
+  echo "Modo system — o daemon Docker do SO não é parado por este script."
+  echo "Para parar os containers: scripts/setup/run-compose.sh down"
+}
+
+cmd_stop() {
+  case "$DOCKER_MODE" in
+    rootless) cmd_stop_rootless ;;
+    system) cmd_stop_system ;;
+  esac
+}
+
+cmd_status_rootless() {
+  if rootless_is_running; then
+    echo "running (rootless)"
     docker info --format '  Server Version: {{.ServerVersion}}'
     echo "  DOCKER_HOST=$DOCKER_HOST"
     echo "  data-root=$DATA_DIR"
@@ -197,14 +339,38 @@ cmd_status() {
   return 1
 }
 
+cmd_status_system() {
+  if docker_info_ok; then
+    echo "running (system)"
+    docker info --format '  Server Version: {{.ServerVersion}}'
+  else
+    echo "stopped"
+    return 1
+  fi
+}
+
+cmd_status() {
+  case "$DOCKER_MODE" in
+    rootless) cmd_status_rootless ;;
+    system) cmd_status_system ;;
+  esac
+}
+
 cmd_env() {
+  if [[ "$DOCKER_MODE" != "rootless" ]]; then
+    return 0
+  fi
   export_project_docker_env
   printf 'export XDG_RUNTIME_DIR=%q\n' "$XDG_RUNTIME_DIR"
   printf 'export DOCKER_HOST=%q\n' "$DOCKER_HOST"
 }
 
+cmd_mode() {
+  echo "$DOCKER_MODE"
+}
+
 usage() {
-  echo "Uso: $0 {start|stop|status|env|check}" >&2
+  echo "Uso: $0 {start|stop|status|env|check|mode}" >&2
 }
 
 main() {
@@ -215,6 +381,7 @@ main() {
     status) cmd_status ;;
     env) cmd_env ;;
     check) check_prerequisites ;;
+    mode) cmd_mode ;;
     *) usage; exit 1 ;;
   esac
 }

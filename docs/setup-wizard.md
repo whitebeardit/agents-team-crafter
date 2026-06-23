@@ -2,7 +2,10 @@
 
 Guia para instalar o **TeamAgents / agents-team-crafter** numa máquina nova, sem conhecimento técnico avançado.
 
-O wizard usa **Docker Compose** com **MongoDB local**, **Redis**, backend e frontend. Dados da aplicação (`data/`) ficam no clone; o daemon Docker rootless é **isolado por projeto** e não altera o Docker system-wide.
+O wizard usa **Docker Compose** com **MongoDB local**, **Redis**, backend e frontend. Dados da aplicação (`data/`) ficam no clone. O Docker adapta-se ao ambiente:
+
+- **Linux** (com rootless instalado): daemon **isolado por projeto** — não altera o Docker system-wide; imagens em `.docker/` ou `~/.atc-d/`.
+- **macOS** (e Linux sem rootless): usa **Docker Desktop** ou o daemon Docker do SO.
 
 Instância pública de referência: **[https://myteams.whitebeard.dev](https://myteams.whitebeard.dev)** — explore a plataforma online antes ou depois de instalar localmente.
 
@@ -100,11 +103,29 @@ Use o **demo** para ver o produto em acção; use o **wizard** para ter a stack 
 ## Pré-requisitos
 
 1. **Node.js 20+** e **npm**
-2. **Docker rootless** (user-level — não mexe em `/etc/docker/daemon.json`):
-   - [Documentação oficial](https://docs.docker.com/engine/security/rootless/)
-   - Instalação rápida: `curl -fsSL https://get.docker.com/rootless | sh` e `export PATH=$HOME/bin:$PATH`
+2. **Docker** com **Compose**:
+   - **macOS:** [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/) (aberto e a correr)
+   - **Linux (recomendado):** [Docker rootless](https://docs.docker.com/engine/security/rootless/) — daemon isolado por projeto
+     - Instalação rápida: `curl -fsSL https://get.docker.com/rootless | sh` e `export PATH=$HOME/bin:$PATH`
+   - **Linux (alternativa):** Docker Engine + plugin Compose (`docker compose`)
 3. **Espaço em disco** no volume onde clona o projeto (recomendado ≥ 8 GB livres na primeira instalação)
 4. Clone num path com espaço (ex.: `/media/whitebeard/OS/DEV/`)
+
+### Modos Docker
+
+O wizard detecta automaticamente o modo (`scripts/setup/docker-project.sh mode`):
+
+| Modo | Quando | Imagens Docker |
+|------|--------|----------------|
+| `rootless` | Linux com `dockerd-rootless.sh` + `rootlesskit` | `.docker/` ou `~/.atc-d/<hash>` |
+| `system` | macOS, ou Linux sem rootless | Docker Desktop / daemon do SO |
+
+Para forçar um modo:
+
+```bash
+export TEAMAGENTS_DOCKER_MODE=system   # ou rootless
+./setup.sh
+```
 
 ## Instalação
 
@@ -268,7 +289,8 @@ Quase sempre a chave OpenRouter/OpenAI no `.env` ou em **Configurações → Int
 ## Limitações
 
 - Primeiro `docker compose up --build` pode demorar (download de imagens base).
-- Rootless Docker exige pacotes user-level (`dockerd-rootless.sh`, `rootlesskit`, `slirp4netns`).
+- **Linux rootless:** exige pacotes user-level (`dockerd-rootless.sh`, `rootlesskit`, `slirp4netns`).
+- **macOS:** imagens ficam no armazenamento do Docker Desktop (não em `.docker/` do projeto).
 - **Clone em NTFS/exFAT:** imagens Docker em `~/.atc-d/<hash>` (ext4, só este projeto); `data/` permanece no disco do clone.
 - **Path do clone muito longo:** se o caminho absoluto do repositório exceder o limite de socket Unix do containerd (~104 chars), o estado Docker (imagens/camadas) vai para `~/.atc-d/<hash>`; `data/` permanece no clone.
 - **Telegram webhook** não funciona em localhost sem túnel/domínio — wizard avisa e permite pular.
@@ -276,9 +298,14 @@ Quase sempre a chave OpenRouter/OpenAI no `.env` ou em **Configurações → Int
 
 ## Problemas comuns
 
-### "Docker rootless não disponível"
+### "Docker não disponível" / "docker compose" em falta
 
-Instale rootless Docker (link acima) e garanta `dockerd-rootless.sh` no `PATH`.
+- **macOS:** instale e abra o [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/).
+- **Linux:** instale Docker Engine + Compose, ou rootless (ver [Pré-requisitos](#pré-requisitos)).
+
+### "Docker rootless não disponível" (modo forçado)
+
+Se definiu `TEAMAGENTS_DOCKER_MODE=rootless`, instale rootless Docker e garanta `dockerd-rootless.sh` no `PATH`. Ou use `TEAMAGENTS_DOCKER_MODE=system` para o daemon do SO.
 
 ### "timeout ao iniciar dockerd-rootless" / `unix socket path too long`
 

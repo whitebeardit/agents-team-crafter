@@ -4,7 +4,7 @@ Guia canônico para instalar, configurar, subir e testar o **TeamAgents / agents
 
 > **Demo online:** [https://myteams.whitebeard.dev](https://myteams.whitebeard.dev) — mesma aplicação, ambiente de demonstração.
 >
-> **Primeira instalação sem experiência técnica:** use o wizard [`./setup.sh`](../setup.sh) e o [Guia rápido em setup-wizard.md](./setup-wizard.md#guia-rápido--primeira-instalação-para-testar) (Docker Compose com Mongo local; dados em `.docker/` e `data/` dentro do clone).
+> **Primeira instalação sem experiência técnica:** use o wizard [`./setup.sh`](../setup.sh) e o [Guia rápido em setup-wizard.md](./setup-wizard.md#guia-rápido--primeira-instalação-para-testar) (Docker Compose com Mongo local; dados da app em `data/`; macOS com Docker Desktop ou Linux com rootless).
 
 > Objetivo: um engenheiro que acabou de clonar o repositório deve conseguir rodar backend, frontend, seed, IA e geração de imagens sem depender de conhecimento prévio.
 

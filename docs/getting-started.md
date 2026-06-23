@@ -8,7 +8,7 @@ Guia único para validar o TeamAgents no seu clone: do zero ao primeiro run no D
 
 ## Pré-requisitos
 
-- Git, Docker (rootless recomendado), chave LLM (OpenRouter ou OpenAI)
+- Git, Docker (Desktop no macOS; rootless recomendado no Linux), chave LLM (OpenRouter ou OpenAI)
 - ~20 minutos na primeira vez (download de imagens Docker)
 
 ## Passo a passo
