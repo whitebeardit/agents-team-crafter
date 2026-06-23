@@ -68,9 +68,9 @@ function printSubtitleBlock() {
   console.log(colorize('TeamAgents — Assistente de instalação', '36'));
   console.log('');
   console.log('Este wizard configura uma instalação limpa via Docker Compose.');
-  console.log('Os dados ficam nesta pasta (.docker/ e data/).');
+  console.log('Os dados da app ficam nesta pasta (data/).');
   console.log(
-    colorize('Docker isolado · dados locais · sem alterar o Docker global', '2'),
+    colorize('macOS: Docker Desktop · Linux: rootless isolado (quando disponível)', '2'),
   );
   console.log('');
 }
