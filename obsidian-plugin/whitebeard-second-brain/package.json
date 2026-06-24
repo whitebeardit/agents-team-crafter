@@ -8,9 +8,12 @@
     "test": "node --import tsx --test src/url.test.ts src/path-heuristic.test.ts"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.1",
     "obsidian": "^1.7.2",
-    "tsx": "^4.19.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
   }
 }
